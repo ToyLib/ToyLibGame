@@ -30,7 +30,8 @@ void GameRPG::InitGame()
 
     // スプライト
     auto spActor = CreateActor<toy::Actor>();
-    spActor->SetPosition(Vector3(-500.0f, -360.0f, 0.0f));
+    //spActor->SetPosition(Vector3(-500.0f, -360.0f, 0.0f));
+    spActor->SetPosition(Vector3(0.0f, 700.0f, 0.0f));
     spActor->SetScale(1);
     auto spSprite = spActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::UI);
     spSprite->SetTexture(GetAssetManager()->GetTexture("HealthBar.png"));
@@ -278,7 +279,8 @@ void GameRPG::LoadData()
     auto fnt = GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 24);
     // テキスト用 Actor を作成
     auto uiActor = CreateActor<toy::Actor>();
-    uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
+    //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
+    uiActor->SetPosition(Vector3(10.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
 
     auto textComp = uiActor->CreateComponent<toy::TextSpriteComponent>();
     textComp->SetFont(fnt);
