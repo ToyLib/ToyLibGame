@@ -180,16 +180,15 @@ bool Renderer::Initialize(SDL_Window* window)
 // リリース処理
 void Renderer::Shutdown()
 {
+    if (mShadowFBO)
+    {
+        glDeleteFramebuffers(1, &mShadowFBO);
+        mShadowFBO = 0;
+    }
     if (mGLContext)
     {
         SDL_GL_DestroyContext(mGLContext);
         mGLContext = nullptr;
-    }
-
-    if (mWindow)
-    {
-        SDL_DestroyWindow(mWindow);
-        mWindow = nullptr;
     }
 }
 

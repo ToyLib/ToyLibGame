@@ -156,6 +156,12 @@ void Application::Shutdown()
     mInputSys->Shutdown();
     mRenderer->Shutdown();
 
+    if (mWindow)
+    {
+        SDL_DestroyWindow(mWindow);
+        mWindow = nullptr;
+    }
+    
     TTF_Quit();
     SDL_Quit();
 }
