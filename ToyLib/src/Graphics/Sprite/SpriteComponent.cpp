@@ -86,27 +86,18 @@ void SpriteComponent::Draw()
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
 
     //==============================
-    // 画面サイズと Virtual 解像度
+    // 画面サイズと Virtual 解像度（Renderer に計算させる）
     //==============================
-    // 物理解像度
-    float sw = renderer->GetScreenWidth();
-    float sh = renderer->GetScreenHeight();
+    UIScaleInfo ui = renderer->GetUIScaleInfo();
 
-    // 論理解像度（ゲーム内の想定座標系）
-    float vw = renderer->GetVirtualWidth();
-    float vh = renderer->GetVirtualHeight();
-
-    // Virtual が未設定なら物理と同一扱い
-    if (vw <= 0.0f) vw = sw;
-    if (vh <= 0.0f) vh = sh;
-
-    // 論理→物理は「小さい方」に合わせてアスペクト比を維持
-    float sx    = sw / vw;
-    float sy    = sh / vh;
-    float scale = (sx < sy) ? sx : sy;
+    float sw    = ui.screenW;    // 物理解像度（ピクセル）
+    float sh    = ui.screenH;
+    float vw    = ui.virtualW;   // 論理解像度
+    float vh    = ui.virtualH;
+    float scale = ui.scale;      // 論理→物理の共通スケール
 
     //==============================
-    // テクスチャサイズと表示サイズ
+    // テクスチャサイズと表示サイズ（ピクセルベース）
     //==============================
     float texW   = static_cast<float>(mTexWidth);
     float texH   = static_cast<float>(mTexHeight);
@@ -115,14 +106,6 @@ void SpriteComponent::Draw()
 
     //==============================
     // 描画位置の決定
-    //
-    //  mIsTopLeft == true
-    //    Actor.Position を「左上原点の論理座標(ピクセル相当)」として扱う。
-    //    UI レイアウト用のモード。
-    //
-    //  mIsTopLeft == false
-    //    Actor.Position を「中心原点前提の座標」として扱う
-    //    従来のスプライト/2Dオブジェクト的な使い方。
     //==============================
     Vector3 pos;
 
@@ -131,32 +114,36 @@ void SpriteComponent::Draw()
         // 論理座標（左上原点 / 右+ / 下+）
         Vector3 logicalPos = GetOwner()->GetPosition();
 
-        // 論理領域の物理サイズ（scale を掛けた表示範囲）
-        float scaledVW = vw * scale;
-        float scaledVH = vh * scale;
+        // -----------------------------
+        // 1. 論理座標 → 画面ピクセル (左上原点)
+        // -----------------------------
+        // 論理 (0,0) が「黒帯込みの画面左上」に来るようにする
+        float px = ui.offsetX + logicalPos.x * scale;
+        float py = ui.offsetY + logicalPos.y * scale;
 
-        // 論理領域の「左上」が、OpenGL の中心原点から見てどこか
-        float originX = -scaledVW * 0.5f; // 左端（中心からマイナス）
-        float originY =  scaledVH * 0.5f; // 上端（中心からプラス）
+        // Sprite のローカル原点は「中心」なので、
+        // 論理位置は「左上」とみなして中心にずらす
+        float cx = px + width  * 0.5f;
+        float cy = py + height * 0.5f;
 
-        // スプライトの「左上」のワールド座標 T
-        float topLeftX = originX + logicalPos.x * scale;
-        float topLeftY = originY - logicalPos.y * scale; // 下方向が＋なので反転
-
-        // 板ポリのローカル原点は「中心」なので、
-        // 左上Tから (width/2, height/2) だけ中心側にずらして最終位置にする。
-        // ※Yは「上が＋」なので height/2 分だけマイナス方向。
-        pos.x = topLeftX + width  * 0.5f;
-        pos.y = topLeftY - height * 0.5f;
-        pos.z = logicalPos.z; // UI用途なら 0.0f 固定でもよい
+        // -----------------------------
+        // 2. 画面ピクセル → ワールド座標（中心原点 / 右+ / 上+）
+        // -----------------------------
+        // SimpleViewProj(sw, sh) が
+        //   X: [-sw/2, +sw/2]
+        //   Y: [-sh/2, +sh/2] (上が＋)
+        // を前提とした行列だとすると：
+        pos.x = cx - sw * 0.5f;
+        pos.y = sh * 0.5f - cy;   // 画面上が＋になるよう反転
+        pos.z = logicalPos.z;     // UI用途なら 0 でもOK
     }
     else
     {
-        // 従来の「中心原点」的な座標として扱う
+        // 従来の「中心原点」座標（レターボックス無視で中央基準）
         pos = GetOwner()->GetPosition();
         pos.x *= scale;
         pos.y *= scale;
-        // pos.z はそのまま（2D UIなら 0.0f でもよい）
+        // pos.z はそのまま
     }
 
     //==============================
@@ -165,7 +152,7 @@ void SpriteComponent::Draw()
     Matrix4 world = Matrix4::CreateScale(width, height, 1.0f);
     world *= Matrix4::CreateTranslation(pos);
 
-    // シンプルな 2D 用 ViewProj（中心原点 / 右+ / 上+）
+    // 2D 用の ViewProj（中心原点 / 右+ / 上+）
     Matrix4 viewProj = Matrix4::CreateSimpleViewProj(sw, sh);
 
     //==============================
@@ -178,7 +165,6 @@ void SpriteComponent::Draw()
     mTexture->SetActive(0);
     mShader->SetTextureUniform("uTexture", 0);
 
-    // LightingManager が Sprite 用にも何かしら設定している前提
     Matrix4 view = renderer->GetViewMatrix();
     mLightingManager->ApplyToShader(mShader, view);
 
@@ -188,11 +174,7 @@ void SpriteComponent::Draw()
     mVertexArray->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    //==============================
-    // ステートを戻す
-    //==============================
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
 }
-
 } // namespace toy

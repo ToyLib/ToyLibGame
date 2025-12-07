@@ -7,11 +7,6 @@
 
 namespace toy {
 
-//---------------------------------------------
-// アプリケーションの基盤クラス
-// ・ウィンドウ／描画／入力／物理などの主要システムを管理
-// ・ゲームごとに派生し、InitGame/UpdateGame でロジックを記述
-//---------------------------------------------
 class Application
 {
 public:
@@ -30,11 +25,8 @@ public:
     //-----------------------------------------
     // Actor 管理
     //-----------------------------------------
-    
-    // 既存 Actor を登録
     void AddActor(std::unique_ptr<class Actor> a);
     
-    // Actor を生成して登録（CreateActor<T>()）
     template <typename T, typename... Args>
     T* CreateActor(Args&&... args)
     {
@@ -44,7 +36,6 @@ public:
         return rawPtr;
     }
 
-    // Actor を削除予約（即時削除ではなく安全なタイミングで破棄）
     void DestroyActor(class Actor* actor);
     
     //-----------------------------------------
@@ -56,57 +47,59 @@ public:
     class SoundMixer*      GetSoundMixer()      const { return mSoundMixer.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }
     
+    //-----------------------------------------
+    // ウィンドウ操作
+    //-----------------------------------------
+    bool IsFullScreen() const { return mIsFullScreen; }
+    void SetFullscreen(bool enable);
+    void ToggleFullscreen();
+    
 protected:
     //-----------------------------------------
     // ゲーム側でオーバーライドするフック関数
     //-----------------------------------------
-    
-    // 毎フレームの更新
     virtual void UpdateGame(float deltaTime) { }
-    
-    // 初期ロード（Actor 生成など）
     virtual void InitGame() {}
-    
-    // シャットダウン処理
     virtual void ShutdownGame() {}
 
-    // アセットマネージャの初期化（パス設定と DPI）
     void InitAssetManager(const std::string& path, float dpi = 1.0f);
     
 private:
     //-----------------------------------------
     // 内部処理（ゲームループ関連）
     //-----------------------------------------
-    
-    // データロード & 解放
     void LoadData();
     void UnloadData();
-    
-    // 入力処理
     void ProcessInput();
-    
-    // 1フレーム更新（アクター処理など）
     void UpdateFrame();
-    
-    // 描画
     void Draw();
     
     //-----------------------------------------
     // ウィンドウ／アプリ設定
     //-----------------------------------------
-    
     std::string mApplicationTitle; // ウィンドウタイトル
     bool  mIsFullScreen;           // フルスクリーン状態
-    float mScreenW;                // ウィンドウ横幅
-    float mScreenH;                // ウィンドウ縦幅
-    bool  mIsActive;               // 実行中フラグ
-    bool  mIsPause;                // 一時停止フラグ
-    Uint64 mTicksCount;            // フレーム時間計測
+
+    // 現在のウィンドウの「物理解像度」（描画用）
+    int   mScreenWidth;
+    int   mScreenHeight;
+
+    SDL_Window* mWindow;           // SDLウィンドウ
+
+    // ウィンドウモード時の「論理ウィンドウサイズ」（復帰用）
+    int   mWindowedWidth;
+    int   mWindowedHeight;
+
+    bool  mIsActive;
+    bool  mIsPause;
+    Uint64 mTicksCount;            // 前フレームの時刻（ns 単位）
+
+    // ウィンドウ操作関連ヘルパー
+    void HandleWindowResized();
     
     //-----------------------------------------
     // サブシステム
     //-----------------------------------------
-    
     std::unique_ptr<class Renderer>        mRenderer;
     std::unique_ptr<class InputSystem>     mInputSys;
     std::unique_ptr<class PhysWorld>       mPhysWorld;
@@ -117,10 +110,14 @@ private:
     //-----------------------------------------
     // Actor 管理
     //-----------------------------------------
+    std::vector<std::unique_ptr<class Actor>> mActors;
+    std::vector<std::unique_ptr<class Actor>> mPendingActors;
+    bool mIsUpdatingActors;
     
-    std::vector<std::unique_ptr<class Actor>> mActors;         // アクティブな Actor
-    std::vector<std::unique_ptr<class Actor>> mPendingActors;  // 追加待ち（二重更新防止）
-    bool mIsUpdatingActors;                                     // 更新中フラグ
+    //-----------------------------------------
+    // 設定読み込み
+    //-----------------------------------------
+    bool LoadSettings(const std::string& filePath);
 };
 
 } // namespace toy

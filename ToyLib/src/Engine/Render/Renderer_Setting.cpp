@@ -19,7 +19,7 @@ bool Renderer::LoadSettings(const std::string& filePath)
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-        std::cerr << "Failed to open settings file: "
+        std::cerr << "Failed to open Renderer settings file: "
                   << filePath.c_str() << std::endl;
         return false;
     }
@@ -39,32 +39,22 @@ bool Renderer::LoadSettings(const std::string& filePath)
     }
     
     //---------------------------------------------------------
-    // タイトル
-    //   "title": "ToyLib App"
-    //---------------------------------------------------------
-    JsonHelper::GetString(data, "title", mStrTitle);
-    
-    //---------------------------------------------------------
     // シェーダーパス
     //   "shader_path": "ToyLib/Shaders/"
     //---------------------------------------------------------
     JsonHelper::GetString(data, "shader_path", mShaderPath);
     
     //---------------------------------------------------------
-    // 画面サイズ・フルスクリーン設定
+    // 仮想解像度、
     //   "screen": {
-    //       "width": 1280,
-    //       "height": 720,
-    //       "fullscreen": false
-    //   }
+    //       "virtual_with":    1280
+    //       "virtual_height":  768
+    //  }
     //---------------------------------------------------------
     if (data.contains("screen"))
     {
-        JsonHelper::GetFloat(data["screen"], "width",           mScreenWidth);
-        JsonHelper::GetFloat(data["screen"], "height",          mScreenHeight);
         JsonHelper::GetFloat(data["screen"], "virtual_with",    mVirtualWidth);
         JsonHelper::GetFloat(data["screen"], "virtual_height",  mVirtualHeight);
-        JsonHelper::GetBool (data["screen"], "fullscreen",      mIsFullScreen);
     }
     
     //---------------------------------------------------------

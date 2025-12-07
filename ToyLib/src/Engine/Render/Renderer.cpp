@@ -31,12 +31,10 @@ namespace toy {
 
 // コンストラクタ
 Renderer::Renderer()
-: mStrTitle("ToyLib App")
-, mScreenWidth(0.f)
+: mScreenWidth(0.f)
 , mScreenHeight(0.f)
 , mVirtualWidth(0.f)
 , mVirtualHeight(0.f)
-, mIsFullScreen(false)
 , mPerspectiveFOV(45.f)
 , mIsDebugMode(false)
 , mClearColor(Vector3(0.2f, 0.5f, 0.8f))
@@ -74,8 +72,11 @@ Renderer::~Renderer()
 // 初期化／終了処理
 //=============================================================
 
-bool Renderer::Initialize()
+bool Renderer::Initialize(SDL_Window* window)
 {
+    // SDLウィンドウを保持
+    mWindow = window;
+
     //---------------------------------------------------------
     // OpenGL コンテキスト属性設定
     //---------------------------------------------------------
@@ -91,60 +92,6 @@ bool Renderer::Initialize()
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 
     SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-
-    unsigned int WINDOW_FLAGS = SDL_WINDOW_OPENGL;
-    if (mIsFullScreen)
-    {
-        WINDOW_FLAGS |= SDL_WINDOW_FULLSCREEN;
-    }
-
-    //---------------------------------------------------------
-    // 設定ファイルで指定した「論理サイズ」
-    //   例: 1280x720
-    //---------------------------------------------------------
-    const int logicalW = static_cast<int>(mScreenWidth);
-    const int logicalH = static_cast<int>(mScreenHeight);
-
-    //---------------------------------------------------------
-    // ディスプレイの DPI スケール取得
-    //   Windows: 150% => 1.5
-    //   macOS : Retina => 2.0
-    //---------------------------------------------------------
-    float contentScale = 1.0f;
-
-    SDL_DisplayID primary = SDL_GetPrimaryDisplay();
-    if (primary != 0)
-    {
-        float s = SDL_GetDisplayContentScale(primary);
-        if (s > 0.0f)
-        {
-            contentScale = s;
-        }
-    }
-
-    //---------------------------------------------------------
-    // DPI を掛けた「実際のウィンドウサイズ」
-    //---------------------------------------------------------
-    int windowW = static_cast<int>(logicalW * contentScale);
-    int windowH = static_cast<int>(logicalH * contentScale);
-
-    //---------------------------------------------------------
-    // ウィンドウ生成（DPI 対応）
-    //---------------------------------------------------------
-    mWindow = SDL_CreateWindow(
-        mStrTitle.c_str(),
-        windowW,
-        windowH,
-        WINDOW_FLAGS
-    );
-
-    if (!mWindow)
-    {
-        std::cerr << "Unable to create window: " << SDL_GetError() << std::endl;
-        return false;
-    }
-
-    SDL_SetWindowPosition(mWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
     //---------------------------------------------------------
     // OpenGL コンテキスト生成
@@ -162,7 +109,7 @@ bool Renderer::Initialize()
     SDL_GL_SetSwapInterval(1);
 
     //---------------------------------------------------------
-    // CreateWindow 後に「実ピクセル数」を取得（HiDPI 対応）
+    // ウィンドウの「実ピクセルサイズ」を取得（HiDPI 対応）
     //---------------------------------------------------------
     int pixelW = 0;
     int pixelH = 0;
@@ -173,24 +120,13 @@ bool Renderer::Initialize()
     mScreenHeight = static_cast<float>(pixelH);
 
     //---------------------------------------------------------
-    // このウィンドウに対する DPI スケール（ウィンドウ基準）
+    // このウィンドウに対する DPI スケール
     //---------------------------------------------------------
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
     if (mWindowDisplayScale <= 0.0f)
     {
         mWindowDisplayScale = 1.0f;
     }
-
-
-    //---------------------------------------------------------
-    // GLEW 初期化
-    //---------------------------------------------------------
-    /*glewExperimental = GL_TRUE;
-    if (glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
-        return false;
-    }*/
 
     //---------------------------------------------------------
     // GLAD 初期化
@@ -200,11 +136,6 @@ bool Renderer::Initialize()
         std::cerr << "Failed to initialize GLAD!" << std::endl;
         return false;
     }
-    
-    //---------------------------------------------------------
-    // OpenGL のビューポート設定（実ピクセルベース）
-    //---------------------------------------------------------
-    glViewport(0, 0, pixelW, pixelH);
 
     //---------------------------------------------------------
     // シェーダーのロード
@@ -236,16 +167,18 @@ bool Renderer::Initialize()
     mSkyDomeComp   = nullptr;
     mCntDrawObject = 0;
 
-    std::cout << "[Renderer] DPI-aware Init Complete. "
-        << "Logical(" << logicalW << "x" << logicalH << ") "
-        << "Window("  << windowW  << "x" << windowH  << ") "
-        << "Pixels("  << pixelW   << "x" << pixelH   << ") "
-        << "Scale="   << mWindowDisplayScale
-        << std::endl;
+    //---------------------------------------------------------
+    // ビューポート＆射影行列など、サイズ依存の状態をまとめて更新
+    //---------------------------------------------------------
+    OnWindowResized(pixelW, pixelH);
+
+    std::cout << "[Renderer] GL Init Complete. "
+              << "Pixels("  << pixelW   << "x" << pixelH   << ") "
+              << "Scale="   << mWindowDisplayScale
+              << std::endl;
 
     return true;
 }
-
 // リリース処理
 void Renderer::Shutdown()
 {
@@ -472,6 +405,79 @@ void Renderer::UnloadData()
     mVisualComps.clear();
 }
 
+//=============================================================
+// ウィンドウサイズ変更時
+//=============================================================
+
+void Renderer::OnWindowResized(int pixelW, int pixelH)
+{
+    if (pixelW <= 0 || pixelH <= 0) return;
+
+    mScreenWidth  = static_cast<float>(pixelW);
+    mScreenHeight = static_cast<float>(pixelH);
+
+    glViewport(0, 0, pixelW, pixelH);
+
+    // DPI スケールもここで取り直しておくと、モニタ跨ぎ時も安全
+    mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
+    if (mWindowDisplayScale <= 0.0f)
+    {
+        mWindowDisplayScale = 1.0f;
+    }
+
+    // ここは Matrix4::CreatePerspectiveFOV のシグネチャに合わせて
+    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mPerspectiveFOV),
+        mScreenWidth,
+        mScreenHeight,
+        0.1f,
+        10000.f
+    );
+
+    std::cout << "[Renderer] Window resized: "
+              << pixelW << " x " << pixelH
+              << " (scale=" << mWindowDisplayScale << ")"
+              << std::endl;
+}
+
+//=============================================================
+// UI / Virtual 解像度関連
+//=============================================================
+
+void Renderer::SetVirtualResolution(float w, float h)
+{
+    mVirtualWidth  = w;
+    mVirtualHeight = h;
+}
+
+// UIScaleInfo を計算して返す
+UIScaleInfo Renderer::GetUIScaleInfo() const
+{
+    UIScaleInfo info{};
+
+    // --- 物理ピクセル ---
+    info.screenW = mScreenWidth;
+    info.screenH = mScreenHeight;
+
+    // --- 論理（UI座標）
+    info.virtualW = (mVirtualWidth  > 0.0f) ? mVirtualWidth  : mScreenWidth;
+    info.virtualH = (mVirtualHeight > 0.0f) ? mVirtualHeight : mScreenHeight;
+
+    // --- スケール計算 ---
+    info.scaleX = info.screenW / info.virtualW;
+    info.scaleY = info.screenH / info.virtualH;
+
+    info.scale = (info.scaleX < info.scaleY) ? info.scaleX : info.scaleY;
+
+    // --- レターボックスの余白計算 ---
+    float scaledW = info.virtualW * info.scale;
+    float scaledH = info.virtualH * info.scale;
+
+    info.offsetX = (info.screenW - scaledW) * 0.5f;
+    info.offsetY = (info.screenH - scaledH) * 0.5f;
+
+    return info;
+}
 
 //=============================================================
 // シャドウマッピング
