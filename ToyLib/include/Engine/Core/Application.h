@@ -97,6 +97,11 @@ private:
     // ウィンドウ操作関連ヘルパー
     void HandleWindowResized();
     
+    // アスペクト比固定関連
+    float mTargetAspect;          // 幅 / 高さ
+    bool  mLockAspect;            // アスペクトロック有効か
+    bool  mIsAdjustingSize;       // 自前でサイズ変更中か（イベントループ防止）
+    
     //-----------------------------------------
     // サブシステム
     //-----------------------------------------

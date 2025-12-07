@@ -29,6 +29,9 @@ Application::Application()
 , mIsFullScreen(false)
 , mWindow(nullptr)
 , mTicksCount(0)
+, mTargetAspect(16.0f / 9.0f)
+, mLockAspect(true)
+, mIsAdjustingSize(false)
 {
     mRenderer      = std::make_unique<Renderer>();
     mInputSys      = std::make_unique<InputSystem>();
@@ -100,7 +103,8 @@ bool Application::Initialize()
                   << SDL_GetError() << std::endl;
         return false;
     }
-
+    
+    
     SDL_SetWindowPosition(mWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
     // Renderer 初期化（GL コンテキスト生成など）
@@ -113,6 +117,15 @@ bool Application::Initialize()
     // 初期のウィンドウ物理解像度を取得し Renderer に通知
     HandleWindowResized();
 
+    
+    // 現在の論理サイズからアスペクト比を決める（16:9 ならほぼ 1.777... になる）
+    int w = 0, h = 0;
+    SDL_GetWindowSize(mWindow, &w, &h);
+    if (w > 0 && h > 0)
+    {
+        mTargetAspect = static_cast<float>(w) / static_cast<float>(h);
+    }
+    
     // 入力システム初期化
     mInputSys->Initialize(mRenderer->GetSDLWindow());
     mInputSys->LoadButtonConfig("ToyLib/Settings/InputConfig.json");
@@ -196,6 +209,10 @@ void Application::ProcessInput()
                 break;
                 
             }
+            // -------------------------
+            // ピクセルサイズ変更（HiDPI, モニタ移動など）
+            // → Renderer に通知だけ
+            // -------------------------
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 if (event.window.windowID == SDL_GetWindowID(mWindow))
                 {
@@ -203,6 +220,62 @@ void Application::ProcessInput()
                 }
                 break;
 
+            // -------------------------
+            // 論理ウィンドウサイズ変更（ユーザーがリサイズした）
+            // → アスペクト比を矯正
+            // -------------------------
+            case SDL_EVENT_WINDOW_RESIZED:
+            {
+                if (!mWindow) break;
+                if (event.window.windowID != SDL_GetWindowID(mWindow)) break;
+                if (!mLockAspect) break;
+                if (mIsFullScreen) break; // 全画面時は OS 任せ
+
+                int w = event.window.data1;
+                int h = event.window.data2;
+                if (w <= 0 || h <= 0) break;
+
+                // 自分が SetWindowSize したときに来るイベントはスキップ
+                if (mIsAdjustingSize)
+                {
+                    // 実際のピクセルサイズに合わせて Renderer を更新
+                    HandleWindowResized();
+                    mIsAdjustingSize = false;
+                    break;
+                }
+
+                float aspect = static_cast<float>(w) / static_cast<float>(h);
+
+                int newW = w;
+                int newH = h;
+
+                if (aspect > mTargetAspect)
+                {
+                    // 横長すぎ → 高さ優先で幅を調整
+                    newH = h;
+                    newW = static_cast<int>(newH * mTargetAspect + 0.5f);
+                }
+                else if (aspect < mTargetAspect)
+                {
+                    // 縦長すぎ → 幅優先で高さを調整
+                    newW = w;
+                    newH = static_cast<int>(newW / mTargetAspect + 0.5f);
+                }
+
+                // 既に目標アスペクトならそのまま反映
+                if (newW == w && newH == h)
+                {
+                    HandleWindowResized();
+                }
+                else
+                {
+                    mIsAdjustingSize = true;
+                    SDL_SetWindowSize(mWindow, newW, newH);
+                    // 実際の Renderer 更新は、後で来る RESIZED/PIXEL_SIZE_CHANGED で HandleWindowResized() が呼ばれる
+                }
+                break;
+            }
+                
             default:
 
                 break;
