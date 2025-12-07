@@ -278,22 +278,31 @@ set(SOURCE_ASSET_DIR        "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets")
 set(SOURCE_SETTINGS_DIR     "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings")
 set(SOURCE_SYSSETTINGS_DIR  "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings")
 
-# アセットコピー用のターゲット
-add_custom_target(copy_runtime_assets ALL
+# 実行ファイルのあるディレクトリを基準にコピー
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SOURCE_SHADER_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+    COMMENT "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SOURCE_ASSET_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+    COMMENT "Copying Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SOURCE_SETTINGS_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+    COMMENT "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SOURCE_SYSSETTINGS_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
-    COMMENT "Copying runtime assets (Shaders/Assets/Settings)..."
+    COMMENT "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
 )
-
-# 実行ファイルを先にビルドしてからコピーするよう依存関係を張る
-add_dependencies(copy_runtime_assets ${PROJECT_NAME})
