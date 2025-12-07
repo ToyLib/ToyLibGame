@@ -1,6 +1,6 @@
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/Polygon.h"
-#include <GL/glew.h>
+#include "glad/glad.h"
 
 namespace toy {
 

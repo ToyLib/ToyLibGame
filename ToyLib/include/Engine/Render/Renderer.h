@@ -1,13 +1,13 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
+#include "glad/glad.h"
 
 #include <string>
 #include <vector>
 #include <memory>
 #include <unordered_map>
 #include <SDL3/SDL.h>
-#include <GL/glew.h>
 
 namespace toy {
 

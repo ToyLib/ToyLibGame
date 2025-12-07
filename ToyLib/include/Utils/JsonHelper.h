@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Extern/json.hpp" // nlohmann::json の単一ヘッダ
+#include "json.hpp" // nlohmann::json の単一ヘッダ
 #include <string>
 #include <vector>
 #include "Utils/MathUtil.h"

@@ -314,9 +314,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				HEADER_SEARCH_PATHS = (
 					/opt/homebrew/include,
-					"$(SRCROOT)/ToyLib/include",
-					"$(SRCROOT)/ToyKit/Include",
 					"/opt/homebrew/opt/openal-soft/include",
+					"$(SRCROOT)/ToyLib/include",
+					"$(SRCROOT)/ToyLib/External",
+					"$(SRCROOT)/ToyLib/External/glad/include",
+					"$(SRCROOT)/ToyKit/Include",
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/opt/homebrew/lib,
@@ -326,7 +328,6 @@
 					"-lSDL3",
 					"-lSDL3_image",
 					"-lSDL3_ttf",
-					"-lGLEW",
 					"-lassimp",
 					"-lopenal",
 					"-lmpg123",
@@ -345,9 +346,11 @@
 				CODE_SIGN_STYLE = Automatic;
 				HEADER_SEARCH_PATHS = (
 					/opt/homebrew/include,
-					"$(SRCROOT)/ToyLib/include",
-					"$(SRCROOT)/ToyKit/Include",
 					"/opt/homebrew/opt/openal-soft/include",
+					"$(SRCROOT)/ToyLib/include",
+					"$(SRCROOT)/ToyLib/External",
+					"$(SRCROOT)/ToyLib/External/glad/include",
+					"$(SRCROOT)/ToyKit/Include",
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/opt/homebrew/lib,
@@ -357,7 +360,6 @@
 					"-lSDL3",
 					"-lSDL3_image",
 					"-lSDL3_ttf",
-					"-lGLEW",
 					"-lassimp",
 					"-lopenal",
 					"-lmpg123",

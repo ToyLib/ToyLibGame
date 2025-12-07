@@ -6,7 +6,7 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Core/Actor.h"
-#include <GL/glew.h>
+#include "glad/glad.h"
 
 namespace toy {
 

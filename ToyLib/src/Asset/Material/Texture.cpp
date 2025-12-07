@@ -1,9 +1,9 @@
 #include "Asset/Material/Texture.h"
 #include "Asset/AssetManager.h"
+#include "glad/glad.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
-#include <GL/glew.h>
 
 #include <vector>
 #include <cmath>

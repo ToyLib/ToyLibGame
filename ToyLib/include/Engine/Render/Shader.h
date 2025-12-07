@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
+#include "glad/glad.h"
 
-#include <GL/glew.h>
 #include <string>
 #include <fstream>
 #include <sstream>

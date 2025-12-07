@@ -9,7 +9,7 @@
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Material.h"
 
-#include <GL/glew.h>
+#include "glad/glad.h"
 #include <vector>
 
 namespace toy {

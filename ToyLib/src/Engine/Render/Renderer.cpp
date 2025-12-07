@@ -17,8 +17,8 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Engine/Core/Actor.h"
 #include "Asset/Geometry/Polygon.h"
+#include "glad/glad.h"
 
-#include <GL/glew.h>
 #include <algorithm>
 #include <string>
 #include <iostream>
@@ -181,20 +181,30 @@ bool Renderer::Initialize()
         mWindowDisplayScale = 1.0f;
     }
 
-    //---------------------------------------------------------
-    // OpenGL のビューポート設定（実ピクセルベース）
-    //---------------------------------------------------------
-    glViewport(0, 0, pixelW, pixelH);
 
     //---------------------------------------------------------
     // GLEW 初期化
     //---------------------------------------------------------
-    glewExperimental = GL_TRUE;
+    /*glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
     {
         std::cerr << "Failed to initialize GLEW" << std::endl;
         return false;
+    }*/
+
+    //---------------------------------------------------------
+    // GLAD 初期化
+    //---------------------------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
+    {
+        std::cerr << "Failed to initialize GLAD!" << std::endl;
+        return false;
     }
+    
+    //---------------------------------------------------------
+    // OpenGL のビューポート設定（実ピクセルベース）
+    //---------------------------------------------------------
+    glViewport(0, 0, pixelW, pixelH);
 
     //---------------------------------------------------------
     // シェーダーのロード
