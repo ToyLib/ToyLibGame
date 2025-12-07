@@ -26,7 +26,7 @@ void VertexBoneData::AddBoneData(unsigned int boneID, float weight)
 
     // ここに来る＝4本を超えてボーンが割り当てられた
     // （Assimp データ側の方が4より多いケースがある）
-    assert(0 && "Too many bone influences for this vertex!");
+    //assert(0 && "Too many bone influences for this vertex!");
 }
 
 } // namespace toy

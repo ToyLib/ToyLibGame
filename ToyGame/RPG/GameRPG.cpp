@@ -130,19 +130,16 @@ void GameRPG::LoadData()
     stanCllider->SetDisp(true);
     stanCllider->SetFlags(toy::C_WALL | toy::C_ENEMY | toy::C_FOOT | toy::C_GROUND);
     
-
-    
-    
-
     auto minionActor = CreateActor<MinionActor>();
     minionActor->SetParent(hero);
+    
     
     // wolf
     auto wolfActor = CreateActor<toy::Actor>();
     auto wolfMesh = wolfActor->CreateComponent<toy::SkeletalMeshComponent>(2000);
     wolfMesh->SetMesh(GetAssetManager()->GetMesh("wolf.fbx"));
 
-    wolfActor->SetPosition(Vector3(-20, 0.f, 0));
+    wolfActor->SetPosition(Vector3(-20.f, 0.f, 0));
     wolfActor->SetScale(0.1f);
     q = Quaternion(Vector3::UnitY, Math::ToRadians(180));
     wolfActor->SetRotation(q);
@@ -160,9 +157,7 @@ void GameRPG::LoadData()
     wolfSound->SetLoop(true);
     wolfSound->SetUseDistanceAttenuation(true);
     wolfSound->Play();
-    
-
-    
+        
     // 空間に出る文字
     auto stanTextActor = CreateActor<toy::Actor>();
     stanTextActor->SetPosition(Vector3(0.0f, 7.0f, 0.0f));
@@ -173,6 +168,16 @@ void GameRPG::LoadData()
     stanText->SetText("Bow wow !");
     stanTextActor->SetParent(wolfActor);
     stanTextActor->SetScale(0.03f);
+    
+    // cat
+    auto catActor = CreateActor<toy::Actor>();
+    catActor->SetPosition(Vector3(20.f, -5.f, 10.f));
+    catActor->SetScale(0.1f);
+    auto catMesh = catActor->CreateComponent<toy::SkeletalMeshComponent>();
+    catMesh->SetMesh(GetAssetManager()->GetMesh("cat.fbx"));
+    auto catAnim = catMesh->GetAnimPlayer();
+    catAnim->Play(0);
+    
     
     
     
