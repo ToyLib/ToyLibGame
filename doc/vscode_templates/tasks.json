@@ -56,7 +56,7 @@
     {
       "label": "CMake Configure (Windows)",
       "type": "shell",
-      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=C:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=C:/repos/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "problemMatcher": [],
       "group": {
         "kind": "build",
