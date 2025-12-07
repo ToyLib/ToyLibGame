@@ -40,8 +40,8 @@ struct UIScaleInfo
     float scaleX   = 1.0f;  // screenW / virtualW
     float scaleY   = 1.0f;  // screenH / virtualH
     float scale    = 1.0f;  // min(scaleX, scaleY)  レターボックス用の共通スケール
-    float offsetX  = 1.0f;  // レターボックスの左右余白
-    float offsetY  = 1.0f;  // レターボックスの上下余白
+    float offsetX  = 0.0f;  // レターボックスの左右余白
+    float offsetY  = 0.0f;  // レターボックスの上下余白
 };
 
 //-------------------------------------------------------------

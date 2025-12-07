@@ -11,12 +11,10 @@
 #include "Graphics/Sprite/BillboardComponent.h"
 #include "Graphics/VisualComponent.h"
 #include "Environment/SkyDomeComponent.h"
-#include "Graphics/Effect/WireframeComponent.h"
 #include "Asset/Font/TextFont.h"
 #include "Utils/FrustumUtil.h"
 #include "Physics/BoundingVolumeComponent.h"
 #include "Engine/Core/Actor.h"
-#include "Asset/Geometry/Polygon.h"
 #include "glad/glad.h"
 
 #include <algorithm>
@@ -455,26 +453,22 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
 {
     UIScaleInfo info{};
 
-    // --- 物理ピクセル ---
+    // 物理解像度（必ずピクセルベース）
     info.screenW = mScreenWidth;
     info.screenH = mScreenHeight;
 
-    // --- 論理（UI座標）
+    // Virtual が未設定なら「物理＝論理」とみなす
     info.virtualW = (mVirtualWidth  > 0.0f) ? mVirtualWidth  : mScreenWidth;
     info.virtualH = (mVirtualHeight > 0.0f) ? mVirtualHeight : mScreenHeight;
 
-    // --- スケール計算 ---
+    if (info.virtualW <= 0.0f) info.virtualW = 1.0f;
+    if (info.virtualH <= 0.0f) info.virtualH = 1.0f;
+
     info.scaleX = info.screenW / info.virtualW;
     info.scaleY = info.screenH / info.virtualH;
 
+    // レターボックス前提の共通スケール
     info.scale = (info.scaleX < info.scaleY) ? info.scaleX : info.scaleY;
-
-    // --- レターボックスの余白計算 ---
-    float scaledW = info.virtualW * info.scale;
-    float scaledH = info.virtualH * info.scale;
-
-    info.offsetX = (info.screenW - scaledW) * 0.5f;
-    info.offsetY = (info.screenH - scaledH) * 0.5f;
 
     return info;
 }
