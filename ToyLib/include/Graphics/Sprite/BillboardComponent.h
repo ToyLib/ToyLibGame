@@ -26,6 +26,10 @@ public:
     // カメラ方向に回転した板ポリを描画する
     void Draw() override;
     
+    // サイズ変更
+    void SetScale(float scale) { mScale = scale; }
+    float GetScale() const { return mScale; }
+    
 private:
     // スプライトのスケール（Texture のサイズに掛ける倍率）
     float mScale;

@@ -13,7 +13,7 @@ GameRPG::GameRPG()
 {
     InitAssetManager("ToyGame/Assets/RPG/", GetRenderer()->GetWindowDisplayScale());
     
-    GetTimeOfDaySystem()->SetTimeScale(6000.f);
+    GetTimeOfDaySystem()->SetTimeScale(1.f);
     GetTimeOfDaySystem()->SetTime(16);
 }
 
@@ -40,7 +40,7 @@ void GameRPG::InitGame()
     
     // 木（ビルボード）
     auto treeActor = CreateActor<toy::Actor>();
-    treeActor->SetPosition(Vector3(0.0f, 4.5f, 0.0f));
+    treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
     treeActor->SetScale(0.02);
     auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>(100);
     treeBillboard->SetTexture(GetAssetManager()->GetTexture("tree.png"));
@@ -52,11 +52,8 @@ void GameRPG::InitGame()
     
     // シャドウ用スプライト
     auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
-    //std::shared_ptr<Texture> shadowTex = std::make_shared<Texture>();
-    //shadowTex->CreateAlphaCircle(256, 0.5f, 0.4f, Vector3(0.2f, 0.2f, 0.2f), 2.0f);
-    //shadow->SetTexture(shadowTex);
     shadow->SetVisible(true);
-    shadow->SetOffsetPosition(Vector3(0.0f, -4.9f, 0.0f));
+    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
     shadow->SetOffsetScale(0.03f);
     
     
@@ -134,6 +131,9 @@ void GameRPG::LoadData()
     stanCllider->SetFlags(toy::C_WALL | toy::C_ENEMY | toy::C_FOOT | toy::C_GROUND);
     
 
+    
+    
+
     auto minionActor = CreateActor<MinionActor>();
     minionActor->SetParent(hero);
     
@@ -160,6 +160,20 @@ void GameRPG::LoadData()
     wolfSound->SetLoop(true);
     wolfSound->SetUseDistanceAttenuation(true);
     wolfSound->Play();
+    
+
+    
+    // 空間に出る文字
+    auto stanTextActor = CreateActor<toy::Actor>();
+    stanTextActor->SetPosition(Vector3(0.0f, 7.0f, 0.0f));
+    auto stanText = stanTextActor->CreateComponent<toy::TextBillboardComponent>(500);
+    auto stanFont = GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 50);
+    stanText->SetFont(stanFont);
+    stanText->SetColor(Vector3(1.0f, 0.0f, 0.0f));
+    stanText->SetText("Bow wow !");
+    stanTextActor->SetParent(wolfActor);
+    stanTextActor->SetScale(0.03f);
+    
     
     
     // 建物

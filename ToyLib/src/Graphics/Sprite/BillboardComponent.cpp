@@ -11,8 +11,8 @@
 namespace toy {
 
 BillboardComponent::BillboardComponent(class Actor* a, int drawOrder)
-    : VisualComponent(a, drawOrder, VisualLayer::Effect3D)
-    , mScale(1.0f)
+: VisualComponent(a, drawOrder, VisualLayer::Effect3D)
+, mScale(1.0f)
 {
     // メッシュ用シェーダーを流用（板ポリをメッシュ扱いで描画）
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Mesh");
@@ -45,7 +45,11 @@ void BillboardComponent::Draw()
     // ============================
     // カメラ方向を向く回転を計算
     // ============================
-    Vector3 pos = GetOwner()->GetPosition();
+
+    // ★ ここをローカル位置 → ワールド位置に変更
+    // Vector3 pos = GetOwner()->GetPosition();
+    Matrix4 actorWorld = GetOwner()->GetWorldTransform();
+    Vector3 pos = actorWorld.GetTranslation();
 
     // ビュー行列の逆行列からカメラ位置を取得
     Matrix4 invView = renderer->GetInvViewMatrix();
@@ -54,7 +58,16 @@ void BillboardComponent::Draw()
     // カメラ → ビルボードへの水平ベクトル
     Vector3 toCamera = pos - cameraPos;
     toCamera.y = 0.0f;      // Yは固定してXZ平面上だけで回転
-    toCamera.Normalize();
+
+    // ゼロ長近辺を回避（カメラとほぼ同じXZ位置の場合）
+    if (toCamera.LengthSq() < 1.0e-6f)
+    {
+        toCamera = Vector3::UnitZ;
+    }
+    else
+    {
+        toCamera.Normalize();
+    }
 
     // Y軸回転角（atan2(x, z) で方位角取得）
     float angle = atan2f(toCamera.x, toCamera.z);
@@ -79,9 +92,12 @@ void BillboardComponent::Draw()
     mShader->SetActive();
 
     // ライティング情報を設定（環境光やディレクショナルライトなど）
-    mLightingManager->ApplyToShader(mShader, view);
+    if (mLightingManager)
+    {
+        mLightingManager->ApplyToShader(mShader, view);
+    }
 
-    // ワールド行列：Scale → Y軸回転 → 移動
+    // ★ 行列の掛け順は「元のまま」維持
     Matrix4 world = scaleMat * rotY * translate;
     mShader->SetMatrixUniform("uWorldTransform", world);
 
@@ -95,8 +111,11 @@ void BillboardComponent::Draw()
     // ============================
     // 描画
     // ============================
-    mVertexArray->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    if (mVertexArray)
+    {
+        mVertexArray->SetActive();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    }
 
     // 加算ブレンドを使った場合は元に戻しておく
     if (mIsBlendAdd)
