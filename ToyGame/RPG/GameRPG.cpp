@@ -137,7 +137,29 @@ void GameRPG::LoadData()
     auto minionActor = CreateActor<MinionActor>();
     minionActor->SetParent(hero);
     
+    // wolf
+    auto wolfActor = CreateActor<toy::Actor>();
+    auto wolfMesh = wolfActor->CreateComponent<toy::SkeletalMeshComponent>(2000);
+    wolfMesh->SetMesh(GetAssetManager()->GetMesh("wolf.fbx"));
 
+    wolfActor->SetPosition(Vector3(-20, 0.f, 0));
+    wolfActor->SetScale(0.1f);
+    q = Quaternion(Vector3::UnitY, Math::ToRadians(180));
+    wolfActor->SetRotation(q);
+    auto wolfCollider = wolfActor->CreateComponent<toy::ColliderComponent>();
+    wolfCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("wolf.fbx")->GetVertexArray());
+    wolfCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
+    wolfCollider->SetDisp(true);
+    wolfCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
+    wolfActor->CreateComponent<toy::GravityComponent>();
+    auto animPlayer = wolfMesh->GetAnimPlayer();
+    animPlayer->Play(2);
+
+    auto wolfSound = wolfActor->CreateComponent<toy::SoundComponent>();
+    wolfSound->SetSound("growling.wav");
+    wolfSound->SetLoop(true);
+    wolfSound->SetUseDistanceAttenuation(true);
+    wolfSound->Play();
     
     
     // 建物
@@ -157,15 +179,16 @@ void GameRPG::LoadData()
     towerActor->CreateComponent<toy::GravityComponent>();
     
 
-    for (int i = 0; i < 15; i++)
+    // レンガ
+    for (int i = 0; i < 8; i++)
     {
-        for (int j = 0; j < 10; j++)
+        for (int j = 0; j < 5; j++)
         {
             auto brickActor = CreateActor<toy::Actor>();
             auto brickMesh = brickActor->CreateComponent<toy::MeshComponent>();
             brickMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
             
-            brickActor->SetPosition(Vector3(-100 + 10*i, 20, -20 + 5*j));
+            brickActor->SetPosition(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
             brickActor->SetScale(5.f);
             auto brickCollider = brickActor->CreateComponent<toy::ColliderComponent>();
             brickCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
@@ -220,33 +243,6 @@ void GameRPG::LoadData()
         GetPhysWorld()->SetGroundPolygons(polys); // or 統合してまとめる
     }
     
-
-
-    // wolf
-    auto wolfActor = CreateActor<toy::Actor>();
-    auto wolfMesh = wolfActor->CreateComponent<toy::SkeletalMeshComponent>();
-    wolfMesh->SetMesh(GetAssetManager()->GetMesh("wolf.fbx"));
-
-    wolfActor->SetPosition(Vector3(-20, 0.f, 0));
-    wolfActor->SetScale(0.1f);
-    q = Quaternion(Vector3::UnitY, Math::ToRadians(180));
-    wolfActor->SetRotation(q);
-    auto wolfCollider = wolfActor->CreateComponent<toy::ColliderComponent>();
-    wolfCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("wolf.fbx")->GetVertexArray());
-    wolfCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
-    wolfCollider->SetDisp(true);
-    wolfCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
-    wolfActor->CreateComponent<toy::GravityComponent>();
-    auto animPlayer = wolfMesh->GetAnimPlayer();
-    animPlayer->Play(2);
-
-    auto wolfSound = wolfActor->CreateComponent<toy::SoundComponent>();
-    wolfSound->SetSound("growling.wav");
-    wolfSound->SetLoop(true);
-    wolfSound->SetUseDistanceAttenuation(true);
-    wolfSound->Play();
-
-
 
     auto stanMove = stanActor->CreateComponent<toy::FollowMoveComponent>();
     stanMove->SetTarget(hero);
