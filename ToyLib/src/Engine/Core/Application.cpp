@@ -180,21 +180,32 @@ void Application::ProcessInput()
     {
         switch (event.type)
         {
-        case SDL_EVENT_QUIT:
-            mIsActive = false;
-            break;
-
-        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-            if (event.window.windowID == SDL_GetWindowID(mWindow))
+            case SDL_EVENT_QUIT:
+                mIsActive = false;
+                break;
+            case SDL_EVENT_KEY_DOWN:
             {
-                HandleWindowResized();
+                const SDL_KeyboardEvent& key = event.key;
+                
+                if ((key.scancode == SDL_SCANCODE_RETURN ||
+                     key.scancode == SDL_SCANCODE_KP_ENTER) &&
+                    (key.mod & SDL_KMOD_ALT) != 0)
+                {
+                    ToggleFullscreen();
+                }
+                break;
+                
             }
-            break;
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                if (event.window.windowID == SDL_GetWindowID(mWindow))
+                {
+                    HandleWindowResized();
+                }
+                break;
 
-        default:
-            // 必要ならここで InputSystem にイベントを渡す
-            // mInputSys->ProcessSDLEvent(event);
-            break;
+            default:
+
+                break;
         }
     }
     
