@@ -431,10 +431,6 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         10000.f
     );
 
-    std::cout << "[Renderer] Window resized: "
-              << pixelW << " x " << pixelH
-              << " (scale=" << mWindowDisplayScale << ")"
-              << std::endl;
 }
 
 //=============================================================

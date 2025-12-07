@@ -292,7 +292,6 @@ void SoundMixer::Update(float,
             ALuint buf = 0;
             alSourceUnqueueBuffers(mBgmSource, 1, &buf);
 
-            // 次のチャンクをデコード
             size_t bytes = mCurrentBGM->ReadChunk(
                 mBgmDecodeBuffer.data(),
                 BGM_CHUNK_SIZE
@@ -314,7 +313,7 @@ void SoundMixer::Update(float,
             }
             else
             {
-                // 曲末に到達 → ループ再生
+                // 曲末 → ループ再生（今のロジックはそのまま）
                 mCurrentBGM->Rewind();
                 bytes = mCurrentBGM->ReadChunk(
                     mBgmDecodeBuffer.data(),
@@ -337,7 +336,19 @@ void SoundMixer::Update(float,
                 }
             }
         }
+
+        // ★ここを追加：バッファがキューされているのに止まっていたら再生し直す
+        ALint state  = 0;
+        ALint queued = 0;
+        alGetSourcei(mBgmSource, AL_SOURCE_STATE,     &state);
+        alGetSourcei(mBgmSource, AL_BUFFERS_QUEUED,   &queued);
+
+        if (queued > 0 && state != AL_PLAYING)
+        {
+            alSourcePlay(mBgmSource);
+        }
     }
+
 
     //====================
     // SE ソースの掃除
