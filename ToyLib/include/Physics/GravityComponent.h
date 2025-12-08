@@ -45,6 +45,9 @@ private:
     // ジャンプ時の初速
     float mJumpSpeed;
     
+    // 落下速度の上限
+    float mMaxFallSpeed;
+    
     // 接地状態
     bool mIsGrounded;
     

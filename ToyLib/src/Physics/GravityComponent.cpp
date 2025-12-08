@@ -18,8 +18,9 @@ namespace toy {
 GravityComponent::GravityComponent(Actor* a)
 : Component(a)
 , mVelocityY(0.0f)
-, mGravityAccel(-2.8f)
-, mJumpSpeed(50.0f)
+, mGravityAccel(-80.0f)   // 例：秒^2
+, mJumpSpeed(35.0f)       // 例：秒
+, mMaxFallSpeed(-40.0f)   // ★ 秒あたり -40 ユニットまでしか落ちない
 , mIsGrounded(false)
 {
 }
@@ -35,48 +36,59 @@ GravityComponent::GravityComponent(Actor* a)
 //------------------------------------------------------------------------------
 void GravityComponent::Update(float deltaTime)
 {
-    // 重力加速度を加算（毎フレーム下向きに加速）
-    mVelocityY += mGravityAccel;
-    
-    // 現在の Actor 座標
-    Vector3 pos = GetOwner()->GetPosition();
-    
-    // 設置判定に使う足コライダーを取得（C_FOOT を持つ Collider）
     ColliderComponent* collider = FindFootCollider();
     if (!collider) return;
-    
-    // 足元より下方向の中で「最も近い地面の高さ」を取得
-    float groundY = -std::numeric_limits<float>::max();
-    if (GetOwner()->GetApp()->GetPhysWorld()->GetNearestGroundY(GetOwner(), groundY))
+
+    Actor* owner    = GetOwner();
+    PhysWorld* phys = owner->GetApp()->GetPhysWorld();
+    Vector3 pos     = owner->GetPosition();
+
+    // 1) 重力（秒ベース）
+    mVelocityY += mGravityAccel * deltaTime;
+
+    // ★ 落下速度の上限（終端速度）を適用
+    if (mVelocityY < mMaxFallSpeed)
     {
-        // 自分の真下に何らかの地面候補が存在する
-        
-        // 足コライダーのワールドAABBから「足元のY」を取得
-        float footY = collider->GetBoundingVolume()->GetWorldAABB().min.y;
-        
-        // このフレームの更新後に足元が地面を突き抜けるかをチェック
-        if (footY + mVelocityY * deltaTime < groundY)
+        mVelocityY = mMaxFallSpeed;
+    }
+
+    // ここから下は、さっき一緒に調整した接地判定ロジックでOK
+    // （nextFootY 計算して、groundY との yGap を見てスナップ）
+    float footY     = collider->GetBoundingVolume()->GetWorldAABB().min.y;
+    float nextFootY = footY + mVelocityY * deltaTime;
+
+    float groundY   = -std::numeric_limits<float>::max();
+    bool hasGround  = phys->GetNearestGroundY(owner, groundY);
+
+    const float kMaxStepUp      = 0.30f;
+    const float kMaxStepDown    = 0.50f;
+    const float kPenetrationEps = 0.05f;
+
+    if (hasGround && mVelocityY <= 0.0f)
+    {
+        float yGapNext = groundY - nextFootY;
+
+        bool canSnap =
+            (yGapNext >= -kMaxStepDown - kPenetrationEps) &&
+            (yGapNext <=  kMaxStepUp   + kPenetrationEps);
+
+        if (canSnap)
         {
-            // 足元が groundY を下回ってしまうので、ぴったり乗るように補正
-            float offset = pos.y - footY;             // Actorの原点から足元までのオフセット
-            pos.y = groundY + offset + 0.01f;         // ほんの少し浮かせてめり込み防止
-            mVelocityY = 0.0f;                        // 落下速度リセット
-            mIsGrounded = true;                       // 接地状態
-            GetOwner()->SetPosition(pos);
+            float offset = pos.y - footY;
+            pos.y = groundY + offset + 0.001f;
+            owner->SetPosition(pos);
+
+            mVelocityY  = 0.0f;
+            mIsGrounded = true;
             return;
         }
     }
-    else
-    {
-        // 自分より下に地面が見つからない → 空中扱い
-        mIsGrounded = false;
-    }
-    
-    // 通常の落下処理（地面に当たらなかった場合）
-    pos.y += mVelocityY * deltaTime;
-    GetOwner()->SetPosition(pos);
-}
 
+    mIsGrounded = false;
+
+    pos.y += mVelocityY * deltaTime;
+    owner->SetPosition(pos);
+}
 //------------------------------------------------------------------------------
 // Jump
 //------------------------------------------------------------------------------
