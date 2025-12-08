@@ -11,89 +11,125 @@ namespace toy {
 //------------------------------------------------------------------------------
 // コンストラクタ
 //------------------------------------------------------------------------------
-// ・初期Y速度は 0。
-// ・重力加速度はデフォルトで -2.8f（ゲーム全体で調整する前提）。
-// ・ジャンプ初速は 50.0f。
+// ・Y方向速度は 0 から開始。
+// ・mGravityAccel は「ユニット/秒^2」として扱う重力加速度。
+// ・mJumpSpeed は「ユニット/秒」として扱うジャンプ初速。
+// ・mMaxFallSpeed は「落下方向（負）の終端速度」。
+// ・mMaxStepUp / mMaxStepDown は、
+//   「1ステップでどれくらいの段差・落差までスナップで許容するか」の目安。
 //------------------------------------------------------------------------------
 GravityComponent::GravityComponent(Actor* a)
 : Component(a)
 , mVelocityY(0.0f)
-, mGravityAccel(-80.0f)   // 例：秒^2
-, mJumpSpeed(35.0f)       // 例：秒
-, mMaxFallSpeed(-40.0f)   // ★ 秒あたり -40 ユニットまでしか落ちない
+, mGravityAccel(-80.0f)     // 重力加速度（ユニット/秒^2）
+, mJumpSpeed(35.0f)         // ジャンプ初速（ユニット/秒）
+, mMaxFallSpeed(-40.0f)     // 最大落下速度（負方向の終端速度）
+, mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
+, mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
+, mPenetrationEps(0.05f)    // 減り込み許容量
 , mIsGrounded(false)
 {
+    // ★ mPenetrationEps がメンバにあるならここで初期化しておくと安全。
+    // mPenetrationEps = 0.05f;
 }
 
 //------------------------------------------------------------------------------
 // Update
 //------------------------------------------------------------------------------
-// ・mVelocityY に重力加速度を加算して位置更新。
-// ・PhysWorld::GetNearestGroundY() を使って足元の最も近い地面Yを取得。
-// ・足コライダー（C_FOOT）AABB の min.y と groundY を比較して、
-//   次フレームの足元が groundY を下回る場合は接地とみなし、
-//   Y位置を補正して mVelocityY を 0 / mIsGrounded = true にする。
+// ・1フレーム分の deltaTime を、最大 120fps 相当の小ステップに分割して処理する。
+//   - 例：deltaTime が大きくても、内部では 1/120秒ごとの StepGravityOnce() を複数回呼ぶ。
+//   - FPS が落ちた環境でも、重力・接地判定の精度を維持するためのサブステップ。
+// ・実際の重力計算・接地スナップ処理は StepGravityOnce() に委譲。
 //------------------------------------------------------------------------------
 void GravityComponent::Update(float deltaTime)
 {
+    // 足コライダー必須（C_FOOT を持つ ColliderComponent）
     ColliderComponent* collider = FindFootCollider();
     if (!collider) return;
 
+    float remaining = deltaTime;
+    const float kMaxStep = 1.0f / 120.0f; // 重力・接地の内部ステップ（最大 120fps 相当）
+
+    while (remaining > 0.0f)
+    {
+        float step = (remaining > kMaxStep) ? kMaxStep : remaining;
+        StepGravityOnce(step, collider);
+        remaining -= step;
+    }
+}
+
+//------------------------------------------------------------------------------
+// StepGravityOnce
+//------------------------------------------------------------------------------
+// ・重力・接地判定を「dt 分だけ」1ステップ進める処理。
+// ・重力加速度から速度を積算し、終端速度でクランプしたあと、
+//   足元の位置と groundY の関係から接地スナップを行う。
+// ・PhysWorld::GetNearestGroundY() は、Actor の真下方向にある最も高い地面の Y を返す前提。
+//   - Collider(C_GROUND) や地形メッシュから groundY を算出している想定。
+//------------------------------------------------------------------------------
+void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
+{
     Actor* owner    = GetOwner();
     PhysWorld* phys = owner->GetApp()->GetPhysWorld();
     Vector3 pos     = owner->GetPosition();
 
-    // 1) 重力（秒ベース）
-    mVelocityY += mGravityAccel * deltaTime;
+    //--- 1. 加速度 → 速度（終端速度込み） ---
+    mVelocityY += mGravityAccel * dt;
 
-    // ★ 落下速度の上限（終端速度）を適用
+    // 落下速度に下限（終端速度）を設ける
     if (mVelocityY < mMaxFallSpeed)
-    {
         mVelocityY = mMaxFallSpeed;
-    }
 
-    // ここから下は、さっき一緒に調整した接地判定ロジックでOK
-    // （nextFootY 計算して、groundY との yGap を見てスナップ）
+    // 足元（C_FOOT の AABB の min.y）を基準に地面との関係を見る
     float footY     = collider->GetBoundingVolume()->GetWorldAABB().min.y;
-    float nextFootY = footY + mVelocityY * deltaTime;
+    float nextFootY = footY + mVelocityY * dt;
 
-    float groundY   = -std::numeric_limits<float>::max();
-    bool hasGround  = phys->GetNearestGroundY(owner, groundY);
+    // 自分の真下にある「最も近い地面の Y」
+    float groundY = -std::numeric_limits<float>::max();
+    bool hasGround = phys->GetNearestGroundY(owner, groundY);
 
-    const float kMaxStepUp      = 0.30f;
-    const float kMaxStepDown    = 0.50f;
-    const float kPenetrationEps = 0.05f;
+    const float kMaxStepUp      = mMaxStepUp;      // 段差・上り坂として許せる上方向の差分
+    const float kMaxStepDown    = mMaxStepDown;    // 落下をキャッチする下方向の差分
+    const float kPenetrationEps = mPenetrationEps; // めり込み許容（浮かせ量との調整用）
 
-    if (hasGround && mVelocityY <= 0.0f)
+    if (hasGround && mVelocityY <= 0.0f) // 下向きに動いているときだけ接地検査
     {
+        // 次フレームの足元位置に対して、地面がどれくらい上 / 下にあるか
+        //  yGapNext > 0 : 地面の方が高い（小さな段差・坂を登るケース）
+        //  yGapNext < 0 : 地面の方が低い（落下して地面に着地するケース）
         float yGapNext = groundY - nextFootY;
 
+        // 上り・下り両方を「スナップしてよい範囲」として許容する
         bool canSnap =
-            (yGapNext >= -kMaxStepDown - kPenetrationEps) &&
-            (yGapNext <=  kMaxStepUp   + kPenetrationEps);
+            (yGapNext >= -kMaxStepDown - kPenetrationEps) && // 下方向（落下キャッチ）
+            (yGapNext <=  kMaxStepUp   + kPenetrationEps);   // 上方向（段差・坂）
 
         if (canSnap)
         {
-            float offset = pos.y - footY;
-            pos.y = groundY + offset + 0.001f;
+            // groundY に足元が乗るように Actor の Y を補正
+            float offset = pos.y - footY;           // Actor 原点 → 足元までのオフセット
+            pos.y = groundY + offset + 0.001f;      // ごくわずかに浮かせて誤差によるめり込みを防ぐ
             owner->SetPosition(pos);
 
-            mVelocityY  = 0.0f;
-            mIsGrounded = true;
+            mVelocityY  = 0.0f;                     // 着地したので速度リセット
+            mIsGrounded = true;                     // 接地状態に遷移
             return;
         }
     }
 
+    // ここまで来たら今ステップでは接地しなかった扱い
     mIsGrounded = false;
 
-    pos.y += mVelocityY * deltaTime;
+    //--- 2. 通常の落下（位置の更新） ---
+    pos.y += mVelocityY * dt;
     owner->SetPosition(pos);
 }
+
 //------------------------------------------------------------------------------
 // Jump
 //------------------------------------------------------------------------------
 // ・接地中（mIsGrounded == true）のときだけジャンプ初速を与える。
-// ・ジャンプ後は mIsGrounded を false にする。
+// ・ジャンプ後は mIsGrounded を false にして空中状態に遷移。
 //------------------------------------------------------------------------------
 void GravityComponent::Jump()
 {
@@ -108,8 +144,8 @@ void GravityComponent::Jump()
 // FindFootCollider
 //------------------------------------------------------------------------------
 // ・Actor に紐づく ColliderComponent 群から、C_FOOT フラグを持つものを探す。
-// ・足用 Collider（カプセルや小さめAABB）を用意しておき、
-//   それを地面判定専用に使う前提のヘルパー。
+// ・足用の Collider（カプセルや小さめ AABB）を 1 つ用意し、
+//   それを地面判定専用として使用する前提のヘルパー関数。
 //------------------------------------------------------------------------------
 ColliderComponent* GravityComponent::FindFootCollider()
 {
