@@ -1,4 +1,4 @@
-#include "Kit/Character.h"
+#include "KitCore/Character.h"
 #include "Engine/Core/Actor.h"
 
 namespace toy::kit {

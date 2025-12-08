@@ -1,5 +1,5 @@
-#include "Kit/SceneManager.h"
-#include "Kit/Game.h"
+#include "KitCore/SceneManager.h"
+#include "KitCore/Game.h"
 
 namespace toy::kit {
 

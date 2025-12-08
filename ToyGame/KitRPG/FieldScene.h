@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Kit/Scene.h"
-#include "Kit/Stage.h"
-#include "Kit/Character.h"
+#include "KitCore/Scene.h"
+#include "KitCore/Stage.h"
+#include "KitCore/Character.h"
 
 class FieldScene : public toy::kit::Scene
 {

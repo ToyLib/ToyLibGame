@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Kit/Game.h"
+#include "KitCore/Game.h"
 
 class KitRPG : public toy::kit::Game
 {

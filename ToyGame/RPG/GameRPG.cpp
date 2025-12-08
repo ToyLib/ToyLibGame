@@ -40,27 +40,7 @@ void GameRPG::InitGame()
     spSprite->SetTexture(GetAssetManager()->GetTexture("HealthBar.png"));
     spSprite->SetVisible(true);
 
-    
 
-    
-    
-
-
-
-    
-    
-
-
-    
-
-    
-    /*
-    auto sunlightActor = CreateActor<Actor>();
-    auto sunlight = sunlightActor->CreateComponent<SpriteComponent>(100, VisualLayer::UI);
-    std::shared_ptr<Texture> lightTex(new Texture);
-    lightTex->CreateRadialRays(1024, 16, 3.f, 2.0f, 0.15f);
-    sunlight->SetTexture(lightTex);
-    */
 }
 
 void GameRPG::LoadData()
@@ -110,17 +90,7 @@ void GameRPG::LoadData()
 
 
 
-    // スカイドーム
-    auto skyActor = CreateActor<toy::Actor>();
-    auto dome = skyActor->CreateComponent<toy::WeatherDomeComponent>();
-    // オーバーレイ
-    auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
-    
-    mWeather = std::make_unique<toy::WeatherManager>();
-    mWeather->SetWeatherDome(dome);
-    mWeather->SetWeatherOverlay(overlay);
-    skyActor->SetPosition(Vector3(0.f, -0.f, 0.f));
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+
     
     
     // BGM
@@ -147,7 +117,7 @@ void GameRPG::LoadData()
 
 void GameRPG::UpdateGame(float deltaTime)
 {
-    mWeather->Update(deltaTime);
+    //mWeather->Update(deltaTime);
     auto h = GetTimeOfDaySystem()->GetHour();
     auto m = GetTimeOfDaySystem()->GetMinute();
     mTextComp->SetFormat("<< : <<", h, m);

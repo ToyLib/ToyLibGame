@@ -92,7 +92,6 @@
 #include "Environment/SkyDomeComponent.h"
 #include "Environment/SkyDomeMeshGenerator.h"
 #include "Environment/WeatherDomeComponent.h"
-#include "Environment/WeatherManager.h"
 #include "Environment/WeatherOverlayComponent.h"
 
 //======================================

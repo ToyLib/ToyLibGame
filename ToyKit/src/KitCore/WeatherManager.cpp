@@ -1,8 +1,6 @@
-#include "Environment/WeatherManager.h"
-#include "Environment/WeatherDomeComponent.h"
-#include "Environment/WeatherOverlayComponent.h"
+#include "KitCore/WeatherManager.h"
 
-namespace toy {
+namespace toy::kit {
 
 WeatherManager::WeatherManager()
 : mWeather(WeatherType::CLEAR)

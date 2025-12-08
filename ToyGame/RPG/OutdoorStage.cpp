@@ -15,6 +15,7 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     DeployGround();
+    DeploySky();
     
     // レンガ
     for (int i = 0; i < 8; i++)
@@ -157,4 +158,19 @@ void OutdoorStage::DeployGround()
         const auto& polys = va->GetWorldPolygons(b->GetWorldTransform());
         mApp->GetPhysWorld()->SetGroundPolygons(polys);
     }
+}
+
+void OutdoorStage::DeploySky()
+{
+    // スカイドーム
+    auto skyActor = mApp->CreateActor<toy::Actor>();
+    auto dome = skyActor->CreateComponent<toy::WeatherDomeComponent>();
+    // オーバーレイ
+    //auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
+    
+    //auto mWeather = std::make_unique<toy::WeatherManager>();
+    //mWeather->SetWeatherDome(dome);
+    //mWeather->SetWeatherOverlay(overlay);
+    //skyActor->SetPosition(Vector3(0.f, -0.f, 0.f));
+    //mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }

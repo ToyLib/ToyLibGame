@@ -1,5 +1,5 @@
-#include "Kit/Stage.h"
-#include "Kit/Game.h"
+#include "KitCore/Stage.h"
+#include "KitCore/Game.h"
 #include "Engine/Core/Actor.h"
 
 namespace toy::kit {

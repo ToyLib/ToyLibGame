@@ -1,7 +1,7 @@
 #include "FieldScene.h"
-#include "Kit/Game.h"
-#include "Kit/Stage.h"
-#include "Kit/Character.h"
+#include "KitCore/Game.h"
+#include "KitCore/Stage.h"
+#include "KitCore/Character.h"
 
 #include "Utils/MathUtil.h"   // Vector3
 

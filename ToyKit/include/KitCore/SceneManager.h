@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include "Kit/Scene.h"
-#include "Kit/Game.h"
+#include "KitCore/Scene.h"
+#include "KitCore/Game.h"
 
 namespace toy::kit {
 

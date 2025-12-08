@@ -16,5 +16,6 @@ private:
     void DeployHouse(const Vector3& pos);
     
     void DeployGround();
+    void DeploySky();
 
 };
