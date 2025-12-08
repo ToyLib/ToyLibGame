@@ -1,6 +1,8 @@
 #include "GameRPG.h"
 #include "Engine/Core/ApplicationEntry.h"
 #include "HeroActor.h"
+#include "Actors/WolfActor.h"
+#include "Actors/BrickActor.h"
 #include "MinionActor.h"
 #include "ToyLib.h"
 
@@ -111,6 +113,34 @@ void GameRPG::LoadData()
 {
     
     auto hero = CreateActor<HeroActor>();
+    auto wolf = CreateActor<WolfActor>();
+    
+    
+    // レンガ
+    for (int i = 0; i < 8; i++)
+    {
+        for (int j = 0; j < 5; j++)
+        {
+            auto brickActor = CreateActor<BrickActor>();
+            brickActor->SetPosition(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
+            brickActor->SetCollFlags(toy::C_GROUND);
+        }
+    }
+ 
+    for (int i = 0; i < 10; i++)
+    {
+        auto brickActor = CreateActor<BrickActor>();
+        brickActor->SetPosition(Vector3(0, i*10, -50 + i*5));
+        brickActor->SetCollFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
+        brickActor->CreateComponent<toy::GravityComponent>();
+    }
+    auto brickActor = CreateActor<BrickActor>();
+    brickActor->SetPosition(Vector3(0, -1, -50));
+    brickActor->SetCollFlags(toy::C_GROUND | toy::C_WALL );
+
+    
+    
+    
     
     // stan
     auto stanActor = CreateActor<toy::Actor>();
@@ -133,53 +163,8 @@ void GameRPG::LoadData()
     auto minionActor = CreateActor<MinionActor>();
     minionActor->SetParent(hero);
     
-    
-    // wolf
-    auto wolfActor = CreateActor<toy::Actor>();
-    auto wolfMesh = wolfActor->CreateComponent<toy::SkeletalMeshComponent>(2000);
-    wolfMesh->SetMesh(GetAssetManager()->GetMesh("wolf.fbx"));
 
-    wolfActor->SetPosition(Vector3(-20.f, 0.f, 0));
-    wolfActor->SetScale(0.1f);
-    q = Quaternion(Vector3::UnitY, Math::ToRadians(180));
-    wolfActor->SetRotation(q);
-    auto wolfCollider = wolfActor->CreateComponent<toy::ColliderComponent>();
-    wolfCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("wolf.fbx")->GetVertexArray());
-    wolfCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
-    wolfCollider->SetDisp(true);
-    wolfCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
-    wolfActor->CreateComponent<toy::GravityComponent>();
-    auto animPlayer = wolfMesh->GetAnimPlayer();
-    animPlayer->Play(2);
-
-    auto wolfSound = wolfActor->CreateComponent<toy::SoundComponent>();
-    wolfSound->SetSound("growling.wav");
-    wolfSound->SetLoop(true);
-    wolfSound->SetUseDistanceAttenuation(true);
-    wolfSound->Play();
-        
-    // 空間に出る文字
-    auto stanTextActor = CreateActor<toy::Actor>();
-    stanTextActor->SetPosition(Vector3(0.0f, 7.0f, 0.0f));
-    auto stanText = stanTextActor->CreateComponent<toy::TextBillboardComponent>(500);
-    auto stanFont = GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 50);
-    stanText->SetFont(stanFont);
-    stanText->SetColor(Vector3(1.0f, 0.0f, 0.0f));
-    stanText->SetText("Bow wow !");
-    stanTextActor->SetParent(wolfActor);
-    stanTextActor->SetScale(0.03f);
-    
-    // cat
-    auto catActor = CreateActor<toy::Actor>();
-    catActor->SetPosition(Vector3(20.f, -5.f, 10.f));
-    catActor->SetScale(0.1f);
-    auto catMesh = catActor->CreateComponent<toy::SkeletalMeshComponent>();
-    catMesh->SetMesh(GetAssetManager()->GetMesh("cat.fbx"));
-    auto catAnim = catMesh->GetAnimPlayer();
-    catAnim->Play(0);
-    
-    
-    
+   
     
     // 建物
     auto towerActor = CreateActor<toy::Actor>();
@@ -196,51 +181,6 @@ void GameRPG::LoadData()
     q = Quaternion(Vector3::UnitY, Math::ToRadians(150));
     towerActor->SetRotation(q);
     towerActor->CreateComponent<toy::GravityComponent>();
-    
-
-    // レンガ
-    for (int i = 0; i < 8; i++)
-    {
-        for (int j = 0; j < 5; j++)
-        {
-            auto brickActor = CreateActor<toy::Actor>();
-            auto brickMesh = brickActor->CreateComponent<toy::MeshComponent>();
-            brickMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-            
-            brickActor->SetPosition(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
-            brickActor->SetScale(5.f);
-            auto brickCollider = brickActor->CreateComponent<toy::ColliderComponent>();
-            brickCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
-            brickCollider->SetFlags(toy::C_GROUND);// | toy::C_WALL | toy::C_FOOT);
-            //brickActor->CreateComponent<toy::GravityComponent>();
-        }
-    }
- 
-    for (int i = 0; i < 10; i++)
-    {
-        auto brickActor = CreateActor<toy::Actor>();
-        auto brickMesh = brickActor->CreateComponent<toy::MeshComponent>();
-        brickMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-        
-        brickActor->SetPosition(Vector3(0, i*10, -50 + i*5));
-        brickActor->SetScale(5.f);
-        auto brickCollider = brickActor->CreateComponent<toy::ColliderComponent>();
-        brickCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
-        brickCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
-        brickActor->CreateComponent<toy::GravityComponent>();
-    }
-    auto brickActor = CreateActor<toy::Actor>();
-    auto brickMesh = brickActor->CreateComponent<toy::MeshComponent>();
-    brickMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-    
-    brickActor->SetPosition(Vector3(0, -1, -50));
-    brickActor->SetScale(5.f);
-    auto brickCollider = brickActor->CreateComponent<toy::ColliderComponent>();
-    brickCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
-    brickCollider->SetFlags(toy::C_GROUND | toy::C_WALL );
-
-
-
 
 
     // 地面
