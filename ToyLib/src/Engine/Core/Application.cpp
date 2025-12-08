@@ -372,9 +372,9 @@ void Application::UpdateFrame()
     }
 
     float deltaTime = (now - mTicksCount) / 1'000'000'000.0f;
-    if (deltaTime > 0.05f)
+    if (deltaTime > 0.025f)
     {
-        deltaTime = 0.05f;
+        deltaTime = 0.025f;
     }
 
     mTicksCount = now;
