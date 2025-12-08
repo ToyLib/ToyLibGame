@@ -159,14 +159,6 @@ elseif(UNIX AND NOT APPLE)
     find_package(OpenAL     REQUIRED)
     find_package(fmt CONFIG REQUIRED)
 
-    # vcpkg（必要なら）
-    set(VCPKG_ROOT "$ENV{HOME}/Repos/vcpkg")
-    set(VCPKG_TRIPLET "x64-linux")
-
-    set(VCPKG_INC_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include")
-    set(VCPKG_LIB_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib")
-    set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
-
     # mpg123
     find_path(MPG123_INCLUDE_DIR
         NAMES mpg123.h
