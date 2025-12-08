@@ -1,9 +1,10 @@
 #include "GameRPG.h"
+#include "OutdoorStage.h"
 #include "Engine/Core/ApplicationEntry.h"
-#include "HeroActor.h"
+#include "Actors/HeroActor.h"
 #include "Actors/WolfActor.h"
-#include "Actors/BrickActor.h"
-#include "MinionActor.h"
+
+#include "Actors/MinionActor.h"
 #include "ToyLib.h"
 
 // ToyLibの起動Applicationとして登録
@@ -15,8 +16,8 @@ GameRPG::GameRPG()
 {
     InitAssetManager("ToyGame/Assets/RPG/", GetRenderer()->GetWindowDisplayScale());
     
-    GetTimeOfDaySystem()->SetTimeScale(1.f);
-    GetTimeOfDaySystem()->SetTime(16);
+    mStage = std::make_unique<OutdoorStage>(this);
+
 }
 
 GameRPG::~GameRPG()
@@ -28,7 +29,7 @@ void GameRPG::InitGame()
 {
     LoadData();
     
-
+    mStage->InitStage();
 
     // スプライト
     auto spActor = CreateActor<toy::Actor>();
@@ -40,62 +41,15 @@ void GameRPG::InitGame()
     spSprite->SetVisible(true);
 
     
-    // 木（ビルボード）
-    auto treeActor = CreateActor<toy::Actor>();
-    treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
-    treeActor->SetScale(0.02);
-    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>(100);
-    treeBillboard->SetTexture(GetAssetManager()->GetTexture("tree.png"));
-    treeBillboard->SetVisible(true);
-    treeActor->CreateComponent<toy::GravityComponent>();
-    auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
-    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(20, -256, -4), Vector3(40,200,4));
-    treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
-    
-    // シャドウ用スプライト
-    auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
-    shadow->SetVisible(true);
-    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
-    shadow->SetOffsetScale(0.03f);
+
     
     
-    
-    // 焚き火
-    auto fireActor = CreateActor<toy::Actor>();
-    auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
-    fireMesh->SetMesh(GetAssetManager()->GetMesh("campfile.x"));
-  
-    fireActor->SetPosition(Vector3(-8, 0, -30));
-    fireActor->SetScale(0.03f);
-    auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
-    fireCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("campfile.x")->GetVertexArray());
-    fireCollider->SetDisp(true);
-    fireCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
-    fireActor->CreateComponent<toy::GravityComponent>();
-    
-    auto fireSound = fireActor->CreateComponent<toy::SoundComponent>();
-    fireSound->SetSound("fire.wav");
-    fireSound->SetLoop(true);
-    fireSound->SetVolume(0.5f);
-    fireSound->SetUseDistanceAttenuation(true);
-    fireSound->Play();
+
 
 
     
     
-    // 炎
-    auto particleActor = CreateActor<toy::Actor>();
-    particleActor->SetPosition(Vector3(0, 0, 0));
-    auto particleComp = particleActor->CreateComponent<toy::ParticleComponent>();
-    particleComp->SetTexture(GetAssetManager()->GetTexture("fire.png"));
-    particleComp->CreateParticles(Vector3(0, 0, 0),
-                                  10,
-                                  1000,
-                                  0.3f,
-                                  5.5,
-                                  toy::ParticleComponent::P_SMOKE);
-    particleComp->SetAddBlend(true);
-    particleActor->SetParent(fireActor);
+
 
     
 
@@ -115,28 +69,6 @@ void GameRPG::LoadData()
     auto hero = CreateActor<HeroActor>();
     auto wolf = CreateActor<WolfActor>();
     
-    
-    // レンガ
-    for (int i = 0; i < 8; i++)
-    {
-        for (int j = 0; j < 5; j++)
-        {
-            auto brickActor = CreateActor<BrickActor>();
-            brickActor->SetPosition(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
-            brickActor->SetCollFlags(toy::C_GROUND);
-        }
-    }
- 
-    for (int i = 0; i < 10; i++)
-    {
-        auto brickActor = CreateActor<BrickActor>();
-        brickActor->SetPosition(Vector3(0, i*10, -50 + i*5));
-        brickActor->SetCollFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
-        brickActor->CreateComponent<toy::GravityComponent>();
-    }
-    auto brickActor = CreateActor<BrickActor>();
-    brickActor->SetPosition(Vector3(0, -1, -50));
-    brickActor->SetCollFlags(toy::C_GROUND | toy::C_WALL );
 
     
     
@@ -165,42 +97,10 @@ void GameRPG::LoadData()
     
 
    
-    
-    // 建物
-    auto towerActor = CreateActor<toy::Actor>();
-    auto towerMesh = towerActor->CreateComponent<toy::MeshComponent>();
-    towerMesh->SetMesh(GetAssetManager()->GetMesh("house.x"));
-    
-    auto towerCollider = towerActor->CreateComponent<toy::ColliderComponent>();
-    towerCollider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("house.x")->GetVertexArray());
-    towerCollider->SetDisp(true);
-    towerCollider->SetFlags(toy::C_WALL | toy::C_GROUND | toy::C_FOOT);
-    towerCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0,0,0), Vector3(0.9, 0.9, 0.9));
-    towerActor->SetPosition(Vector3(-60, 0, 15));
-    towerActor->SetScale(0.003f);
-    q = Quaternion(Vector3::UnitY, Math::ToRadians(150));
-    towerActor->SetRotation(q);
-    towerActor->CreateComponent<toy::GravityComponent>();
 
 
-    // 地面
-    auto b = CreateActor<toy::Actor>();
-    auto g = b->CreateComponent<toy::MeshComponent>(false);
-    g->SetMesh(GetAssetManager()->GetMesh("ground2.x"));
-    b->SetPosition(Vector3(0,0,0));
-    b->SetScale(1);
-    g->SetToonRender(false, 1.0);
-    g->SetEnableShadow(false);
-    
-    auto groundMesh = GetAssetManager()->GetMesh("ground2.x");
-    auto va = groundMesh->GetVertexArray();
-    auto vaList = groundMesh->GetVertexArray();
-    for (auto& va : vaList)
-    {
-        b->ComputeWorldTransform();
-        const auto& polys = va->GetWorldPolygons(b->GetWorldTransform());
-        GetPhysWorld()->SetGroundPolygons(polys); // or 統合してまとめる
-    }
+
+
     
 
     auto stanMove = stanActor->CreateComponent<toy::FollowMoveComponent>();

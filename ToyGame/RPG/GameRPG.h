@@ -17,4 +17,5 @@ private:
     std::unique_ptr<class toy::WeatherManager> mWeather;
     class toy::TextSpriteComponent* mTextComp;
 
+    std::unique_ptr<class OutdoorStage> mStage;
 };

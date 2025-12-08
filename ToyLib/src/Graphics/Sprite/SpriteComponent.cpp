@@ -92,8 +92,8 @@ void SpriteComponent::Draw()
 
     float sw    = ui.screenW;    // 物理解像度（ピクセル）
     float sh    = ui.screenH;
-    float vw    = ui.virtualW;   // 論理解像度
-    float vh    = ui.virtualH;
+    //float vw    = ui.virtualW;   // 論理解像度
+    //float vh    = ui.virtualH;
     float scale = ui.scale;      // 論理→物理の共通スケール
 
     //==============================
