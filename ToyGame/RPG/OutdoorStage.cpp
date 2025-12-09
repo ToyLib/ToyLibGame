@@ -92,8 +92,8 @@ void OutdoorStage::InitStage()
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(1);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(1.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(0);
 }
 
 void OutdoorStage::Update(float deltaTime)
@@ -154,7 +154,7 @@ void OutdoorStage::DeployGround()
     g->SetMesh(mApp->GetAssetManager()->GetMesh("ground2.x"));
     b->SetPosition(Vector3(0,0,0));
     b->SetScale(1);
-    g->SetToonRender(false, 1.0);
+    g->SetToonRender(false);
     g->SetEnableShadow(false);
     
     auto groundMesh = mApp->GetAssetManager()->GetMesh("ground2.x");

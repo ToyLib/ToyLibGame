@@ -23,10 +23,11 @@ HeroActor::HeroActor(toy::Application* a)
     //mMeshComp->SetAnimID(mAnimID, PLAY_CYCLIC);
 
     bool useToon = false;
-    float outline = 1.00f;
+    float contour = 1.00f;
     JsonHelper::GetBool(json["mesh"], "toon_render", useToon);
-    JsonHelper::GetFloat(json["mesh"], "toon_outline", outline);
-    mMeshComp->SetToonRender(useToon, outline);
+    JsonHelper::GetFloat(json["mesh"], "contour_factor", contour);
+    mMeshComp->SetToonRender(useToon);
+    mMeshComp->SetContourFactor(contour);
 
     // --- Transform設定 ---
     Vector3 pos;

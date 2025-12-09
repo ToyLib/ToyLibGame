@@ -9,7 +9,8 @@ WolfActor::WolfActor(toy::Application* a)
     SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
-    meshComp->SetToonRender(true, 1.0f);
+    meshComp->SetToonRender(true);
+    meshComp->SetContourFactor(1.01f);
     meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("wolf.fbx"));
     
     

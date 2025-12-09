@@ -58,11 +58,11 @@ public:
     //--------------------------------------------------------
     // トゥーン描画設定（輪郭強調）
     //--------------------------------------------------------
-    void SetToonRender(bool t, float f = 1.05f)
-    {
-        mIsToon = t;
-        mContourFactor = f;
-    }
+    void SetToonRender(bool t) { mIsToon = t; }
+    
+    //--------------------------------------------------------
+    // トゥーン描画設定（輪郭強調）
+    //--------------------------------------------------------
     void SetContourFactor(float f) { mContourFactor = f; }
     bool GetToon() const { return mIsToon; }
 
