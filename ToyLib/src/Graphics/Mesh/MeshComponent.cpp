@@ -113,7 +113,7 @@ void MeshComponent::Draw()
     //  - 表面を少しスケールアップして黒で描画
     //  - CW / CCW を反転して裏面を描くことで輪郭として見せる
     //--------------------------------------------------------
-    if (mIsToon)
+    if (mContourFactor > 1.0f)
     {
         // 反時計回り(CCW)→時計回り(CW)に変更し裏面描画にする
         glFrontFace(GL_CW);

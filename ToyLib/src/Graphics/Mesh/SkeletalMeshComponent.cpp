@@ -94,7 +94,7 @@ void SkeletalMeshComponent::Draw()
     }
     
     // トゥーン輪郭描画（アウトライン用にスケール拡大＋表裏反転）
-    if (mIsToon)
+    if (mContourFactor > 1.0f)
     {
         glFrontFace(GL_CW);
         Matrix4 m = Matrix4::CreateScale(mContourFactor);
