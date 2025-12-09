@@ -29,14 +29,14 @@ namespace toy {
 
 // コンストラクタ
 Renderer::Renderer()
-: mScreenWidth(0.f)
-, mScreenHeight(0.f)
-, mVirtualWidth(0.f)
-, mVirtualHeight(0.f)
-, mPerspectiveFOV(45.f)
+: mScreenWidth(0.0f)
+, mScreenHeight(0.0f)
+, mVirtualWidth(0.0f)
+, mVirtualHeight(0.0f)
+, mPerspectiveFOV(45.0f)
 , mIsDebugMode(false)
 , mClearColor(Vector3(0.2f, 0.5f, 0.8f))
-, mWireColor(Vector3(1.f, 1.f, 1.f))
+, mWireColor(Vector3(1.0f, 1.0f, 1.0f))
 , mShadowNear(10.f)
 , mShadowFar(100)
 , mShadowOrthoWidth(100.f)
@@ -352,10 +352,10 @@ void Renderer::CreateSpriteVerts()
 {
     const float vertices[] =
     {
-        -0.5f,  0.5f, 0.f, 0.f, 0.f, 0.0f, 0.f, 0.f, // top left
-         0.5f,  0.5f, 0.f, 0.f, 0.f, 0.0f, 1.f, 0.f, // top right
-         0.5f, -0.5f, 0.f, 0.f, 0.f, 0.0f, 1.f, 1.f, // bottom right
-        -0.5f, -0.5f, 0.f, 0.f, 0.f, 0.0f, 0.f, 1.f  // bottom left
+        -0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, // top left
+         0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top right
+         0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, // bottom right
+        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f  // bottom left
     };
     
     const unsigned int indices[] =
@@ -428,7 +428,7 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         mScreenWidth,
         mScreenHeight,
         0.1f,
-        10000.f
+        10000.0f
     );
 
 }
@@ -780,7 +780,7 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     sdlColor.r = static_cast<Uint8>(std::clamp(color.x, 0.0f, 1.0f) * 255.0f);
     sdlColor.g = static_cast<Uint8>(std::clamp(color.y, 0.0f, 1.0f) * 255.0f);
     sdlColor.b = static_cast<Uint8>(std::clamp(color.z, 0.0f, 1.0f) * 255.0f);
-    sdlColor.a = 255;
+    sdlColor.a = 255.0f;
 
     // SDL3_ttf: TTF_RenderText_Blended( font, text, length, color )
     SDL_Surface* surface = TTF_RenderText_Blended(

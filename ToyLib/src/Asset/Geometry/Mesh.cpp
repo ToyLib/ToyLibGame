@@ -591,7 +591,7 @@ void Mesh::LoadMaterials(AssetManager* assetMamager)
         std::shared_ptr<Material> mat = std::make_shared<Material>();
 
         // 色（Ambient / Diffuse / Specular）
-        aiColor3D color(0.f, 0.f, 0.f);
+        aiColor3D color(0.0f, 0.0f, 0.0f);
 
         if (AI_SUCCESS == pMaterial->Get(AI_MATKEY_COLOR_AMBIENT, color))
         {

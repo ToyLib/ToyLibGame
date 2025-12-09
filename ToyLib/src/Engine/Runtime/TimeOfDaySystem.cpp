@@ -13,7 +13,7 @@ namespace toy {
 //======================================================================
 
 TimeOfDaySystem::TimeOfDaySystem()
-: mTimeScale(60.f)   // ● デフォルト：1秒でゲーム内1分進む
+: mTimeScale(60.0f)  // ● デフォルト：1秒でゲーム内1分進む
 , mRunning(true)     // ● 時間の進行 ON/OFF
 {
 }

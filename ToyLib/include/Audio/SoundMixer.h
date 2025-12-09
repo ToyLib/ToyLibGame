@@ -12,10 +12,6 @@
 
 namespace toy {
 
-class AssetManager;
-class Music;
-class SoundEffect;
-
 //--------------------------------------
 // サウンド制御クラス
 //  - OpenAL を使った BGM/SE ミキサー
@@ -26,7 +22,7 @@ class SoundMixer
 {
 public:
     // AssetManager は外部から渡す（所有権は持たない）
-    SoundMixer(AssetManager* assetManager);
+    SoundMixer(class AssetManager* assetManager);
     ~SoundMixer();
 
     // 有効/無効の切り替え（BGM/SE）
@@ -59,7 +55,7 @@ private:
     void ShutdownBGMSource();
 
 private:
-    AssetManager* mAssetManager;     // アセット取得用ポインタ（非所有）
+    class AssetManager* mAssetManager;     // アセット取得用ポインタ（非所有）
 
     // OpenAL デバイス／コンテキスト
     ALCdevice*  mDevice   = nullptr;
@@ -78,7 +74,7 @@ private:
     bool  mBgmPlaying = false;                         // 再生中フラグ
     bool  mBgmLoop    = true;                          // ループ再生するか
 
-    std::shared_ptr<Music> mCurrentBGM;                // 現在再生中の BGM
+    std::shared_ptr<class Music> mCurrentBGM;          // 現在再生中の BGM
     std::vector<unsigned char> mBgmDecodeBuffer;       // デコード先バッファ（mpg123 → PCM）
 
     // 共通設定（ミュート系／音量）

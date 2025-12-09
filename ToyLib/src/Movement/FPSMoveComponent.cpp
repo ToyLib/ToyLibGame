@@ -9,8 +9,8 @@ namespace toy {
 //------------------------------------------------------------------------------
 FPSMoveComponent::FPSMoveComponent(class Actor* a, int order)
 : MoveComponent(a, order)
-, mTurnSpeed(180.f)   // 左右の回転速度
-, mSpeed(7.f)         // 前進・後退速度
+, mTurnSpeed(180.0f)   // 左右の回転速度
+, mSpeed(7.0f)         // 前進・後退速度
 {
 }
 

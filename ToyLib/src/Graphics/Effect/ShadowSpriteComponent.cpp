@@ -29,7 +29,7 @@ ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
     //   color     : 黒
     //   blendPow  : 0.8（エッジの落ち方）
     mTexture = std::make_shared<Texture>();
-    mTexture->CreateAlphaCircle(256, 0.5f, 0.3f, Vector3(0.f, 0.f, 0.f), 0.8f);
+    mTexture->CreateAlphaCircle(256, 0.5f, 0.3f, Vector3(0.0f, 0.0f, 0.0f), 0.8f);
 }
 
 ShadowSpriteComponent::~ShadowSpriteComponent()
@@ -79,7 +79,7 @@ void ShadowSpriteComponent::Draw()
     // XZ 平面での向きだけ使う
     lightDir.y = 0.0f;
     if (lightDir.LengthSq() < 0.0001f)
-        lightDir = Vector3(0, 0, 1);
+        lightDir = Vector3(0.0f, 0.0f, 1.0f);
     lightDir.Normalize();
     
     float angle = atan2f(lightDir.x, lightDir.z);

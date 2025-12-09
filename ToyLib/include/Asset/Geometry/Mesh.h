@@ -22,6 +22,7 @@ public:
     Mesh();
     ~Mesh();
 
+  
     // メッシュファイルを読み込む
     // isRightHanded = true のとき右手系 → 左手系などの変換を行う想定
     virtual bool Load(const std::string& fileName,
@@ -65,6 +66,10 @@ public:
     bool HasAnimation() const { return !mAnimationClips.empty(); }
 
 private:
+    // コピー禁止（AssetManager 経由の shared_ptr 前提）
+    Mesh(const Mesh&) = delete;
+    Mesh& operator=(const Mesh&) = delete;
+
     // メッシュデータ読み込み（頂点/インデックス、ボーン有無の判定）
     void LoadMeshData();
 

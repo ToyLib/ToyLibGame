@@ -10,9 +10,9 @@ namespace toy {
 
 WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, VisualLayer layer)
 : VisualComponent(a, drawOrder, layer)
-, mRainAmount(0.f)
-, mFogAmount(0.f)
-, mSnowAmount(0.f)
+, mRainAmount(0.0f)
+, mFogAmount(0.0f)
+, mSnowAmount(0.0f)
 {
     //------ 必要リソースを取得 ------
     auto renderer   = GetOwner()->GetApp()->GetRenderer();

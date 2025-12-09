@@ -12,7 +12,7 @@ namespace toy {
 //------------------------------------------------------------------------------
 DirMoveComponent::DirMoveComponent(class Actor* a, int order)
 : MoveComponent(a, order)
-, mSpeed(9.f)                    // カメラ基準移動の基本速度
+, mSpeed(9.0f)                    // カメラ基準移動の基本速度
 , mPrevPosition(Vector3::Zero)   // 前フレームの位置
 {
 }
@@ -87,7 +87,7 @@ void DirMoveComponent::ProcessInput(const struct InputState& state)
 void DirMoveComponent::AdjustDir()
 {
     Vector3 moveVal = GetOwner()->GetPosition() - mPrevPosition;
-    moveVal.y = 0.f;  // 水平面のみで回転を判断
+    moveVal.y = 0.0f;  // 水平面のみで回転を判断
 
     // 一定以上動いていれば回転する
     if (moveVal.LengthSq() > 0.01f)

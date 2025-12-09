@@ -161,16 +161,16 @@ Vector3 WeatherDomeComponent::GetSkyColor(float time)
     if (time < 0.0f) time += 1.0f;
     
     // 日の出/日の入り（時間単位）
-    const float sunriseHour  = 5.f;   // 5:00
-    const float sunsetHour   = 18.f;  // 18:00
-    const float dawnSpanHour = 1.f;   // 日の出前後1時間をグラデーション
-    const float duskSpanHour = 1.f;   // 日の入り前後1時間をグラデーション
+    const float sunriseHour  = 5.0f;   // 5:00
+    const float sunsetHour   = 18.0f;  // 18:00
+    const float dawnSpanHour = 1.0f;   // 日の出前後1時間をグラデーション
+    const float duskSpanHour = 1.0f;   // 日の入り前後1時間をグラデーション
     
     // 0〜1 に変換
-    const float sunriseT   = sunriseHour   / 24.f;
-    const float sunsetT    = sunsetHour    / 24.f;
-    const float dawnSpanT  = dawnSpanHour  / 24.f;
-    const float duskSpanT  = duskSpanHour  / 24.f;
+    const float sunriseT   = sunriseHour   / 24.0f;
+    const float sunsetT    = sunsetHour    / 24.0f;
+    const float dawnSpanT  = dawnSpanHour  / 24.0f;
+    const float duskSpanT  = duskSpanHour  / 24.0f;
     
     // 区間境界
     const float tNightEnd1    = sunriseT - dawnSpanT;   // 夜 → 朝焼け開始

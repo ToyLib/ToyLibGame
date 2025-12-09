@@ -263,10 +263,10 @@ bool Texture::CreateAlphaCircle(int size,
             float alpha = 1.0f - std::pow(std::clamp(dist, 0.0f, 1.0f), blendPow);
 
             int index = (y * size + x) * 4;
-            pixels[index + 0] = static_cast<uint8_t>(255.f * color.x);
-            pixels[index + 1] = static_cast<uint8_t>(255.f * color.y);
-            pixels[index + 2] = static_cast<uint8_t>(255.f * color.z);
-            pixels[index + 3] = static_cast<uint8_t>(alpha * 255);
+            pixels[index + 0] = static_cast<uint8_t>(255.0f * color.x);
+            pixels[index + 1] = static_cast<uint8_t>(255.0f * color.y);
+            pixels[index + 2] = static_cast<uint8_t>(255.0f * color.z);
+            pixels[index + 3] = static_cast<uint8_t>(alpha * 255.0f);
         }
     }
 

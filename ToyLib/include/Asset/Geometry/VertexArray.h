@@ -16,7 +16,7 @@ namespace toy {
 class VertexArray
 {
 public:
-
+   
     //=====================================================
     // ▼ 4頂点のみの簡易モデル（スプライト用）
     //   verts : XYUV または XYZW のような最小構成
@@ -93,6 +93,13 @@ public:
     std::vector<struct Polygon> GetWorldPolygons(const Matrix4& worldTransform) const;
 
 private:
+    //=====================================================
+    // コピー禁止（AssetManager 経由の shared_ptr 前提）
+    //=====================================================
+    VertexArray(const VertexArray&) = delete;
+    VertexArray& operator=(const VertexArray&) = delete;
+    
+
     // 頂点数・インデックス数
     unsigned int mNumVerts   = 0;
     unsigned int mNumIndices = 0;

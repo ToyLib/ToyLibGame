@@ -8,7 +8,7 @@ namespace toy {
 // ・太陽光の強さはデフォルト 1.0
 //-------------------------------------------------------------
 LightingManager::LightingManager()
-: mSunIntensity(1.f)
+: mSunIntensity(1.0f)
 {
 }
 

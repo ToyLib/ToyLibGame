@@ -4,12 +4,12 @@
     "virtual_with": 1280.0,
     "virtual_height": 768.0
   },
-  "perspectiveFOV": 60.0,
+  "perspectiveFOV": 45.0,
   "camera": {
     "position": [0.0, 0.0, 5.0]
   },
   "debug": {
-    "enabled": false
+    "enabled": true
   },
   "clearColor": [0.2, 0.5, 0.8],
   "wireColor": [1.0, 1.0, 1.0],
@@ -30,7 +30,7 @@
     "far": 100.0,
     "ortho_width": 100.0,
     "ortho_height": 100.0,
-    "resolution_width": 8096,
-    "resolution_height": 8096
+    "resolution_width": 4096,
+    "resolution_height": 4096
   }
 }

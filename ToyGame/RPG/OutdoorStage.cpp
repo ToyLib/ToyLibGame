@@ -108,7 +108,7 @@ void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
 {
     auto actor = mApp->CreateActor<toy::Actor>();
     actor->SetPosition(pos);
-    actor->SetScale(5.f);
+    actor->SetScale(5.0f);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(mApp->GetAssetManager()->GetMesh("brick.x"));

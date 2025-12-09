@@ -25,7 +25,7 @@ void MinionActor::UpdateActor(float deltaTime)
 {
     mCounter += deltaTime;
     float x = 2.5f * sin(mCounter*2.5f);
-    float y = 2.5f + 0.5f * sin(2.0f * mCounter*2.f);
-    float z = -1.5f + 0.2f * sin(mCounter*3.f);
+    float y = 2.5f + 0.5f * sin(2.0f * mCounter*2.0f);
+    float z = -1.5f + 0.2f * sin(mCounter*3.0f);
     SetPosition(Vector3(x, y, z));
 }

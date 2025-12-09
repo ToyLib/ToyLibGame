@@ -48,7 +48,7 @@ void GameRPG::LoadData()
     
     auto hero = CreateActor<HeroActor>();
     auto wolf = CreateActor<WolfActor>();
-    wolf->SetPosition(Vector3(-20.f, 3.f, -20.0f));
+    wolf->SetPosition(Vector3(-20.0f, 3.0f, -20.0f));
 
     
     // stan
@@ -56,7 +56,7 @@ void GameRPG::LoadData()
     auto stanMesh = stanActor->CreateComponent<toy::SkeletalMeshComponent>();
     auto stanCllider = stanActor->CreateComponent<toy::ColliderComponent>();
     stanMesh->SetMesh(GetAssetManager()->GetMesh("stan.gltf", true));
-//    stanMesh->SetToonRender(true, 1.015f);
+    stanMesh->SetToonRender(true);
     
     stanActor->SetPosition(Vector3(-3,0,10));
     stanActor->SetScale(0.5f);
@@ -64,7 +64,7 @@ void GameRPG::LoadData()
     stanActor->SetRotation(q);
     
     stanCllider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("stan.gltf")->GetVertexArray());
-    stanCllider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 0, 0), Vector3(0.5, 1.f, 0.6));
+    stanCllider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 0.0f, 0.0f), Vector3(0.5, 1.0f, 0.6f));
     stanCllider->GetBoundingVolume()->CreateVArray();
     stanCllider->SetDisp(true);
     stanCllider->SetFlags(toy::C_WALL | toy::C_ENEMY | toy::C_FOOT | toy::C_GROUND);
@@ -76,7 +76,7 @@ void GameRPG::LoadData()
 
     auto stanMove = stanActor->CreateComponent<toy::FollowMoveComponent>();
     stanMove->SetTarget(hero);
-    stanMove->SetFollowSpeed(1);
+    stanMove->SetFollowSpeed(10.0f);
     stanActor->CreateComponent<toy::GravityComponent>();
 
 

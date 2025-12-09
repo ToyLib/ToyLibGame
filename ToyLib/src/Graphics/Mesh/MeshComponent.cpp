@@ -128,7 +128,7 @@ void MeshComponent::Draw()
             if (mat)
             {
                 // 色を強制的に黒に上書きするモード
-                mat->SetOverrideColor(true, Vector3(0.f, 0.f, 0.f));
+                mat->SetOverrideColor(true, Vector3(0.0f, 0.0f, 0.0f));
                 mat->BindToShader(mShader, 0);
             }
 
@@ -138,7 +138,7 @@ void MeshComponent::Draw()
             // 上書きカラーを元に戻す
             if (mat)
             {
-                mat->SetOverrideColor(false, Vector3(0.f, 0.f, 0.f));
+                mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
             }
         }
 

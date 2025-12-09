@@ -105,12 +105,12 @@ void SkeletalMeshComponent::Draw()
             auto mat = mMesh->GetMaterial(v->GetTextureID());
             if (mat)
             {
-                mat->SetOverrideColor(true, Vector3(0.f, 0.f, 0.f));
+                mat->SetOverrideColor(true, Vector3(0.0f, 0.0f, 0.0f));
                 mat->BindToShader(mShader, 0);
             }
             v->SetActive();
             glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-            mat->SetOverrideColor(false, Vector3(0.f, 0.f, 0.f));
+            mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
         }
         glFrontFace(GL_CCW);
     }
