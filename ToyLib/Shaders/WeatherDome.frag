@@ -273,11 +273,10 @@ void main()
     //==================================================================
     if (nightStrength > 0.01 && uWeatherType == 0)
     {
-        // 月の見える方向（将来的に uniform 化しても良い）
-        //vec3 moonDir = normalize(vec3(-0.8, 0.2, 0.2));
+        // 月の見える方向
         vec3 moonDir = normalize(uMoonDir);
 
-        float m = clamp(dot(dir, moonDir), 0.0, 1.0);
+        float m = clamp(dot(dir, -moonDir), 0.0, 1.0);
 
         // 本体ディスク（中心部）
         float moonDisk = smoothstep(0.985, 1.0, m);

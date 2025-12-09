@@ -92,7 +92,7 @@ void OutdoorStage::InitStage()
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(1.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
     mApp->GetTimeOfDaySystem()->SetTime(1);
 }
 

@@ -22,7 +22,7 @@ WeatherDomeComponent::WeatherDomeComponent(Actor* a)
 : SkyDomeComponent(a)
 , mTime(0.5f)                          // 1日(0〜1)中の現在時間
 , mSunDir(Vector3::UnitY)              // 初期は真上
-, mMoonDir(Vector3(-0.8f, 0.25f, 0.1f)) // 固定の月方向
+, mMoonDir(Vector3::NegUnitY) // 固定の月方向
 , mWeatherType(WeatherType::CLEAR)     // 初期天気：快晴
 {
     // 月方向は念のため正規化
@@ -400,25 +400,49 @@ void WeatherDomeComponent::ApplyTime()
 {
     float timeOfDay = fmod(mTime, 1.0f);
     
-    // --- 太陽方向 ---
-    // timeOfDay (0〜1) を 1周(2π)の角度に変換して簡単な軌道を描く
-    float angle = Math::TwoPi * (timeOfDay - 0.25f);
+    //==============================================================
+    // 太陽・月の方向を timeOfDay(0〜1) から計算
+    //==============================================================
+    // 太陽：timeOfDay(0〜1) を 1周(2π)の角度に変換
+    float sunAngle  = Math::TwoPi * (timeOfDay - 0.25f);
+    // 月：太陽から 180°（π）ずらす＝常に反対側の空を移動
+    float moonAngle = sunAngle + Math::Pi;
     
-    const float elevationScale = 0.6f;     // 太陽の高度の振れ幅
-    const float verticalOffset = -0.1f;    // 全体の高さオフセット
+    // 太陽の軌道パラメータ
+    const float sunElevationScale  = 0.6f;   // 高度の振れ幅
+    const float sunVerticalOffset  = -0.1f;  // 全体のオフセット
+    const float sunSideOffset      = 0.4f;   // 南寄せ
     
+    // 月の軌道パラメータ（少し高さやオフセットを変えてもOK）
+    const float moonElevationScale = 0.5f;   // 太陽よりちょい低め
+    const float moonVerticalOffset = 0.05f;  // 少しだけ持ち上げる
+    const float moonSideOffset     = 0.4f;   // 同じく南寄せ
+    
+    // 太陽方向
     mSunDir = Vector3(
-        -cosf(angle),                                        // 東→西へ移動
-        -sinf(angle) * elevationScale + verticalOffset,      // 上下方向
-        0.4f * sinf(angle)                                   // 南寄せ（0.3〜0.5で好み調整）
+        -cosf(sunAngle),
+        -sinf(sunAngle) * sunElevationScale + sunVerticalOffset,
+        sunSideOffset * sinf(sunAngle)
     );
     mSunDir.Normalize();
     
-    // --- 空のベース色（シェーダと共通のロジック） ---
+    // 月方向（太陽の反対側を回る）
+    mMoonDir = Vector3(
+        -cosf(moonAngle),
+        -sinf(moonAngle) * moonElevationScale + moonVerticalOffset,
+        moonSideOffset * sinf(moonAngle)
+    );
+    mMoonDir.Normalize();
+    
+    //==============================================================
+    // 空色・雲色
+    //==============================================================
     mRawSkyColor   = GetSkyColor(timeOfDay);
     mRawCloudColor = GetCloudColor(timeOfDay);
     
-    // --- 天気による全体減衰（明るさスケール） ---
+    //==============================================================
+    // 天気による全体減衰（明るさスケール）
+    //==============================================================
     float weatherDim = 1.0f;
     switch (mWeatherType)
     {
@@ -429,63 +453,56 @@ void WeatherDomeComponent::ApplyTime()
         case WeatherType::SNOW:   weatherDim = 0.6f; break;
     }
     
-    // --- 昼夜の強さ（0〜1） ---
-    //    0.15〜0.25 → 朝に向けて昼成分を立ち上げ
-    //    0.75〜0.85 → 夜に向けて昼成分を落とす
+    //==============================================================
+    // 昼夜の強さ（0〜1）
+    //  0.15〜0.25 → 朝に向けて昼成分を立ち上げ
+    //  0.75〜0.85 → 夜に向けて昼成分を落とす
+    //==============================================================
     float dayStrength =
         SmoothStep(0.15f, 0.25f, timeOfDay) *
         (1.0f - SmoothStep(0.75f, 0.85f, timeOfDay));
     float nightStrength = 1.0f - dayStrength;
     
-    // 太陽の強度を LightingManager に渡す（シャドウなどで使用）
+    //==============================================================
+    // ライティングマネージャ更新
+    //==============================================================
     if (mLightingManager)
     {
+        // 太陽の強度（今はシャドウとは無関係。必要なら別用途に）
         mLightingManager->SetSunIntensity(dayStrength);
-    }
-    
-    // --- ディレクショナルライトの向き ---
-    // 昼：太陽の方向、夜：固定の月方向
-    if (mLightingManager)
-    {
+        
+        // 昼：太陽の方向、夜：月の方向（ディレクショナルライトの向き）
         Vector3 lightDir;
         if (dayStrength > 0.01f)
         {
-            // 太陽が出ている時間帯は太陽の逆方向
             lightDir = Vector3(-mSunDir.x, -mSunDir.y, -mSunDir.z);
         }
         else
         {
-            // 太陽が沈んだら、ライトは固定の月方向を向いたまま
-            lightDir = Vector3(mMoonDir.x, mMoonDir.y, mMoonDir.z);
+            lightDir = Vector3(-mMoonDir.x, -mMoonDir.y, -mMoonDir.z);
         }
-        
         mLightingManager->SetLightDirection(lightDir, Vector3::Zero);
-    }
-    
-    // --- ライト色（太陽＋月） ---
-    Vector3 sunColor  = Vector3(1.0f, 0.95f, 0.8f);
-    Vector3 moonColor = Vector3(0.3f, 0.4f, 0.6f);
-    Vector3 finalLightColor =
-        (sunColor * dayStrength + moonColor * nightStrength) * weatherDim;
-    if (mLightingManager)
-    {
+        
+        // ライト色（太陽＋月）
+        Vector3 sunColor  = Vector3(1.0f, 0.95f, 0.8f);
+        Vector3 moonColor = Vector3(0.3f, 0.4f, 0.6f);
+        Vector3 finalLightColor =
+            (sunColor * dayStrength + moonColor * nightStrength) * weatherDim;
         mLightingManager->SetLightDiffuseColor(finalLightColor);
-    }
-    
-    // --- アンビエント色（シーン全体のベース明るさ） ---
-    Vector3 dayAmbient   = Vector3(0.7f, 0.7f, 0.7f);
-    Vector3 nightAmbient = Vector3(0.25f, 0.2f, 0.3f);
-    Vector3 finalAmbient =
-        (dayAmbient * dayStrength + nightAmbient * nightStrength) * weatherDim;
-    if (mLightingManager)
-    {
+        
+        // アンビエント色
+        Vector3 dayAmbient   = Vector3(0.7f, 0.7f, 0.7f);
+        Vector3 nightAmbient = Vector3(0.25f, 0.2f, 0.3f);
+        Vector3 finalAmbient =
+            (dayAmbient * dayStrength + nightAmbient * nightStrength) * weatherDim;
         mLightingManager->SetAmbientColor(finalAmbient);
     }
     
-    // --- フォグ色＋密度を時間・天候から決定 ---
+    //==============================================================
+    // フォグ色＋密度
+    //==============================================================
     ComputeFogFromSky(timeOfDay);
 }
-
 //======================================
 // ComputeFogFromSky
 //  - mRawSkyColor / mRawCloudColor / WeatherType / timeOfDay
