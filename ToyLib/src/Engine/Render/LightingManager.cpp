@@ -41,7 +41,7 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     //---------------------------------------------------------
     // 太陽光の強さ（スカイドーム・シーン全体の明るさ調整）
     //---------------------------------------------------------
-    shader->SetFloatUniform("uSunIntensity", mSunIntensity);
+    //shader->SetFloatUniform("uSunIntensity", mSunIntensity);
     
     //---------------------------------------------------------
     // ディレクショナルライト

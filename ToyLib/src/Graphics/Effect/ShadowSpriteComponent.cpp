@@ -48,12 +48,6 @@ void ShadowSpriteComponent::Draw()
     // 非表示またはテクスチャ未設定なら何もしない
     if (!mIsVisible || mTexture == nullptr) return;
     
-    // 太陽光がほぼ無いなら影は描かない
-    float sunIntensity = mLightingManager->GetSunIntensity();
-    if (sunIntensity <= 0.01f)
-    {
-        return;
-    }
     
     // 影は通常のアルファブレンド
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

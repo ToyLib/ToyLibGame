@@ -92,13 +92,16 @@ void OutdoorStage::InitStage()
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(1.f);
-    mApp->GetTimeOfDaySystem()->SetTime(16);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(1.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(1);
 }
 
 void OutdoorStage::Update(float deltaTime)
 {
-    mWeather->Update(deltaTime);
+    if (mWeather)
+    {
+        mWeather->Update(deltaTime);
+    }
 }
 
 void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
@@ -176,5 +179,5 @@ void OutdoorStage::DeploySky()
     mWeather = std::make_unique<toy::kit::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::RAIN);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }

@@ -7,7 +7,7 @@
     "file": "hero_m.fbx",
     "animation_id": 0,
     "toon_render": true,
-    "toon_outline": 1.00
+    "toon_outline": 1.01
   },
 
   "collider": {

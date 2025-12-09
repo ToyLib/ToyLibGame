@@ -35,6 +35,7 @@ private:
     //==============================================
     float    mTime;       // 時間帯 (0〜1)
     Vector3  mSunDir;     // 太陽方向（ワールド座標）
+    Vector3  mMoonDir;    // 月方向
     WeatherType mWeatherType; // 現在の天候
     
     //==============================================

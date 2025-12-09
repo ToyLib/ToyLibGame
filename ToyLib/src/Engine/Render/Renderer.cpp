@@ -511,11 +511,6 @@ bool Renderer::InitializeShadowMapping()
 // シャドウマップのレンダリング
 void Renderer::RenderShadowMap()
 {
-    // 太陽がほぼ消えている時はシャドウをスキップ
-    float sunIntensity = mLightingManager->GetSunIntensity();
-    if (sunIntensity <= 0.01f)
-        return;
-    
     //---------------------------------------------------------
     // シャドウ FBO バインド
     //---------------------------------------------------------

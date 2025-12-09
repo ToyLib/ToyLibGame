@@ -2,8 +2,9 @@
 
 WolfActor::WolfActor(toy::Application* a)
 : toy::Actor(a)
+, mAction(ActionType::IDLE)
+, mCounter(0)
 {
-    SetPosition(Vector3(-20.f, 3.f, -20.0f));
     SetScale(0.05f);
     SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
     
@@ -19,8 +20,6 @@ WolfActor::WolfActor(toy::Application* a)
     collComp->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
     CreateComponent<toy::GravityComponent>();
     
-    auto animPlayer = meshComp->GetAnimPlayer();
-    animPlayer->Play(2);
 
     auto soundCmomp = CreateComponent<toy::SoundComponent>();
     soundCmomp->SetSound("growling.wav");
@@ -44,3 +43,54 @@ WolfActor::~WolfActor()
 {
     
 }
+
+void WolfActor::UpdateActor(float deltaTime)
+{
+    mCounter++;
+    switch (mAction)
+    {
+        case ActionType::IDLE:
+            ActionIDLE(deltaTime);
+            break;
+        case ActionType::WALK:
+            ActionWALK(deltaTime);
+            break;
+        case ActionType::RUN:
+            ActionRUN(deltaTime);
+            break;
+        default:
+            break;
+    }
+}
+
+void WolfActor::ActionIDLE(float deltaTime)
+{
+    if (mCounter % 500 == 0)
+    {
+        mAction = ActionType::WALK;
+    }
+    auto animPlayer = meshComp->GetAnimPlayer();
+    animPlayer->Play(2);
+
+}
+
+void WolfActor::ActionWALK(float deltaTime)
+{
+    if (mCounter % 500 == 0)
+    {
+        mAction = ActionType::RUN;
+    }
+    auto animPlayer = meshComp->GetAnimPlayer();
+    animPlayer->Play(1);
+}
+
+void WolfActor::ActionRUN(float deltaTime)
+{
+    if (mCounter % 500 == 0)
+    {
+        mAction = ActionType::IDLE;
+    }
+    auto animPlayer = meshComp->GetAnimPlayer();
+    animPlayer->Play(3);
+}
+

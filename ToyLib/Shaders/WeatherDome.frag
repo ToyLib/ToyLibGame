@@ -31,6 +31,7 @@ uniform float uTime;
 uniform int  uWeatherType;     // 0: Clear, 1: Cloudy, 2: Rain, 3: Storm, 4: Snow
 uniform float uTimeOfDay;      // 0.0〜1.0（夜→昼→夜）
 uniform vec3 uSunDir;          // 太陽方向（ワールド空間）
+uniform vec3 uMoonDir;         // 月方向
 
 // C++ 側から渡される「素」の空色・雲色
 uniform vec3 uRawSkyColor;
@@ -273,7 +274,8 @@ void main()
     if (nightStrength > 0.01 && uWeatherType == 0)
     {
         // 月の見える方向（将来的に uniform 化しても良い）
-        vec3 moonDir = normalize(vec3(-0.8, 0.2, 0.2));
+        //vec3 moonDir = normalize(vec3(-0.8, 0.2, 0.2));
+        vec3 moonDir = normalize(uMoonDir);
 
         float m = clamp(dot(dir, moonDir), 0.0, 1.0);
 

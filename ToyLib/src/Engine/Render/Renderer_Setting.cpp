@@ -85,6 +85,41 @@ bool Renderer::LoadSettings(const std::string& filePath)
     JsonHelper::GetVector3(data, "wireColor", mWireColor);
     
     //---------------------------------------------------------
+    // アンビエントカラー
+    //   "ambient": [1.0, 1.0, 1.0]
+    //---------------------------------------------------------
+    Vector3 ambientColor;
+    JsonHelper::GetVector3(data, "ambient", ambientColor);
+    mLightingManager->SetAmbientColor(ambientColor);
+    
+    //---------------------------------------------------------
+    // 反射光カラー
+    //   "specular": [1.0, 1.0, 1.0]
+    //---------------------------------------------------------
+    Vector3 specColor;
+    JsonHelper::GetVector3(data, "specular", specColor);
+    mLightingManager->SetLightSpecColor(specColor);
+    
+    //---------------------------------------------------------
+    // ディレクショナルライト設定
+    //    "directionalLight": {
+    //      "diffuse": [0.5, 0.5, 0.5],
+    //      "position": [30.0, 30.0, -1.0],
+    //      "target": [0.0, 0.0, 0.0]
+    //    },
+    //---------------------------------------------------------
+    if (data.contains("directionalLight"))
+    {
+        DirectionalLight dir;
+        JsonHelper::GetVector3 (data["directionalLight"], "diffuse",  dir.DiffuseColor);
+        JsonHelper::GetVector3 (data["directionalLight"], "position", dir.Position);
+        JsonHelper::GetVector3 (data["directionalLight"], "target",   dir.Target);
+        
+        mLightingManager->SetDirectionalLight(dir);
+    }
+    
+    
+    //---------------------------------------------------------
     // フォグ設定
     //   "fog": {
     //       "maxDist": 100.0,
@@ -101,6 +136,7 @@ bool Renderer::LoadSettings(const std::string& filePath)
         
         mLightingManager->SetFogInfo(fog);
     }
+   
     
     //---------------------------------------------------------
     // シャドウ（影）設定

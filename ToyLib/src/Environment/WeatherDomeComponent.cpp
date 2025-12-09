@@ -5,7 +5,6 @@
 #include "Engine/Render/LightingManager.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/Renderer.h"
 #include "Utils/MathUtil.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
 #include <algorithm>
@@ -21,10 +20,14 @@ namespace toy {
 //======================================
 WeatherDomeComponent::WeatherDomeComponent(Actor* a)
 : SkyDomeComponent(a)
-, mTime(0.5f)                        // 1日(0〜1)中の現在時間
-, mSunDir(Vector3::UnitY)            // 初期は真上
-, mWeatherType(WeatherType::CLEAR)   // 初期天気：快晴
+, mTime(0.5f)                          // 1日(0〜1)中の現在時間
+, mSunDir(Vector3::UnitY)              // 初期は真上
+, mMoonDir(Vector3(-0.8f, 0.25f, 0.1f)) // 固定の月方向
+, mWeatherType(WeatherType::CLEAR)     // 初期天気：快晴
 {
+    // 月方向は念のため正規化
+    mMoonDir.Normalize();
+
     // 半球メッシュ（頂点/インデックスバッファ）を生成
     mSkyVAO = SkyDomeMeshGenerator::CreateSkyDomeVAO(32, 16, 1.0f);
     
@@ -52,6 +55,13 @@ void WeatherDomeComponent::SetSunDirection(const Vector3& dir)
 {
     mSunDir = dir;
 }
+
+// （必要ならヘッダに宣言して使う）
+// void WeatherDomeComponent::SetMoonDirection(const Vector3& dir)
+// {
+//     mMoonDir = dir;
+//     mMoonDir.Normalize();
+// }
 
 //======================================
 // スカイドーム描画
@@ -88,8 +98,9 @@ void WeatherDomeComponent::Draw()
     // 1日を0.0〜1.0で表現した時間帯（朝/昼/夕/夜のベース）
     mShader->SetFloatUniform("uTimeOfDay", fmod(mTime, 1.0f));
     
-    // 太陽の方向（ライティング＆レイマーチ等で使用）
-    mShader->SetVectorUniform("uSunDir", mSunDir);
+    // 太陽・月の方向（ライティング＆レイマーチ等で使用）
+    mShader->SetVectorUniform("uSunDir",  mSunDir);
+    mShader->SetVectorUniform("uMoonDir", mMoonDir);   // ★ 追加：月方向を送る
     
     // CPU側で計算した生の空色・雲色（GLSLでの補正のベース）
     mShader->SetVectorUniform("uRawSkyColor",   mRawSkyColor);
@@ -403,9 +414,6 @@ void WeatherDomeComponent::ApplyTime()
     );
     mSunDir.Normalize();
     
-    // ディレクショナルライトへ反映（ライト向きは太陽の逆方向）
-    mLightingManager->SetLightDirection(Vector3(-mSunDir.x, -mSunDir.y, -mSunDir.z), Vector3::Zero);
-    
     // --- 空のベース色（シェーダと共通のロジック） ---
     mRawSkyColor   = GetSkyColor(timeOfDay);
     mRawCloudColor = GetCloudColor(timeOfDay);
@@ -430,21 +438,49 @@ void WeatherDomeComponent::ApplyTime()
     float nightStrength = 1.0f - dayStrength;
     
     // 太陽の強度を LightingManager に渡す（シャドウなどで使用）
-    mLightingManager->SetSunIntensity(dayStrength);
+    if (mLightingManager)
+    {
+        mLightingManager->SetSunIntensity(dayStrength);
+    }
+    
+    // --- ディレクショナルライトの向き ---
+    // 昼：太陽の方向、夜：固定の月方向
+    if (mLightingManager)
+    {
+        Vector3 lightDir;
+        if (dayStrength > 0.01f)
+        {
+            // 太陽が出ている時間帯は太陽の逆方向
+            lightDir = Vector3(-mSunDir.x, -mSunDir.y, -mSunDir.z);
+        }
+        else
+        {
+            // 太陽が沈んだら、ライトは固定の月方向を向いたまま
+            lightDir = Vector3(mMoonDir.x, mMoonDir.y, mMoonDir.z);
+        }
+        
+        mLightingManager->SetLightDirection(lightDir, Vector3::Zero);
+    }
     
     // --- ライト色（太陽＋月） ---
     Vector3 sunColor  = Vector3(1.0f, 0.95f, 0.8f);
     Vector3 moonColor = Vector3(0.3f, 0.4f, 0.6f);
     Vector3 finalLightColor =
         (sunColor * dayStrength + moonColor * nightStrength) * weatherDim;
-    mLightingManager->SetLightDiffuseColor(finalLightColor);
+    if (mLightingManager)
+    {
+        mLightingManager->SetLightDiffuseColor(finalLightColor);
+    }
     
     // --- アンビエント色（シーン全体のベース明るさ） ---
     Vector3 dayAmbient   = Vector3(0.7f, 0.7f, 0.7f);
     Vector3 nightAmbient = Vector3(0.25f, 0.2f, 0.3f);
     Vector3 finalAmbient =
         (dayAmbient * dayStrength + nightAmbient * nightStrength) * weatherDim;
-    mLightingManager->SetAmbientColor(finalAmbient);
+    if (mLightingManager)
+    {
+        mLightingManager->SetAmbientColor(finalAmbient);
+    }
     
     // --- フォグ色＋密度を時間・天候から決定 ---
     ComputeFogFromSky(timeOfDay);

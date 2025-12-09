@@ -48,6 +48,7 @@ void GameRPG::LoadData()
     
     auto hero = CreateActor<HeroActor>();
     auto wolf = CreateActor<WolfActor>();
+    wolf->SetPosition(Vector3(-20.f, 3.f, -20.0f));
 
     
     // stan
