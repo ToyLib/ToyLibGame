@@ -15,8 +15,6 @@ protected:
     void UpdateGame(float deltaTime) override;
     void ShutdownGame() override;
 private:
-    std::unique_ptr<class toy::kit::WeatherManager> mWeather;
     class toy::TextSpriteComponent* mTextComp;
-
     std::unique_ptr<class OutdoorStage> mStage;
 };

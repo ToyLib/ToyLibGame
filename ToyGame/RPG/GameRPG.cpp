@@ -48,11 +48,7 @@ void GameRPG::LoadData()
     
     auto hero = CreateActor<HeroActor>();
     auto wolf = CreateActor<WolfActor>();
-    
 
-    
-    
-    
     
     // stan
     auto stanActor = CreateActor<toy::Actor>();
@@ -75,13 +71,7 @@ void GameRPG::LoadData()
     auto minionActor = CreateActor<MinionActor>();
     minionActor->SetParent(hero);
     
-
    
-
-
-
-
-    
 
     auto stanMove = stanActor->CreateComponent<toy::FollowMoveComponent>();
     stanMove->SetTarget(hero);
@@ -117,7 +107,9 @@ void GameRPG::LoadData()
 
 void GameRPG::UpdateGame(float deltaTime)
 {
-    //mWeather->Update(deltaTime);
+    mStage->Update(deltaTime);
+    
+    
     auto h = GetTimeOfDaySystem()->GetHour();
     auto m = GetTimeOfDaySystem()->GetMinute();
     mTextComp->SetFormat("<< : <<", h, m);

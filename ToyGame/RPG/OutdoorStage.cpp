@@ -96,6 +96,11 @@ void OutdoorStage::InitStage()
     mApp->GetTimeOfDaySystem()->SetTime(16);
 }
 
+void OutdoorStage::Update(float deltaTime)
+{
+    mWeather->Update(deltaTime);
+}
+
 void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
 {
     auto actor = mApp->CreateActor<toy::Actor>();
@@ -166,11 +171,10 @@ void OutdoorStage::DeploySky()
     auto skyActor = mApp->CreateActor<toy::Actor>();
     auto dome = skyActor->CreateComponent<toy::WeatherDomeComponent>();
     // オーバーレイ
-    //auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
+    auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
     
-    //auto mWeather = std::make_unique<toy::WeatherManager>();
-    //mWeather->SetWeatherDome(dome);
-    //mWeather->SetWeatherOverlay(overlay);
-    //skyActor->SetPosition(Vector3(0.f, -0.f, 0.f));
-    //mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather = std::make_unique<toy::kit::WeatherManager>();
+    mWeather->SetWeatherDome(dome);
+    mWeather->SetWeatherOverlay(overlay);
+    mWeather->ChangeWeather(toy::WeatherType::RAIN);
 }
