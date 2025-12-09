@@ -5,8 +5,6 @@
 
 #include "Utils/MathUtil.h"   // Vector3
 
-
-
 using namespace toy::kit;
 
 FieldScene::FieldScene()

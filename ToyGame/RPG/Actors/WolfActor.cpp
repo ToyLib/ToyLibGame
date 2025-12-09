@@ -3,11 +3,12 @@
 WolfActor::WolfActor(toy::Application* a)
 : toy::Actor(a)
 {
-    SetPosition(Vector3(-20.f, 0.f, 0));
-    SetScale(0.1f);
+    SetPosition(Vector3(-20.f, 3.f, -20.0f));
+    SetScale(0.05f);
     SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
+    meshComp->SetToonRender(true, 1.0f);
     meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("wolf.fbx"));
     
     

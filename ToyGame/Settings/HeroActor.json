@@ -6,8 +6,8 @@
   "mesh": {
     "file": "hero_m.fbx",
     "animation_id": 0,
-    "toon_render": false,
-    "toon_outline": 1.005
+    "toon_render": true,
+    "toon_outline": 1.00
   },
 
   "collider": {
