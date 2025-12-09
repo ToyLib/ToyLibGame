@@ -26,7 +26,7 @@ GravityComponent::GravityComponent(Actor* a)
 , mMaxFallSpeed(-40.0f)     // 最大落下速度（負方向の終端速度）
 , mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
 , mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
-, mPenetrationEps(0.05f)    // 減り込み許容量
+, mPenetrationEps(0.05f)    // めり込み許容量
 , mIsGrounded(false)
 {
     // ★ mPenetrationEps がメンバにあるならここで初期化しておくと安全。
