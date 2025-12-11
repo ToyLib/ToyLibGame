@@ -753,9 +753,9 @@ bool Renderer::LoadShaders()
     return true;
 }
 
-
 //=============================================================
 // テキスト → テクスチャ生成（SDL3_ttf）
+//   - 改行(\n)対応版
 //=============================================================
 
 std::shared_ptr<Texture> Renderer::CreateTextTexture(
@@ -780,33 +780,158 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     sdlColor.r = static_cast<Uint8>(std::clamp(color.x, 0.0f, 1.0f) * 255.0f);
     sdlColor.g = static_cast<Uint8>(std::clamp(color.y, 0.0f, 1.0f) * 255.0f);
     sdlColor.b = static_cast<Uint8>(std::clamp(color.z, 0.0f, 1.0f) * 255.0f);
-    sdlColor.a = 255.0f;
+    sdlColor.a = 255;
 
-    // SDL3_ttf: TTF_RenderText_Blended( font, text, length, color )
-    SDL_Surface* surface = TTF_RenderText_Blended(
-        nativeFont,
-        text.c_str(),
-        text.size(),   // 長さを渡す（0 ではない）
-        sdlColor
-    );
-
-    if (!surface)
+    // --------------------------------------------------------
+    // まず、改行がないなら従来どおり 1 行で描画して終了
+    // --------------------------------------------------------
+    if (text.find('\n') == std::string::npos)
     {
-        std::cerr << "[Renderer] TTF_RenderText_Blended failed: "
-                  << SDL_GetError() << std::endl;
+        SDL_Surface* surface = TTF_RenderText_Blended(
+            nativeFont,
+            text.c_str(),
+            static_cast<int>(text.size()),
+            sdlColor
+        );
+
+        if (!surface)
+        {
+            std::cerr << "[Renderer] TTF_RenderText_Blended failed: "
+                      << SDL_GetError() << std::endl;
+            return nullptr;
+        }
+
+        SDL_Surface* conv = SDL_ConvertSurface(
+            surface,
+            SDL_PIXELFORMAT_RGBA32
+        );
+        SDL_DestroySurface(surface);
+
+        if (!conv)
+        {
+            std::cerr << "[Renderer] SDL_ConvertSurface failed: "
+                      << SDL_GetError() << std::endl;
+            return nullptr;
+        }
+
+        const int   width  = conv->w;
+        const int   height = conv->h;
+        const void* pixels = conv->pixels;
+
+        auto tex = std::make_shared<Texture>();
+        if (!tex->CreateFromPixels(pixels, width, height, /*hasAlpha=*/true))
+        {
+            SDL_DestroySurface(conv);
+            std::cerr << "[Renderer] CreateFromPixels failed" << std::endl;
+            return nullptr;
+        }
+
+        SDL_DestroySurface(conv);
+        return tex;
+    }
+
+    // --------------------------------------------------------
+    // ここから：複数行テキスト対応
+    // --------------------------------------------------------
+
+    // 簡単な改行分割（StringUtil にあればそちらを使ってもOK）
+    std::vector<std::string> lines;
+    {
+        std::string current;
+        for (char c : text)
+        {
+            if (c == '\n')
+            {
+                lines.push_back(current);
+                current.clear();
+            }
+            else
+            {
+                current += c;
+            }
+        }
+        lines.push_back(current);
+    }
+
+    std::vector<SDL_Surface*> lineSurfaces;
+    lineSurfaces.reserve(lines.size());
+
+    int maxW   = 0;
+    int totalH = 0;
+
+    for (auto& line : lines)
+    {
+        // 空行の場合も高さだけは欲しいので、スペース 1 文字で代用
+        const std::string& drawStr = line.empty() ? std::string(" ") : line;
+
+        SDL_Surface* s = TTF_RenderText_Blended(
+            nativeFont,
+            drawStr.c_str(),
+            static_cast<int>(drawStr.size()),
+            sdlColor
+        );
+
+        if (!s)
+        {
+            std::cerr << "[Renderer] TTF_RenderText_Blended (multi-line) failed: "
+                      << SDL_GetError() << std::endl;
+            continue;
+        }
+
+        lineSurfaces.push_back(s);
+        maxW   = std::max(maxW, s->w);
+        totalH += s->h;
+    }
+
+    if (lineSurfaces.empty())
+    {
+        std::cerr << "[Renderer] CreateTextTexture: no valid line surfaces" << std::endl;
         return nullptr;
     }
 
-    // OpenGL に渡しやすい RGBA8888 に変換
-    SDL_Surface* conv = SDL_ConvertSurface(
-        surface,
-        SDL_PIXELFORMAT_RGBA32   // SDL3 推奨の 32bit RGBA
+    // 1枚目のフォーマットを基準に合成用のサーフェスを作成
+    SDL_Surface* combined = SDL_CreateSurface(
+        maxW,
+        totalH,
+        SDL_PIXELFORMAT_RGBA32
     );
-    SDL_DestroySurface(surface);
+
+    if (!combined)
+    {
+        std::cerr << "[Renderer] SDL_CreateSurface (combined) failed: "
+                  << SDL_GetError() << std::endl;
+        // 後処理
+        for (auto* s : lineSurfaces) SDL_DestroySurface(s);
+        return nullptr;
+    }
+
+    // 縦方向に順番に貼っていく
+    int offsetY = 0;
+    for (auto* s : lineSurfaces)
+    {
+        SDL_Rect dst;
+        dst.x = 0;
+        dst.y = offsetY;
+        dst.w = s->w;
+        dst.h = s->h;
+
+        SDL_BlitSurface(s, nullptr, combined, &dst);
+        offsetY += s->h;
+
+        SDL_DestroySurface(s);
+    }
+    lineSurfaces.clear();
+
+    // RGBA32 に変換（従来と同じ流れ）
+    SDL_Surface* conv = SDL_ConvertSurface(
+        combined,
+        SDL_PIXELFORMAT_RGBA32
+    );
+    SDL_DestroySurface(combined);
 
     if (!conv)
     {
-        std::cerr << "[Renderer] SDL_ConvertSurface failed: "
+        std::cerr << "[Renderer] SDL_ConvertSurface (combined) failed: "
                   << SDL_GetError() << std::endl;
         return nullptr;
     }
@@ -819,7 +944,7 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     if (!tex->CreateFromPixels(pixels, width, height, /*hasAlpha=*/true))
     {
         SDL_DestroySurface(conv);
-        std::cerr << "[Renderer] CreateFromPixels failed" << std::endl;
+        std::cerr << "[Renderer] CreateFromPixels (combined) failed" << std::endl;
         return nullptr;
     }
 

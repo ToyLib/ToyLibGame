@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/Debug/DebugStats.h"
+
 #include <SDL3/SDL.h>
 #include <vector>
 #include <memory>
@@ -45,6 +47,7 @@ public:
     class PhysWorld*       GetPhysWorld()       const { return mPhysWorld.get(); }
     class AssetManager*    GetAssetManager()    const { return mAssetManager.get(); }
     class SoundMixer*      GetSoundMixer()      const { return mSoundMixer.get(); }
+    class InputSystem*     GetInputSystem()     const { return mInputSys.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }
     
     //-----------------------------------------
@@ -53,6 +56,13 @@ public:
     bool IsFullScreen() const { return mIsFullScreen; }
     void SetFullscreen(bool enable);
     void ToggleFullscreen();
+    
+    //-----------------------------------------
+    // デバッグ情報
+    //-----------------------------------------
+    DebugStats&       GetDebugStats()       { return mDebugStats; }
+    const DebugStats& GetDebugStats() const { return mDebugStats; }
+
     
 protected:
     //-----------------------------------------
@@ -118,6 +128,11 @@ private:
     std::vector<std::unique_ptr<class Actor>> mActors;
     std::vector<std::unique_ptr<class Actor>> mPendingActors;
     bool mIsUpdatingActors;
+    
+    //-----------------------------------------
+    // デバッグ情報
+    //-----------------------------------------
+    DebugStats mDebugStats;
     
     //-----------------------------------------
     // 設定読み込み

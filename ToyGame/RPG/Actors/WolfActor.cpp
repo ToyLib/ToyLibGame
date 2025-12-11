@@ -34,7 +34,7 @@ WolfActor::WolfActor(toy::Application* a)
     auto text = textActor->CreateComponent<toy::TextBillboardComponent>(500);
     text->SetFont(GetApp()->GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 50));
     text->SetColor(Vector3(1.0f, 0.0f, 0.0f));
-    text->SetText("Bow wow !");
+    text->SetText("Bow \nwow !");
 
     textActor->SetParent(this);
     textActor->SetScale(0.03f);

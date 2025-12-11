@@ -376,7 +376,6 @@ void Application::UpdateFrame()
     {
         deltaTime = 0.025f;
     }
-
     mTicksCount = now;
     
     if (mIsPause)
@@ -417,6 +416,17 @@ void Application::UpdateFrame()
         Matrix4 inv = GetRenderer()->GetInvViewMatrix();
         mSoundMixer->Update(deltaTime, inv);
     }
+    
+    
+    // デバッグ情報取得
+    auto& stats = mDebugStats;
+    stats.FrameTimeMs = deltaTime * 1000.0f;
+    stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+
+    stats.ActorCount    = static_cast<int>(mActors.size());
+    //stats.ColliderCount = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
+    //stats.DrawCallCount = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
+    
 }
 
 

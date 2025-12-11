@@ -5,6 +5,7 @@
 #include "Actors/WolfActor.h"
 
 #include "Actors/MinionActor.h"
+#include "Engine/Debug/DebugOverlayActor.h"
 #include "ToyLib.h"
 
 // ToyLibの起動Applicationとして登録
@@ -40,6 +41,7 @@ void GameRPG::InitGame()
     spSprite->SetTexture(GetAssetManager()->GetTexture("HealthBar.png"));
     spSprite->SetVisible(true);
 
+    CreateActor<toy::DebugOverlayActor>();
 
 }
 
@@ -96,7 +98,7 @@ void GameRPG::LoadData()
     // テキスト用 Actor を作成
     auto uiActor = CreateActor<toy::Actor>();
     //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
-    uiActor->SetPosition(Vector3(10.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
+    uiActor->SetPosition(Vector3(1100.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
 
     auto textComp = uiActor->CreateComponent<toy::TextSpriteComponent>();
     textComp->SetFont(fnt);
@@ -113,7 +115,7 @@ void GameRPG::UpdateGame(float deltaTime)
     
     auto h = GetTimeOfDaySystem()->GetHour();
     auto m = GetTimeOfDaySystem()->GetMinute();
-    mTextComp->SetFormat("<< : <<", h, m);
+    mTextComp->SetFormat("時刻 << : << \n111", h, m);
 }
 
 void GameRPG::ShutdownGame()
