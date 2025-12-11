@@ -26,7 +26,7 @@ PhysWorld::~PhysWorld()
 //------------------------------------------------------------------------------
 // ・毎フレーム呼び出される想定の「メイン衝突処理」。
 // ・Collider のバッファをクリア → 各種ペアの衝突判定を行う。
-// ・C_PLAYER vs C_ENEMY / C_BULLET はヒットのみ。
+// ・C_PLAYER vs C_ENEMY / C_BULLET は「ヒットのみ」。
 // ・C_ENEMY vs C_WALL は押し戻しあり。
 // ・C_LASER vs C_ENEMY は Ray vs Mesh（Polygon 配列）で判定。
 //------------------------------------------------------------------------------
@@ -39,28 +39,30 @@ void PhysWorld::Test()
     }
     
     // 通常のコリジョン（OBB & 半径判定）
-    CollideAndCallback(C_PLAYER, C_ENEMY);                      // ヒットのみ
-    CollideAndCallback(C_PLAYER, C_BULLET);                     // ヒットのみ
-    CollideAndCallback(C_ENEMY, C_WALL, true, false);           // 敵の壁押し戻し
+    CollideAndCallback(C_PLAYER, C_ENEMY);                      // プレイヤー vs 敵
+    CollideAndCallback(C_PLAYER, C_BULLET);                     // プレイヤー vs 弾
+    CollideAndCallback(C_ENEMY, C_WALL, true, false);           // 敵 vs 壁（押し戻し）
     
     //--------------------------------------------------------------------------
     // Laser vs Enemy（Ray vs Mesh）
+    //  - C_LASER フラグを持つコライダーが発射する Ray と
+    //    C_ENEMY フラグのメッシュポリゴンとの衝突判定。
     //--------------------------------------------------------------------------
     for (auto& c1 : mColliders)
     {
         if (!c1->HasFlag(C_LASER)) continue;
-        if (!c1->GetDisp()) continue;
+        if (!c1->GetDisp())        continue;
         
         // LaserColliderComponent が返す Ray
         Ray ray = c1->GetRay();
         
         for (auto& c2 : mColliders)
         {
-            if (c1 == c2) continue;
+            if (c1 == c2)              continue;
             if (!c2->HasFlag(C_ENEMY)) continue;
-            if (!c2->GetDisp()) continue;
+            if (!c2->GetDisp())        continue;
             
-            const auto& polygons = c2->GetBoundingVolume()->GetPolygons(); // Polygon配列
+            const auto& polygons = c2->GetBoundingVolume()->GetPolygons(); // Polygon 配列
             bool   hit      = false;
             float  closestT = Math::Infinity;
             Vector3 hitPoint;
@@ -88,7 +90,7 @@ void PhysWorld::Test()
                 // ヒットしたら相互に衝突登録
                 c1->Collided(c2);
                 c2->Collided(c1);
-                // hitPoint はダメージエフェクト等の位置にも使える
+                // hitPoint はダメージエフェクト等の座標に利用可能
             }
         }
     }
@@ -97,8 +99,8 @@ void PhysWorld::Test()
 //------------------------------------------------------------------------------
 // OBB の投影比較（分離軸定理 SAT）
 //------------------------------------------------------------------------------
-// ・vSep: 分離軸
-// ・vDistance: 中心同士の距離ベクトル
+// ・vSep      : 分離軸
+// ・vDistance : 中心同士の距離ベクトル
 // ・A/B の OBB を vSep 上に投影し、投影長の合計より距離が大きければ「分離」。
 //------------------------------------------------------------------------------
 bool PhysWorld::CompareLengthOBB(const OBB* cA, const OBB* cB,
@@ -196,7 +198,7 @@ bool PhysWorld::IsCollideBoxOBB(const OBB* cA, const OBB* cB)
 //------------------------------------------------------------------------------
 // JudgeWithRadius
 //------------------------------------------------------------------------------
-// ・まずはスフィア同士で早期判定するための手軽なチェック。
+// ・まずはスフィア同士で早期判定するための軽量チェック。
 // ・中心距離 < 半径の和 なら「衝突の可能性あり」。
 //------------------------------------------------------------------------------
 bool PhysWorld::JudgeWithRadius(class ColliderComponent* col1,
@@ -447,7 +449,7 @@ bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
         
         const float yGap = footY - other.max.y;
         
-        // 足よりしたにあり、かつ今までで一番高い地面なら採用
+        // 足より下にあり、かつ今までで一番高い地面なら採用
         if (xzOverlap && yGap > 0.0f && highest < other.max.y)
         {
             highest = other.max.y;
@@ -678,6 +680,56 @@ bool PhysWorld::RayHitWall(const Vector3& start,
     }
     
     return false;
+}
+
+//------------------------------------------------------------------------------
+// Raycast
+//------------------------------------------------------------------------------
+// ・汎用レイキャスト：origin + dir（正規化前で OK）から maxDist まで飛ばす。
+// ・flagMask と & が立つ Collider の OBB を対象に、最も近いヒットを outHit に返す。
+// ・outHit.actor にはヒットした Collider の Owner（Actor）が入る。
+//------------------------------------------------------------------------------
+bool PhysWorld::Raycast(const Vector3& origin,
+                        const Vector3& dir,
+                        float maxDist,
+                        uint32_t flagMask,
+                        RaycastHit& outHit) const
+{
+    Ray ray;
+    ray.start = origin;
+    ray.dir   = dir;
+
+    if (ray.dir.LengthSq() < Math::NearZeroEpsilon)
+        return false;
+    ray.dir.Normalize();
+
+    float closestT = maxDist;
+    bool  hit      = false;
+
+    for (auto* col : mColliders)
+    {
+        if (!col->GetDisp())                  continue;
+        if (!(col->GetFlags() & flagMask))    continue;
+
+        auto obb = col->GetBoundingVolume()->GetOBB();
+        if (!obb) continue;
+
+        float t;
+        if (IntersectRayOBB(ray, obb.get(), t))
+        {
+            if (t >= 0.0f && t <= closestT)
+            {
+                closestT        = t;
+                hit             = true;
+                outHit.actor    = col->GetOwner();
+                outHit.distance = t;
+                outHit.point    = ray.start + ray.dir * t;
+                // normal が必要なら、ここで OBB 面から算出して設定する
+            }
+        }
+    }
+
+    return hit;
 }
 
 } // namespace toy

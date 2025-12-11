@@ -1,5 +1,6 @@
 #pragma once
 #include "Graphics/VisualComponent.h"
+#include "Utils/MathUtil.h"
 
 namespace toy {
 
@@ -26,6 +27,10 @@ public:
     void SetRainAmount (const float amt) { mRainAmount = amt; }
     void SetFogAmount  (const float amt) { mFogAmount  = amt; }
     void SetSnowAmout  (const float amt) { mSnowAmount = amt; }
+    
+    //------ 太陽/月の方向のセット（WeatherManager から渡される） ------
+    void SetSunDir(const Vector3& dir)  { mSunDir = dir; }
+    void SetMoonDir(const Vector3& dir) { mMoonDir = dir; }
 
 private:
     //------ 各エフェクトの強度（0.0〜1.0） ------
@@ -33,9 +38,10 @@ private:
     float mFogAmount;    // 霧（画面の白み・減衰）
     float mSnowAmount;   // 雪（雪粒の量・密度）
 
-    //------ 描画に使用するスクリーンサイズ ------
-    float mScreenWidth;
-    float mScreenHeight;
+
+    // 太陽/月の向き
+    Vector3 mSunDir;
+    Vector3 mMoonDir;
 };
 
 } // namespace toy

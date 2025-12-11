@@ -75,8 +75,8 @@ void WeatherDomeComponent::Draw()
     // カメラの逆行列からワールド座標での位置を取得
     Matrix4 invView = GetOwner()->GetApp()->GetRenderer()->GetInvViewMatrix();
     
-    // スカイドームの中心をカメラ位置＋少し上にオフセット
-    Vector3 camPos = invView.GetTranslation() + Vector3(0, 50, 0);
+    // スカイドームの中心をカメラ位置
+    Vector3 camPos = invView.GetTranslation();
     
     // 大きな半球として描画（スケール200）
     Matrix4 model = Matrix4::CreateScale(200.0f) * Matrix4::CreateTranslation(camPos);

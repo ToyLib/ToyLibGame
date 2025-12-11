@@ -1,4 +1,5 @@
 #include "KitCore/WeatherManager.h"
+#include "Utils/MathUtil.h"
 
 namespace toy::kit {
 
@@ -27,6 +28,13 @@ void WeatherManager::Update(float deltaTime)
 
     // オーバーレイ側にも反映（雨・雪・霧の強さなど）
     ChangeWeather(mWeather);
+    
+    // 太陽/月の方向取得
+    Vector3 sunDir = mWeatherDome->GetSunDir();
+    Vector3 moonDir = mWeatherDome->GetMoonDir();
+    // オーバーレイ側に反映
+    mWeatherOverlay->SetSunDir(sunDir);
+    mWeatherOverlay->SetMoonDir(moonDir);
 }
 
 

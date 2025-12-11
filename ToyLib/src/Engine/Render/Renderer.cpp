@@ -826,5 +826,45 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     SDL_DestroySurface(conv);
     return tex;
 }
+//=============================================================
+// 2Dカメラの視界に入っているか
+//=============================================================
+ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
+{
+    ScreenProjectResult result{};
+    result.visible = false;
+    result.screen  = Vector2::Zero;
+    result.depth   = 1.0f;
 
+    Matrix4 view = GetViewMatrix();
+    Matrix4 proj = GetProjectionMatrix();
+    Matrix4 viewProj = view * proj;   // ToyLib 流
+
+    Vector3 ndc = Vector3::TransformWithPerspDiv(worldPos, viewProj, 1.0f);
+
+    float ndcX = ndc.x;
+    float ndcY = ndc.y;
+    float ndcZ = ndc.z;
+
+    if (!std::isfinite(ndcX) || !std::isfinite(ndcY) || !std::isfinite(ndcZ))
+    {
+        return result;
+    }
+
+    // ★ここだけでクリップ判定を完結させる
+    if (ndcX < -1.0f || ndcX >  1.0f ||
+        ndcY < -1.0f || ndcY >  1.0f ||
+        ndcZ <  0.0f || ndcZ >  1.0f)
+    {
+        return result;
+    }
+
+    float screenX = (ndcX * 0.5f + 0.5f) * GetScreenWidth();
+    float screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetScreenHeight();
+
+    result.visible = true;
+    result.screen  = Vector2(screenX, screenY);
+    result.depth   = ndcZ;
+    return result;
+}
 } // namespace toy

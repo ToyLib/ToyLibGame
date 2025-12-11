@@ -4,6 +4,7 @@
 #include "Engine/Render/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Engine/Render/Renderer.h"
+#include "Physics/PhysWorld.h"
 #include "Utils/MathUtil.h"
 
 namespace toy {
@@ -13,51 +14,115 @@ WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, Visual
 , mRainAmount(0.0f)
 , mFogAmount(0.0f)
 , mSnowAmount(0.0f)
+, mSunDir(Vector3::UnitY)
+, mMoonDir(Vector3::UnitY)
 {
-    //------ 必要リソースを取得 ------
     auto renderer   = GetOwner()->GetApp()->GetRenderer();
-    mShader         = renderer->GetShader("WeatherOverlay");  // 雨/霧/雪 用シェーダ
-    mVertexArray    = renderer->GetFullScreenQuad();          // フルスクリーン四角形
-    mScreenWidth    = renderer->GetScreenWidth();
-    mScreenHeight   = renderer->GetScreenHeight();
+    mShader         = renderer->GetShader("WeatherOverlay");
+    mVertexArray    = renderer->GetFullScreenQuad();
+    //mScreenWidth    = renderer->GetScreenWidth();
+    //mScreenHeight   = renderer->GetScreenHeight();
 }
 
+#include <iostream>
 void WeatherOverlayComponent::Draw()
 {
     if (!mShader || !mVertexArray) return;
 
-    //======================================================================
-    // フルスクリーンオーバーレイ描画のための典型的な OpenGL 設定
-    // ・深度テスト無効（画面全体に描く）
-    // ・深度書き込み無効
-    // ・アルファブレンド有効（霧や雨粒を透明合成する）
-    //======================================================================
+    Renderer* renderer = GetOwner()->GetApp()->GetRenderer();
+    PhysWorld* phys    = GetOwner()->GetApp()->GetPhysWorld();
+    
+    // 最新のスクリーンサイズを取得
+    float screenW = renderer->GetScreenWidth();
+    float screenH = renderer->GetScreenHeight();
+
+    //==========================
+    // 1. レンズフレア可視判定
+    //==========================
+    Vector3 camPos      = renderer->GetCameraPosition();
+    Vector3 sunWorldPos = camPos - mSunDir * 200.0f;
+
+    ScreenProjectResult sc = renderer->WorldToScreen(sunWorldPos);
+
+    float  flareIntensity = 0.0f;
+    Vector2 sunUv(0.0f, 0.0f);
+
+    if (sc.visible)
+    {
+        sunUv.x = sc.screen.x / screenW;
+        sunUv.y = 1.0f - sc.screen.y / screenH;
+
+        Vector3 dirToCamera = Vector3::Normalize(camPos - sunWorldPos);
+        Vector3 rayOrigin   = sunWorldPos + dirToCamera * 5.0f; // Rayの開始位置調整
+        RaycastHit hit;
+
+        bool hitSomething = phys->Raycast(
+            rayOrigin,
+            dirToCamera,
+            500.0f - 5.0f,
+            C_WALL | C_GROUND | C_ENEMY,
+            hit
+        );
+
+        if (!hitSomething)
+        {
+            flareIntensity = 1.0f;
+            std::cout << "Visible" << std::endl;
+        }
+        else
+            std::cout << "not Visible" << std::endl;
+
+    }
+
+
+    //==========================
+    // 2. フルスクリーン描画設定
+    //==========================
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    //------ シェーダー有効化 ------
+    // ★ フレアがあるときだけ加算合成、それ以外は通常のアルファブレンド
+    if (flareIntensity > 0.0f)
+    {
+        glBlendFunc(GL_ONE, GL_ONE);  // 加算合成
+    }
+    else
+    {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // 通常
+    }
+
+    //==========================
+    // 3. シェーダ設定
+    //==========================
     mShader->SetActive();
 
-    //------ 天候の強さ（WeatherManager から設定される値） ------
-    mShader->SetFloatUniform("uTime",        SDL_GetTicks() / 1000.0f);
-    mShader->SetFloatUniform("uRainAmount",  mRainAmount);   // 雨（0〜1）
-    mShader->SetFloatUniform("uFogAmount",   mFogAmount);    // 霧（0〜1）
-    mShader->SetFloatUniform("uSnowAmount",  mSnowAmount);   // 雪（0〜1）
+    mShader->SetFloatUniform("uTime", SDL_GetTicks() / 1000.0f);
+    mShader->SetFloatUniform("uRainAmount", mRainAmount);
+    mShader->SetFloatUniform("uFogAmount",  mFogAmount);
+    mShader->SetFloatUniform("uSnowAmount", mSnowAmount);
 
-    //------ 画面解像度（スクリーンスペースエフェクト用） ------
     mShader->SetVector2Uniform("uResolution",
-                               Vector2(mScreenWidth, mScreenHeight));
+                               Vector2(screenW, screenH));
 
-    //------ フルスクリーン四角形を描画 ------
+    // フレア関連
+    mShader->SetFloatUniform("uFlareIntensity", flareIntensity);
+    mShader->SetVector2Uniform("uSunPos", sunUv);
+    mShader->SetVectorUniform("uFlareColor",
+                               Vector3(1.0f, 0.9f, 0.7f));
+
+    //==========================
+    // 4. フルスクリーン Quad 描画
+    //==========================
     mVertexArray->SetActive();
     glDrawElements(GL_TRIANGLES,
                    mVertexArray->GetNumIndices(),
                    GL_UNSIGNED_INT,
                    nullptr);
 
-    //------ OpenGL ステート復帰 ------
+    //==========================
+    // 5. 後処理
+    //==========================
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);

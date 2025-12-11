@@ -26,6 +26,19 @@ enum class VisualLayer
 };
 
 //-------------------------------------------------------------
+// ScreenProjectResult
+// ・画面内にプロジェクションされているか
+// ・WorldToScreen() で使われる
+//-------------------------------------------------------------
+struct ScreenProjectResult
+{
+    bool    visible;   // 画面内にプロジェクションされているか
+    Vector2 screen;    // スクリーン座標（0〜width / 0〜height）
+    float   depth;     // 深度（0〜1）: 0=near,1=far
+};
+
+
+//-------------------------------------------------------------
 // UI スケール情報
 // ・物理解像度 / 論理解像度 / スケール係数をまとめて保持
 //-------------------------------------------------------------
@@ -99,6 +112,7 @@ public:
     float GetPerspectiveFov() const { return mPerspectiveFOV; }
     void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
     
+    Vector3 GetCameraPosition() const { return mInvView.GetTranslation(); }
     
     //---------------------------------------------------------
     // スクリーン情報
@@ -190,6 +204,12 @@ public:
         const Vector3& color,
         std::shared_ptr<class TextFont> font
     );
+    
+    //---------------------------------------------------------
+    // 2Dエフェクト補助
+    //---------------------------------------------------------
+    // 2Dカメラの視界に入っているか
+    ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
     
 private:
     //---------------------------------------------------------

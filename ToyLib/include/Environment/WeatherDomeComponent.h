@@ -1,6 +1,7 @@
 #pragma once
 #include "Environment/SkyDomeComponent.h"
 #include "Environment/WeatherType.h"
+#include "Utils/MathUtil.h"
 
 namespace toy {
 
@@ -29,6 +30,9 @@ public:
     WeatherType GetWeatherType() const { return mWeatherType; }
     void SetWeatherType(WeatherType weather) { mWeatherType = weather; }
     
+    // 太陽/月の向き
+    const Vector3& GetSunDir() const { return mSunDir; }
+    const Vector3& GetMoonDir() const { return mMoonDir; }
 private:
     //==============================================
     // 基本状態

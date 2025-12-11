@@ -9,9 +9,9 @@ namespace toy {
 
 //------------------------------------------------------------------------------
 // MTV（最小移動ベクトル）結果
-// ・衝突面の法線(axis)
-// ・めり込み量(depth)
-// ・valid = true のとき有効
+//  - axis : 押し戻し方向（衝突面の法線方向）
+//  - depth: めり込み量
+//  - valid: true のとき有効
 //------------------------------------------------------------------------------
 struct MTVResult
 {
@@ -20,11 +20,12 @@ struct MTVResult
     bool    valid = false;
 };
 
+
 //------------------------------------------------------------------------------
 // PhysWorld
 //------------------------------------------------------------------------------
-// ・ColliderComponent を集約し、衝突判定/押し戻し/地面判定を行う。
-// ・AABB/OBB/BoundingSphere、Polygon（地形メッシュ）を扱う。
+// ・ColliderComponent を集約し、衝突判定／押し戻し／地面判定を行う。
+// ・AABB / OBB / BoundingSphere、Polygon（地形メッシュ）を扱う。
 // ・Ray vs OBB / Ray vs Polygon もサポート。
 // ・GetNearestGroundY() は Collider（C_GROUND）と TerrainPolygon の両方を使う
 //   “ハイブリッド地面判定”。
@@ -38,8 +39,8 @@ public:
     //--------------------------------------------------------------------------
     // デバッグ / 全体テスト
     //--------------------------------------------------------------------------
-    void ComputeGroundHeight();   // 未使用だが地形プリ計算用
-    void Test();                  // 毎フレームの衝突ペアチェック
+    void ComputeGroundHeight();   // 未使用だが、地形高さのプリ計算などに利用予定
+    void Test();                  // 毎フレームの衝突ペアチェック（メイン処理）
     
     //--------------------------------------------------------------------------
     // コライダー管理
@@ -49,36 +50,36 @@ public:
     
     //--------------------------------------------------------------------------
     // 地面情報インターフェイス
-    // ・単純な高さ返却（TerrainPolygon のみ）
-    // ・GetNearestGroundY は Terrain と C_GROUND 両方を探索する
+    //  - GetGroundHeightAt : TerrainPolygon のみを対象に高さを返す
+    //  - GetNearestGroundY : Terrain と C_GROUND の両方から最も近い地面を探索
     //--------------------------------------------------------------------------
     float GetGroundHeightAt(const Vector3& pos) const;
     
-    // Actor の足元の最も近い地面Yを取得する（C_GROUND & Terrain 両対応）
+    // Actor の足元から見て最も近い地面の Y を取得する（C_GROUND & Terrain 両対応）
     bool GetNearestGroundY(const class Actor* a, float& outY) const;
     
-    // 地形ポリゴンをセット（外部メッシュから読み込む）
+    // 地形ポリゴンをセット（外部メッシュから読み込む三角形配列）
     void SetGroundPolygons(const std::vector<struct Polygon>& polys);
     
     //--------------------------------------------------------------------------
     // RayCCD / RayCast 系
     //--------------------------------------------------------------------------
-    // 移動ライン（start→end）が壁に当たる場合、そこで止まる
+    // 移動ライン（start→end）が壁に当たる場合、そこで止まる位置を計算
     bool RayHitWall(const Vector3& start,
                     const Vector3& end,
                     Vector3& hitPos) const;
     
-    // Ray と OBB の交差（t値を返す）
+    // Ray と OBB の交差（t 値を返す）
     bool IntersectRayOBB(const Ray& ray,
                          const struct OBB* obb,
                          float& outT) const;
     
     //--------------------------------------------------------------------------
     // 衝突判定コールバック
-    // ・flagA & flagB の組み合わせで衝突ペアを探索
-    // ・doPushBack: 押し戻し（MTV）による位置補正
-    // ・allowY: Y方向にも押し戻す（通常はfalse）
-    // ・stopVerticalSpeed: 垂直速度を止める（床に着地した瞬間など）
+    //  - flagA & flagB の組み合わせで衝突ペアを探索
+    //  - doPushBack        : 押し戻し（MTV）による位置補正を行うか
+    //  - allowY            : Y 方向にも押し戻す（通常は false で壁ずりしやすく）
+    //  - stopVerticalSpeed : 垂直速度を止める（床に着地した瞬間など）
     //--------------------------------------------------------------------------
     void CollideAndCallback(uint32_t flagA,
                             uint32_t flagB,
@@ -86,9 +87,20 @@ public:
                             bool allowY = false,
                             bool stopVerticalSpeed = false);
     
+    //--------------------------------------------------------------------------
+    // 汎用レイキャスト
+    //  - origin + dir から maxDist までレイを飛ばす（dir は正規化前でも可）
+    //  - flagMask と & が立つ Collider の OBB を対象に、最も近いヒットを outHit に返す。
+    //--------------------------------------------------------------------------
+    bool Raycast(const Vector3& origin,
+                 const Vector3& dir,
+                 float maxDist,
+                 uint32_t flagMask,
+                 RaycastHit& outHit) const;
+
 private:
     //--------------------------------------------------------------------------
-    // 基本衝突判定
+    // 基本衝突判定（OBB / Sphere）
     //--------------------------------------------------------------------------
     bool CompareLengthOBB(const struct OBB* cA,
                           const struct OBB* cB,
@@ -139,7 +151,16 @@ private:
     // 保持データ
     //--------------------------------------------------------------------------
     std::vector<class ColliderComponent*> mColliders; // すべてのコライダー
-    std::vector<struct Polygon> mTerrainPolygons;     // 静的地形メッシュ
+    std::vector<struct Polygon> mTerrainPolygons;     // 静的地形メッシュ（三角形配列）
 };
 
 } // namespace toy
+
+
+///// memo
+// toy::physmathなどのユーティリティ化候補
+//    IntersectRayOBB
+//    IntersectRayTriangle
+//    IsInPolygon
+//    PolygonHeight
+//    など
