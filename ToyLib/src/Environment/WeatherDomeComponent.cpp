@@ -111,6 +111,7 @@ void WeatherDomeComponent::Draw()
     glDepthMask(GL_FALSE); // 背景なので Z 書き込み不要
     mSkyVAO->SetActive();
     glDrawElements(GL_TRIANGLES, mSkyVAO->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+    GetOwner()->GetApp()->GetRenderer()->AddDrawCall();
     glDepthMask(GL_TRUE);
     glEnable(GL_CULL_FACE);
 }

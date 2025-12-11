@@ -6,11 +6,15 @@
 #include "Asset/AssetManager.h"
 #include "Audio/SoundMixer.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
+#include "Engine/Debug/DebugOverlayActor.h"
 
-#include <algorithm>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <iostream>
+#include <algorithm>
+#include <string>
+
+const std::string SYSTEM_ASSET_PATH = "ToyLib/Assets/";
 
 namespace toy {
 
@@ -39,6 +43,9 @@ Application::Application()
     mAssetManager  = std::make_unique<AssetManager>();
     mSoundMixer    = std::make_unique<SoundMixer>(mAssetManager.get());
     mTimeOfDaySys  = std::make_unique<TimeOfDaySystem>();
+    
+    mSystemAssetManager = std::make_unique<AssetManager>();
+    mSystemAssetManager->SetAssetsPath(SYSTEM_ASSET_PATH);
 }
 
 Application::~Application()
@@ -142,6 +149,9 @@ bool Application::Initialize()
     mIsActive   = true;
     mIsPause    = false;
     mTicksCount = SDL_GetTicksNS(); // ★ NS で統一
+    
+    
+    CreateActor<toy::DebugOverlayActor>();
 
     return true;
 }
@@ -347,6 +357,10 @@ void Application::UnloadData()
     {
         mAssetManager->UnloadData();
     }
+    if (mSystemAssetManager)
+    {
+        mSystemAssetManager->UnloadData();
+    }
 }
 
 void Application::LoadData()
@@ -423,9 +437,10 @@ void Application::UpdateFrame()
     stats.FrameTimeMs = deltaTime * 1000.0f;
     stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 
-    stats.ActorCount    = static_cast<int>(mActors.size());
-    //stats.ColliderCount = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
-    //stats.DrawCallCount = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
+    stats.ActorCount      = static_cast<int>(mActors.size());
+    stats.ColliderCount   = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
+    stats.DrawCallCount   = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
+    stats.DrawObjectCount = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
     
 }
 

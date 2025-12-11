@@ -115,6 +115,7 @@ void ShadowSpriteComponent::Draw()
     // フルスクリーンクアッド or 汎用スプライト用の VAO を使用
     mVertexArray->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    renderer->AddDrawCall();
 }
 
 } // namespace toy

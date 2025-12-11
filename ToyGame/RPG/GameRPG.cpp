@@ -5,7 +5,6 @@
 #include "Actors/WolfActor.h"
 
 #include "Actors/MinionActor.h"
-#include "Engine/Debug/DebugOverlayActor.h"
 #include "ToyLib.h"
 
 // ToyLibの起動Applicationとして登録
@@ -41,7 +40,7 @@ void GameRPG::InitGame()
     spSprite->SetTexture(GetAssetManager()->GetTexture("HealthBar.png"));
     spSprite->SetVisible(true);
 
-    CreateActor<toy::DebugOverlayActor>();
+
 
 }
 

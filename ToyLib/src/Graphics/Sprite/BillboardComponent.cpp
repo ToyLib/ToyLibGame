@@ -115,6 +115,7 @@ void BillboardComponent::Draw()
     {
         mVertexArray->SetActive();
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        renderer->AddDrawCall();
     }
 
     // 加算ブレンドを使った場合は元に戻しておく

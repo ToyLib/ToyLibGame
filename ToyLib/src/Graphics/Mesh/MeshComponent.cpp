@@ -106,6 +106,7 @@ void MeshComponent::Draw()
 
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+        renderer->AddDrawCall();
     }
 
     //--------------------------------------------------------
@@ -134,6 +135,7 @@ void MeshComponent::Draw()
 
             v->SetActive();
             glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+            renderer->AddDrawCall();
 
             // 上書きカラーを元に戻す
             if (mat)
@@ -188,6 +190,7 @@ void MeshComponent::DrawShadow()
     {
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+        renderer->AddDrawCall();
     }
 }
 

@@ -153,6 +153,11 @@ public:
     bool GetDebugMode() const { return mIsDebugMode; }
     bool IsDebugMode() const { return mIsDebugMode; }
     
+    void AddDrawCall() { mDrawCallCount++; }
+    int GetDrawCallCount() const { return mDrawCallCount; }
+    void AddDrawObject() { mDrawObjectCount++; }
+    int GetDrawObjectCount() const { return mDrawObjectCount; }
+
     
     //---------------------------------------------------------
     // リソース管理／補助
@@ -238,6 +243,7 @@ private:
     // デバッグ描画 ON/OFF
     bool mIsDebugMode;
     
+   
     // クリアカラー
     Vector3 mClearColor;
     
@@ -325,7 +331,9 @@ private:
     //---------------------------------------------------------
     
     // 1フレーム内で描画したオブジェクト数（Debug/Test用）
-    unsigned int mCntDrawObject;
+    unsigned int mDrawObjectCount;
+    // 描画カウント
+    unsigned int mDrawCallCount;
     
     
     //---------------------------------------------------------

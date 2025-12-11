@@ -204,6 +204,7 @@ void ParticleComponent::Draw()
             // 位置だけ更新して 6 ポリゴン描画
             mShader->SetVectorUniform("uPosition", mParts[i].pos);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+            renderer->AddDrawCall();
         }
     }
 

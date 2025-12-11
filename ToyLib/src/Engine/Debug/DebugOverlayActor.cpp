@@ -23,8 +23,7 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
                                                      VisualLayer::UI);
 
     // 好きなデバッグ用フォントを取得
-    auto* assets = app->GetAssetManager();
-    auto debugFont = assets->GetFont("rounded-mplus-1c-bold.ttf", 20);
+    auto debugFont = app->mSystemAssetManager->GetFont("Hermit-Bold.otf", 20);
     mTextComp->SetFont(debugFont);
 
     // 色（薄い緑とか）
@@ -70,13 +69,14 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     // 表示文字列を組み立て（\n で改行）
     std::string text;
     text += "=== Debug ===\n";
-    text += StringUtil::Format("FPS        : <<\n",  mSmoothedFPS);
-    text += StringUtil::Format("FrameTime  : << ms\n", stats.FrameTimeMs);
-    text += StringUtil::Format("Actors     : <<\n",       stats.ActorCount);
-    text += StringUtil::Format("Colliders  : <<\n",       stats.ColliderCount);
-    text += StringUtil::Format("DrawCalls  : <<\n",       stats.DrawCallCount);
-    text += StringUtil::Format("PhysTime   : << ms\n", stats.PhysicsTimeMs);
-    text += StringUtil::Format("RenderTime : << ms\n", stats.RenderTimeMs);
+    text += StringUtil::Format("FPS        : <<\n",     mSmoothedFPS);
+    text += StringUtil::Format("FrameTime  : << ms\n",  stats.FrameTimeMs);
+    text += StringUtil::Format("Actors     : <<\n",     stats.ActorCount);
+    text += StringUtil::Format("Colliders  : <<\n",     stats.ColliderCount);
+    text += StringUtil::Format("DrawObjects: <<\n",     stats.DrawObjectCount);
+    text += StringUtil::Format("DrawCalls  : <<\n",     stats.DrawCallCount);
+    text += StringUtil::Format("PhysTime   : << ms\n",  stats.PhysicsTimeMs);
+    text += StringUtil::Format("RenderTime : << ms\n",  stats.RenderTimeMs);
 
     mTextComp->SetText(text);
 }

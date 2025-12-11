@@ -46,7 +46,8 @@ Renderer::Renderer()
 , mWindow(nullptr)
 , mGLContext(nullptr)
 , mShaderPath("ToyLib/Shaders/")
-, mCntDrawObject(0)
+, mDrawObjectCount(0)
+, mDrawCallCount(0)
 , mSkyDomeComp(nullptr)
 , mLightSpaceMatrix(Matrix4::Identity)
 , mWindowDisplayScale(1.0f)
@@ -161,10 +162,8 @@ bool Renderer::Initialize(SDL_Window* window)
     // クリアカラーの初期設定
     //---------------------------------------------------------
     SetClearColor(mClearColor);
-
     mSkyDomeComp   = nullptr;
-    mCntDrawObject = 0;
-
+    
     //---------------------------------------------------------
     // ビューポート＆射影行列など、サイズ依存の状態をまとめて更新
     //---------------------------------------------------------
@@ -199,6 +198,10 @@ void Renderer::Shutdown()
 
 void Renderer::Draw()
 {
+    // Debug 用カウンタリセット
+    mDrawCallCount = 0;
+    mDrawObjectCount = 0;
+    
     // カラーバッファ／デプスバッファ初期化
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -221,10 +224,7 @@ void Renderer::Draw()
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
     DrawVisualLayer(VisualLayer::UI);
-    
-    // Debug 用カウンタリセット
-    // std::cout << "Render 3D Objects Count = " << mCntDrawObject << std::endl;
-    mCntDrawObject = 0;
+
     
     // バッファ入れ替え
     SDL_GL_SwapWindow(mWindow);
@@ -334,7 +334,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer)
         }
         
         comp->Draw();
-        mCntDrawObject++;
+        AddDrawObject();
     }
     
     // 状態戻し（保険）

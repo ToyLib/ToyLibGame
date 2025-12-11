@@ -121,6 +121,9 @@ private:
     std::unique_ptr<class AssetManager>    mAssetManager;
     std::unique_ptr<class SoundMixer>      mSoundMixer;
     std::unique_ptr<class TimeOfDaySystem> mTimeOfDaySys;
+
+    std::unique_ptr<class AssetManager>    mSystemAssetManager; // システム用:非公開
+    friend class DebugOverlayActor;
     
     //-----------------------------------------
     // Actor 管理

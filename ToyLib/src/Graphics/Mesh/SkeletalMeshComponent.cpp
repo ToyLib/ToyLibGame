@@ -91,6 +91,7 @@ void SkeletalMeshComponent::Draw()
         }
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+        renderer->AddDrawCall();
     }
     
     // トゥーン輪郭描画（アウトライン用にスケール拡大＋表裏反転）
@@ -110,6 +111,7 @@ void SkeletalMeshComponent::Draw()
             }
             v->SetActive();
             glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+            renderer->AddDrawCall();
             mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
         }
         glFrontFace(GL_CCW);
@@ -152,6 +154,7 @@ void SkeletalMeshComponent::DrawShadow()
     {
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
+        renderer->AddDrawCall();
     }
 }
 

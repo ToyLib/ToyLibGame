@@ -121,6 +121,7 @@ void WeatherOverlayComponent::Draw()
                    mVertexArray->GetNumIndices(),
                    GL_UNSIGNED_INT,
                    nullptr);
+    renderer->AddDrawCall();
 
     //==========================
     // 5. 後処理

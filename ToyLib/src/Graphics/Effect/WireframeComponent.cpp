@@ -63,6 +63,7 @@ void WireframeComponent::Draw()
                        mVertexArray->GetNumVerts() * 3,
                        GL_UNSIGNED_INT,
                        nullptr);
+        renderer->AddDrawCall();
     }
 }
 
