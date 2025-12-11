@@ -332,7 +332,7 @@ void main()
         float hour = uTimeOfDay * 24.0;
 
         // 日の出・日の入りの時刻とフェード幅
-        const float sunriseHour  = 5.0;
+        const float sunriseHour  = 6.0;
         const float sunsetHour   = 18.5;
         const float dawnSpanHour = 1.0;
         const float duskSpanHour = 1.5;

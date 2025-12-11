@@ -20,11 +20,8 @@ WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, Visual
     auto renderer   = GetOwner()->GetApp()->GetRenderer();
     mShader         = renderer->GetShader("WeatherOverlay");
     mVertexArray    = renderer->GetFullScreenQuad();
-    //mScreenWidth    = renderer->GetScreenWidth();
-    //mScreenHeight   = renderer->GetScreenHeight();
 }
 
-#include <iostream>
 void WeatherOverlayComponent::Draw()
 {
     if (!mShader || !mVertexArray) return;
@@ -52,14 +49,21 @@ void WeatherOverlayComponent::Draw()
         sunUv.x = sc.screen.x / screenW;
         sunUv.y = 1.0f - sc.screen.y / screenH;
 
-        Vector3 dirToCamera = Vector3::Normalize(camPos - sunWorldPos);
-        Vector3 rayOrigin   = sunWorldPos + dirToCamera * 5.0f; // Rayの開始位置調整
-        RaycastHit hit;
+        // カメラ → 太陽 方向
+        Vector3 dirCamToSun = Vector3::Normalize(sunWorldPos - camPos);
 
+        // カメラの少し前から撃つ（めり込み回避用オフセット）
+        const float startOffset = 20.0f; // 調整用（5〜50くらいで好みを探る）
+        Vector3 rayOrigin = camPos + dirCamToSun * startOffset;
+
+        // 太陽までの距離分だけ飛ばせば十分
+        float maxDist = (sunWorldPos - rayOrigin).Length();
+
+        RaycastHit hit;
         bool hitSomething = phys->Raycast(
             rayOrigin,
-            dirToCamera,
-            500.0f - 5.0f,
+            dirCamToSun,
+            maxDist,
             C_WALL | C_GROUND | C_ENEMY,
             hit
         );
@@ -67,11 +71,7 @@ void WeatherOverlayComponent::Draw()
         if (!hitSomething)
         {
             flareIntensity = 1.0f;
-            std::cout << "Visible" << std::endl;
         }
-        else
-            std::cout << "not Visible" << std::endl;
-
     }
 
 

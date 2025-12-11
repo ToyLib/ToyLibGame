@@ -161,7 +161,7 @@ Vector3 WeatherDomeComponent::GetSkyColor(float time)
     if (time < 0.0f) time += 1.0f;
     
     // 日の出/日の入り（時間単位）
-    const float sunriseHour  = 5.0f;   // 5:00
+    const float sunriseHour  = 6.0f;   // 5:00
     const float sunsetHour   = 18.0f;  // 18:00
     const float dawnSpanHour = 1.0f;   // 日の出前後1時間をグラデーション
     const float duskSpanHour = 1.0f;   // 日の入り前後1時間をグラデーション
