@@ -179,5 +179,5 @@ void OutdoorStage::DeploySky()
     mWeather = std::make_unique<toy::kit::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLOUDY);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }
