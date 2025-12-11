@@ -168,7 +168,18 @@ void Application::RunLoop()
 
 void Application::Draw()
 {
+    // 描画時間の計測開始
+    Uint64 renderBegin = SDL_GetPerformanceCounter();
+
     mRenderer->Draw();
+    
+    // 計測終了
+    Uint64 renderEnd = SDL_GetPerformanceCounter();
+    // ns →msに変換（double→float）
+    double renderMs = (renderEnd - renderBegin) * 1000.0
+                    / static_cast<double>(SDL_GetPerformanceFrequency());
+
+    mDebugStats.RenderTimeMs = static_cast<float>(renderMs);
 }
 
 void Application::Shutdown()
@@ -397,7 +408,21 @@ void Application::UpdateFrame()
     
     mTimeOfDaySys->Update(deltaTime);
     UpdateGame(deltaTime);
+    
+    //===========================
+    // 物理処理の計測
+    //===========================
+    Uint64 physBegin = SDL_GetPerformanceCounter();
+
     mPhysWorld->Test();
+
+    Uint64 physEnd = SDL_GetPerformanceCounter();
+    double physMs = (physEnd - physBegin) * 1000.0
+                  / static_cast<double>(SDL_GetPerformanceFrequency());
+
+    mDebugStats.PhysicsTimeMs = static_cast<float>(physMs);
+
+
     
     mIsUpdatingActors = true;
     for (auto& a : mActors)

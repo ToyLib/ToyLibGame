@@ -5,13 +5,18 @@
 #include "Engine/Debug/DebugStats.h"
 #include "Asset/Font/TextFont.h"
 #include "Asset/AssetManager.h"
+#include "Graphics/Sprite/TextSpriteComponent.h"
 
 #include <SDL3/SDL_scancode.h> // SDL2 なら <SDL2/SDL_scancode.h>
 
 namespace toy {
 
 DebugOverlayActor::DebugOverlayActor(Application* app)
-    : Actor(app)
+: Actor(app)
+, mEnabled(false)
+, mTextComp(nullptr)
+, mSmoothedFPS(0.0f)
+, mTextColor(Vector3(0.3f, 1.0f, 0.3f))
 {
     SetActorID("DebugOverlay");
 
@@ -26,8 +31,8 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
     auto debugFont = app->mSystemAssetManager->GetFont("Hermit-Bold.otf", 20);
     mTextComp->SetFont(debugFont);
 
-    // 色（薄い緑とか）
-    mTextComp->SetColor(Vector3(0.3f, 1.0f, 0.3f));
+    // 色
+    mTextComp->SetColor(mTextColor);
 }
 
 void DebugOverlayActor::SetEnabled(bool enabled)

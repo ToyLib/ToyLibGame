@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Engine/Core/Actor.h"
-#include "Graphics/Sprite/TextSpriteComponent.h"
+#include "Utils/MathUtil.h"
 
 namespace toy {
 
@@ -17,13 +17,17 @@ public:
     // F3 などで ON/OFF 切り替えしたいとき用
     void SetEnabled(bool enabled);
     bool IsEnabled() const { return mEnabled; }
+    
+    void SetTextColor(const Vector3& color) { mTextColor = color; }
 
 private:
-    TextSpriteComponent* mTextComp = nullptr;
-    bool mEnabled = true;
+    class TextSpriteComponent* mTextComp;
+    bool mEnabled;
 
     // FPS を少し滑らかにしたいとき用
-    float mSmoothedFPS = 0.0f;
+    float mSmoothedFPS;
+    
+    Vector3 mTextColor;
 };
 
 } // namespace toy
