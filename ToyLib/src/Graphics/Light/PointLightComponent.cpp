@@ -1,4 +1,3 @@
-// Graphics/Light/PointLightComponent.cpp
 #include "Graphics/Light/PointLightComponent.h"
 
 #include "Engine/Core/Actor.h"

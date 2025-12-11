@@ -2,6 +2,8 @@
 #include "Engine/Render/Shader.h"
 #include "Graphics/Light/PointLightComponent.h"
 
+#include <algorithm>
+
 namespace toy {
 
 //-------------------------------------------------------------
