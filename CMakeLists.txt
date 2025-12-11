@@ -274,6 +274,7 @@ endif()
 #========================
 
 set(SOURCE_SHADER_DIR       "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders")
+set(SOURCE_SYSASSET_DIR     "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Assets")
 set(SOURCE_ASSET_DIR        "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets")
 set(SOURCE_SETTINGS_DIR     "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings")
 set(SOURCE_SYSSETTINGS_DIR  "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings")
@@ -284,6 +285,13 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${SOURCE_SHADER_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
     COMMENT "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${SOURCE_SYSASSET_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+    COMMENT "Copying System Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
