@@ -74,6 +74,10 @@ void OutdoorStage::InitStage()
     fireSound->SetUseDistanceAttenuation(true);
     fireSound->Play();
     
+    // ライト
+    auto fireLight = fireActor->CreateComponent<toy::PointLightComponent>();
+    fireLight->SetColor(Vector3(1.0f, 0.5f, 0.0f));
+
     
     // 炎
     auto particleActor = mApp->CreateActor<toy::Actor>();
@@ -92,8 +96,8 @@ void OutdoorStage::InitStage()
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(6.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(12.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)

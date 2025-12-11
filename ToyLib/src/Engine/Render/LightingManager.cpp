@@ -1,5 +1,6 @@
 #include "Engine/Render/LightingManager.h"
 #include "Engine/Render/Shader.h"
+#include "Graphics/Light/PointLightComponent.h"
 
 namespace toy {
 
@@ -41,7 +42,7 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     //---------------------------------------------------------
     // 太陽光の強さ（スカイドーム・シーン全体の明るさ調整）
     //---------------------------------------------------------
-    //shader->SetFloatUniform("uSunIntensity", mSunIntensity);
+    shader->SetFloatUniform("uSunIntensity", mSunIntensity);
     
     //---------------------------------------------------------
     // ディレクショナルライト
@@ -51,6 +52,42 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     shader->SetVectorUniform("uDirLight.mDiffuseColor",  mDirLight.DiffuseColor);
     shader->SetVectorUniform("uDirLight.mSpecColor",     mDirLight.SpecColor);
     
+    // --- Point Light 適用 ---
+    const int maxPointLights = 8;
+    int numAll = static_cast<int>(mPointLights.size());
+    if (numAll > maxPointLights) numAll = maxPointLights;
+
+    int num = 0;
+    for (int i = 0; i < numAll; ++i)
+    {
+        auto* comp = mPointLights[i];
+        if (!comp || !comp->IsEnabled())
+            continue;
+
+        // 有効なライトだけを詰めていく
+        int idx = num++;
+        std::string base = "uPointLights[" + std::to_string(idx) + "].";
+        
+        std::string name;
+        name = base + "position";
+        shader->SetVectorUniform(name.c_str(), comp->GetPosition());
+        name = base + "color";
+        shader->SetVectorUniform(name.c_str(), comp->GetColor());
+        name = base + "intensity";
+        shader->SetFloatUniform(name.c_str(), comp->GetIntensity());
+        name = base + "constant";
+        shader->SetFloatUniform(name.c_str(), comp->GetConstant());
+        name = base + "linear";
+        shader->SetFloatUniform(name.c_str(), comp->GetLinear());
+        name = base + "quadratic";
+        shader->SetFloatUniform(name.c_str(), comp->GetQuadratic());
+        name = base + "radius";
+        shader->SetFloatUniform(name.c_str(), comp->GetRadius());
+    }
+    shader->SetIntUniform("uNumPointLights", num);
+    // ここでログ
+    std::cout << "[Lighting] PointLights = " << num << std::endl;
+    
     //---------------------------------------------------------
     // フォグ設定
     // ・フォグ距離（min/max）と色
@@ -58,6 +95,27 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     shader->SetFloatUniform ("uFoginfo.maxDist", mFog.MaxDist);
     shader->SetFloatUniform ("uFoginfo.minDist", mFog.MinDist);
     shader->SetVectorUniform("uFoginfo.color",   mFog.Color);
+}
+
+
+void LightingManager::RegisterPointLight(PointLightComponent* light)
+{
+    if (!light) return;
+    auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
+    if (it == mPointLights.end())
+    {
+        mPointLights.emplace_back(light);
+    }
+}
+
+void LightingManager::UnregisterPointLight(PointLightComponent* light)
+{
+    if (!light) return;
+    auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
+    if (it != mPointLights.end())
+    {
+        mPointLights.erase(it);
+    }
 }
 
 } // namespace toy

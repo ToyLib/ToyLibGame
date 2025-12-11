@@ -1,6 +1,7 @@
 #pragma once
 #include "Utils/MathUtil.h"
 #include <memory>
+#include <vector>
 
 namespace toy {
 
@@ -128,6 +129,16 @@ public:
                        const Matrix4& viewMatrix);
     
     
+    //---------------------------------------------------------
+    // Point Light 管理
+    //---------------------------------------------------------
+    void RegisterPointLight(class PointLightComponent* light);
+    void UnregisterPointLight(class PointLightComponent* light);
+    const std::vector<class PointLightComponent*>& GetPointLights() const
+    {
+        return mPointLights;
+    }
+    
 private:
     //---------------------------------------------------------
     // ライト / フォグ / アンビエント
@@ -138,6 +149,9 @@ private:
     Vector3          mAmbientColor = Vector3(0.5f, 0.5f, 0.5f);
     
     float mSunIntensity; // 太陽の強さ（時間帯／天候などで変化）
+    
+    // ポイントライト
+    std::vector<class PointLightComponent*> mPointLights;
 };
 
 } // namespace toy

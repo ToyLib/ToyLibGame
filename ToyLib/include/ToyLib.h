@@ -86,6 +86,9 @@
 #include "Graphics/Effect/ShadowSpriteComponent.h"
 #include "Graphics/Effect/WireframeComponent.h"
 
+// --- Light 系 --
+#include "Graphics/Light/PointLightComponent.h"
+
 //======================================
 // Environment (Sky, Weather)
 //======================================
