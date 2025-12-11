@@ -85,8 +85,6 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
         shader->SetFloatUniform(name.c_str(), comp->GetRadius());
     }
     shader->SetIntUniform("uNumPointLights", num);
-    // ここでログ
-    std::cout << "[Lighting] PointLights = " << num << std::endl;
     
     //---------------------------------------------------------
     // フォグ設定

@@ -38,6 +38,9 @@ WolfActor::WolfActor(toy::Application* a)
 
     textActor->SetParent(this);
     textActor->SetScale(0.03f);
+    
+    auto light = CreateComponent<toy::PointLightComponent>();
+    light->SetColor(Vector3(0.8, 0.8, 1.0f));
 }
 
 WolfActor::~WolfActor()

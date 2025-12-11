@@ -485,7 +485,7 @@ void WeatherDomeComponent::ApplyTime()
         
         // ライト色（太陽＋月）
         Vector3 sunColor  = Vector3(1.0f, 0.95f, 0.8f);
-        Vector3 moonColor = Vector3(0.3f, 0.4f, 0.6f);
+        Vector3 moonColor = Vector3(0.25f, 0.35f, 0.5f);
         Vector3 finalLightColor =
             (sunColor * dayStrength + moonColor * nightStrength) * weatherDim;
         mLightingManager->SetLightDiffuseColor(finalLightColor);
@@ -588,7 +588,7 @@ void WeatherDomeComponent::ComputeFogFromSky(float timeOfDay)
     // 地平線色と雲色の中間をフォグ色とする
     Vector3 fog = Vector3::Lerp(skyHorizon, cloudColor, cloudMix);
     
-    // 夜は少し暗めにする（元のロジックそのまま）
+    // 夜は少し暗めにする
     float nightFactor = 0.0f;
     if (timeOfDay < 0.25f)
     {
