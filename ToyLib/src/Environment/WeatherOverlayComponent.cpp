@@ -36,44 +36,46 @@ void WeatherOverlayComponent::Draw()
     //==========================
     // 1. レンズフレア可視判定
     //==========================
-    Vector3 camPos      = renderer->GetCameraPosition();
-    Vector3 sunWorldPos = camPos - mSunDir * 200.0f;
-
-    ScreenProjectResult sc = renderer->WorldToScreen(sunWorldPos);
-
     float  flareIntensity = 0.0f;
     Vector2 sunUv(0.0f, 0.0f);
-
-    if (sc.visible)
+    
+    if (mSunDir.y < 0.0f)
     {
-        sunUv.x = sc.screen.x / screenW;
-        sunUv.y = 1.0f - sc.screen.y / screenH;
-
-        // カメラ → 太陽 方向
-        Vector3 dirCamToSun = Vector3::Normalize(sunWorldPos - camPos);
-
-        // カメラの少し前から撃つ（めり込み回避用オフセット）
-        const float startOffset = 20.0f; // 調整用（5〜50くらいで好みを探る）
-        Vector3 rayOrigin = camPos + dirCamToSun * startOffset;
-
-        // 太陽までの距離分だけ飛ばせば十分
-        float maxDist = (sunWorldPos - rayOrigin).Length();
-
-        RaycastHit hit;
-        bool hitSomething = phys->Raycast(
-            rayOrigin,
-            dirCamToSun,
-            maxDist,
-            C_WALL | C_GROUND | C_ENEMY,
-            hit
-        );
-
-        if (!hitSomething)
+        Vector3 camPos      = renderer->GetCameraPosition();
+        Vector3 sunWorldPos = camPos - mSunDir * 200.0f;
+        
+        ScreenProjectResult sc = renderer->WorldToScreen(sunWorldPos);
+        
+        if (sc.visible)
         {
-            flareIntensity = 1.0f;
+            sunUv.x = sc.screen.x / screenW;
+            sunUv.y = 1.0f - sc.screen.y / screenH;
+            
+            // カメラ → 太陽 方向
+            Vector3 dirCamToSun = Vector3::Normalize(sunWorldPos - camPos);
+                
+            // カメラの少し前から撃つ（めり込み回避用オフセット）
+            const float startOffset = 20.0f; // 調整用（5〜50くらいで好みを探る）
+            Vector3 rayOrigin = camPos + dirCamToSun * startOffset;
+                
+            // 太陽までの距離分だけ飛ばせば十分
+            float maxDist = (sunWorldPos - rayOrigin).Length();
+            
+            RaycastHit hit;
+            bool hitSomething = phys->Raycast(
+                                            rayOrigin,
+                                            dirCamToSun,
+                                            maxDist,
+                                            C_WALL | C_GROUND | C_ENEMY,
+                                            hit
+                                            );
+                
+            if (!hitSomething)
+            {
+                flareIntensity = 1.0f;
+            }
         }
     }
-
 
     //==========================
     // 2. フルスクリーン描画設定
