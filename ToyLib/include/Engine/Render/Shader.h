@@ -31,6 +31,16 @@ public:
     //   fragName: フラグメントシェーダのファイル名
     bool Load(const std::string& vertName, const std::string& fragName);
     
+    // ★追加：Transform Feedback 用（fragなしも許可）
+    bool LoadWithTransformFeedback(
+        const std::string& vertName,
+        const std::string& fragName, // 空文字なら frag無し
+        const std::vector<const char*>& varyings,
+        GLenum bufferMode = GL_INTERLEAVED_ATTRIBS
+    );
+
+    GLuint GetProgramID() const { return mShaderProgramID; }
+    
     // シェーダプログラムと個別シェーダを破棄
     void Unload();
     

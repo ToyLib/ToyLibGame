@@ -54,6 +54,52 @@ bool Shader::Load(const std::string& vertName, const std::string& fragName)
     return true;
 }
 
+bool Shader::LoadWithTransformFeedback(
+    const std::string& vertName,
+    const std::string& fragName,
+    const std::vector<const char*>& varyings,
+    GLenum bufferMode)
+{
+    // vertex
+    if (!CompileShader(vertName, GL_VERTEX_SHADER, mVertexShaderID))
+        return false;
+
+    // fragment は optional（Update用はVSだけでOK）
+    bool hasFrag = !fragName.empty();
+    if (hasFrag)
+    {
+        if (!CompileShader(fragName, GL_FRAGMENT_SHADER, mFragShaderID))
+            return false;
+    }
+    else
+    {
+        mFragShaderID = 0;
+    }
+
+    mShaderProgramID = glCreateProgram();
+    glAttachShader(mShaderProgramID, mVertexShaderID);
+    if (hasFrag)
+        glAttachShader(mShaderProgramID, mFragShaderID);
+
+    // ★ここがTFの肝：link前に varyings 指定
+    if (!varyings.empty())
+    {
+        glTransformFeedbackVaryings(
+            mShaderProgramID,
+            (GLsizei)varyings.size(),
+            varyings.data(),
+            bufferMode
+        );
+    }
+
+    glLinkProgram(mShaderProgramID);
+
+    if (!IsValidProgram())
+        return false;
+
+    return true;
+}
+
 // GL リソース解放
 void Shader::Unload()
 {
@@ -84,7 +130,6 @@ void Shader::SetMatrixUniform(const char* name, const Matrix4& matrix)
 void Shader::SetMatrixUniforms(const char* name, Matrix4* matrices, unsigned count)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
-    if (loc == -1) std::cout << "[エラー] :" << name << std::endl;
     glUniformMatrix4fv(loc, count, GL_TRUE, matrices[0].GetAsFloatPtr());
 }
 

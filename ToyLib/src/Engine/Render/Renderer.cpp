@@ -700,6 +700,20 @@ bool Renderer::LoadShaders()
         return false;
     }
 
+    auto update = std::make_shared<Shader>();
+    update->LoadWithTransformFeedback(
+        "ToyLib/Shaders/ParticleUpdate.vert",
+        "", // fragなし
+        { "tfPos", "tfVel", "tfLife" },
+        GL_INTERLEAVED_ATTRIBS
+    );
+    mShaders["ParticleUpdate"] = update;
+
+    auto render = std::make_shared<Shader>();
+    render->Load("ToyLib/Shaders/ParticleGPU.vert", "ToyLib/Shaders/ParticleGPU.frag");
+    mShaders["ParticleGPU"] = render;
+    
+    
     //---------------------------------------------------------
     // ソリッドカラー（ワイヤーフレーム／デバッグ用など）
     //---------------------------------------------------------

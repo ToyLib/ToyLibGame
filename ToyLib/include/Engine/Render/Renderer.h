@@ -199,6 +199,8 @@ public:
     // フルスクリーン用ポリゴン（ポストプロセス等）
     std::shared_ptr<class VertexArray> GetFullScreenQuad() const { return mFullScreenQuad; }
     
+    std::shared_ptr<class VertexArray> GetParticleQuad() const { return mSpriteVerts; }
+    
     
     //---------------------------------------------------------
     // テキスト描画補助

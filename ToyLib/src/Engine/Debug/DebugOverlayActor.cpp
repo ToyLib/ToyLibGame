@@ -115,7 +115,7 @@ void DebugOverlayActor::ActorInput(const InputState &state)
     {
         SetEnabled(!mEnabled);
     }
-    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F2) == EPressed)
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F4) == EPressed)
     {
         SetWireVisible(!mWireVisible);
     }

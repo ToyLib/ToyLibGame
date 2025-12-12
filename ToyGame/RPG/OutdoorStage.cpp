@@ -80,23 +80,39 @@ void OutdoorStage::InitStage()
 
     
     // 炎
-    auto particleActor = mApp->CreateActor<toy::Actor>();
+/*    auto particleActor = mApp->CreateActor<toy::Actor>();
     particleActor->SetPosition(Vector3(0, 0, 0));
     auto particleComp = particleActor->CreateComponent<toy::ParticleComponent>();
     particleComp->SetTexture(mApp->GetAssetManager()->GetTexture("fire.png"));
     particleComp->CreateParticles(Vector3(0, 0, 0),
-                                  10,
+                                  100,
                                   1000,
-                                  0.3f,
+                                  0.6f,
                                   5.5,
                                   toy::ParticleComponent::P_SMOKE);
     particleComp->SetAddBlend(true);
     particleActor->SetParent(fireActor);
+ */
+    auto particleActorGPU = mApp->CreateActor<toy::Actor>();
+    particleActorGPU->SetPosition(Vector3(0, 0, 0));
+    auto particleCompGPU = particleActorGPU->CreateComponent<toy::GPUParticleComponent>();
+    particleCompGPU->SetTexture(mApp->GetAssetManager()->GetTexture("fire.png"));
+    particleCompGPU->CreateParticles(
+                                     Vector3(0, 0, 0),
+                                     10,
+                                     1000,
+                                     0.6f,
+                                     5.5,
+                                     toy::GPUParticleComponent::P_SMOKE);
+    particleCompGPU->SetAddBlend(true);
+    particleActorGPU->SetParent(fireActor);
+
+    
     
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(5000.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
     mApp->GetTimeOfDaySystem()->SetTime(3.0f);
 }
 
