@@ -17,6 +17,7 @@ MinionActor::MinionActor(toy::Application* a)
     auto light = CreateComponent<toy::PointLightComponent>();
     light->SetColor(Vector3(1.0f, 10.f, 0.0f));
     light->SetIntensity(0.1f);
+    light->SetEnabled(false);
     
 }
 
