@@ -1,38 +1,29 @@
+// shaders/ParticleGPU.frag
 #version 410 core
 
-//============================================================
-// ParticleGPU.frag
-//  - Render pass (instanced billboard quads)
-//  - life >= uLifeMax の粒子は一旦消す（discard）
-//============================================================
-
-// from vertex shader
-in vec2  vUV;
+in vec2 vUV;
+in float vAlpha;
 in float vLife;
 
-// output
-out vec4 outColor;
-
-// uniforms
 uniform sampler2D uTexture;
-uniform float     uLifeMax;
+
+out vec4 outColor;
 
 void main()
 {
-    // life が寿命に到達したら描画しない（＝一旦消える）
-    if (vLife >= uLifeMax)
+    // dead -> discard
+    if (vAlpha <= 0.0)
     {
         discard;
     }
 
     vec4 tex = texture(uTexture, vUV);
 
-    // 透明ピクセルは捨てる（オーバードロー軽減）
-    // ※必要なら閾値調整
+    // if texture alpha is 0, discard early
     if (tex.a <= 0.001)
     {
         discard;
     }
 
-    outColor = tex;
+    outColor = vec4(tex.rgb, tex.a * vAlpha);
 }

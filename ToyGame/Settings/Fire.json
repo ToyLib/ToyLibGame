@@ -1,0 +1,20 @@
+{
+  "mode": "Smoke",
+  "maxParticles": 10,
+
+  "componentLife": 0.0,
+  "particleLife": 0.6,
+  "size": 5.5,
+
+  "spawnRatePerSec": 60.0,
+  "spawnRampSec": 0.6,
+
+  "spread": 2.0,
+  "gravity": 0.0,
+  "lift": 2.0,
+
+  "additiveBlend": true,
+  "warmStart": true,
+
+  "emitterOffset": [0.0, 0.0, 0.0]
+}

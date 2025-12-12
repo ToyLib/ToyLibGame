@@ -93,6 +93,7 @@ void OutdoorStage::InitStage()
     particleComp->SetAddBlend(true);
     particleActor->SetParent(fireActor);
  */
+    /*
     auto particleActorGPU = mApp->CreateActor<toy::Actor>();
     particleActorGPU->SetPosition(Vector3(0, 0, 0));
     auto particleCompGPU = particleActorGPU->CreateComponent<toy::GPUParticleComponent>();
@@ -106,9 +107,93 @@ void OutdoorStage::InitStage()
                                      toy::GPUParticleComponent::P_SMOKE);
     particleCompGPU->SetAddBlend(true);
     particleActorGPU->SetParent(fireActor);
+*/
+    /*
+    using Particle = toy::GPUParticleComponent;
+
+    // Actor
+    auto particleActorGPU = mApp->CreateActor<toy::Actor>();
+    particleActorGPU->SetPosition(Vector3(0, 10, 0));
+    particleActorGPU->SetParent(fireActor);
+
+    // Component
+    auto* particle = particleActorGPU
+        ->CreateComponent<Particle>();
+
+    particle->SetTexture(
+        mApp->GetAssetManager()->GetTexture("fire.png"));
+
+    //----------------------------
+    // パーティクル設定
+    //----------------------------
+    Particle::Desc desc;
+    desc.maxParticles     = 10;          // num
+    desc.particleLife     = 0.6f;         // partLife
+    desc.size             = 5.5f;         // size
+    desc.mode             = Particle::ParticleMode::Spark;
+    desc.componentLife    = 1000.0f;      // life (0 = infinite)
+
+    // 無限に出続ける挙動（旧仕様に近い）
+    desc.spawnRatePerSec  = 6.0f;         // 発生頻度
+    desc.spawnRampSec     = 0.6f;         // 立ち上がり
+    desc.additiveBlend    = true;         // SetAddBlend(true)
+    desc.warmStart        = true;         // 初期塊防止
+
+    //----------------------------
+    // 初期化 & 開始
+    //----------------------------
+    particle->Init(desc);
+    particle->SetEmitterOffset(Vector3(0, 0, 0)); // 旧 CreateParticles の pos
+    particle->Start();
+    */
+    
+    // Actor
+    auto particleActorGPU = mApp->CreateActor<toy::Actor>();
+    particleActorGPU->SetPosition(Vector3(0, 0, 0));
+    particleActorGPU->SetParent(fireActor);
+
+    // Component
+    auto* particle = particleActorGPU
+        ->CreateComponent<toy::GPUParticleComponent>();
+
+    particle->SetTexture(
+        mApp->GetAssetManager()->GetTexture("fire.png"));
+    
+    //==============================
+    // Desc で全設定
+    //==============================
+    toy::GPUParticleComponent::Desc desc;
+
+    // --- 基本 ---
+    desc.maxParticles   = 100;        // 旧 num
+    desc.particleLife   = 0.6f;       // 旧 partLife
+    desc.size           = 5.5f;       // 旧 size
+    desc.mode           = toy::GPUParticleComponent::ParticleMode::Smoke;
+
+    // --- エミッタ ---
+    desc.emitterOffset  = Vector3(0.0f, 0.0f, 0.0f); // Actor ローカル
+    desc.spawnRatePerSec = 30.0f;     // 1秒あたりの発生数
+    desc.spawnRampSec    = 0.6f;      // 立ち上がり時間
+
+    // --- 見た目 ---
+    desc.additiveBlend  = true;       // SetAddBlend(true) 相当
+
+    // --- 物理 ---
+    desc.gravity = 0.0f;              // Smoke
+    desc.lift    = 2.0f;              // 上昇力
+    desc.spread  = 2.0f;              // 拡散速度
+
+    // --- コンポーネント寿命 ---
+    // 0 = 無限（焚き火用）
+    desc.componentLife = 0.0f;
+
+    // --- 初期分散（塊回避） ---
+    desc.warmStart = true;
 
     
-    
+    particle->Init(desc);
+    //particle->InitFromFile("ToyGame/Settings/Fire.json");
+    particle->Start();
     
     
     // 時間の設定

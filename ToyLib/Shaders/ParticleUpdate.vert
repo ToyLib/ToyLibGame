@@ -1,199 +1,137 @@
+// shaders/ParticleUpdate.vert
 #version 410 core
 
-//============================================================
-// ParticleUpdate.vert (Transform Feedback Update)
-//  - Input : aPos, aVel, aLife
-//  - Output: tfPos, tfVel, tfLife   (INTERLEAVED TF)
-//  - RasterizerDiscard 前提（描画しない）
-//
-//  目的：発生タイミングの“塊”を崩す
-//   * gl_VertexID を乱数 seed に必ず混ぜる（粒子ごとにユニーク）
-//   * deadTime に粒子固有の personalDelay を入れて、復活の到達時刻を分散
-//   * life依存確率（ramp）で「死んですぐ湧かない→徐々に湧く」を維持
-//============================================================
-
-//------------------------------------------------------------
-// Attributes (from particle buffer)
-//------------------------------------------------------------
-layout(location = 0) in vec3  aPos;
-layout(location = 1) in vec3  aVel;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aVel;
 layout(location = 2) in float aLife;
 
-//------------------------------------------------------------
-// Transform Feedback outputs (INTERLEAVED)
-//------------------------------------------------------------
-out vec3  tfPos;
-out vec3  tfVel;
+// Transform Feedback outputs (interleaved)
+out vec3 tfPos;
+out vec3 tfVel;
 out float tfLife;
 
-//------------------------------------------------------------
-// Uniforms
-//------------------------------------------------------------
-uniform float uDeltaTime;      // dt
-uniform float uLifeMax;        // particle lifetime (sec)
-uniform vec3  uEmitterPos;     // emitter world position（CPUでActor反映済み）
-uniform int   uMode;           // 0:Spark 1:Water 2:Smoke
-uniform float uGravity;        // Water: gravity strength (down)
-uniform float uLift;           // Smoke: lift strength (up)
-uniform float uSpread;         // initial speed scale / spread
+uniform float uDeltaTime;
+uniform float uTime;
 
-// Spawn control
-uniform float uSpawnProb;      // 0..1 base probability
-uniform float uSpawnRampSec;   // seconds to reach full prob after death
+uniform float uLifeMax;
+uniform vec3  uEmitterPos;
 
-//------------------------------------------------------------
-// Mode constants (match C++ enum order)
-//------------------------------------------------------------
-const int P_SPARK = 0;
-const int P_WATER = 1;
-const int P_SMOKE = 2;
+uniform int   uMode;     // 0:Spark 1:Water 2:Smoke
+uniform float uGravity;
+uniform float uLift;
+uniform float uSpread;
 
-//============================================================
-// Hash / random (GLSL 4.10 friendly)
-//============================================================
-float hash11(float p)
+uniform float uSpawnRate;     // per-second chance (0 = no respawn)
+uniform float uSpawnRampSec;  // seconds to ramp up spawn chance
+
+// ------------------------------------------------------------
+// hash helpers (deterministic, no textures)
+// ------------------------------------------------------------
+float hash11(float n)
 {
-    p = fract(p * 0.1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
+    return fract(sin(n) * 43758.5453123);
 }
 
-float hash31(vec3 p)
+vec3 hash31(float n)
 {
-    p = fract(p * 0.1031);
-    p += dot(p, p.yzx + 33.33);
-    return fract((p.x + p.y) * p.z);
+    return vec3(
+        hash11(n + 1.0),
+        hash11(n + 2.0),
+        hash11(n + 3.0)
+    );
 }
 
-vec3 randDir(vec3 seed)
+vec3 randomDir(int id, float t)
 {
-    float rx = hash31(seed + vec3(1.0, 2.0, 3.0)) * 2.0 - 1.0;
-    float ry = hash31(seed + vec3(4.0, 5.0, 6.0)) * 2.0 - 1.0;
-    float rz = hash31(seed + vec3(7.0, 8.0, 9.0)) * 2.0 - 1.0;
-    vec3 v = vec3(rx, ry, rz);
-    float len2 = max(dot(v, v), 1e-6);
-    return v * inversesqrt(len2);
+    float n = float(id) * 12.9898 + t * 78.233;
+    vec3 r = hash31(n) * 2.0 - 1.0;
+    // avoid zero
+    float len2 = max(dot(r, r), 1e-6);
+    return r * inversesqrt(len2);
 }
 
-//============================================================
-// Respawn (mode-dependent)
-//============================================================
-void respawn(in vec3 seed, out vec3 pos, out vec3 vel, out float life)
+float spawnGate(int id)
 {
-    pos  = uEmitterPos;
-    life = 0.0;
+    // ramp: 0..1
+    float ramp = (uSpawnRampSec <= 0.0) ? 1.0 : clamp(uTime / uSpawnRampSec, 0.0, 1.0);
 
-    vec3 d = randDir(seed);
+    // convert per-second chance to per-frame probability:
+    // p = 1 - exp(-rate * dt)
+    float p = 1.0 - exp(-max(uSpawnRate, 0.0) * uDeltaTime);
+    p *= ramp;
 
-    if (uMode == P_WATER)
-    {
-        // mostly downward + small lateral
-        d.y = -abs(d.y);
-        d = normalize(d);
-
-        vel = d * uSpread;
-        vel.x *= 0.25;
-        vel.z *= 0.25;
-    }
-    else if (uMode == P_SMOKE)
-    {
-        // upward bias
-        d.y = abs(d.y);
-        d = normalize(d);
-
-        vel = d * uSpread;
-        vel.y *= 0.5;
-    }
-    else
-    {
-        // omni-directional spark
-        vel = d * uSpread;
-    }
+    float r = hash11(float(id) * 3.17 + floor(uTime * 60.0) * 0.77);
+    return (r < p) ? 1.0 : 0.0;
 }
 
-//============================================================
-// Main update
-//============================================================
 void main()
 {
-    vec3  pos  = aPos;
-    vec3  vel  = aVel;
+    int id = gl_VertexID;
+
+    vec3 pos = aPos;
+    vec3 vel = aVel;
     float life = aLife;
 
-    // 粒子ごとに必ずユニーク（TF update は glDrawArrays なので有効）
-    float id = float(gl_VertexID);
+    // dead if life >= uLifeMax
+    bool dead = (life >= uLifeMax);
 
-    // life update（alive/dead 共通）
-    life += uDeltaTime;
-
-    //========================================================
-    // Dead particle -> Life-dependent probabilistic respawn
-    //========================================================
-    if (life > uLifeMax)
+    if (dead)
     {
-        float deadTime = life - uLifeMax;
-
-        // 粒子固有の復活ディレイ（0..uSpawnRampSec）
-        float rampSec = max(uSpawnRampSec, 1e-3);
-        float personalDelay = hash11(id * 17.23) * rampSec;
-
-        // 「deadTime が personalDelay を越えてから」確率が上がる
-        float spawnT = clamp((deadTime - personalDelay) / rampSec, 0.0, 1.0);
-
-        // ベース確率 * ランプ
-        float spawnProb = uSpawnProb * spawnT;
-
-        // 乱数seed：idを必ず混ぜる（これが塊潰しの本体）
-        vec3 seed = vec3(id, id * 1.37, id * 9.21) + vec3(life, life * 2.0, life * 3.0);
-
-        // 微ジッター（粒子ごとの微妙な揺らぎ）
-        float jitter = 0.6 + 0.4 * hash11(id * 3.11 + life * 13.7);
-        spawnProb *= jitter;
-
-        float r = hash31(seed);
-
-        if (r < spawnProb)
+        // respawn only if spawn enabled and gate passes
+        if (uSpawnRate > 0.0 && spawnGate(id) > 0.5)
         {
-            respawn(seed, pos, vel, life);
-        }
-        // else: dead のまま待機（life が増え続け、spawnProb も増える）
-    }
-    else
-    {
-        //====================================================
-        // Alive particle simulation
-        //====================================================
-        if (uMode == P_WATER)
-        {
-            vel.y -= uGravity * uDeltaTime;
-        }
-        else if (uMode == P_SMOKE)
-        {
-            vel.y += uLift * uDeltaTime;
+            life = 0.0;
+            pos = uEmitterPos;
 
-            // subtle horizontal drift (id-based seed)
-            vec3 seed = pos + vec3(life) + vec3(id, id * 0.5, id * 0.25);
-            vec3 drift = randDir(seed) * 0.2;
-            drift.y = 0.0;
-            vel += drift * uDeltaTime;
+            vec3 dir = randomDir(id, uTime);
+
+            if (uMode == 1)
+            {
+                // Water: bias downward
+                dir.y = -abs(dir.y) * 0.6 - 0.4;
+            }
+            else if (uMode == 2)
+            {
+                // Smoke: bias upward
+                dir.y = abs(dir.y) * 0.6 + 0.4;
+            }
+
+            vel = dir * uSpread;
         }
         else
         {
-            // spark damping (optional)
-            vel *= 0.98;
+            // keep dead
+            life = uLifeMax + 1.0;
+            vel = vec3(0.0);
+            pos = pos; // unchanged
+        }
+    }
+    else
+    {
+        // integrate forces
+        if (uMode == 1)
+        {
+            // Water: gravity
+            vel.y -= uGravity * uDeltaTime;
+        }
+        else if (uMode == 2)
+        {
+            // Smoke: lift (simple)
+            vel.y += uLift * uDeltaTime;
         }
 
+        // integrate
         pos += vel * uDeltaTime;
+        life += uDeltaTime;
+
+        // if reached end, mark dead (Render/Update both treat as dead)
+        if (life >= uLifeMax)
+        {
+            life = uLifeMax + 1.0;
+        }
     }
 
-    //========================================================
-    // Transform Feedback outputs
-    //========================================================
-    tfPos  = pos;
-    tfVel  = vel;
+    tfPos = pos;
+    tfVel = vel;
     tfLife = life;
-
-    // RasterizerDiscard 前提だが必須
-    gl_Position = vec4(pos, 1.0);
 }

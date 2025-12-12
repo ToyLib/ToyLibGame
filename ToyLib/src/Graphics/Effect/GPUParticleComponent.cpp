@@ -6,37 +6,40 @@
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
 #include "Asset/Material/Texture.h"
-
+#include "Utils/JsonHelper.h"
 #include "glad/glad.h"
+
 #include <vector>
 #include <cstddef> // offsetof
+#include <random>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 
 namespace toy {
 
-//------------------------------------------------------------
+//==============================================================
 // GPU particle layout (Transform Feedback interleaved)
-//   vec3 pos + vec3 vel + float life  => 7 floats = 28 bytes
-//------------------------------------------------------------
+//   vec3 pos + vec3 vel + float life
+//==============================================================
 struct GPUParticle
 {
-    float px, py, pz;   // position (bytes  0..11)
-    float vx, vy, vz;   // velocity (bytes 12..23)
-    float life;         // life     (bytes 24..27)
+    float px, py, pz;   // position
+    float vx, vy, vz;   // velocity
+    float life;         // seconds (>= lifeMax => dead)
 };
-static_assert(sizeof(GPUParticle) == sizeof(float) * 7,
-              "GPUParticle layout must be 7 floats");
+static_assert(sizeof(GPUParticle) == sizeof(float) * 7, "GPUParticle layout must be 7 floats");
 
-//------------------------------------------------------------
+//==============================================================
 // Quad geometry (SpriteVerts互換: pos3 + normal3 + uv2)
-//   - 描画では pos + uv のみ使用（normal は未使用）
-//------------------------------------------------------------
+//==============================================================
 static const float kQuadVerts[4 * 8] =
 {
     // x,    y,    z,    nx, ny, nz,    u,   v
-    -0.5f,  0.5f, 0.0f,  0,  0,  0,   0.0f, 0.0f, // top left
-     0.5f,  0.5f, 0.0f,  0,  0,  0,   1.0f, 0.0f, // top right
-     0.5f, -0.5f, 0.0f,  0,  0,  0,   1.0f, 1.0f, // bottom right
-    -0.5f, -0.5f, 0.0f,  0,  0,  0,   0.0f, 1.0f  // bottom left
+    -0.5f,  0.5f, 0.0f,  0,  0,  0,   0.0f, 0.0f,
+     0.5f,  0.5f, 0.0f,  0,  0,  0,   1.0f, 0.0f,
+     0.5f, -0.5f, 0.0f,  0,  0,  0,   1.0f, 1.0f,
+    -0.5f, -0.5f, 0.0f,  0,  0,  0,   0.0f, 1.0f
 };
 
 static const unsigned int kQuadIndices[6] =
@@ -50,18 +53,14 @@ static const unsigned int kQuadIndices[6] =
 //==============================================================
 GPUParticleComponent::GPUParticleComponent(Actor* owner, int drawOrder)
 : VisualComponent(owner, drawOrder)
-, mDrawOrder(drawOrder)
-, mSpawnProb(0.05f)
-, mSpawnRampSec(0.6f)
 {
     mLayer = VisualLayer::Effect3D;
 
     auto* r = GetOwner()->GetApp()->GetRenderer();
-
-    // - ParticleUpdate: Transform Feedback update (VS only)
-    // - ParticleGPU   : Render (VS+FS)
     mUpdateShader = r->GetShader("ParticleUpdate");
     mRenderShader = r->GetShader("ParticleGPU");
+
+    mRunning = false;
 }
 
 GPUParticleComponent::~GPUParticleComponent()
@@ -70,93 +69,89 @@ GPUParticleComponent::~GPUParticleComponent()
 }
 
 //==============================================================
-// public API
+// New API
 //==============================================================
-void GPUParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
+void GPUParticleComponent::Init(const Desc& desc)
 {
-    mTexture = tex;
+    const bool needRebuild =
+        (!mInitialized) ||
+        (mDesc.maxParticles != desc.maxParticles);
+
+    mDesc = desc;
+
+    // sanitize（ここに一本化）
+    mDesc.maxParticles   = std::max<uint32_t>(1, mDesc.maxParticles);
+    mDesc.particleLife   = std::max(0.01f, mDesc.particleLife);
+    mDesc.size           = std::max(0.01f, mDesc.size);
+    mDesc.spawnRatePerSec= std::max(0.0f,  mDesc.spawnRatePerSec);
+    mDesc.spawnRampSec   = std::max(0.0f,  mDesc.spawnRampSec);
+    mDesc.componentLife  = std::max(0.0f,  mDesc.componentLife);
+
+    ApplyModePresetIfNeeded();
+
+    mIsVisible = true;
+    mRunning   = true;
+    mComponentLifeAcc = 0.0f;
+    mTimeAcc = 0.0f;
+
+    if (needRebuild)
+    {
+        ReleaseGL();
+        InitIfNeeded();
+    }
+
+    InitParticleBuffers(mDesc.warmStart);
 }
 
-//--------------------------------------------------------------
-// CreateParticles
-//   pos は「Actor ローカル空間での発生オフセット」
-//   実際のワールド座標は UpdateParticlesGPU() 内で
-//   Actor の WorldTransform を掛けて算出し、GPUに渡す。
-//--------------------------------------------------------------
-void GPUParticleComponent::CreateParticles(
-    Vector3 pos,
-    unsigned int num,
-    float life,
-    float partLife,
-    float size,
-    ParticleMode mode)
+void GPUParticleComponent::Start()
 {
-    // Actor に対するローカルオフセット（ワールドではない）
-    mEmitterPos = pos;
-
-    mIsVisible  = true;
-
-    mMaxParticles     = num;
-    mComponentLifeMax = life;     // 0 = infinite
-    mComponentLife    = 0.0f;
-
-    mParticleLifeMax  = (partLife > 0.0f) ? partLife : 1.0f;
-    mSize             = (size > 0.0f) ? size : 1.0f;
-    mMode             = mode;
-
-    // 旧挙動に合わせた初期プリセット
-    if (mMode == P_WATER)
-    {
-        mIsBlendAdd = false;
-        mGravity = 9.8f;
-        mLift = 0.0f;
-    }
-    else if (mMode == P_SMOKE)
-    {
-        mIsBlendAdd = false;
-        mGravity = 0.0f;
-        mLift = 2.0f;
-    }
-    else // Spark
-    {
-        mIsBlendAdd = true;
-        mGravity = 0.0f;
-        mLift = 0.0f;
-    }
-
-    InitIfNeeded();
+    mRunning = true;
+    mIsVisible = true;
 }
 
+void GPUParticleComponent::Stop()
+{
+    mRunning = false;
+}
+
+void GPUParticleComponent::Reset()
+{
+    if (!mInitialized) return;
+    InitParticleBuffers(false);
+}
+
+//==============================================================
+// Update / Draw
+//==============================================================
 void GPUParticleComponent::Update(float deltaTime)
 {
-    if (!mIsVisible) return;
+    if (!mIsVisible || !mRunning) return;
 
-    // コンポーネント寿命
-    if (mComponentLifeMax > 0.0f)
+    // component lifetime
+    if (mDesc.componentLife > 0.0f)
     {
-        mComponentLife += deltaTime;
-        if (mComponentLife >= mComponentLifeMax)
+        mComponentLifeAcc += deltaTime;
+        if (mComponentLifeAcc >= mDesc.componentLife)
         {
             mIsVisible = false;
+            mRunning = false;
             return;
         }
     }
 
-    if (!mInitialized || mMaxParticles == 0) return;
+    if (!mInitialized) return;
 
+    mTimeAcc += deltaTime;
     UpdateParticlesGPU(deltaTime);
 }
 
 void GPUParticleComponent::Draw()
 {
-    if (!mIsVisible || !mInitialized || mMaxParticles == 0) return;
-    if (!mTexture || !mRenderShader) return;
+    if (!mIsVisible || !mRunning) return;
+    if (!mInitialized || !mTexture || !mRenderShader) return;
 
-    //----------------------------------------------------------
-    // Blend
-    //----------------------------------------------------------
     glEnable(GL_BLEND);
-    if (mIsBlendAdd)
+    if (mDesc.additiveBlend)
         glBlendFunc(GL_ONE, GL_ONE);
     else
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -166,34 +161,23 @@ void GPUParticleComponent::Draw()
     Matrix4 proj = renderer->GetProjectionMatrix();
     Matrix4 viewProj = view * proj;
 
-    //----------------------------------------------------------
-    // Billboard basis (camera right / up)
-    //   ※ ToyLib の view 行列から抽出（Normalize推奨）
-    //----------------------------------------------------------
+    // billboard basis from view matrix
     Vector3 camRight(view.mat[0][0], view.mat[1][0], view.mat[2][0]);
     Vector3 camUp   (view.mat[0][1], view.mat[1][1], view.mat[2][1]);
     camRight.Normalize();
     camUp.Normalize();
 
-    //----------------------------------------------------------
-    // Render shader uniforms
-    //----------------------------------------------------------
     mRenderShader->SetActive();
     mRenderShader->SetVectorUniform("uCameraRight", camRight);
     mRenderShader->SetVectorUniform("uCameraUp", camUp);
     mRenderShader->SetMatrixUniform("uViewProj", viewProj);
-    mRenderShader->SetFloatUniform("uLifeMax", mParticleLifeMax);
-    mRenderShader->SetFloatUniform("uSize", mSize);
-    mRenderShader->SetFloatUniform("uLifeMax", mParticleLifeMax);
 
-    // texture
+    mRenderShader->SetFloatUniform("uLifeMax", mDesc.particleLife);
+    mRenderShader->SetFloatUniform("uSize", mDesc.size);
+
     mTexture->SetActive(0);
     mRenderShader->SetTextureUniform("uTexture", 0);
 
-    //----------------------------------------------------------
-    // Draw instanced
-    //   instance data は CurrentSrcVBO()（更新済みバッファ）
-    //----------------------------------------------------------
     glBindVertexArray(mRenderVAO);
 
     const unsigned int src = CurrentSrcVBO();
@@ -204,14 +188,13 @@ void GPUParticleComponent::Draw()
         6,
         GL_UNSIGNED_INT,
         nullptr,
-        (GLsizei)mMaxParticles
+        (GLsizei)mDesc.maxParticles
     );
 
     renderer->AddDrawCall();
     renderer->AddDrawObject();
 
-    // restore (必要なら ToyLib の規約に合わせて戻す)
-    if (mIsBlendAdd)
+    if (mDesc.additiveBlend)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
@@ -221,14 +204,13 @@ void GPUParticleComponent::Draw()
 void GPUParticleComponent::InitIfNeeded()
 {
     if (mInitialized) return;
-    if (mMaxParticles == 0) return;
 
     InitQuadGeometry();
-    InitParticleBuffers();
     InitUpdateVAO();
     InitRenderVAO();
 
     mInitialized = true;
+    mPingPong = false;
 }
 
 void GPUParticleComponent::ReleaseGL()
@@ -243,10 +225,11 @@ void GPUParticleComponent::ReleaseGL()
     if (mParticleVBO_B) { glDeleteBuffers(1, &mParticleVBO_B); mParticleVBO_B = 0; }
 
     mInitialized = false;
+    mPingPong = false;
 }
 
 //--------------------------------------------------------------
-// Quad (geometry) VBO/IBO
+// Quad buffers
 //--------------------------------------------------------------
 void GPUParticleComponent::InitQuadGeometry()
 {
@@ -265,24 +248,49 @@ void GPUParticleComponent::InitQuadGeometry()
 //--------------------------------------------------------------
 // Particle ping-pong buffers
 //--------------------------------------------------------------
-void GPUParticleComponent::InitParticleBuffers()
+void GPUParticleComponent::InitParticleBuffers(bool warmStart)
 {
-    std::vector<GPUParticle> init(mMaxParticles);
+    InitIfNeeded();
 
-    // 初回Updateで必ずリスポーンさせるため、life を寿命超えにする
-    for (auto& p : init)
+    const uint32_t N = mDesc.maxParticles;
+    std::vector<GPUParticle> init(N);
+
+    // warm start: life をずらして塊を回避
+    //   life = (i/N)*lifeMax で初期分散、速度も軽く乱数
+    std::mt19937 rng(1337u);
+    std::uniform_real_distribution<float> u01(0.0f, 1.0f);
+    std::uniform_real_distribution<float> u11(-1.0f, 1.0f);
+
+    for (uint32_t i = 0; i < N; ++i)
     {
+        auto& p = init[i];
+
         p.px = p.py = p.pz = 0.0f;
         p.vx = p.vy = p.vz = 0.0f;
-        p.life = mParticleLifeMax + 1.0f;
-        
+
+        if (warmStart)
+        {
+            const float t = (float)i / (float)N;
+            p.life = t * mDesc.particleLife;
+
+            // tiny velocity noise (so update spreads immediately)
+            p.vx = u11(rng) * 0.05f;
+            p.vy = u11(rng) * 0.05f;
+            p.vz = u11(rng) * 0.05f;
+        }
+        else
+        {
+            // dead
+            p.life = mDesc.particleLife + 1.0f;
+        }
     }
 
-    glGenBuffers(1, &mParticleVBO_A);
+    if (!mParticleVBO_A) glGenBuffers(1, &mParticleVBO_A);
+    if (!mParticleVBO_B) glGenBuffers(1, &mParticleVBO_B);
+
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_A);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GPUParticle) * init.size(), init.data(), GL_STREAM_DRAW);
 
-    glGenBuffers(1, &mParticleVBO_B);
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_B);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GPUParticle) * init.size(), init.data(), GL_STREAM_DRAW);
 
@@ -292,23 +300,17 @@ void GPUParticleComponent::InitParticleBuffers()
 }
 
 //--------------------------------------------------------------
-// Update VAO (attributes 0,1,2 from src particle VBO)
+// Update VAO (attrs 0,1,2 from src particle VBO; bound per frame)
 //--------------------------------------------------------------
 void GPUParticleComponent::InitUpdateVAO()
 {
     glGenVertexArrays(1, &mUpdateVAO);
     glBindVertexArray(mUpdateVAO);
-
-    // ping-pong のため、ここで src VBO は固定しない。
-    // BindUpdateAttributes() で毎フレーム差し替える。
-
     glBindVertexArray(0);
 }
 
 //--------------------------------------------------------------
-// Render VAO
-//   quad attrs:   0 (pos), 1 (uv)
-//   instance attrs: 3 (pos), 4 (life) ※毎フレームバインド
+// Render VAO (quad attrs 0,1 fixed; instance attrs 3,4 bound per frame)
 //--------------------------------------------------------------
 void GPUParticleComponent::InitRenderVAO()
 {
@@ -318,13 +320,13 @@ void GPUParticleComponent::InitRenderVAO()
     glBindBuffer(GL_ARRAY_BUFFER, mQuadVBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mQuadIBO);
 
-    const GLsizei stride = sizeof(float) * 8;
+    const GLsizei stride = (GLsizei)(sizeof(float) * 8);
 
     // location 0: aQuadPos (vec3)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
 
-    // location 1: aUV (vec2)  (uv is at float[6])
+    // location 1: aUV (vec2) at float[6]
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * 6));
 
@@ -339,37 +341,33 @@ void GPUParticleComponent::UpdateParticlesGPU(float dt)
     const unsigned int src = CurrentSrcVBO();
     const unsigned int dst = CurrentDstVBO();
 
-    //----------------------------------------------------------
-    // Emitter: Actor ローカル → ワールドへ変換
-    //----------------------------------------------------------
+    // emitter world = Transform(localOffset, ActorWorld)
     const Matrix4 actorWorld = GetOwner()->GetWorldTransform();
-    const Vector3 emitterWorld = Vector3::Transform(mEmitterPos, actorWorld);
+    const Vector3 emitterWorld = Vector3::Transform(mDesc.emitterOffset, actorWorld);
 
-    // Bind update VAO + src attributes
     glBindVertexArray(mUpdateVAO);
     BindUpdateAttributes(src);
 
-    //----------------------------------------------------------
-    // Update shader uniforms
-    //   ※ Transform Feedback varying は link 前に設定済みである必要あり
-    //----------------------------------------------------------
     mUpdateShader->SetActive();
     mUpdateShader->SetFloatUniform("uDeltaTime", dt);
-    mUpdateShader->SetFloatUniform("uLifeMax", mParticleLifeMax);
+    mUpdateShader->SetFloatUniform("uTime", mTimeAcc);
+
+    mUpdateShader->SetFloatUniform("uLifeMax", mDesc.particleLife);
     mUpdateShader->SetVectorUniform("uEmitterPos", emitterWorld);
-    mUpdateShader->SetIntUniform("uMode", (int)mMode);
-    mUpdateShader->SetFloatUniform("uGravity", mGravity);
-    mUpdateShader->SetFloatUniform("uLift", mLift);
-    mUpdateShader->SetFloatUniform("uSpread", mSpread);
-    mUpdateShader->SetFloatUniform("uSpawnProb", mSpawnProb);
-    mUpdateShader->SetFloatUniform("uSpawnRampSec", mSpawnRampSec);
-    
-    // TF: write to dst
+
+    mUpdateShader->SetIntUniform("uMode", (int)mDesc.mode);
+    mUpdateShader->SetFloatUniform("uGravity", mDesc.gravity);
+    mUpdateShader->SetFloatUniform("uLift", mDesc.lift);
+    mUpdateShader->SetFloatUniform("uSpread", mDesc.spread);
+
+    mUpdateShader->SetFloatUniform("uSpawnRate", mDesc.spawnRatePerSec);
+    mUpdateShader->SetFloatUniform("uSpawnRampSec", mDesc.spawnRampSec);
+
     glEnable(GL_RASTERIZER_DISCARD);
     glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, dst);
 
     glBeginTransformFeedback(GL_POINTS);
-    glDrawArrays(GL_POINTS, 0, (GLsizei)mMaxParticles);
+    glDrawArrays(GL_POINTS, 0, (GLsizei)mDesc.maxParticles);
     glEndTransformFeedback();
 
     glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
@@ -377,47 +375,41 @@ void GPUParticleComponent::UpdateParticlesGPU(float dt)
 
     glBindVertexArray(0);
 
-    // swap
     mPingPong = !mPingPong;
 }
 
 //--------------------------------------------------------------
-// bind attributes for update VAO (0:pos, 1:vel, 2:life)
+// bind update attributes (0:pos, 1:vel, 2:life)
 //--------------------------------------------------------------
 void GPUParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
 
-    const GLsizei stride = sizeof(GPUParticle);
+    const GLsizei stride = (GLsizei)sizeof(GPUParticle);
 
-    // location 0: aPos
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, px));
 
-    // location 1: aVel
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, vx));
 
-    // location 2: aLife
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, life));
 }
 
 //--------------------------------------------------------------
-// bind instance attributes for render VAO (3:pos, 4:life)
+// bind instance attributes for render (3:pos, 4:life)
 //--------------------------------------------------------------
 void GPUParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
 
-    const GLsizei stride = sizeof(GPUParticle);
+    const GLsizei stride = (GLsizei)sizeof(GPUParticle);
 
-    // location 3: iPos
     glEnableVertexAttribArray(3);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, px));
     glVertexAttribDivisor(3, 1);
 
-    // location 4: iLife
     glEnableVertexAttribArray(4);
     glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, life));
     glVertexAttribDivisor(4, 1);
@@ -436,4 +428,114 @@ unsigned int GPUParticleComponent::CurrentDstVBO() const
     return mPingPong ? mParticleVBO_A : mParticleVBO_B;
 }
 
+void GPUParticleComponent::ApplyModePresetIfNeeded()
+{
+    // mode default params (only when user didn't explicitly override after Init)
+    // (軽量: Initのたびに一旦“それっぽい値”に合わせる)
+    if (mDesc.mode == ParticleMode::Water)
+    {
+        if (mDesc.gravity <= 0.0f) mDesc.gravity = 9.8f;
+        mDesc.lift = 0.0f;
+    }
+    else if (mDesc.mode == ParticleMode::Smoke)
+    {
+        mDesc.gravity = 0.0f;
+        if (mDesc.lift <= 0.0f) mDesc.lift = 2.0f;
+    }
+    else // Spark
+    {
+        mDesc.gravity = 0.0f;
+        mDesc.lift = 0.0f;
+    }
+}
+
+//------------------------------------------------------------
+// mode string -> enum
+//------------------------------------------------------------
+GPUParticleComponent::ParticleMode GPUParticleComponent::ParseModeString(const std::string& s)
+{
+    if (s == "Water" || s == "water") return ParticleMode::Water;
+    if (s == "Smoke" || s == "smoke") return ParticleMode::Smoke;
+    return ParticleMode::Spark;
+}
+
+//------------------------------------------------------------
+// InitFromFile (JsonHelper流)
+//------------------------------------------------------------
+bool GPUParticleComponent::InitFromFile(const std::string& filePath)
+{
+    std::ifstream file(filePath);
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open GPUParticle file: "
+                  << filePath << std::endl;
+        return false;
+    }
+
+    nlohmann::json data;
+    try
+    {
+        file >> data;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        return false;
+    }
+
+    //--------------------------------------------------
+    // ★ 常に初期値からスタート
+    //--------------------------------------------------
+    Desc desc;
+
+    // mode
+    if (data.contains("mode"))
+    {
+        std::string modeStr;
+        JsonHelper::GetString(data, "mode", modeStr);
+        desc.mode = ParseModeString(modeStr);
+    }
+
+    // numeric params
+    JsonHelper::GetInt  (data, "maxParticles",      reinterpret_cast<int&>(desc.maxParticles));
+    JsonHelper::GetFloat(data, "componentLife",     desc.componentLife);
+    JsonHelper::GetFloat(data, "particleLife",      desc.particleLife);
+    JsonHelper::GetFloat(data, "size",              desc.size);
+    JsonHelper::GetFloat(data, "spawnRatePerSec",   desc.spawnRatePerSec);
+    JsonHelper::GetFloat(data, "spawnRampSec",      desc.spawnRampSec);
+    JsonHelper::GetFloat(data, "spread",            desc.spread);
+    JsonHelper::GetFloat(data, "gravity",           desc.gravity);
+    JsonHelper::GetFloat(data, "lift",              desc.lift);
+
+    // bools
+    JsonHelper::GetBool(data, "additiveBlend", desc.additiveBlend);
+    JsonHelper::GetBool(data, "warmStart",     desc.warmStart);
+
+    // emitterOffset
+    if (data.contains("emitterOffset") && data["emitterOffset"].is_array())
+    {
+        const auto& a = data["emitterOffset"];
+        if (a.size() >= 3)
+        {
+            desc.emitterOffset.x = a[0].get<float>();
+            desc.emitterOffset.y = a[1].get<float>();
+            desc.emitterOffset.z = a[2].get<float>();
+        }
+    }
+
+    //--------------------------------------------------
+    // Init() に一本化
+    //--------------------------------------------------
+    Init(desc);
+
+    std::cerr << "Loaded GPUParticle settings from "
+              << filePath << std::endl;
+
+    return true;
+}
+
+void GPUParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
+{
+    mTexture = std::move(tex);
+}
 } // namespace toy
