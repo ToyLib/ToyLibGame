@@ -159,6 +159,14 @@ elseif(UNIX AND NOT APPLE)
     find_package(OpenAL     REQUIRED)
     find_package(fmt CONFIG REQUIRED)
 
+    # vcpkg（必要なら）
+    set(VCPKG_ROOT "$ENV{HOME}/Repos/vcpkg")
+    set(VCPKG_TRIPLET "x64-linux")
+
+    set(VCPKG_INC_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include")
+    set(VCPKG_LIB_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib")
+    set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
+
     # mpg123
     find_path(MPG123_INCLUDE_DIR
         NAMES mpg123.h
@@ -266,6 +274,7 @@ endif()
 #========================
 
 set(SOURCE_SHADER_DIR       "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders")
+set(SOURCE_SYSASSET_DIR     "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Assets")
 set(SOURCE_ASSET_DIR        "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets")
 set(SOURCE_SETTINGS_DIR     "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings")
 set(SOURCE_SYSSETTINGS_DIR  "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings")
@@ -276,6 +285,13 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "${SOURCE_SHADER_DIR}"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
     COMMENT "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${SOURCE_SYSASSET_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+    COMMENT "Copying System Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
 )
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
