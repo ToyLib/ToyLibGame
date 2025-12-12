@@ -335,7 +335,6 @@ void Renderer::DrawVisualLayer(VisualLayer layer)
         }
         
         comp->Draw();
-        AddDrawObject();
     }
     
     // 状態戻し（保険）

@@ -65,6 +65,7 @@ void WireframeComponent::Draw()
                        nullptr);
         renderer->AddDrawCall();
     }
+    renderer->AddDrawObject();
 }
 
 } // namespace toy

@@ -116,6 +116,7 @@ void ShadowSpriteComponent::Draw()
     mVertexArray->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     renderer->AddDrawCall();
+    renderer->AddDrawObject();
 }
 
 } // namespace toy

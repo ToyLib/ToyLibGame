@@ -177,5 +177,7 @@ void SpriteComponent::Draw()
 
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
+    
+    renderer->AddDrawObject();
 }
 } // namespace toy

@@ -115,6 +115,7 @@ void SkeletalMeshComponent::Draw()
             mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
         }
         glFrontFace(GL_CCW);
+        renderer->AddDrawObject();
     }
     
     // 加算ブレンド解除
@@ -122,6 +123,7 @@ void SkeletalMeshComponent::Draw()
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+    renderer->AddDrawObject();
 }
 
 //----------------------------------------------------------------------
@@ -156,6 +158,7 @@ void SkeletalMeshComponent::DrawShadow()
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
         renderer->AddDrawCall();
     }
+    renderer->AddDrawObject();
 }
 
 //----------------------------------------------------------------------

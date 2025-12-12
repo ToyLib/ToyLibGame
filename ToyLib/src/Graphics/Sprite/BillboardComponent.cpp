@@ -123,6 +123,7 @@ void BillboardComponent::Draw()
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+    renderer->AddDrawObject();
 }
 
 } // namespace toy

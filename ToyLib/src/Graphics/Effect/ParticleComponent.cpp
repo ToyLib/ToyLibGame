@@ -150,6 +150,7 @@ void ParticleComponent::Update(float deltaTime)
 void ParticleComponent::Draw()
 {
     if (!mIsVisible || mTexture == nullptr) return;
+    
 
     //------------------------------
     // ブレンド設定
@@ -215,6 +216,7 @@ void ParticleComponent::Draw()
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+    renderer->AddDrawObject();
 }
 
 } // namespace toy
