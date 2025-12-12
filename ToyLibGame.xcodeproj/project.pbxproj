@@ -66,6 +66,7 @@
 				7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */,
 			);
 			explicitFileTypes = {
+				include/Engine/Debug/DebugWireframeComponent.h = sourcecode.cpp.h;
 				include/Graphics/Sprite/TextSpriteComponent.h = sourcecode.c.h;
 				include/Utils/StringUtil.h = sourcecode.c.h;
 				src/Engine/Debug/DebugOverlayActor.cpp = sourcecode.cpp.cpp;

@@ -151,7 +151,8 @@ public:
     
     void SetDebugMode(const bool b) { mIsDebugMode = b; }
     bool GetDebugMode() const { return mIsDebugMode; }
-    bool IsDebugMode() const { return mIsDebugMode; }
+    void SetDebugWireVisible(const bool b) { mIsDebugWireVisible = b; }
+    bool GetDebuWireVisible() const { return mIsDebugWireVisible; }
     
     void AddDrawCall() { mDrawCallCount++; }
     int GetDrawCallCount() const { return mDrawCallCount; }
@@ -240,6 +241,8 @@ private:
     // 視野角（Perspective FOV／度）
     float mPerspectiveFOV;
     
+    // デバッグワイヤー表示 ON/OFF
+    bool mIsDebugWireVisible;
     // デバッグ描画 ON/OFF
     bool mIsDebugMode;
     

@@ -7,6 +7,7 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Asset/Material/Texture.h"
+#include "Engine/Debug/DebugWireframeComponent.h"
 
 #include <vector>
 #include <algorithm>
@@ -29,9 +30,9 @@ BoundingVolumeComponent::BoundingVolumeComponent(Actor* a)
     mPolygons.reset(new Polygon[NUM_VERTEX]);
     
     // デバッグ時のみワイヤーフレームを生成して可視化
-    if (GetOwner()->GetApp()->GetRenderer()->IsDebugMode())
+    if (GetOwner()->GetApp()->GetRenderer()->GetDebugMode())
     {
-        mWireframe = std::make_unique<WireframeComponent>(GetOwner(), 1000);
+        mWireframe = std::make_unique<DebugWireframeComponent>(GetOwner(), 1000);
         Vector3 color = GetOwner()->GetApp()->GetRenderer()->GetWireColor();
         mWireframe->SetColor(color);
     }

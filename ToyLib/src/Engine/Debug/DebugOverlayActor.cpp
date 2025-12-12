@@ -14,6 +14,7 @@ namespace toy {
 DebugOverlayActor::DebugOverlayActor(Application* app)
 : Actor(app)
 , mEnabled(false)
+, mWireVisible(false)
 , mTextComp(nullptr)
 , mSmoothedFPS(0.0f)
 , mTextColor(Vector3(0.3f, 1.0f, 0.3f))
@@ -43,6 +44,12 @@ void DebugOverlayActor::SetEnabled(bool enabled)
         mTextComp->SetVisible(enabled);
     }
 }
+void DebugOverlayActor::SetWireVisible(bool visible)
+{
+    mWireVisible = visible;
+    GetApp()->GetRenderer()->SetDebugWireVisible(visible);
+}
+
 
 void DebugOverlayActor::UpdateActor(float deltaTime)
 {
@@ -51,13 +58,8 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     auto* app   = GetApp();
     auto& stats = app->GetDebugStats();
 
-    // F3 で ON/OFF
-    const InputState& input = app->GetInputSystem()->GetState();
-    if (input.Keyboard.GetKeyState(SDL_SCANCODE_F3) == EPressed)
-    {
-        SetEnabled(!mEnabled);
-    }
 
+    
     if (!mEnabled || !mTextComp)
     {
         return;
@@ -84,6 +86,20 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     text += StringUtil::Format("RenderTime : << ms\n",  stats.RenderTimeMs);
 
     mTextComp->SetText(text);
+}
+
+void DebugOverlayActor::ActorInput(const InputState &state)
+{
+    // F3 で ON/OFF
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F3) == EPressed)
+    {
+        SetEnabled(!mEnabled);
+    }
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F2) == EPressed)
+    {
+        SetWireVisible(!mWireVisible);
+    }
+    
 }
 
 } // namespace toy

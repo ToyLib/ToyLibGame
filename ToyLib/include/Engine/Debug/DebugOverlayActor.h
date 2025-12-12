@@ -13,16 +13,21 @@ public:
     ~DebugOverlayActor() override = default;
 
     void UpdateActor(float deltaTime) override;
+    void ActorInput(const struct InputState& state) override;
 
     // F3 などで ON/OFF 切り替えしたいとき用
     void SetEnabled(bool enabled);
     bool IsEnabled() const { return mEnabled; }
+    // ワイヤーフレームのON/OFF
+    void SetWireVisible(bool visible);
+    bool IsWireVisible() const { return mWireVisible; }
     
     void SetTextColor(const Vector3& color) { mTextColor = color; }
 
 private:
     class TextSpriteComponent* mTextComp;
     bool mEnabled;
+    bool mWireVisible;
 
     // FPS を少し滑らかにしたいとき用
     float mSmoothedFPS;
