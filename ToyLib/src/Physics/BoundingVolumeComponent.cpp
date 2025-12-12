@@ -195,7 +195,7 @@ void BoundingVolumeComponent::AdjustBoundingBox(const Vector3& pos, const Vector
 // ・AABB をもとにボックス用頂点バッファを作り、デバッグ用 VAO を生成。
 // ・WireframeComponent に渡すことで境界ボックスを可視化する。
 //------------------------------------------------------------------------------
-void BoundingVolumeComponent::CreateVArray()
+/*void BoundingVolumeComponent::CreateVArray()
 {
     // ボックス用頂点バッファ（座標、法線、UV）
     float verts[] =
@@ -239,6 +239,53 @@ void BoundingVolumeComponent::CreateVArray()
                 8,
                 (unsigned int*)index,
                 (unsigned int)36));
+    }
+}
+*/
+void BoundingVolumeComponent::CreateVArray()
+{
+    Vector3 v0(mBoundingBox->min.x, mBoundingBox->min.y, mBoundingBox->min.z);
+    Vector3 v1(mBoundingBox->max.x, mBoundingBox->min.y, mBoundingBox->min.z);
+    Vector3 v2(mBoundingBox->max.x, mBoundingBox->min.y, mBoundingBox->max.z);
+    Vector3 v3(mBoundingBox->min.x, mBoundingBox->min.y, mBoundingBox->max.z);
+
+    Vector3 v4(mBoundingBox->min.x, mBoundingBox->max.y, mBoundingBox->min.z);
+    Vector3 v5(mBoundingBox->max.x, mBoundingBox->max.y, mBoundingBox->min.z);
+    Vector3 v6(mBoundingBox->max.x, mBoundingBox->max.y, mBoundingBox->max.z);
+    Vector3 v7(mBoundingBox->min.x, mBoundingBox->max.y, mBoundingBox->max.z);
+
+    // 12 edges = 24 vertices
+    float verts[] =
+    {
+        // bottom
+        v0.x,v0.y,v0.z, 0,0,0, 0,0,   v1.x,v1.y,v1.z, 0,0,0, 0,0,
+        v1.x,v1.y,v1.z, 0,0,0, 0,0,   v2.x,v2.y,v2.z, 0,0,0, 0,0,
+        v2.x,v2.y,v2.z, 0,0,0, 0,0,   v3.x,v3.y,v3.z, 0,0,0, 0,0,
+        v3.x,v3.y,v3.z, 0,0,0, 0,0,   v0.x,v0.y,v0.z, 0,0,0, 0,0,
+
+        // top
+        v4.x,v4.y,v4.z, 0,0,0, 0,0,   v5.x,v5.y,v5.z, 0,0,0, 0,0,
+        v5.x,v5.y,v5.z, 0,0,0, 0,0,   v6.x,v6.y,v6.z, 0,0,0, 0,0,
+        v6.x,v6.y,v6.z, 0,0,0, 0,0,   v7.x,v7.y,v7.z, 0,0,0, 0,0,
+        v7.x,v7.y,v7.z, 0,0,0, 0,0,   v4.x,v4.y,v4.z, 0,0,0, 0,0,
+
+        // vertical
+        v0.x,v0.y,v0.z, 0,0,0, 0,0,   v4.x,v4.y,v4.z, 0,0,0, 0,0,
+        v1.x,v1.y,v1.z, 0,0,0, 0,0,   v5.x,v5.y,v5.z, 0,0,0, 0,0,
+        v2.x,v2.y,v2.z, 0,0,0, 0,0,   v6.x,v6.y,v6.z, 0,0,0, 0,0,
+        v3.x,v3.y,v3.z, 0,0,0, 0,0,   v7.x,v7.y,v7.z, 0,0,0, 0,0,
+    };
+
+    if (mWireframe)
+    {
+        mWireframe->SetVertexArray(
+            std::make_shared<VertexArray>(
+                verts,
+                24,
+                nullptr,
+                0
+            )
+        );
     }
 }
 

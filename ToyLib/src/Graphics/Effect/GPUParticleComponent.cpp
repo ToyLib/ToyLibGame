@@ -182,6 +182,7 @@ void GPUParticleComponent::Draw()
 
     const unsigned int src = CurrentSrcVBO();
     BindInstanceAttributes(src);
+    
 
     glDrawElementsInstanced(
         GL_TRIANGLES,

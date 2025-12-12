@@ -27,6 +27,8 @@ WireframeComponent::WireframeComponent(Actor* owner, int drawOrder, VisualLayer 
 //   ・LightingManager から最低限のライト設定を反映
 //   ・GL_LINE_STRIP による線の描画
 //------------------------------------------------------------
+
+
 void WireframeComponent::Draw()
 {
     if (!mIsVisible) return;
@@ -54,15 +56,17 @@ void WireframeComponent::Draw()
     if (mVertexArray)
     {
         mVertexArray->SetActive();
-        
+
         // NOTE:
         //   GL_LINE_STRIP により頂点が順に線で結ばれる
         //   ※ここではインデックス数ではなく「頂点数×3」を指定しているため
         //     VertexArray の仕様に依存した描画となる点に注意。
-        glDrawElements(GL_LINE_STRIP,
-                       mVertexArray->GetNumVerts() * 3,
-                       GL_UNSIGNED_INT,
-                       nullptr);
+        //glDrawElements(GL_LINE_STRIP,
+        //               mVertexArray->GetNumVerts() * 3,
+        //               GL_UNSIGNED_INT,
+        //               nullptr);
+        //mVertexArray->SetActive();
+        glDrawArrays(GL_LINES, 0, mVertexArray->GetNumVerts());
         renderer->AddDrawCall();
     }
     renderer->AddDrawObject();
