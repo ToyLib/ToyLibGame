@@ -81,16 +81,10 @@ void GameRPG::LoadData()
     stanActor->CreateComponent<toy::GravityComponent>();
 
 
-
-
-    
-    
     // BGM
     GetSoundMixer()->LoadBGM("MusMus-BGM-112.mp3");
     GetSoundMixer()->PlayBGM();
-    GetSoundMixer()->SetVolume(0.1);
-    
-    
+    GetSoundMixer()->SetVolume(0.001);
     
     // フォント
     auto fnt = GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 24);
@@ -114,7 +108,7 @@ void GameRPG::UpdateGame(float deltaTime)
     
     auto h = GetTimeOfDaySystem()->GetHour();
     auto m = GetTimeOfDaySystem()->GetMinute();
-    mTextComp->SetFormat("時刻 << : << \n111", h, m);
+    mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
 }
 
 void GameRPG::ShutdownGame()

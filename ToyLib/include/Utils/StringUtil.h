@@ -38,42 +38,146 @@ std::string ToString(const T& v)
 }
 
 //==============================================================================
-// 簡易フォーマット： "<<” を順番に置換
-//------------------------------------------------------------------------------
-// 例：Format("FPS: << / Pos: <<,<<", 60, x, y)
-//      → "FPS: 60 / Pos: 12.3,45.6"
+// 軽量フォーマット関数
+//  対応形式：
+//   "<<", "{}", "{N}", "{:02}", "{N:02}"
 //
-// ・可変引数をすべて std::string に変換してから差し込む
-// ・引数の数だけ "<<” を前から順に置換
-// ・フォーマット側の "<<" が余っていてもエラーにはしない
-// ・std::format ほど高機能ではないが、軽くて依存も少ない
+// 例：
+//   Format("FPS=<< Frame={:03}", 60, 4)      -> "FPS=60 Frame=004"
+//   Format("{:02} {:02}", 3, 7)              -> "03 07"
+//   Format("X={0:03}, Y={1:02}", 5, 9)       -> "X=005, Y=09"
 //==============================================================================
 
 template<typename... Args>
 std::string Format(const std::string& fmt, Args&&... args)
 {
-    // 可変引数を string へ変換して配列化
+    // 引数を string 化
     std::vector<std::string> values = {
         ToString(std::forward<Args>(args))...
     };
 
     std::string result = fmt;
-    size_t pos = 0;
 
-    // "<<” を順に置換
-    for (auto& val : values)
+    // 自動インデックス（{} / {:02} / << 用）
+    size_t autoIndex = 0;
+
+    // --------------------------------------------------
+    // 1) "<<” 置換（順番）
+    // --------------------------------------------------
     {
-        pos = result.find("<<", pos);
-        if (pos == std::string::npos)
-            break;
+        size_t pos = 0;
+        while ((pos = result.find("<<", pos)) != std::string::npos)
+        {
+            if (autoIndex >= values.size()) break;
 
-        result.replace(pos, 2, val);
-        pos += val.size();
+            result.replace(pos, 2, values[autoIndex]);
+            pos += values[autoIndex].size();
+            ++autoIndex;
+        }
+    }
+
+    // --------------------------------------------------
+    // 2) "{}" 置換（順番）
+    // --------------------------------------------------
+    {
+        size_t pos = 0;
+        while ((pos = result.find("{}", pos)) != std::string::npos)
+        {
+            if (autoIndex >= values.size()) break;
+
+            result.replace(pos, 2, values[autoIndex]);
+            pos += values[autoIndex].size();
+            ++autoIndex;
+        }
+    }
+
+    // --------------------------------------------------
+    // 3) "{N}" / "{:02}" / "{N:02}"
+    // --------------------------------------------------
+    {
+        size_t pos = 0;
+
+        while ((pos = result.find('{', pos)) != std::string::npos)
+        {
+            size_t end = result.find('}', pos);
+            if (end == std::string::npos)
+                break;
+
+            std::string inside = result.substr(pos + 1, end - pos - 1);
+
+            int index = -1;
+            int width = -1;
+            bool ok   = true;
+
+            size_t colon = inside.find(':');
+
+            // ------------------------------
+            // index / width 解析
+            // ------------------------------
+            if (colon == std::string::npos)
+            {
+                // "{0}"
+                if (!inside.empty() &&
+                    std::all_of(inside.begin(), inside.end(), ::isdigit))
+                {
+                    index = std::stoi(inside);
+                }
+                else
+                {
+                    ok = false;
+                }
+            }
+            else
+            {
+                // "{N:W}" or "{:W}"
+                std::string sIndex = inside.substr(0, colon);
+                std::string sWidth = inside.substr(colon + 1);
+
+                if (!sWidth.empty() &&
+                    std::all_of(sWidth.begin(), sWidth.end(), ::isdigit))
+                {
+                    width = std::stoi(sWidth);
+                }
+                else ok = false;
+
+                if (sIndex.empty())
+                {
+                    // ★ 番号なし → 自動順番
+                    index = static_cast<int>(autoIndex++);
+                }
+                else if (std::all_of(sIndex.begin(), sIndex.end(), ::isdigit))
+                {
+                    index = std::stoi(sIndex);
+                }
+                else ok = false;
+            }
+
+            // ------------------------------
+            // 置換
+            // ------------------------------
+            if (ok && index >= 0 && index < (int)values.size())
+            {
+                std::string replacement = values[index];
+
+                // ゼロ埋め
+                if (width > 0 && (int)replacement.size() < width)
+                {
+                    replacement =
+                        std::string(width - replacement.size(), '0') + replacement;
+                }
+
+                result.replace(pos, end - pos + 1, replacement);
+                pos += replacement.size();
+                continue;
+            }
+
+            // 置換できなければスキップ
+            pos = end + 1;
+        }
     }
 
     return result;
 }
-
 
 //==============================================================================
 // Trim 系（前後の空白を削る）

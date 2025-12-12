@@ -8,15 +8,15 @@
 namespace toy {
 
 PointLightComponent::PointLightComponent(Actor* owner, int updateOrder)
-    : Component(owner, updateOrder)
-    , mLighting(nullptr)
-    , mColor(Vector3(1.0f, 1.0f, 1.0f))
-    , mIntensity(3.0f)
-    , mConstant(1.0f)
-    , mLinear(0.09f)
-    , mQuadratic(0.032f)
-    , mRadius(28.0f)
-    , mIsEnabled(true)
+: Component(owner, updateOrder)
+, mLighting(nullptr)
+, mColor(Vector3(1.0f, 1.0f, 1.0f))
+, mIntensity(3.0f)
+, mConstant(1.0f)
+, mLinear(0.09f)
+, mQuadratic(0.032f)
+, mRadius(28.0f)
+, mIsEnabled(true)
 {
     // LightingManager に自動登録
     if (auto* app = owner->GetApp())
