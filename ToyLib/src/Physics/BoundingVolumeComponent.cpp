@@ -195,53 +195,6 @@ void BoundingVolumeComponent::AdjustBoundingBox(const Vector3& pos, const Vector
 // ・AABB をもとにボックス用頂点バッファを作り、デバッグ用 VAO を生成。
 // ・WireframeComponent に渡すことで境界ボックスを可視化する。
 //------------------------------------------------------------------------------
-/*void BoundingVolumeComponent::CreateVArray()
-{
-    // ボックス用頂点バッファ（座標、法線、UV）
-    float verts[] =
-    {
-        mBoundingBox->min.x, mBoundingBox->min.y, mBoundingBox->min.z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, // 0
-        mBoundingBox->min.x, mBoundingBox->max.y, mBoundingBox->min.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, // 1
-        mBoundingBox->max.x, mBoundingBox->min.y, mBoundingBox->min.z, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, // 2
-        mBoundingBox->max.x, mBoundingBox->max.y, mBoundingBox->min.z, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, // 3
-        mBoundingBox->max.x, mBoundingBox->min.y, mBoundingBox->max.z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, // 4
-        mBoundingBox->max.x, mBoundingBox->max.y, mBoundingBox->max.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, // 5
-        mBoundingBox->min.x, mBoundingBox->min.y, mBoundingBox->max.z, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, // 6
-        mBoundingBox->min.x, mBoundingBox->max.y, mBoundingBox->max.z, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f  // 7
-    };
-    
-    unsigned int index[] =
-    {
-        0, 1, 3,
-        3, 2, 0,
-        
-        4, 2, 3,
-        3, 5, 4,
-        
-        5, 4, 6,
-        6, 7, 5,
-        
-        0, 6, 7,
-        7, 1, 0,
-        
-        3, 1, 7,
-        7, 5, 3,
-        
-        2, 4, 6,
-        6, 0, 2
-    };
-    
-    if (mWireframe)
-    {
-        mWireframe->SetVertexArray(
-            std::make_shared<VertexArray>(
-                verts,
-                8,
-                (unsigned int*)index,
-                (unsigned int)36));
-    }
-}
-*/
 void BoundingVolumeComponent::CreateVArray()
 {
     Vector3 v0(mBoundingBox->min.x, mBoundingBox->min.y, mBoundingBox->min.z);
