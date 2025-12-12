@@ -152,7 +152,7 @@ public:
     void SetDebugMode(const bool b) { mIsDebugMode = b; }
     bool GetDebugMode() const { return mIsDebugMode; }
     void SetDebugWireVisible(const bool b) { mIsDebugWireVisible = b; }
-    bool GetDebuWireVisible() const { return mIsDebugWireVisible; }
+    bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
     
     void AddDrawCall() { mDrawCallCount++; }
     int GetDrawCallCount() const { return mDrawCallCount; }

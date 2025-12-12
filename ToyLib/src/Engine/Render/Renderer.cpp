@@ -700,17 +700,25 @@ bool Renderer::LoadShaders()
         return false;
     }
 
+    //---------------------------------------------------------
+    // GPUパーティクル (Update用頂点シェーダー)
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "ParticleUpdate.vert";
     auto update = std::make_shared<Shader>();
     update->LoadWithTransformFeedback(
-        "ToyLib/Shaders/ParticleUpdate.vert",
+        vShaderName,
         "", // fragなし
         { "tfPos", "tfVel", "tfLife" },
         GL_INTERLEAVED_ATTRIBS
     );
     mShaders["ParticleUpdate"] = update;
-
+    //---------------------------------------------------------
+    // GPUパーティクル
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "ParticleGPU.vert";
+    fShaderName = mShaderPath + "ParticleGPU.frag";
     auto render = std::make_shared<Shader>();
-    render->Load("ToyLib/Shaders/ParticleGPU.vert", "ToyLib/Shaders/ParticleGPU.frag");
+    render->Load(vShaderName, fShaderName);
     mShaders["ParticleGPU"] = render;
     
     

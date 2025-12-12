@@ -57,15 +57,6 @@ void WireframeComponent::Draw()
     {
         mVertexArray->SetActive();
 
-        // NOTE:
-        //   GL_LINE_STRIP により頂点が順に線で結ばれる
-        //   ※ここではインデックス数ではなく「頂点数×3」を指定しているため
-        //     VertexArray の仕様に依存した描画となる点に注意。
-        //glDrawElements(GL_LINE_STRIP,
-        //               mVertexArray->GetNumVerts() * 3,
-        //               GL_UNSIGNED_INT,
-        //               nullptr);
-        //mVertexArray->SetActive();
         glDrawArrays(GL_LINES, 0, mVertexArray->GetNumVerts());
         renderer->AddDrawCall();
     }
