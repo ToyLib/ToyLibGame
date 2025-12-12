@@ -77,7 +77,7 @@ std::shared_ptr<Texture> AssetManager::GetEmbeddedTexture(
 //=========================================================
 std::shared_ptr<class Texture> AssetManager::GetWhite1x1Texture()
 {
-    constexpr std::string nameKey = "__sys_WHITE_1x1";
+    const std::string nameKey = "__sys_WHITE_1x1";
     auto iter = mTextures.find(nameKey);
     if (iter != mTextures.end())
     {
