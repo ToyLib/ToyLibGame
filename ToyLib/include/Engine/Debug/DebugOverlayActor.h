@@ -26,6 +26,7 @@ public:
 
 private:
     class TextSpriteComponent* mTextComp;
+    class SpriteComponent* mBgSprite;
     bool mEnabled;
     bool mWireVisible;
 

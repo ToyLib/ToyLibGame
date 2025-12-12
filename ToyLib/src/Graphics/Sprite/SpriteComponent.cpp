@@ -24,6 +24,8 @@ SpriteComponent::SpriteComponent(Actor* a, int drawOrder, VisualLayer layer)
 , mTexWidth(0)
 , mTexHeight(0)
 , mIsTopLeft(true)
+, mColor(Vector3(1.0f, 1.0f, 1.0f))
+, mAlpha(1.0f)
 {
     mDrawOrder = drawOrder;
 
@@ -161,6 +163,8 @@ void SpriteComponent::Draw()
     mShader->SetActive();
     mShader->SetMatrixUniform("uViewProj",       viewProj);
     mShader->SetMatrixUniform("uWorldTransform", world);
+    mShader->SetVectorUniform("uSpriteColor",    mColor);
+    mShader->SetFloatUniform("uSpriteAlpha",     mAlpha);
 
     mTexture->SetActive(0);
     mShader->SetTextureUniform("uTexture", 0);

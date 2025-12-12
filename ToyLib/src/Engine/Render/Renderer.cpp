@@ -430,6 +430,15 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         0.1f,
         10000.0f
     );
+    
+    auto it = mShaders.find("Sprite");
+    if (it != mShaders.end() && it->second)
+    {
+        it->second->SetActive();
+        Matrix4 viewProj = Matrix4::CreateSimpleViewProj(mScreenWidth, mScreenHeight);
+        it->second->SetMatrixUniform("uViewProj", viewProj);
+        glUseProgram(0); // 保険（好み）
+    }
 
 }
 
@@ -664,6 +673,7 @@ bool Renderer::LoadShaders()
         return false;
     }
 
+    mShaders["Sprite"]->SetActive();
     // 2D用の固定 ViewProj をセット
     Matrix4 viewProj = Matrix4::CreateSimpleViewProj(mScreenWidth, mScreenHeight);
     mShaders["Sprite"]->SetMatrixUniform("uViewProj", viewProj);
@@ -749,7 +759,7 @@ bool Renderer::LoadShaders()
         1.0f,
         2000.0f
     );
-    
+
     return true;
 }
 

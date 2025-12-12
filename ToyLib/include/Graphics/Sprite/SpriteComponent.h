@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/VisualComponent.h"
+#include "Utils/MathUtil.h"
 
 namespace toy {
 
@@ -56,6 +57,15 @@ public:
     // UI 用スプライトでは通常 true
     //==================================================
     void SetIsTopLeft(bool b) { mIsTopLeft = b; }
+    
+    // 色（RGB）
+    void SetColor(const Vector3& color) { mColor = color; }
+    const Vector3& GetColor() const { return mColor; }
+
+    // 透明度（0.0〜1.0）
+    void SetAlpha(float a) { mAlpha = Math::Clamp(a, 0.0f, 1.0f); }
+    float GetAlpha() const { return mAlpha; }
+
 
 private:
     //==================================================
@@ -76,6 +86,10 @@ private:
 
     // 左上固定（true のとき Actor 位置ではなく画面座標で描画）
     bool  mIsTopLeft;
+    
+    // カラー属性
+    Vector3 mColor;     // RGB
+    float mAlpha;       // A
 };
 
 } // namespace toy

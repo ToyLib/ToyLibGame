@@ -41,6 +41,11 @@ public:
     std::shared_ptr<class Texture> GetEmbeddedTexture(const std::string& nameKey,
                                                       const uint8_t* data,
                                                       size_t dataSize);
+    //=========================================================
+    // 白 1x1 テクスチャ生成
+    // 識別キー不要
+    //=========================================================
+    std::shared_ptr<class Texture> GetWhite1x1Texture();
 
     //=========================================================
     // 効果音（SE）

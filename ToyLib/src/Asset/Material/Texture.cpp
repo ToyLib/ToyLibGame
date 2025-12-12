@@ -355,7 +355,7 @@ bool Texture::CreateRadialRays(int size,
 // 任意ピクセル列 → テクスチャ
 //   - hasAlpha=false の場合は RGB テクスチャとして扱う
 //============================================================
-bool Texture::CreateFromPixels(const void* pixels,
+/*bool Texture::CreateFromPixels(const void* pixels,
                                int width, int height, bool hasAlpha)
 {
     if (mTextureID != 0)
@@ -388,7 +388,110 @@ bool Texture::CreateFromPixels(const void* pixels,
         GL_UNSIGNED_BYTE,
         pixels
     );
+    
+    
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR)
+    {
+        std::cerr << "[Texture] CreateFromPixels glTexImage2D failed: 0x"
+                  << std::hex << err << std::dec << std::endl;
+        return false;
+    }
 
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return true;
+}
+ */
+static void DrainGLErrors()
+{
+    while (glGetError() != GL_NO_ERROR) {}
+}
+
+static bool LogGLError(const char* tag)
+{
+    GLenum err = glGetError();
+    if (err == GL_NO_ERROR) return false;
+    std::cerr << "[GL ERROR] " << tag << " : 0x" << std::hex << err << std::dec << "\n";
+    return true;
+}
+
+bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha)
+{
+    if (!pixels || width <= 0 || height <= 0)
+    {
+        std::cerr << "[Texture] CreateFromPixels invalid args\n";
+        return false;
+    }
+
+    // 観測ズレ防止
+    DrainGLErrors();
+
+    if (mTextureID != 0)
+    {
+        glDeleteTextures(1, &mTextureID);
+        mTextureID = 0;
+    }
+
+    mWidth  = width;
+    mHeight = height;
+
+    glGenTextures(1, &mTextureID);
+    if (LogGLError("glGenTextures")) return false;
+    if (mTextureID == 0)
+    {
+        std::cerr << "[Texture] glGenTextures returned 0\n";
+        return false;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, mTextureID);
+    if (LogGLError("glBindTexture")) return false;
+
+    // 1x1でも安全に（RGBのときも含め）
+    GLint prevUnpack = 0;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpack);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    const GLenum srcFormat = hasAlpha ? GL_RGBA : GL_RGB;
+    const GLenum internal  = hasAlpha ? GL_RGBA8 : GL_RGB8;
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, srcFormat, GL_UNSIGNED_BYTE, pixels);
+    if (LogGLError("glTexImage2D"))
+    {
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return false;
+    }
+
+    // 実際に作れてるか検証
+    if (!glIsTexture(mTextureID))
+    {
+        std::cerr << "[Texture] glIsTexture failed id=" << mTextureID << "\n";
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return false;
+    }
+
+    GLint tw = 0, th = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH,  &tw);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
+    if (LogGLError("glGetTexLevelParameteriv"))
+    {
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return false;
+    }
+
+    if (tw != width || th != height)
+    {
+        std::cerr << "[Texture] created size mismatch got "
+                  << tw << "x" << th << " expected " << width << "x" << height << "\n";
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return false;
+    }
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpack);
     glBindTexture(GL_TEXTURE_2D, 0);
     return true;
 }

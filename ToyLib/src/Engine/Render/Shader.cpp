@@ -76,56 +76,57 @@ void Shader::SetActive()
 // 4x4 行列を uniform に送る
 void Shader::SetMatrixUniform(const char* name, const Matrix4& matrix)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniformMatrix4fv(loc, 1, GL_TRUE, matrix.GetAsFloatPtr());
 }
 
 // 4x4 行列配列を uniform に送る（スキンメッシュのボーン行列など）
 void Shader::SetMatrixUniforms(const char* name, Matrix4* matrices, unsigned count)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
+    if (loc == -1) std::cout << "[エラー] :" << name << std::endl;
     glUniformMatrix4fv(loc, count, GL_TRUE, matrices[0].GetAsFloatPtr());
 }
 
 // vec3 を uniform に送る
 void Shader::SetVectorUniform(const char* name, const Vector3& vector)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform3fv(loc, 1, vector.GetAsFloatPtr());
 }
 
 // vec2 を uniform に送る
 void Shader::SetVector2Uniform(const char* name, const Vector2& vector)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform2fv(loc, 1, vector.GetAsFloatPtr());
 }
 
 // float を uniform に送る
 void Shader::SetFloatUniform(const char* name, float value)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1f(loc, value);
 }
 
 // bool を uniform に送る（内部的には int として送る）
 void Shader::SetBooleanUniform(const char *name, bool value)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, value);
 }
 
 // sampler 用のテクスチャユニット番号を送る
 void Shader::SetTextureUniform(const char* name, GLuint textureUnit)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, textureUnit);
 }
 
 // int を uniform に送る
 void Shader::SetIntUniform(const char* name, int value)
 {
-    GLuint loc = glGetUniformLocation(mShaderProgramID, name);
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, value);
 }
 

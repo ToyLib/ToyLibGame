@@ -9,8 +9,8 @@
 namespace toy {
 
 AssetManager::AssetManager()
-    : mAssetsPath("ToyGame/Assets") // デフォルトのアセット基準パス
-    , mWindowDisplayScale(1.0f)
+: mAssetsPath("ToyGame/Assets") // デフォルトのアセット基準パス
+, mWindowDisplayScale(1.0f)
 {
 }
 
@@ -36,14 +36,14 @@ std::shared_ptr<Texture> AssetManager::GetTexture(const std::string& fileName)
     {
         return iter->second;      // 既存テクスチャを返す
     }
-
+    
     auto tex = std::make_shared<Texture>();
     if (tex->Load(fileName, this))
     {
         mTextures[fileName] = tex;
         return tex;
     }
-
+    
     return nullptr;               // ロード失敗
 }
 
@@ -51,25 +51,50 @@ std::shared_ptr<Texture> AssetManager::GetTexture(const std::string& fileName)
 // 埋め込みテクスチャ（FBX/GLTFの aiTexture 用）
 //======================================================================
 std::shared_ptr<Texture> AssetManager::GetEmbeddedTexture(
-    const std::string& nameKey,
-    const uint8_t* data,
-    size_t dataSize)
+                                                          const std::string& nameKey,
+                                                          const uint8_t* data,
+                                                          size_t dataSize)
 {
     auto iter = mTextures.find(nameKey);
     if (iter != mTextures.end())
     {
         return iter->second;
     }
-
+    
     auto tex = std::make_shared<Texture>();
     if (tex->LoadFromMemory(data, static_cast<unsigned int>(dataSize)))
     {
         mTextures[nameKey] = tex;
         return tex;
     }
-
+    
     return nullptr;
 }
+
+//=========================================================
+// 白 1x1 テクスチャ生成
+// 識別キー不要
+//=========================================================
+std::shared_ptr<class Texture> AssetManager::GetWhite1x1Texture()
+{
+    constexpr std::string nameKey = "__sys_WHITE_1x1";
+    auto iter = mTextures.find(nameKey);
+    if (iter != mTextures.end())
+    {
+        return iter->second;
+    }
+    
+    auto tex = std::make_shared<Texture>();
+    uint8_t px[4] = {255, 255, 255, 255};
+    if (tex->CreateFromPixels(px, 1, 1, true))
+    {
+        mTextures[nameKey] = tex;
+        return tex;
+    }
+    std::cerr << "[Texture] White 1x1 Texture Cereate Error" << std::endl;
+    return nullptr;
+}
+
 
 //======================================================================
 // メッシュ取得
