@@ -12,7 +12,7 @@
     "enabled": true
   },
   "clearColor": [0.2, 0.5, 0.8],
-  "wireColor": [0.4, 0.4, 1.0],
+  "wireColor": [1.0, 0.0, 0.0],
   "ambient": [0.5, 0.5, 0.5],
   "specular": [0.5, 0.5, 0.5],
   "directionalLight": {
