@@ -51,14 +51,14 @@ private:
     // ボリューム（0.0〜1.0）
     float mVolume = 1.0f;
 
-    bool  mIsLoop = false;                   // ループ再生するか
-    bool  mAutoPlay = false;                 // 生成直後に自動再生するか
-    bool  mUseDistanceAttenuation = false;   // 距離減衰を使うか
-    bool  mIsExclusive = false;              // 排他モード
+    bool  mIsLoop;                   // ループ再生するか
+    bool  mAutoPlay;                 // 生成直後に自動再生するか
+    bool  mUseDistanceAttenuation;   // 距離減衰を使うか
+    bool  mIsExclusive;              // 排他モード
 
-    bool  mHasPlayed = false;                // AutoPlay 用フラグ
+    bool  mHasPlayed;                // AutoPlay 用フラグ
 
-    ALuint mSource = 0;                      // OpenAL ソース（このコンポ用）
+    ALuint mSource;                  // OpenAL ソース（このコンポ用）
 };
 
 } // namespace toy

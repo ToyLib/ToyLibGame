@@ -146,7 +146,7 @@ private:
     
     DirectionalLight mDirLight;
     FogInfo          mFog;
-    Vector3          mAmbientColor = Vector3(0.5f, 0.5f, 0.5f);
+    Vector3          mAmbientColor;
     
     float mSunIntensity; // 太陽の強さ（時間帯／天候などで変化）
     

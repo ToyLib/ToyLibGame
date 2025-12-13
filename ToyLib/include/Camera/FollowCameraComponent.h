@@ -88,7 +88,7 @@ private:
     Vector3 mActualPos;
     Vector3 mVelocity;
 
-    bool mFirstUpdate = true;
+    bool mFirstUpdate;
 };
 
 } // namespace toy

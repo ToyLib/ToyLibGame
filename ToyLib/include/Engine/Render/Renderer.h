@@ -155,9 +155,9 @@ public:
     bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
     
     void AddDrawCall() { mDrawCallCount++; }
-    int GetDrawCallCount() const { return mDrawCallCount; }
+    unsigned int GetDrawCallCount() const { return mDrawCallCount; }
     void AddDrawObject() { mDrawObjectCount++; }
-    int GetDrawObjectCount() const { return mDrawObjectCount; }
+    unsigned int GetDrawObjectCount() const { return mDrawObjectCount; }
 
     
     //---------------------------------------------------------
@@ -175,7 +175,11 @@ public:
     std::shared_ptr<class LightingManager> GetLightingManager() const { return mLightingManager; }
     
     // 名前指定でシェーダ取得
-    std::shared_ptr<class Shader> GetShader(const std::string& name) { return mShaders[name]; }
+    std::shared_ptr<class Shader> GetShader(const std::string& name)
+    {
+        auto itr = mShaders.find(name);
+        return (itr != mShaders.end()) ? itr->second : nullptr;
+    }
     
     
     //---------------------------------------------------------

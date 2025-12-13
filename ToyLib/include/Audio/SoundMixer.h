@@ -78,9 +78,9 @@ private:
     std::vector<unsigned char> mBgmDecodeBuffer;       // デコード先バッファ（mpg123 → PCM）
 
     // 共通設定（ミュート系／音量）
-    bool  mBgmEnabled   = true;                        // BGM 全体の ON/OFF
-    bool  mSoundEnabled = true;                        // 効果音 全体の ON/OFF
-    float mVolume       = 1.0f;                        // 全体ボリューム
+    bool  mBgmEnabled;                                // BGM 全体の ON/OFF
+    bool  mSoundEnabled;                              // 効果音 全体の ON/OFF
+    float mVolume;                                    // 全体ボリューム
 };
 
 } // namespace toy
