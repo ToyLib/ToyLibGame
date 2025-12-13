@@ -9,7 +9,7 @@ enum HeroMotion
     H_Run = 11,
     H_Dead = 0,
     H_Guard = 1,
-    H_Jump = 4,
+    H_Jump = 5,
     H_Stand = 17,
     H_Walk = 18,
     H_Slash = 13,
