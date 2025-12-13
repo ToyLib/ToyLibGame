@@ -175,9 +175,7 @@ void Mesh::CalcInterpolatedPosition(
     unsigned int nextIndex = index + 1;
     assert(nextIndex < pNodeAnim->mNumPositionKeys);
 
-    float deltaTime = (float)(
-        pNodeAnim->mPositionKeys[nextIndex].mTime -
-        pNodeAnim->mPositionKeys[index].mTime);
+    float deltaTime = (float)(pNodeAnim->mPositionKeys[nextIndex].mTime - pNodeAnim->mPositionKeys[index].mTime);
 
     float factor = (animationTime -
         (float)pNodeAnim->mPositionKeys[index].mTime) / deltaTime;

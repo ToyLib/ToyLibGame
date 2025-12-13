@@ -1,0 +1,15 @@
+{
+  "mode": "Spark",
+  "maxParticles": 10,
+  "componentLife": 0.0,
+  "particleLife": 0.6,
+  "size": 5.5,
+  "spawnRatePerSec": 30.0,
+  "spawnRampSec": 0.6,
+  "spread": 1.4,
+  "gravity": 0.0,
+  "lift": 2.0,
+  "additiveBlend": true,
+  "warmStart": true,
+  "emitterOffset": [0.0, 0.0, 0.0]
+}

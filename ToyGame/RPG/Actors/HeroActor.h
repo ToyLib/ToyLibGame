@@ -36,4 +36,7 @@ private:
     class toy::GravityComponent* mGravComp;
     class toy::SoundComponent* mSound;
     bool mMovable;
+    
+    
+    class MagicActor* magic;
 };

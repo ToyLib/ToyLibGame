@@ -91,8 +91,8 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     if (!tex) return;
 
     const float pad = 6.0f;
-    float w = (float)tex->GetWidth();
-    float h = (float)tex->GetHeight();
+    float w = static_cast<float>(tex->GetWidth());
+    float h = static_cast<float>(tex->GetHeight());
 
     
     // 1x1背景なら「倍率=ピクセル」でも意図通り

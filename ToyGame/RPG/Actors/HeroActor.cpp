@@ -1,4 +1,5 @@
 #include "HeroActor.h"
+#include "MagicActor.h"
 #include <iostream>
 
 
@@ -72,6 +73,9 @@ HeroActor::HeroActor(toy::Application* a)
     mSound->SetUseDistanceAttenuation(true);
     
     
+    magic = GetApp()->CreateActor<MagicActor>();
+    
+    
 }
 
 HeroActor::~HeroActor()
@@ -107,6 +111,7 @@ void HeroActor::ActorInput(const toy::InputState& state)
         {
             animPlayer->PlayOnce(H_Stab, H_Stand);
             inputAttack = true;
+            magic->Spawn(GetPosition(), GetForward());
         }
 
         if (inputAttack)
