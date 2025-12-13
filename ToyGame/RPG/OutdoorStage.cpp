@@ -191,14 +191,14 @@ void OutdoorStage::InitStage()
     desc.warmStart = true;
 
     
-    particle->Init(desc);
-    //particle->InitFromFile("ToyGame/Settings/Fire.json");
+    //particle->Init(desc);
+    particle->InitFromFile("ToyGame/Settings/Fire.json");
     particle->Start();
     
     
     // 時間の設定
     mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(16.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(04.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
