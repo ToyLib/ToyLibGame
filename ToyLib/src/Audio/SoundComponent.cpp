@@ -12,14 +12,14 @@
 namespace toy {
 
 SoundComponent::SoundComponent(Actor* owner, int updateOrder)
-: Component(owner, updateOrder)
-, mVolume(1.0f)
-, mIsLoop(false)
-, mAutoPlay(false)
-, mUseDistanceAttenuation(false)
-, mIsExclusive(false)
-, mHasPlayed(false)
-, mSource(0)
+    : Component(owner, updateOrder)
+    , mVolume(1.0f)
+    , mIsLoop(false)
+    , mAutoPlay(false)
+    , mUseDistanceAttenuation(false)
+    , mIsExclusive(false)
+    , mHasPlayed(false)
+    , mSource(0)
 {
 }
 
@@ -47,16 +47,24 @@ void SoundComponent::SetSound(const std::string& fileName)
 //--------------------------------------
 void SoundComponent::Play()
 {
-    if (mSoundName.empty()) return;
-
+    if (mSoundName.empty())
+    {
+        return;
+    }
+    
     // 排他再生モードなら、すでに再生中のときは無視
-    if (mIsExclusive && IsPlaying()) return;
-
+    if (mIsExclusive && IsPlaying())
+    {
+        return;
+    }
+    
     auto* app    = GetOwner()->GetApp();
     auto* assets = app->GetAssetManager();
     auto sound   = assets->GetSoundEffect(mSoundName);
-    if (!sound) return;
-
+    if (!sound)
+    {
+        return;
+    }
     // ソース生成（初回のみ）
     if (mSource == 0)
     {
@@ -99,8 +107,11 @@ void SoundComponent::Stop()
 //--------------------------------------
 bool SoundComponent::IsPlaying() const
 {
-    if (mSource == 0) return false;
-
+    if (mSource == 0)
+    {
+        return false;
+    }
+    
     ALint state = 0;
     alGetSourcei(mSource, AL_SOURCE_STATE, &state);
     return (state == AL_PLAYING);

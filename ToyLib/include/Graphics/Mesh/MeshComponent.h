@@ -75,17 +75,17 @@ protected:
     //--------------------------------------------------------
     // 保持している描画リソース
     //--------------------------------------------------------
-    std::shared_ptr<class Mesh>  mMesh;      // 描画対象メッシュ
-    unsigned int mTextureIndex;              // 使用するメッシュ内テクスチャインデックス
+    std::shared_ptr<class Mesh>  mMesh;               // 描画対象メッシュ
+    unsigned int mTextureIndex;                       // 使用するメッシュ内テクスチャインデックス
 
-    bool mIsSkeletal;                         // スキンメッシュかどうか
+    bool mIsSkeletal;                                 // スキンメッシュかどうか
 
     std::shared_ptr<class Texture> mShadowMapTexture; // 影用テクスチャ（必要に応じて）
 
     // ライティング・シェーダー
     std::shared_ptr<class LightingManager> mLightingManger;
-    std::shared_ptr<class Shader> mShader;         // 通常描画用シェーダ
-    std::shared_ptr<class Shader> mShadowShader;   // シャドウマップ描画用シェーダ
+    std::shared_ptr<class Shader> mShader;           // 通常描画用シェーダ
+    std::shared_ptr<class Shader> mShadowShader;     // シャドウマップ描画用シェーダ
 
     //--------------------------------------------------------
     // トゥーン（輪郭）描画設定

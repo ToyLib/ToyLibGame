@@ -27,7 +27,7 @@ namespace toy {
 //======================================================================
 
 SingleInstance::SingleInstance()
-: mIsLocked(false)
+    : mIsLocked(false)
 {
 #ifdef _WIN32
     // グローバル名前空間の Mutex を作成（すでに存在する場合は多重起動）

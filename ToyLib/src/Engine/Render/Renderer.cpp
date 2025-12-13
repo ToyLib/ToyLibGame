@@ -29,29 +29,29 @@ namespace toy {
 
 // コンストラクタ
 Renderer::Renderer()
-: mScreenWidth(0.0f)
-, mScreenHeight(0.0f)
-, mVirtualWidth(0.0f)
-, mVirtualHeight(0.0f)
-, mPerspectiveFOV(45.0f)
-, mIsDebugMode(false)
-, mIsDebugWireVisible(false)
-, mClearColor(Vector3(0.2f, 0.5f, 0.8f))
-, mWireColor(Vector3(1.0f, 1.0f, 1.0f))
-, mShadowNear(10.f)
-, mShadowFar(100)
-, mShadowOrthoWidth(100.f)
-, mShadowOrthoHeight(100.f)
-, mShadowFBOWidth(4096)
-, mShadowFBOHeight(4096)
-, mWindow(nullptr)
-, mGLContext(nullptr)
-, mShaderPath("ToyLib/Shaders/")
-, mDrawObjectCount(0)
-, mDrawCallCount(0)
-, mSkyDomeComp(nullptr)
-, mLightSpaceMatrix(Matrix4::Identity)
-, mWindowDisplayScale(1.0f)
+    : mScreenWidth(0.0f)
+    , mScreenHeight(0.0f)
+    , mVirtualWidth(0.0f)
+    , mVirtualHeight(0.0f)
+    , mPerspectiveFOV(45.0f)
+    , mIsDebugMode(false)
+    , mIsDebugWireVisible(false)
+    , mClearColor(Vector3(0.2f, 0.5f, 0.8f))
+    , mWireColor(Vector3(1.0f, 1.0f, 1.0f))
+    , mShadowNear(10.f)
+    , mShadowFar(100)
+    , mShadowOrthoWidth(100.f)
+    , mShadowOrthoHeight(100.f)
+    , mShadowFBOWidth(4096)
+    , mShadowFBOHeight(4096)
+    , mWindow(nullptr)
+    , mGLContext(nullptr)
+    , mShaderPath("ToyLib/Shaders/")
+    , mDrawObjectCount(0)
+    , mDrawCallCount(0)
+    , mSkyDomeComp(nullptr)
+    , mLightSpaceMatrix(Matrix4::Identity)
+    , mWindowDisplayScale(1.0f)
 {
     // ライティング管理クラス
     mLightingManager = std::make_shared<LightingManager>();
@@ -235,8 +235,9 @@ void Renderer::Draw()
 void Renderer::DrawSky()
 {
     if (!mSkyDomeComp)
+    {
         return;
-
+    }
     mSkyDomeComp->Draw();
 }
 
@@ -252,7 +253,9 @@ void Renderer::AddVisualComp(VisualComponent* comp)
     for (; iter != mVisualComps.end(); ++iter)
     {
         if (comp->GetDrawOrder() < (*iter)->GetDrawOrder())
+        {
             break;
+        }
     }
     mVisualComps.insert(iter, comp);
 }
@@ -261,7 +264,9 @@ void Renderer::RemoveVisualComp(VisualComponent* comp)
 {
     auto iter = std::find(mVisualComps.begin(), mVisualComps.end(), comp);
     if (iter != mVisualComps.end())
+    {
         mVisualComps.erase(iter);
+    }
 }
 
 
@@ -373,13 +378,15 @@ void Renderer::CreateSpriteVerts()
 // フルスクリーンクアッド（PostEffect, 天候オーバーレイなど）
 void Renderer::CreateFullScreenQuad()
 {
-    float quadVerts[] = {
+    float quadVerts[] =
+    {
         -1.0f, -1.0f,
          1.0f, -1.0f,
          1.0f,  1.0f,
         -1.0f,  1.0f
     };
-    unsigned int quadIndices[] = {
+    unsigned int quadIndices[] =
+    {
         0, 1, 2,
         2, 3, 0
     };
@@ -408,8 +415,10 @@ void Renderer::UnloadData()
 
 void Renderer::OnWindowResized(int pixelW, int pixelH)
 {
-    if (pixelW <= 0 || pixelH <= 0) return;
-
+    if (pixelW <= 0 || pixelH <= 0)
+    {
+        return;
+    }
     mScreenWidth  = static_cast<float>(pixelW);
     mScreenHeight = static_cast<float>(pixelH);
 
@@ -465,9 +474,15 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
     info.virtualW = (mVirtualWidth  > 0.0f) ? mVirtualWidth  : mScreenWidth;
     info.virtualH = (mVirtualHeight > 0.0f) ? mVirtualHeight : mScreenHeight;
 
-    if (info.virtualW <= 0.0f) info.virtualW = 1.0f;
-    if (info.virtualH <= 0.0f) info.virtualH = 1.0f;
-
+    if (info.virtualW <= 0.0f)
+    {
+        info.virtualW = 1.0f;
+    }
+    if (info.virtualH <= 0.0f)
+    {
+        info.virtualH = 1.0f;
+    }
+    
     info.scaleX = info.screenW / info.virtualW;
     info.scaleY = info.screenH / info.virtualH;
 
@@ -567,8 +582,9 @@ void Renderer::RenderShadowMap()
     for (auto& visual : mVisualComps)
     {
         if (!visual->GetEnableShadow() || !visual->IsVisible())
+        {
             continue;
-        
+        }
         // ライト側フラスタムカリング
         Actor* owner = visual->GetOwner();
         if (owner)
@@ -580,7 +596,9 @@ void Renderer::RenderShadowMap()
                 // 必要なら aabb.Expand(…) 等で少し余裕を持たせる
                 
                 if (!FrustumIntersectsAABB(shadowFrustum, aabb))
+                {
                     continue;
+                }
             }
         }
         

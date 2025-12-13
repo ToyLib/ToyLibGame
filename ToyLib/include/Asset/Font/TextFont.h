@@ -54,9 +54,9 @@ private:
     TextFont(const TextFont&) = delete;
     TextFont& operator=(const TextFont&) = delete;
 
-    TTF_Font*    mFont       = nullptr;
-    std::string  mFilePath   = "";
-    int          mPointSize  = 0;
+    TTF_Font*    mFont;
+    std::string  mFilePath;
+    int          mPointSize;
 };
 
 } // namespace toy

@@ -64,18 +64,18 @@ static const unsigned int kQuadIndices[6] =
 //======================================================================
 
 GPUParticleComponent::GPUParticleComponent(Actor* owner, int drawOrder)
-: VisualComponent(owner, drawOrder)
-, mInitialized(false)
-, mPingPong(false)
-, mRunning(false)
-, mComponentLifeAcc(0.0f)
-, mTimeAcc(0.0f)
-, mQuadVBO(0)
-, mQuadIBO(0)
-, mParticleVBO_A(0)
-, mParticleVBO_B(0)
-, mUpdateVAO(0)
-, mRenderVAO(0)
+    : VisualComponent(owner, drawOrder)
+    , mInitialized(false)
+    , mPingPong(false)
+    , mRunning(false)
+    , mComponentLifeAcc(0.0f)
+    , mTimeAcc(0.0f)
+    , mQuadVBO(0)
+    , mQuadIBO(0)
+    , mParticleVBO_A(0)
+    , mParticleVBO_B(0)
+    , mUpdateVAO(0)
+    , mRenderVAO(0)
 {
     // エフェクト枠で扱う（ToyLib の描画レイヤー整理に合わせる）
     mLayer = VisualLayer::Effect3D;
@@ -164,7 +164,10 @@ void GPUParticleComponent::Stop()
 void GPUParticleComponent::Reset()
 {
     // 粒だけ初期化（容量は変えない）
-    if (!mInitialized) return;
+    if (!mInitialized)
+    {
+        return;
+    }
     InitParticleBuffers(false);
 }
 
@@ -174,8 +177,11 @@ void GPUParticleComponent::Reset()
 
 void GPUParticleComponent::Update(float deltaTime)
 {
-    if (!mIsVisible || !mRunning) return;
-
+    if (!mIsVisible || !mRunning)
+    {
+        return;
+    }
+    
     //----------------------------------------------------------
     // component lifetime（コンポーネント寿命）
     // 0 = 無限 / >0 なら時間経過で停止する
@@ -191,8 +197,11 @@ void GPUParticleComponent::Update(float deltaTime)
         }
     }
 
-    if (!mInitialized) return;
-
+    if (!mInitialized)
+    {
+        return;
+    }
+    
     // 経過時間（スポーン制御などに使用）
     mTimeAcc += deltaTime;
 
@@ -202,9 +211,14 @@ void GPUParticleComponent::Update(float deltaTime)
 
 void GPUParticleComponent::Draw()
 {
-    if (!mIsVisible || !mRunning) return;
-    if (!mInitialized || !mTexture || !mRenderShader) return;
-
+    if (!mIsVisible || !mRunning)
+    {
+        return;
+    }
+    if (!mInitialized || !mTexture || !mRenderShader)
+    {
+        return;
+    }
     //----------------------------------------------------------
     // ブレンド設定
     // ・加算合成：火花/発光系に向く
@@ -212,17 +226,20 @@ void GPUParticleComponent::Draw()
     //----------------------------------------------------------
     glEnable(GL_BLEND);
     if (mDesc.additiveBlend)
+    {
         glBlendFunc(GL_ONE, GL_ONE);
+    }
     else
+    {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+    }
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-
+    
     // ToyLib の行列規約に合わせて ViewProj を構築
     Matrix4 view = renderer->GetViewMatrix();
     Matrix4 proj = renderer->GetProjectionMatrix();
     Matrix4 viewProj = view * proj;
-
+    
     //----------------------------------------------------------
     // billboard basis（カメラの右・上を view 行列から抽出）
     // パーティクル quad を常にカメラ正面に向けるために使用
@@ -231,7 +248,7 @@ void GPUParticleComponent::Draw()
     Vector3 camUp   (view.mat[0][1], view.mat[1][1], view.mat[2][1]);
     camRight.Normalize();
     camUp.Normalize();
-
+    
     // shader uniforms
     mRenderShader->SetActive();
     mRenderShader->SetVectorUniform("uCameraRight", camRight);
@@ -239,36 +256,37 @@ void GPUParticleComponent::Draw()
     mRenderShader->SetMatrixUniform("uViewProj", viewProj);
     mRenderShader->SetFloatUniform("uLifeMax", mDesc.particleLife);
     mRenderShader->SetFloatUniform("uSize", mDesc.size);
-
+    
     // texture bind
     mTexture->SetActive(0);
     mRenderShader->SetTextureUniform("uTexture", 0);
-
+    
     // VAO
     glBindVertexArray(mRenderVAO);
-
+    
     // 現在の粒 VBO をインスタンス属性として束縛（pos, life）
     const unsigned int src = CurrentSrcVBO();
     BindInstanceAttributes(src);
-
+    
     // quad を maxParticles 個描画
     glDrawElementsInstanced(
-        GL_TRIANGLES,
-        6,
-        GL_UNSIGNED_INT,
-        nullptr,
-        (GLsizei)mDesc.maxParticles
-    );
-
+                            GL_TRIANGLES,
+                            6,
+                            GL_UNSIGNED_INT,
+                            nullptr,
+                            (GLsizei)mDesc.maxParticles
+                            );
+    
     // stats
     renderer->AddDrawCall();
     renderer->AddDrawObject();
-
+    
     // 後続描画への影響を抑える（保険）
     if (mDesc.additiveBlend)
+    {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
 }
-
 //======================================================================
 // 5) GL 初期化 / 解放（リソース管理）
 //======================================================================
@@ -279,8 +297,11 @@ void GPUParticleComponent::Draw()
 //--------------------------------------------------------------
 void GPUParticleComponent::InitIfNeeded()
 {
-    if (mInitialized) return;
-
+    if (mInitialized)
+    {
+        return;
+    }
+    
     InitQuadGeometry();
     InitUpdateVAO();
     InitRenderVAO();
@@ -295,14 +316,38 @@ void GPUParticleComponent::InitIfNeeded()
 //--------------------------------------------------------------
 void GPUParticleComponent::ReleaseGL()
 {
-    if (mUpdateVAO) { glDeleteVertexArrays(1, &mUpdateVAO); mUpdateVAO = 0; }
-    if (mRenderVAO) { glDeleteVertexArrays(1, &mRenderVAO); mRenderVAO = 0; }
+    if (mUpdateVAO)
+    {
+        glDeleteVertexArrays(1, &mUpdateVAO);
+        mUpdateVAO = 0;
+    }
+    if (mRenderVAO)
+    {
+        glDeleteVertexArrays(1, &mRenderVAO);
+        mRenderVAO = 0;
+    }
 
-    if (mQuadVBO) { glDeleteBuffers(1, &mQuadVBO); mQuadVBO = 0; }
-    if (mQuadIBO) { glDeleteBuffers(1, &mQuadIBO); mQuadIBO = 0; }
+    if (mQuadVBO)
+    {
+        glDeleteBuffers(1, &mQuadVBO);
+        mQuadVBO = 0;
+    }
+    if (mQuadIBO)
+    {
+        glDeleteBuffers(1, &mQuadIBO);
+        mQuadIBO = 0;
+    }
 
-    if (mParticleVBO_A) { glDeleteBuffers(1, &mParticleVBO_A); mParticleVBO_A = 0; }
-    if (mParticleVBO_B) { glDeleteBuffers(1, &mParticleVBO_B); mParticleVBO_B = 0; }
+    if (mParticleVBO_A)
+    {
+        glDeleteBuffers(1, &mParticleVBO_A);
+        mParticleVBO_A = 0;
+    }
+    if (mParticleVBO_B)
+    {
+        glDeleteBuffers(1, &mParticleVBO_B);
+        mParticleVBO_B = 0;
+    }
 
     mInitialized = false;
     mPingPong = false;
@@ -365,8 +410,14 @@ void GPUParticleComponent::InitParticleBuffers(bool warmStart)
         }
     }
 
-    if (!mParticleVBO_A) glGenBuffers(1, &mParticleVBO_A);
-    if (!mParticleVBO_B) glGenBuffers(1, &mParticleVBO_B);
+    if (!mParticleVBO_A)
+    {
+        glGenBuffers(1, &mParticleVBO_A);
+    }
+    if (!mParticleVBO_B)
+    {
+        glGenBuffers(1, &mParticleVBO_B);
+    }
 
     // A/B 両方へ同じ初期状態を投入（初回 ping-pong がどちらでも成立）
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_A);
@@ -545,14 +596,20 @@ void GPUParticleComponent::ApplyModePresetIfNeeded()
     if (mDesc.mode == ParticleMode::Water)
     {
         // 水系は重力で落とす（未設定なら 9.8）
-        if (mDesc.gravity <= 0.0f) mDesc.gravity = 9.8f;
+        if (mDesc.gravity <= 0.0f)
+        {
+            mDesc.gravity = 9.8f;
+        }
         mDesc.lift = 0.0f;
     }
     else if (mDesc.mode == ParticleMode::Smoke)
     {
         // 煙は浮かせる（lift 未設定なら 2.0）
         mDesc.gravity = 0.0f;
-        if (mDesc.lift <= 0.0f) mDesc.lift = 2.0f;
+        if (mDesc.lift <= 0.0f)
+        {
+            mDesc.lift = 2.0f;
+        }
     }
     else // Spark
     {
@@ -564,8 +621,14 @@ void GPUParticleComponent::ApplyModePresetIfNeeded()
 // mode string -> enum
 GPUParticleComponent::ParticleMode GPUParticleComponent::ParseModeString(const std::string& s)
 {
-    if (s == "Water" || s == "water") return ParticleMode::Water;
-    if (s == "Smoke" || s == "smoke") return ParticleMode::Smoke;
+    if (s == "Water" || s == "water")
+    {
+        return ParticleMode::Water;
+    }
+    if (s == "Smoke" || s == "smoke")
+    {
+        return ParticleMode::Smoke;
+    }
     return ParticleMode::Spark;
 }
 

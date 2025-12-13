@@ -12,10 +12,10 @@
 namespace toy {
 
 ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
-: VisualComponent(owner, drawOrder)
-, mTexture(nullptr)
-, mScaleWidth(1.0f)
-, mScaleHeight(1.0f)
+    : VisualComponent(owner, drawOrder)
+    , mTexture(nullptr)
+    , mScaleWidth(1.0f)
+    , mScaleHeight(1.0f)
 {
     // 3D 空間上のエフェクトとして描画（地面に張り付くタイプ）
     mLayer = VisualLayer::Effect3D;
@@ -46,8 +46,10 @@ void ShadowSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
 void ShadowSpriteComponent::Draw()
 {
     // 非表示またはテクスチャ未設定なら何もしない
-    if (!mIsVisible || mTexture == nullptr) return;
-    
+    if (!mIsVisible || mTexture == nullptr)
+    {
+        return;
+    }
     
     // 影は通常のアルファブレンド
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -79,7 +81,9 @@ void ShadowSpriteComponent::Draw()
     // XZ 平面での向きだけ使う
     lightDir.y = 0.0f;
     if (lightDir.LengthSq() < 0.0001f)
+    {
         lightDir = Vector3(0.0f, 0.0f, 1.0f);
+    }
     lightDir.Normalize();
     
     float angle = atan2f(lightDir.x, lightDir.z);

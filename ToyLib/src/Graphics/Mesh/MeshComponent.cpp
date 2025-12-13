@@ -53,8 +53,11 @@ MeshComponent::~MeshComponent()
 //------------------------------------------------------------
 void MeshComponent::Draw()
 {
-    if (!mMesh) return;
-
+    if (!mMesh)
+    {
+        return;
+    }
+    
     // 加算ブレンドが指定されている場合はブレンドモード変更
     if (mIsBlendAdd)
     {
@@ -174,8 +177,11 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 //------------------------------------------------------------
 void MeshComponent::DrawShadow()
 {
-    if (!mMesh) return;
-
+    if (!mMesh)
+    {
+        return;
+    }
+    
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     Matrix4 light = renderer->GetLightSpaceMatrix();
 

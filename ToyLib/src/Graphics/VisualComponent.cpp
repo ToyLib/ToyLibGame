@@ -7,13 +7,13 @@
 namespace toy {
 
 VisualComponent::VisualComponent(Actor* owner, int drawOrder, VisualLayer layer)
-: Component(owner)
-, mTexture(nullptr)
-, mIsVisible(true)       // デフォルトで可視
-, mIsBlendAdd(false)     // 通常ブレンド
-, mLayer(layer)          // 描画レイヤー
-, mDrawOrder(drawOrder)  // レイヤー内の描画順
-, mEnableShadow(false)   // 影を描かない（必要に応じて有効化）
+    : Component(owner)
+    , mTexture(nullptr)
+    , mIsVisible(true)       // デフォルトで可視
+    , mIsBlendAdd(false)     // 通常ブレンド
+    , mLayer(layer)          // 描画レイヤー
+    , mDrawOrder(drawOrder)  // レイヤー内の描画順
+    , mEnableShadow(false)   // 影を描かない（必要に応じて有効化）
 {
     // ------------------------------------------------------------
     // Renderer に登録

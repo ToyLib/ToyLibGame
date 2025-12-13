@@ -37,7 +37,7 @@ public:
     ALuint GetBuffer() const { return mBuffer; }
 
 private:
-    ALuint      mBuffer    = 0;   // OpenAL バッファ
+    ALuint      mBuffer;          // OpenAL バッファ
     std::string mFilePath;        // デバッグ・再読み込み用
 
     //----------------------------------------------------------------------

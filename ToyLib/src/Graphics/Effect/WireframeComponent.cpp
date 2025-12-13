@@ -14,8 +14,8 @@ namespace toy {
 //   ・線色は白で初期化
 //------------------------------------------------------------
 WireframeComponent::WireframeComponent(Actor* owner, int drawOrder, VisualLayer layer)
-: VisualComponent(owner, drawOrder, layer)
-, mColor(Vector3(1.0f, 1.0f, 1.0f))
+    : VisualComponent(owner, drawOrder, layer)
+    , mColor(Vector3(1.0f, 1.0f, 1.0f))
 {
     // 単色描画シェーダ（Solid）を使用
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Solid");

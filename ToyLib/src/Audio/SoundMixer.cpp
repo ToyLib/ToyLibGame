@@ -11,15 +11,15 @@
 namespace toy {
 
 SoundMixer::SoundMixer(AssetManager* assetManager)
-: mAssetManager(assetManager)
-, mDevice(nullptr)
-, mContext(nullptr)
-, mBgmSource(0)
-, mBgmPlaying(false)
-, mBgmLoop(true)
-, mBgmEnabled(true)
-, mSoundEnabled(true)
-, mVolume(1.0f)
+    : mAssetManager(assetManager)
+    , mDevice(nullptr)
+    , mContext(nullptr)
+    , mBgmSource(0)
+    , mBgmPlaying(false)
+    , mBgmLoop(true)
+    , mBgmEnabled(true)
+    , mSoundEnabled(true)
+    , mVolume(1.0f)
 {
     // OpenAL 初期化（デバイス + コンテキスト）
     InitOpenAL();
@@ -144,7 +144,9 @@ void SoundMixer::SetBGMEnable(bool enable)
 {
     mBgmEnabled = enable;
     if (!mBgmEnabled)
+    {
         StopBGM();
+    }
 }
 
 void SoundMixer::SetSoundEnable(bool enable)
@@ -157,7 +159,9 @@ void SoundMixer::SetVolume(float volume)
     mVolume = std::clamp(volume, 0.0f, 1.0f);
 
     if (mBgmSource != 0)
+    {
         alSourcef(mBgmSource, AL_GAIN, mVolume);
+    }
 }
 
 //--------------------------------------
@@ -172,8 +176,11 @@ bool SoundMixer::LoadBGM(const std::string& fileName)
 
 void SoundMixer::PlayBGM()
 {
-    if (!mBgmEnabled || !mCurrentBGM) return;
-
+    if (!mBgmEnabled || !mCurrentBGM)
+    {
+        return;
+    }
+    
     InitBGMSource();
 
     // 既存キューをすべて外す
@@ -190,13 +197,16 @@ void SoundMixer::PlayBGM()
     mCurrentBGM->Rewind();
 
     // 最初に複数バッファを埋めてキューへ
-    for (int i = 0; i < BGM_NUM_BUFFERS; ++i)
+    for (int i = 0; i < BGM_NUM_BUFFERS; i++)
     {
         size_t bytes = mCurrentBGM->ReadChunk(
             mBgmDecodeBuffer.data(),
             BGM_CHUNK_SIZE
         );
-        if (bytes == 0) break;
+        if (bytes == 0)
+        {
+            break;
+        }
 
         ALenum format = (mCurrentBGM->GetChannels() == 2)
             ? AL_FORMAT_STEREO16
@@ -224,7 +234,9 @@ void SoundMixer::StopBGM()
         mBgmPlaying = false;
 
         if (mCurrentBGM)
+        {
             mCurrentBGM->Rewind();
+        }
     }
 }
 
@@ -236,8 +248,11 @@ void SoundMixer::PlaySoundEffect(const std::string& fileName)
     if (!mSoundEnabled) return;
 
     auto se = mAssetManager->GetSoundEffect(fileName);
-    if (!se) return;
-
+    if (!se)
+    {
+        return;
+    }
+    
     // 1 回使い捨てソースを生成
     ALuint src = 0;
     alGenSources(1, &src);

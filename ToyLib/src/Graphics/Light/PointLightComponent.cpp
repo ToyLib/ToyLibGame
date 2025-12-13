@@ -19,15 +19,15 @@ namespace toy {
 //======================================================================
 
 PointLightComponent::PointLightComponent(Actor* owner, int updateOrder)
-: Component(owner, updateOrder)
-, mLighting(nullptr)
-, mColor(Vector3(1.0f, 1.0f, 1.0f))  // デフォルトは白
-, mIntensity(3.0f)                  // 明るさスケール（シェーダ側で乗算される想定）
-, mConstant(1.0f)                   // 減衰：定数項
-, mLinear(0.09f)                    // 減衰：一次項
-, mQuadratic(0.032f)                // 減衰：二次項
-, mRadius(28.0f)                    // 影響半径（最適化/見た目用の閾値）
-, mIsEnabled(true)                  // 有効/無効フラグ
+    : Component(owner, updateOrder)
+    , mLighting(nullptr)
+    , mColor(Vector3(1.0f, 1.0f, 1.0f))  // デフォルトは白
+    , mIntensity(3.0f)                  // 明るさスケール（シェーダ側で乗算される想定）
+    , mConstant(1.0f)                   // 減衰：定数項
+    , mLinear(0.09f)                    // 減衰：一次項
+    , mQuadratic(0.032f)                // 減衰：二次項
+    , mRadius(28.0f)                    // 影響半径（最適化/見た目用の閾値）
+    , mIsEnabled(true)                  // 有効/無効フラグ
 {
     //------------------------------------------------------------------
     // LightingManager に自動登録

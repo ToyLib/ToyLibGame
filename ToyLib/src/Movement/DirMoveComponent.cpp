@@ -11,9 +11,9 @@ namespace toy {
 // コンストラクタ
 //------------------------------------------------------------------------------
 DirMoveComponent::DirMoveComponent(class Actor* a, int order)
-: MoveComponent(a, order)
-, mSpeed(9.0f)                    // カメラ基準移動の基本速度
-, mPrevPosition(Vector3::Zero)   // 前フレームの位置
+    : MoveComponent(a, order)
+    , mSpeed(9.0f)                    // カメラ基準移動の基本速度
+    , mPrevPosition(Vector3::Zero)   // 前フレームの位置
 {
 }
 
@@ -72,10 +72,22 @@ void DirMoveComponent::ProcessInput(const struct InputState& state)
     mRightSpeed   = mSpeed * state.Controller.GetLeftStick().x;
 
     // DPad補正（キーボード的操作）
-    if (state.IsButtonDown(GameButton::DPadLeft))  mRightSpeed   = -mSpeed;
-    if (state.IsButtonDown(GameButton::DPadRight)) mRightSpeed   =  mSpeed;
-    if (state.IsButtonDown(GameButton::DPadUp))    mForwardSpeed =  mSpeed;
-    if (state.IsButtonDown(GameButton::DPadDown))  mForwardSpeed = -mSpeed;
+    if (state.IsButtonDown(GameButton::DPadLeft))
+    {
+        mRightSpeed = -mSpeed;
+    }
+    if (state.IsButtonDown(GameButton::DPadRight))
+    {
+        mRightSpeed = mSpeed;
+    }
+    if (state.IsButtonDown(GameButton::DPadUp))
+    {
+        mForwardSpeed = mSpeed;
+    }
+    if (state.IsButtonDown(GameButton::DPadDown))
+    {
+        mForwardSpeed = -mSpeed;
+    }
 }
 
 //------------------------------------------------------------------------------

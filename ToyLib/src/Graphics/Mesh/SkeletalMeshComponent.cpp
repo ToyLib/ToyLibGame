@@ -18,9 +18,9 @@ namespace toy {
 //  - スキニング用シェーダ／シャドウ用シェーダに差し替え
 //----------------------------------------------------------------------
 SkeletalMeshComponent::SkeletalMeshComponent(Actor* a, int drawOrder, VisualLayer layer)
-: MeshComponent(a, drawOrder, layer,  true)
-, mAnimTime(0.0f)
-, mAnimPlayer(nullptr)
+    : MeshComponent(a, drawOrder, layer,  true)
+    , mAnimTime(0.0f)
+    , mAnimPlayer(nullptr)
 {
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     mShader       = renderer->GetShader("Skinned");
@@ -46,8 +46,11 @@ void SkeletalMeshComponent::SetAnimID(const unsigned int animID, const bool mode
 //----------------------------------------------------------------------
 void SkeletalMeshComponent::Draw()
 {
-    if (!mMesh) return;
-
+    if (!mMesh)
+    {
+        return;
+    }
+    
     // 加算ブレンド指定時
     if (mIsBlendAdd)
     {
@@ -132,7 +135,10 @@ void SkeletalMeshComponent::Draw()
 //----------------------------------------------------------------------
 void SkeletalMeshComponent::DrawShadow()
 {
-    if (!mMesh) return;
+    if (!mMesh)
+    {
+        return;
+    }
     
     auto   renderer = GetOwner()->GetApp()->GetRenderer();
     Matrix4 light   = renderer->GetLightSpaceMatrix();

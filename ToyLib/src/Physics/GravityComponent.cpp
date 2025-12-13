@@ -19,15 +19,15 @@ namespace toy {
 //   「1ステップでどれくらいの段差・落差までスナップで許容するか」の目安。
 //------------------------------------------------------------------------------
 GravityComponent::GravityComponent(Actor* a)
-: Component(a)
-, mVelocityY(0.0f)
-, mGravityAccel(-80.0f)     // 重力加速度（ユニット/秒^2）
-, mJumpSpeed(35.0f)         // ジャンプ初速（ユニット/秒）
-, mMaxFallSpeed(-40.0f)     // 最大落下速度（負方向の終端速度）
-, mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
-, mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
-, mPenetrationEps(0.05f)    // めり込み許容量
-, mIsGrounded(false)
+    : Component(a)
+    , mVelocityY(0.0f)
+    , mGravityAccel(-80.0f)     // 重力加速度（ユニット/秒^2）
+    , mJumpSpeed(35.0f)         // ジャンプ初速（ユニット/秒）
+    , mMaxFallSpeed(-40.0f)     // 最大落下速度（負方向の終端速度）
+    , mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
+    , mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
+    , mPenetrationEps(0.05f)    // めり込み許容量
+    , mIsGrounded(false)
 {
     // ★ mPenetrationEps がメンバにあるならここで初期化しておくと安全。
     // mPenetrationEps = 0.05f;
@@ -78,8 +78,10 @@ void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
 
     // 落下速度に下限（終端速度）を設ける
     if (mVelocityY < mMaxFallSpeed)
+    {
         mVelocityY = mMaxFallSpeed;
-
+    }
+    
     // 足元（C_FOOT の AABB の min.y）を基準に地面との関係を見る
     float footY     = collider->GetBoundingVolume()->GetWorldAABB().min.y;
     float nextFootY = footY + mVelocityY * dt;

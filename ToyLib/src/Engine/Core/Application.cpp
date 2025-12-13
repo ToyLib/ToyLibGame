@@ -23,19 +23,19 @@ namespace toy {
 //=============================================================
 
 Application::Application()
-: mIsActive(false)
-, mIsUpdatingActors(false)
-, mIsPause(false)
-, mScreenWidth(1600)    // 初期の想定物理解像度（あくまで暫定）
-, mScreenHeight(900)
-, mWindowedWidth(1280)  // 起動時の論理ウィンドウサイズ
-, mWindowedHeight(768)
-, mIsFullScreen(false)
-, mWindow(nullptr)
-, mTicksCount(0)
-, mTargetAspect(16.0f / 9.0f)
-, mLockAspect(true)
-, mIsAdjustingSize(false)
+    : mIsActive(false)
+    , mIsUpdatingActors(false)
+    , mIsPause(false)
+    , mScreenWidth(1600)    // 初期の想定物理解像度（あくまで暫定）
+    , mScreenHeight(900)
+    , mWindowedWidth(1280)  // 起動時の論理ウィンドウサイズ
+    , mWindowedHeight(768)
+    , mIsFullScreen(false)
+    , mWindow(nullptr)
+    , mTicksCount(0)
+    , mTargetAspect(16.0f / 9.0f)
+    , mLockAspect(true)
+    , mIsAdjustingSize(false)
 {
     mRenderer      = std::make_unique<Renderer>();
     mInputSys      = std::make_unique<InputSystem>();
@@ -75,8 +75,14 @@ bool Application::Initialize()
     }
 
     LoadSettings("ToyLib/Settings/Application_Settings.json");
-    if (mScreenWidth  <= 0) mScreenWidth  = 1280;
-    if (mScreenHeight <= 0) mScreenHeight = 720;
+    if (mScreenWidth  <= 0)
+    {
+        mScreenWidth  = 1280;
+    }
+    if (mScreenHeight <= 0)
+    {
+        mScreenHeight = 720;
+    }
 
     // 起動時の論理ウィンドウサイズ
     mWindowedWidth  = mScreenWidth;
@@ -247,15 +253,29 @@ void Application::ProcessInput()
             // -------------------------
             case SDL_EVENT_WINDOW_RESIZED:
             {
-                if (!mWindow) break;
-                if (event.window.windowID != SDL_GetWindowID(mWindow)) break;
-                if (!mLockAspect) break;
-                if (mIsFullScreen) break; // 全画面時は OS 任せ
-
+                if (!mWindow)
+                {
+                    break;
+                }
+                if (event.window.windowID != SDL_GetWindowID(mWindow))
+                {
+                    break;
+                }
+                if (!mLockAspect)
+                {
+                    break;
+                }
+                if (mIsFullScreen)
+                {
+                    break; // 全画面時は OS 任せ
+                }
+                
                 int w = event.window.data1;
                 int h = event.window.data2;
-                if (w <= 0 || h <= 0) break;
-
+                if (w <= 0 || h <= 0)
+                {
+                    break;
+                }
                 // 自分が SetWindowSize したときに来るイベントはスキップ
                 if (mIsAdjustingSize)
                 {
@@ -404,7 +424,9 @@ void Application::UpdateFrame()
     mTicksCount = now;
     
     if (mIsPause)
+    {
         return;
+    }
     
     mTimeOfDaySys->Update(deltaTime);
     UpdateGame(deltaTime);
@@ -421,7 +443,6 @@ void Application::UpdateFrame()
                   / static_cast<double>(SDL_GetPerformanceFrequency());
 
     mDebugStats.PhysicsTimeMs = static_cast<float>(physMs);
-
 
     
     mIsUpdatingActors = true;
@@ -505,11 +526,15 @@ void Application::HandleWindowResized()
 void Application::SetFullscreen(bool enable)
 {
     if (!mWindow)
+    {
         return;
-
+    }
+    
     if (mIsFullScreen == enable)
+    {
         return;
-
+    }
+    
     if (enable)
     {
         // ★ フルスクリーンに入る前に「論理ウィンドウサイズ」を保存

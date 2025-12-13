@@ -19,7 +19,7 @@ bool Application::LoadSettings(const std::string& filePath)
     if (!file.is_open())
     {
         std::cerr << "Failed to open Application settings file: "
-        << filePath.c_str() << std::endl;
+                  << filePath.c_str() << std::endl;
         return false;
     }
     
@@ -58,7 +58,7 @@ bool Application::LoadSettings(const std::string& filePath)
     }
     
     std::cerr << "Loaded Application settings from "
-    << filePath.c_str() << std::endl;
+              << filePath.c_str() << std::endl;
     return true;
 }
 

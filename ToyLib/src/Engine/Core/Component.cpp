@@ -14,8 +14,8 @@ namespace toy {
 //  owner: 所有する Actor
 //  order: Update の優先度（小さいほど先に Update される）
 Component::Component(Actor* a, int order)
-: mOwnerActor(a)
-, mUpdateOrder(order)
+    : mOwnerActor(a)
+    , mUpdateOrder(order)
 {
 }
 

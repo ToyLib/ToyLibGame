@@ -236,11 +236,22 @@ bool SoundEffect::LoadWav16(const std::string& fullPath,
     outData = std::move(dataChunk);
 
     // OpenAL のフォーマットに変換
-    if (numChannels == 1 && bitsPerSample == 8)   outFormat = AL_FORMAT_MONO8;
-    if (numChannels == 1 && bitsPerSample == 16)  outFormat = AL_FORMAT_MONO16;
-    if (numChannels == 2 && bitsPerSample == 8)   outFormat = AL_FORMAT_STEREO8;
-    if (numChannels == 2 && bitsPerSample == 16)  outFormat = AL_FORMAT_STEREO16;
-
+    if (numChannels == 1 && bitsPerSample == 8)
+    {
+        outFormat = AL_FORMAT_MONO8;
+    }
+    if (numChannels == 1 && bitsPerSample == 16)
+    {
+        outFormat = AL_FORMAT_MONO16;
+    }
+    if (numChannels == 2 && bitsPerSample == 8)
+    {
+        outFormat = AL_FORMAT_STEREO8;
+    }
+    if (numChannels == 2 && bitsPerSample == 16)
+    {
+        outFormat = AL_FORMAT_STEREO16;
+    }
     return true;
 }
 

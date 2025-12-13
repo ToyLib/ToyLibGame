@@ -575,7 +575,9 @@ ColliderComponent* PhysWorld::FindFootCollider(const Actor* a) const
     for (auto* comp : a->GetAllComponents<ColliderComponent>())
     {
         if (comp->HasFlag(C_FOOT))
+        {
             return comp;
+        }
     }
     return nullptr;
 }
@@ -700,7 +702,9 @@ bool PhysWorld::Raycast(const Vector3& origin,
     ray.dir   = dir;
 
     if (ray.dir.LengthSq() < Math::NearZeroEpsilon)
+    {
         return false;
+    }
     ray.dir.Normalize();
 
     float closestT = maxDist;
@@ -708,11 +712,20 @@ bool PhysWorld::Raycast(const Vector3& origin,
 
     for (auto* col : mColliders)
     {
-        if (!col->GetDisp())                  continue;
-        if (!(col->GetFlags() & flagMask))    continue;
-
+        if (!col->GetDisp())
+        {
+            continue;
+        }
+        if (!(col->GetFlags() & flagMask))
+        {
+            continue;
+        }
+        
         auto obb = col->GetBoundingVolume()->GetOBB();
-        if (!obb) continue;
+        if (!obb)
+        {
+            continue;
+        }
 
         float t;
         if (IntersectRayOBB(ray, obb.get(), t))

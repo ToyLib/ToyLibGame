@@ -8,9 +8,9 @@ namespace toy {
 // コンストラクタ
 //------------------------------------------------------------------------------
 FPSMoveComponent::FPSMoveComponent(class Actor* a, int order)
-: MoveComponent(a, order)
-, mTurnSpeed(180.0f)   // 左右の回転速度
-, mSpeed(7.0f)         // 前進・後退速度
+    : MoveComponent(a, order)
+    , mTurnSpeed(180.0f)   // 左右の回転速度
+    , mSpeed(7.0f)         // 前進・後退速度
 {
 }
 
@@ -23,7 +23,10 @@ FPSMoveComponent::~FPSMoveComponent()
 //------------------------------------------------------------------------------
 void FPSMoveComponent::ProcessInput(const struct InputState& state)
 {
-    if (!mIsMovable) return;
+    if (!mIsMovable)
+    {
+        return;
+    }
     
     // 左スティック：前後・旋回
     mForwardSpeed = mSpeed     * state.Controller.GetLeftStick().y;
@@ -31,13 +34,21 @@ void FPSMoveComponent::ProcessInput(const struct InputState& state)
     
     // キーボード（DPad）補助入力
     if (state.IsButtonDown(GameButton::DPadLeft))
+    {
         mAngularSpeed = -mTurnSpeed;
+    }
     if (state.IsButtonDown(GameButton::DPadRight))
+    {
         mAngularSpeed =  mTurnSpeed;
+    }
     if (state.IsButtonDown(GameButton::DPadUp))
+    {
         mForwardSpeed =  mSpeed;
+    }
     if (state.IsButtonDown(GameButton::DPadDown))
+    {
         mForwardSpeed = -mSpeed;
+    }
 }
 
 //------------------------------------------------------------------------------

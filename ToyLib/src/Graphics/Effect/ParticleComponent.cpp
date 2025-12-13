@@ -14,17 +14,17 @@ namespace toy {
 // コンストラクタ
 //======================================================================
 ParticleComponent::ParticleComponent(Actor* owner, int drawOrder)
-: VisualComponent(owner, drawOrder)
-, mTexture(nullptr)
-, mDrawOrder(drawOrder)
-, mIsBlendAdd(true)
-, mNumParts(0)
-, mLifeTime(0.0f)
-, mTotalLife(0.0f)
-, mPartLifecycle(0.0f)
-, mPartSize(0.0f)
-, mPartSpeed(2.0f)
-, mParticleMode(P_SPARK)
+    : VisualComponent(owner, drawOrder)
+    , mTexture(nullptr)
+    , mDrawOrder(drawOrder)
+    , mIsBlendAdd(true)
+    , mNumParts(0)
+    , mLifeTime(0.0f)
+    , mTotalLife(0.0f)
+    , mPartLifecycle(0.0f)
+    , mPartSize(0.0f)
+    , mPartSpeed(2.0f)
+    , mParticleMode(P_SPARK)
 {
     // 3D エフェクト扱い（ライト・深度あり）
     mLayer = VisualLayer::Effect3D;
@@ -56,7 +56,8 @@ void ParticleComponent::CreateParticles(
     float partLife,
     float size,
     ParticleMode mode
-){
+)
+{
     mPosition       = pos;
     mIsVisible      = true;
     mNumParts       = num;
@@ -80,8 +81,11 @@ void ParticleComponent::GenerateParts()
 
     for (int i = 0; i < mNumParts; i++)
     {
-        if (mParts[i].isVisible) continue;   // 生存中なら skip
-
+        if (mParts[i].isVisible)
+        {
+            continue;   // 生存中なら skip
+        }
+        
         // ランダム方向（雑だが軽量）
         float x = (float)(rnd() % (int)mPartSpeed);
         float y = (float)(rnd() % (int)mPartSpeed);
@@ -149,8 +153,10 @@ void ParticleComponent::Update(float deltaTime)
 //======================================================================
 void ParticleComponent::Draw()
 {
-    if (!mIsVisible || mTexture == nullptr) return;
-    
+    if (!mIsVisible || mTexture == nullptr)
+    {
+        return;
+    }
 
     //------------------------------
     // ブレンド設定

@@ -22,8 +22,8 @@ namespace toy {
 // ・デバッグモード時はワイヤーフレーム用コンポーネントを生成
 //------------------------------------------------------------------------------
 BoundingVolumeComponent::BoundingVolumeComponent(Actor* a)
-: Component(a)
-, mRadius(0.0f)
+    : Component(a)
+    , mRadius(0.0f)
 {
     mBoundingBox = std::make_shared<Cube>();
     mObb         = std::make_shared<OBB>();
