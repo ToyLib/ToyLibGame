@@ -1,49 +1,98 @@
-// shaders/ParticleGPU.vert
 #version 410 core
 
-layout(location = 0) in vec3 aQuadPos;
-layout(location = 1) in vec2 aUV;
+//==============================================================
+// ParticleGPU.vert
+//----------------------------------------------------------------------
+// GPU パーティクル描画用の頂点シェーダ
+//
+// ・板ポリ（quad）をインスタンシングで描画する
+// ・インスタンス属性で粒の位置(iPos)と寿命(iLife)を受け取る
+// ・uCameraRight/uCameraUp を使って “常にカメラ正面” のビルボードにする
+// ・寿命から vAlpha を計算し、フラグメント側で discard する
+//
+// 注意：行列の掛け順は ToyLib 規約に合わせている
+//   gl_Position = vec4(worldPos,1) * uViewProj;
+//==============================================================
 
-// instanced particle data
-layout(location = 3) in vec3 iPos;
-layout(location = 4) in float iLife;
+//==============================================================
+// Vertex inputs（quad のローカル頂点）
+//==============================================================
+layout(location = 0) in vec3 aQuadPos;  // quad ローカル座標（-0.5..0.5）
+layout(location = 1) in vec2 aUV;       // quad の UV
 
-uniform mat4 uViewProj;
+//==============================================================
+// Instanced inputs（粒ごとのデータ）
+//==============================================================
+layout(location = 3) in vec3  iPos;     // 粒のワールド座標（または更新 shader の出力）
+layout(location = 4) in float iLife;    // 粒の寿命（経過秒）
 
-// billboard basis (world)
+//==============================================================
+// Uniforms
+//==============================================================
+uniform mat4 uViewProj;        // View * Projection（ToyLib の構築規約に従う）
+
+// billboard basis（ワールド空間）
+// カメラの右方向/上方向ベクトル（正規化済み想定）
 uniform vec3 uCameraRight;
 uniform vec3 uCameraUp;
 
-uniform float uSize;
-uniform float uLifeMax;
+uniform float uSize;           // 粒サイズ（quad のスケール）
+uniform float uLifeMax;        // 粒の寿命上限（秒）
 
-out vec2 vUV;
-out float vAlpha;
-out float vLife;
+//==============================================================
+// Outputs to fragment shader
+//==============================================================
+out vec2  vUV;                 // テクスチャ UV
+out float vAlpha;              // 粒の可視度（寿命に基づくフェード結果）
+out float vLife;               // デバッグ/拡張用（現状は frag で未使用でも OK）
 
 void main()
 {
+    // quad の UV はそのまま転送
     vUV = aUV;
+
+    // 現在寿命は必要ならデバッグ可視化に使える
     vLife = iLife;
 
-    // dead -> alpha 0 and move off-screen
+    //----------------------------------------------------------
+    // dead 判定
+    //
+    // iLife >= uLifeMax の粒は「死んだ」とみなす。
+    // ・vAlpha = 0 にして frag 側で discard される
+    // ・ついでにクリップ外へ飛ばして無駄な処理を減らす意図
+    //
+    // ※本質的には vAlpha=0 だけでも成立するが、
+    //  早期に画面外へ出すことでラスタライズ負荷を下げる狙い。
+    //----------------------------------------------------------
     if (iLife >= uLifeMax)
     {
         vAlpha = 0.0;
-        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0); // NDC で Z>1 なのでクリップ外
         return;
     }
 
-    // fade out near end
+    //----------------------------------------------------------
+    // 寿命 → フェード（アルファ）計算
+    //
+    // t: 0..1 へ正規化した寿命割合
+    // fade: 終盤(0.65..1.0)で滑らかに 1→0 へ落とす
+    //----------------------------------------------------------
     float t = clamp(iLife / uLifeMax, 0.0, 1.0);
-    // smooth fade out (t->1)
     vAlpha = 1.0 - smoothstep(0.65, 1.0, t);
 
-    // billboard quad in world
+    //----------------------------------------------------------
+    // Billboard quad をワールド空間に展開
+    //
+    // aQuadPos.x/y をカメラの Right/Up ベクトル方向へ伸ばすことで
+    // quad が常にカメラ正面を向く。
+    //----------------------------------------------------------
     vec3 worldPos = iPos
                   + uCameraRight * (aQuadPos.x * uSize)
                   + uCameraUp    * (aQuadPos.y * uSize);
 
+    //----------------------------------------------------------
+    // クリップ空間へ
     // ToyLib convention: vec4(worldPos,1) * uViewProj
+    //----------------------------------------------------------
     gl_Position = vec4(worldPos, 1.0) * uViewProj;
 }
