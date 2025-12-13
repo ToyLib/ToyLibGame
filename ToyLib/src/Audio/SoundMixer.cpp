@@ -197,7 +197,7 @@ void SoundMixer::PlayBGM()
     mCurrentBGM->Rewind();
 
     // 最初に複数バッファを埋めてキューへ
-    for (int i = 0; i < BGM_NUM_BUFFERS; i++)
+    for (int i = 0; i < BGM_NUM_BUFFERS; ++i)
     {
         size_t bytes = mCurrentBGM->ReadChunk(
             mBgmDecodeBuffer.data(),

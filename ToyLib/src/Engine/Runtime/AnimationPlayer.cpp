@@ -88,7 +88,7 @@ void AnimationPlayer::Update(float deltaTime)
         
         // 2 つのポーズを行列補間して最終ボーン行列を生成
         mFinalMatrices.resize(poseA.size());
-        for (size_t i = 0; i < poseA.size(); i++)
+        for (size_t i = 0; i < poseA.size(); ++i)
         {
             mFinalMatrices[i] = LerpMatrix(poseA[i], poseB[i], t);
         }
@@ -191,9 +191,9 @@ void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
 Matrix4 AnimationPlayer::LerpMatrix(const Matrix4& a, const Matrix4& b, float t)
 {
     Matrix4 result;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; ++i)
     {
-        for (int j = 0; j < 4; j++)
+        for (int j = 0; j < 4; ++j)
         {
             result.mat[i][j] = a.mat[i][j] * (1.0f - t) + b.mat[i][j] * t;
         }
@@ -207,7 +207,7 @@ Matrix4 AnimationPlayer::LerpMatrix(const Matrix4& a, const Matrix4& b, float t)
 int AnimationPlayer::FindClipIndex(const aiAnimation* anim) const
 {
     const auto& clips = mMesh->GetAnimationClips();
-    for (size_t i = 0; i < clips.size(); i++)
+    for (size_t i = 0; i < clips.size(); ++i)
     {
         if (clips[i].mAnimation == anim)
         {

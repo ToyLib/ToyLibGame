@@ -79,7 +79,7 @@ void ParticleComponent::GenerateParts()
 {
     std::random_device rnd;
 
-    for (int i = 0; i < mNumParts; i++)
+    for (int i = 0; i < mNumParts; ++i)
     {
         if (mParts[i].isVisible)
         {
@@ -119,7 +119,7 @@ void ParticleComponent::Update(float deltaTime)
     }
 
     // 各パーティクル更新
-    for (int i = 0; i < mNumParts; i++)
+    for (int i = 0; i < mNumParts; ++i)
     {
         if (mParts[i].isVisible)
         {
@@ -204,7 +204,7 @@ void ParticleComponent::Draw()
     // パーティクルを 1 つずつ描画
     //------------------------------
     mVertexArray->SetActive();
-    for (int i = 0; i < mNumParts; i++)
+    for (int i = 0; i < mNumParts; ++i)
     {
         if (mParts[i].isVisible)
         {

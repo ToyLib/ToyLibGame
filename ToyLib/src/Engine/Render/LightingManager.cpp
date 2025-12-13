@@ -66,7 +66,7 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     }
     
     int num = 0;
-    for (int i = 0; i < numAll; i++)
+    for (int i = 0; i < numAll; ++i)
     {
         auto* comp = mPointLights[i];
         if (!comp || !comp->IsEnabled())

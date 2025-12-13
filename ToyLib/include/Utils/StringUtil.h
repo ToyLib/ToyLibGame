@@ -259,7 +259,7 @@ inline std::string Join(const std::vector<std::string>& arr, const std::string& 
     if (arr.empty()) return "";
 
     std::string out = arr[0];
-    for (size_t i = 1; i < arr.size(); i++)
+    for (size_t i = 1; i < arr.size(); ++i)
     {
         out += sep;
         out += arr[i];

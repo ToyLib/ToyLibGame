@@ -18,15 +18,15 @@ void OutdoorStage::InitStage()
     DeploySky();
     
     // レンガ
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; ++i)
     {
-        for (int j = 0; j < 5; j++)
+        for (int j = 0; j < 5; ++j)
         {
             DeployBrick(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2), true);
         }
     }
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 5; ++i)
     {
         DeployBrick(Vector3(0, 1+i*5, -50 + i*5), true);
 

@@ -154,9 +154,9 @@ public:
     void SetDebugWireVisible(const bool b) { mIsDebugWireVisible = b; }
     bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
     
-    void AddDrawCall() { mDrawCallCount++; }
+    void AddDrawCall() { ++mDrawCallCount; }
     unsigned int GetDrawCallCount() const { return mDrawCallCount; }
-    void AddDrawObject() { mDrawObjectCount++; }
+    void AddDrawObject() { ++mDrawObjectCount; }
     unsigned int GetDrawObjectCount() const { return mDrawObjectCount; }
 
     

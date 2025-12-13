@@ -21,7 +21,7 @@ MagicActor::MagicActor(toy::Application* a)
 
 void MagicActor::UpdateActor(float deltaTime)
 {
-    mCnt++;
+    ++mCnt;
     if (mCnt < 40)
     {
         

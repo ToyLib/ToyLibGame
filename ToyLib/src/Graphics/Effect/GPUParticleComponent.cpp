@@ -386,7 +386,7 @@ void GPUParticleComponent::InitParticleBuffers(bool warmStart)
     std::mt19937 rng(1337u);
     std::uniform_real_distribution<float> u11(-1.0f, 1.0f);
 
-    for (uint32_t i = 0; i < N; i++)
+    for (uint32_t i = 0; i < N; ++i)
     {
         auto& p = init[i];
 

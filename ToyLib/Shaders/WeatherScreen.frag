@@ -67,7 +67,7 @@ float fbm(vec2 p)
     float value = 0.0;
     float amp   = 0.5;
     
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; ++i)
     {
         value += amp * noise(p);
         p     *= 2.0;
@@ -101,7 +101,7 @@ float snowPattern(vec2 uv)
 {
     float brightness = 0.0;
 
-    for (int i = 0; i < SNOW_COUNT; i++)
+    for (int i = 0; i < SNOW_COUNT; ++i)
     {
         float fi = float(i);
 

@@ -324,7 +324,7 @@ void VertexArray::CreatePolygons(const float* verts,
                                  const unsigned int num)
 {
     // num はインデックス数なので 3 で割って三角形数にする
-    for (unsigned int i = 0; i < num / 3; i++)
+    for (unsigned int i = 0; i < num / 3; ++i)
     {
         Polygon poly;
 

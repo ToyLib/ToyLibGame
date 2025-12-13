@@ -126,7 +126,7 @@ void Mesh::ComputeBoneHierarchy(
     }
 
     // 子ノードを再帰処理
-    for (unsigned int i = 0; i < pNode->mNumChildren; i++)
+    for (unsigned int i = 0; i < pNode->mNumChildren; ++i)
     {
         ComputeBoneHierarchy(
             animationTime,
@@ -143,7 +143,7 @@ const aiNodeAnim* Mesh::FindNodeAnim(
     const aiAnimation* pAnimation,
     const std::string& nodeName)
 {
-    for (unsigned int i = 0; i < pAnimation->mNumChannels; i++)
+    for (unsigned int i = 0; i < pAnimation->mNumChannels; ++i)
     {
         const aiNodeAnim* pNodeAnim = pAnimation->mChannels[i];
         if (std::string(pNodeAnim->mNodeName.data) == nodeName)
@@ -277,7 +277,7 @@ void Mesh::CalcInterpolatedScaling(
 //==============================================================
 unsigned int Mesh::FindPosition(float animationTime, const aiNodeAnim* pNodeAnim)
 {
-    for (unsigned int i = 0; i < pNodeAnim->mNumPositionKeys - 1; i++)
+    for (unsigned int i = 0; i < pNodeAnim->mNumPositionKeys - 1; ++i)
     {
         if (animationTime < (float)pNodeAnim->mPositionKeys[i + 1].mTime)
         {
@@ -294,7 +294,7 @@ unsigned int Mesh::FindRotation(float animationTime, const aiNodeAnim* pNodeAnim
 {
     assert(pNodeAnim->mNumRotationKeys > 0);
 
-    for (unsigned int i = 0; i < pNodeAnim->mNumRotationKeys - 1; i++)
+    for (unsigned int i = 0; i < pNodeAnim->mNumRotationKeys - 1; ++i)
     {
         if (animationTime < (float)pNodeAnim->mRotationKeys[i + 1].mTime)
         {
@@ -311,7 +311,7 @@ unsigned int Mesh::FindScaling(float animationTime, const aiNodeAnim* pNodeAnim)
 {
     assert(pNodeAnim->mNumScalingKeys > 0);
 
-    for (unsigned int i = 0; i < pNodeAnim->mNumScalingKeys - 1; i++)
+    for (unsigned int i = 0; i < pNodeAnim->mNumScalingKeys - 1; ++i)
     {
         if (animationTime < (float)pNodeAnim->mScalingKeys[i + 1].mTime)
         {
@@ -327,7 +327,7 @@ unsigned int Mesh::FindScaling(float animationTime, const aiNodeAnim* pNodeAnim)
 //==============================================================
 void Mesh::LoadBones(const aiMesh* m, std::vector<VertexBoneData>& bones)
 {
-    for (unsigned int i = 0; i < m->mNumBones; i++)
+    for (unsigned int i = 0; i < m->mNumBones; ++i)
     {
         unsigned int boneIndex = 0;
         std::string boneName(m->mBones[i]->mName.data);
@@ -336,7 +336,7 @@ void Mesh::LoadBones(const aiMesh* m, std::vector<VertexBoneData>& bones)
         if (mBoneMapping.find(boneName) == mBoneMapping.end())
         {
             boneIndex = mNumBones;
-            mNumBones++;
+            ++mNumBones;
 
             BoneInfo bi;
             mBoneInfo.push_back(bi);
@@ -354,7 +354,7 @@ void Mesh::LoadBones(const aiMesh* m, std::vector<VertexBoneData>& bones)
         }
 
         // 各頂点に BoneID / Weight を割り当てる
-        for (unsigned int j = 0; j < m->mBones[i]->mNumWeights; j++)
+        for (unsigned int j = 0; j < m->mBones[i]->mNumWeights; ++j)
         {
             unsigned int vertexID = m->mBones[i]->mWeights[j].mVertexId;
             float        weight   = m->mBones[i]->mWeights[j].mWeight;
@@ -384,7 +384,7 @@ void Mesh::CreateMeshBone(const aiMesh* m)
     LoadBones(m, bones);
 
     // 頂点属性をバッファへ詰める
-    for (unsigned int i = 0; i < m->mNumVertices; i++)
+    for (unsigned int i = 0; i < m->mNumVertices; ++i)
     {
         // 位置
         vertexBuffer.push_back(m->mVertices[i].x);
@@ -421,7 +421,7 @@ void Mesh::CreateMeshBone(const aiMesh* m)
     }
 
     // インデックス（三角形のみ想定）
-    for (unsigned int i = 0; i < m->mNumFaces; i++)
+    for (unsigned int i = 0; i < m->mNumFaces; ++i)
     {
         const aiFace& face = m->mFaces[i];
         assert(face.mNumIndices == 3);
@@ -456,7 +456,7 @@ void Mesh::CreateMesh(const aiMesh* m)
     std::vector<float>         uvBuffer;       // UV
     std::vector<unsigned int>  indexBuffer;
 
-    for (unsigned int i = 0; i < m->mNumVertices; i++)
+    for (unsigned int i = 0; i < m->mNumVertices; ++i)
     {
         // 位置
         vertexBuffer.push_back(m->mVertices[i].x);
@@ -482,7 +482,7 @@ void Mesh::CreateMesh(const aiMesh* m)
     }
 
     // インデックス（三角形のみ想定）
-    for (unsigned int i = 0; i < m->mNumFaces; i++)
+    for (unsigned int i = 0; i < m->mNumFaces; ++i)
     {
         const aiFace& face = m->mFaces[i];
         assert(face.mNumIndices == 3);
@@ -561,7 +561,7 @@ bool Mesh::Load(const std::string& fileName,
 //==============================================================
 void Mesh::LoadMeshData()
 {
-    for (int i = 0; i < static_cast<int>(mScene->mNumMeshes); i++)
+    for (int i = 0; i < static_cast<int>(mScene->mNumMeshes); ++i)
     {
         aiMesh* m = mScene->mMeshes[i];
 
@@ -583,7 +583,7 @@ void Mesh::LoadMeshData()
 //==============================================================
 void Mesh::LoadMaterials(AssetManager* assetMamager)
 {
-    for (unsigned int i = 0; i < mScene->mNumMaterials; i++)
+    for (unsigned int i = 0; i < mScene->mNumMaterials; ++i)
     {
         aiMaterial* pMaterial = mScene->mMaterials[i];
         std::shared_ptr<Material> mat = std::make_shared<Material>();
@@ -668,7 +668,7 @@ void Mesh::LoadAnimations()
 
     std::cerr << "[Mesh] Found " << mScene->mNumAnimations << " animation(s)." << std::endl;
 
-    for (unsigned int i = 0; i < mScene->mNumAnimations; i++)
+    for (unsigned int i = 0; i < mScene->mNumAnimations; ++i)
     {
         const aiAnimation* anim = mScene->mAnimations[i];
 
@@ -726,7 +726,7 @@ void Mesh::ComputePoseAtTime(
 
     // FinalTransformation をそのまま出力配列にコピー
     outTransforms.resize(mNumBones);
-    for (unsigned int i = 0; i < mNumBones; i++)
+    for (unsigned int i = 0; i < mNumBones; ++i)
     {
         outTransforms[i] = mBoneInfo[i].FinalTransformation;
     }

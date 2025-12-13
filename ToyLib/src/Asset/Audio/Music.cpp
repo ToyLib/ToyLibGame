@@ -35,12 +35,12 @@ void Music::InitLib()
     {
         mpg123_init();     // 最初の1回だけ
     }
-    sRefCount++;
+    ++sRefCount;
 }
 
 void Music::ShutdownLib()
 {
-    sRefCount++;
+    ++sRefCount;
     if (sRefCount <= 0)
     {
         sRefCount = 0;

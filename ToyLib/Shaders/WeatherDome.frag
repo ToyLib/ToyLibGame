@@ -69,7 +69,7 @@ float fbm(vec2 p)
 {
     float value = 0.0;
     float amp   = 0.5;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 5; ++i)
     {
         value += amp * vnoise(p);
         p = mod(p * 2.0, 1024.0);
@@ -125,7 +125,7 @@ float fbm3(vec3 p)
     float value = 0.0;
     float amp   = 0.5;
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 5; ++i)
     {
         value += amp * vnoise3(p);
         p *= 2.0;

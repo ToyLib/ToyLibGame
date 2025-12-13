@@ -251,9 +251,9 @@ bool Texture::CreateAlphaCircle(int size,
     float cx = centerX * size;
     float cy = centerY * size;
 
-    for (int y = 0; y < size; y++)
+    for (int y = 0; y < size; ++y)
     {
-        for (int x = 0; x < size; x++)
+        for (int x = 0; x < size; ++x)
         {
             float dx = x - cx;
             float dy = y - cy;
@@ -307,9 +307,9 @@ bool Texture::CreateRadialRays(int size,
     float cy = size * 0.5f;
     float maxDist = size * 0.5f;
 
-    for (int y = 0; y < size; y++)
+    for (int y = 0; y < size; ++y)
     {
-        for (int x = 0; x < size; x++)
+        for (int x = 0; x < size; ++x)
         {
             float dx = x - cx;
             float dy = y - cy;

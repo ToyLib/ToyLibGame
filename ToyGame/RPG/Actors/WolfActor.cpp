@@ -50,7 +50,7 @@ WolfActor::~WolfActor()
 
 void WolfActor::UpdateActor(float deltaTime)
 {
-    mCounter++;
+    ++mCounter;
     switch (mAction)
     {
         case ActionType::IDLE:
