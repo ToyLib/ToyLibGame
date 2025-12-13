@@ -11,7 +11,7 @@
 namespace toy {
 
 SkyDomeComponent::SkyDomeComponent(Actor* a)
-: Component(a)
+    : Component(a)
 {
     //========================================
     // ベースクラスとしての最低限の初期化
@@ -39,8 +39,9 @@ void SkyDomeComponent::Draw()
     // ここでは VAO と Shader が揃っているか確認するだけ。
     
     if (!mSkyVAO || !mShader)
+    {
         return;
-
+    }
     // ※ここで描画内容を書かないのは「派生クラスに任せる」ため。
 }
 

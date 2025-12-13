@@ -14,14 +14,14 @@ namespace toy {
 
 // コンストラクタ
 Actor::Actor(Application* a)
-: mStatus(EActive)
-, mPosition(Vector3::Zero)
-, mRotation(Quaternion::Identity)
-, mScale(1.0f)
-, mApp(a)
-, mIsRecomputeWorldTransform(true)
-, mActorID("Unnamed Actor")
-, mParent(nullptr)
+    : mStatus(EActive)
+    , mPosition(Vector3::Zero)
+    , mRotation(Quaternion::Identity)
+    , mScale(1.0f)
+    , mApp(a)
+    , mIsRecomputeWorldTransform(true)
+    , mActorID("Unnamed Actor")
+    , mParent(nullptr)
 {
 }
 
@@ -74,8 +74,9 @@ void Actor::MarkWorldDirty()
 void Actor::ComputeWorldTransform()
 {
     if (!mIsRecomputeWorldTransform)
+    {
         return;
-    
+    }
     // 親がいるなら、まず親の WorldTransform を確定させる
     if (mParent)
     {
@@ -219,8 +220,9 @@ void Actor::SetForward(const Vector3& dir)
     Vector3 flatDir = Vector3(dir.x, 0.0f, dir.z);
     
     if (flatDir.LengthSq() == 0.0f)
+    {
         return; // 方向なし
-    
+    }
     flatDir = Vector3::Normalize(flatDir);
     
     // atan2(x, z) で Yaw を取得（Zが前、Xが右 の前提）
@@ -245,8 +247,9 @@ void Actor::SetPosition(const Vector3& pos)
 void Actor::SetParent(Actor* newParent)
 {
     if (mParent == newParent)
+    {
         return;
-    
+    }
     // 古い親から外す
     if (mParent)
     {

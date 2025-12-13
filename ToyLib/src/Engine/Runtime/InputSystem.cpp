@@ -52,7 +52,9 @@ static SDL_Scancode StringToScancode(const std::string& name)
 
     auto it = table.find(name);
     if (it != table.end())
+    {
         return it->second;
+    }
 
     std::cerr << "[InputSystem] Unknown key name in config: "
               << name << std::endl;
@@ -85,8 +87,10 @@ static SDL_GamepadButton StringToPadButton(const std::string& name)
 
     auto it = table.find(name);
     if (it != table.end())
+    {
         return it->second;
-
+    }
+    
     std::cerr << "[InputSystem] Unknown gamepad button name in config: "
               << name << std::endl;
     return SDL_GAMEPAD_BUTTON_INVALID;
@@ -98,7 +102,8 @@ static SDL_GamepadButton StringToPadButton(const std::string& name)
 //=============================================================
 static bool StringToGameButton(const std::string& name, GameButton& out)
 {
-    static const std::unordered_map<std::string, GameButton> table = {
+    static const std::unordered_map<std::string, GameButton> table =
+    {
         {"A", GameButton::A},
         {"B", GameButton::B},
         {"X", GameButton::X},
@@ -121,8 +126,10 @@ static bool StringToGameButton(const std::string& name, GameButton& out)
 
     auto it = table.find(name);
     if (it == table.end())
+    {
         return false;
-
+    }
+    
     out = it->second;
     return true;
 }
@@ -142,16 +149,24 @@ ButtonState KeyboardState::GetKeyState(SDL_Scancode keyCode) const
     if (mPrevState[keyCode] == 0)
     {
         if (mCurrState[keyCode] == 0)
+        {
             return ENone;
+        }
         else
+        {
             return EPressed;
+        }
     }
     else
     {
         if (mCurrState[keyCode] == 0)
+        {
             return EReleased;
+        }
         else
+        {
             return EHeld;
+        }
     }
 }
 
@@ -169,16 +184,24 @@ ButtonState ControllerState::GetButtonState(SDL_GamepadButton button) const
     if (mPrevButtons[button] == 0)
     {
         if (mCurrButtons[button] == 0)
+        {
             return ENone;
+        }
         else
+        {
             return EPressed;
+        }
     }
     else
     {
         if (mCurrButtons[button] == 0)
+        {
             return EReleased;
+        }
         else
+        {
             return EHeld;
+        }
     }
 }
 
@@ -438,7 +461,9 @@ bool InputSystem::LoadButtonConfig(const std::string& filePath)
             {
                 SDL_Scancode sc = StringToScancode(keyName);
                 if (sc != SDL_SCANCODE_UNKNOWN)
+                {
                     binding.Keyboard.push_back(sc);
+                }
             }
         }
 
@@ -450,7 +475,9 @@ bool InputSystem::LoadButtonConfig(const std::string& filePath)
             {
                 SDL_GamepadButton b = StringToPadButton(padName);
                 if (b != SDL_GAMEPAD_BUTTON_INVALID)
+                {
                     binding.Gamepad.push_back(b);
+                }
             }
         }
     }
@@ -475,7 +502,9 @@ bool InputSystem::IsButtonDown(GameButton button) const
     {
         ButtonState s = mState.Keyboard.GetKeyState(sc);
         if (s == EPressed || s == EHeld)
+        {
             return true;
+        }
     }
 
     // パッド
@@ -483,7 +512,9 @@ bool InputSystem::IsButtonDown(GameButton button) const
     {
         ButtonState s = mState.Controller.GetButtonState(pb);
         if (s == EPressed || s == EHeld)
+        {
             return true;
+        }
     }
 
     // --- 右スティックを WASD としても扱う ---
@@ -493,16 +524,28 @@ bool InputSystem::IsButtonDown(GameButton button) const
     switch (button)
     {
     case GameButton::KeyW:
-        if (rs.y > threshold)  return true;
+        if (rs.y > threshold)
+        {
+            return true;
+        }
         break;
     case GameButton::KeyS:
-        if (rs.y < -threshold) return true;
+        if (rs.y < -threshold)
+        {
+            return true;
+        }
         break;
     case GameButton::KeyD:
-        if (rs.x > threshold)  return true;
+        if (rs.x > threshold)
+        {
+            return true;
+        }
         break;
     case GameButton::KeyA:
-        if (rs.x < -threshold) return true;
+        if (rs.x < -threshold)
+        {
+            return true;
+        }
         break;
     default:
         break;
@@ -518,13 +561,20 @@ bool InputSystem::IsButtonPressed(GameButton button) const
 
     // キーボード
     for (auto sc : binding.Keyboard)
+    {
         if (mState.Keyboard.GetKeyState(sc) == EPressed)
+        {
             return true;
-
+        }
+    }
     // パッド
     for (auto pb : binding.Gamepad)
+    {
         if (mState.Controller.GetButtonState(pb) == EPressed)
+        {
             return true;
+        }
+    }
 
     return false;
 }
@@ -536,14 +586,20 @@ bool InputSystem::IsButtonReleased(GameButton button) const
 
     // キーボード
     for (auto sc : binding.Keyboard)
+    {
         if (mState.Keyboard.GetKeyState(sc) == EReleased)
+        {
             return true;
-
+        }
+    }
     // パッド
     for (auto pb : binding.Gamepad)
+    {
         if (mState.Controller.GetButtonState(pb) == EReleased)
+        {
             return true;
-
+        }
+    }
     return false;
 }
 
@@ -556,14 +612,19 @@ bool InputSystem::IsButtonReleased(GameButton button) const
 void InputSystem::SetTextInputMode(bool enabled)
 {
     if (enabled == mTextInputMode)
+    {
         return;
-
+    }
     mTextInputMode = enabled;
 
     if (enabled)
+    {
         SDL_StartTextInput(mWindow);
+    }
     else
+    {
         SDL_StopTextInput(mWindow);
+    }
 }
 
 } // namespace toy

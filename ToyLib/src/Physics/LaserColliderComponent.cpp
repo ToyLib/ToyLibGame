@@ -11,8 +11,8 @@ namespace toy {
 //   特定組み合わせ判定に使われる。
 //------------------------------------------------------------------------------
 LaserColliderComponent::LaserColliderComponent(Actor* a)
-: ColliderComponent(a)
-, mLength(100.0f) // デフォルトの射程（描画用）
+    : ColliderComponent(a)
+    , mLength(100.0f) // デフォルトの射程（描画用）
 {
     // これはレーザー専用のコライダー
     SetFlags(C_LASER);

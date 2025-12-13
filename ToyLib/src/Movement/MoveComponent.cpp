@@ -12,12 +12,12 @@ namespace toy {
 // ・各種速度を 0 で初期化
 // ・mIsMovable は true（移動可能）で開始
 MoveComponent::MoveComponent(class Actor* a, int updateOrder)
-: Component(a, updateOrder)
-, mAngularSpeed(0.0f)
-, mForwardSpeed(0.0f)
-, mRightSpeed(0.0f)
-, mVerticalSpeed(0.0f)
-, mIsMovable(true)
+    : Component(a, updateOrder)
+    , mAngularSpeed(0.0f)
+    , mForwardSpeed(0.0f)
+    , mRightSpeed(0.0f)
+    , mVerticalSpeed(0.0f)
+    , mIsMovable(true)
 {
 }
 

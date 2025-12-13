@@ -33,21 +33,27 @@ bool IntersectRayTriangle(
 
     // 平行（背面含む）はヒットしない
     if (fabs(a) < epsilon)
+    {
         return false;
+    }
 
     float f = 1.0f / a;
     Vector3 s = ray.start - v0;
     float u = f * Vector3::Dot(s, h);
 
     if (u < 0.0f || u > 1.0f)
+    {
         return false;
-
+    }
+    
     Vector3 q = Vector3::Cross(s, edge1);
     float v = f * Vector3::Dot(ray.dir, q);
 
     if (v < 0.0f || u + v > 1.0f)
+    {
         return false;
-
+    }
+    
     float t = f * Vector3::Dot(edge2, q);
 
     if (t > epsilon)

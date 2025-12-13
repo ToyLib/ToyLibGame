@@ -11,8 +11,9 @@ int main(int argc, char** argv)
     //---------------------------------------------------------
     toy::SingleInstance instance;
     if (!instance.IsLocked())
+    {
         return 1;
-
+    }
     //---------------------------------------------------------
     // ユーザーアプリ（Application 派生）を生成
     // ・CreateUserApplication() は TOYLIB_REGISTER_APP で実装される

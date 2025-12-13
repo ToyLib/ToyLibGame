@@ -14,12 +14,12 @@
 namespace toy {
 
 DebugOverlayActor::DebugOverlayActor(Application* app)
-: Actor(app)
-, mEnabled(false)
-, mWireVisible(false)
-, mTextComp(nullptr)
-, mSmoothedFPS(0.0f)
-, mTextColor(Vector3(0.3f, 1.0f, 0.3f))
+    : Actor(app)
+    , mEnabled(false)
+    , mWireVisible(false)
+    , mTextComp(nullptr)
+    , mSmoothedFPS(0.0f)
+    , mTextColor(Vector3(0.3f, 1.0f, 0.3f))
 {
     SetActorID("DebugOverlay");
 

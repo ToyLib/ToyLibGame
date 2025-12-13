@@ -6,9 +6,9 @@ namespace toy {
 // コンストラクタ／デストラクタ
 //=============================================================
 Shader::Shader()
-: mShaderProgramID(0)
-, mVertexShaderID(0)
-, mFragShaderID(0)
+    : mShaderProgramID(0)
+    , mVertexShaderID(0)
+    , mFragShaderID(0)
 {
 }
 
@@ -62,14 +62,17 @@ bool Shader::LoadWithTransformFeedback(
 {
     // vertex
     if (!CompileShader(vertName, GL_VERTEX_SHADER, mVertexShaderID))
+    {
         return false;
-
+    }
     // fragment は optional（Update用はVSだけでOK）
     bool hasFrag = !fragName.empty();
     if (hasFrag)
     {
         if (!CompileShader(fragName, GL_FRAGMENT_SHADER, mFragShaderID))
+        {
             return false;
+        }
     }
     else
     {
@@ -79,8 +82,10 @@ bool Shader::LoadWithTransformFeedback(
     mShaderProgramID = glCreateProgram();
     glAttachShader(mShaderProgramID, mVertexShaderID);
     if (hasFrag)
+    {
         glAttachShader(mShaderProgramID, mFragShaderID);
-
+    }
+    
     // ★ここがTFの肝：link前に varyings 指定
     if (!varyings.empty())
     {
@@ -95,8 +100,10 @@ bool Shader::LoadWithTransformFeedback(
     glLinkProgram(mShaderProgramID);
 
     if (!IsValidProgram())
+    {
         return false;
-
+    }
+    
     return true;
 }
 

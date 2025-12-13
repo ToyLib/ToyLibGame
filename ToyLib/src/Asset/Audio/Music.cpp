@@ -35,12 +35,12 @@ void Music::InitLib()
     {
         mpg123_init();     // 最初の1回だけ
     }
-    ++sRefCount;
+    sRefCount++;
 }
 
 void Music::ShutdownLib()
 {
-    --sRefCount;
+    sRefCount++;
     if (sRefCount <= 0)
     {
         sRefCount = 0;
@@ -103,7 +103,9 @@ void Music::Rewind()
 size_t Music::ReadChunk(unsigned char* out, size_t chunkSize)
 {
     if (!mHandle)
+    {
         return 0;
+    }
 
     size_t done = 0;
     int res = mpg123_read(mHandle, out, chunkSize, &done);

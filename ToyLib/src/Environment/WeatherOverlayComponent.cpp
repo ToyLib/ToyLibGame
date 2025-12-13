@@ -10,12 +10,12 @@
 namespace toy {
 
 WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, VisualLayer layer)
-: VisualComponent(a, drawOrder, layer)
-, mRainAmount(0.0f)
-, mFogAmount(0.0f)
-, mSnowAmount(0.0f)
-, mSunDir(Vector3::UnitY)
-, mMoonDir(Vector3::UnitY)
+    : VisualComponent(a, drawOrder, layer)
+    , mRainAmount(0.0f)
+    , mFogAmount(0.0f)
+    , mSnowAmount(0.0f)
+    , mSunDir(Vector3::UnitY)
+    , mMoonDir(Vector3::UnitY)
 {
     auto renderer   = GetOwner()->GetApp()->GetRenderer();
     mShader         = renderer->GetShader("WeatherOverlay");
@@ -24,8 +24,11 @@ WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, Visual
 
 void WeatherOverlayComponent::Draw()
 {
-    if (!mShader || !mVertexArray) return;
-
+    if (!mShader || !mVertexArray)
+    {
+        return;
+    }
+    
     Renderer* renderer = GetOwner()->GetApp()->GetRenderer();
     PhysWorld* phys    = GetOwner()->GetApp()->GetPhysWorld();
     

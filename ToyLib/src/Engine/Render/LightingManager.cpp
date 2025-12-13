@@ -11,7 +11,7 @@ namespace toy {
 // ・太陽光の強さはデフォルト 1.0
 //-------------------------------------------------------------
 LightingManager::LightingManager()
-: mSunIntensity(1.0f)
+    : mSunIntensity(1.0f)
 {
 }
 
@@ -57,15 +57,20 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
     // --- Point Light 適用 ---
     const int maxPointLights = 8;
     int numAll = static_cast<int>(mPointLights.size());
-    if (numAll > maxPointLights) numAll = maxPointLights;
-
+    if (numAll > maxPointLights)
+    {
+        numAll = maxPointLights;
+    }
+    
     int num = 0;
-    for (int i = 0; i < numAll; ++i)
+    for (int i = 0; i < numAll; i++)
     {
         auto* comp = mPointLights[i];
         if (!comp || !comp->IsEnabled())
+        {
             continue;
-
+        }
+        
         // 有効なライトだけを詰めていく
         int idx = num++;
         std::string base = "uPointLights[" + std::to_string(idx) + "].";
@@ -100,7 +105,10 @@ void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
 
 void LightingManager::RegisterPointLight(PointLightComponent* light)
 {
-    if (!light) return;
+    if (!light)
+    {
+        return;
+    }
     auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
     if (it == mPointLights.end())
     {
@@ -110,7 +118,10 @@ void LightingManager::RegisterPointLight(PointLightComponent* light)
 
 void LightingManager::UnregisterPointLight(PointLightComponent* light)
 {
-    if (!light) return;
+    if (!light)
+    {
+        return;
+    }
     auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
     if (it != mPointLights.end())
     {

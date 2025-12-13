@@ -9,27 +9,39 @@
 namespace toy {
 
 OrbitCameraComponent::OrbitCameraComponent(Actor* owner)
-: CameraComponent(owner)
-, mOffset(0.0f, 4.0f, -5.0f)   // 初期オフセット（やや上＋後ろ）
-, mUpVector(Vector3::UnitY)
-, mYawSpeed(0.0f)
-, mDistance(0.0f)
-, mTargetDistance(0.0f)
-, mMinDistance(5.0f)
-, mMaxDistance(20.0f)
-, mMinOffsetY(-2.0f)
-, mMaxOffsetY(8.0f)
-, mHeightInput(0.0f)
+    : CameraComponent(owner)
+    , mOffset(0.0f, 4.0f, -5.0f)   // 初期オフセット（やや上＋後ろ）
+    , mUpVector(Vector3::UnitY)
+    , mYawSpeed(0.0f)
+    , mDistance(0.0f)
+    , mTargetDistance(0.0f)
+    , mMinDistance(5.0f)
+    , mMaxDistance(20.0f)
+    , mMinOffsetY(-2.0f)
+    , mMaxOffsetY(8.0f)
+    , mHeightInput(0.0f)
 {
     // 初期距離をオフセットから算出し、許容範囲にクランプ
     mDistance = mOffset.Length();
-    if (mDistance < mMinDistance) mDistance = mMinDistance;
-    if (mDistance > mMaxDistance) mDistance = mMaxDistance;
+    if (mDistance < mMinDistance)
+    {
+        mDistance = mMinDistance;
+    }
+    if (mDistance > mMaxDistance)
+    {
+        mDistance = mMaxDistance;
+    }
     mTargetDistance = mDistance;
     
     // Y オフセットもクランプ
-    if (mOffset.y < mMinOffsetY) mOffset.y = mMinOffsetY;
-    if (mOffset.y > mMaxOffsetY) mOffset.y = mMaxOffsetY;
+    if (mOffset.y < mMinOffsetY)
+    {
+        mOffset.y = mMinOffsetY;
+    }
+    if (mOffset.y > mMaxOffsetY)
+    {
+        mOffset.y = mMaxOffsetY;
+    }
 }
 
 void OrbitCameraComponent::ProcessInput(const InputState& state)
@@ -94,8 +106,14 @@ void OrbitCameraComponent::Update(float deltaTime)
         mOffset.y += mHeightInput * heightSpeed * deltaTime;
         
         // 高さクランプ
-        if (mOffset.y < mMinOffsetY) mOffset.y = mMinOffsetY;
-        if (mOffset.y > mMaxOffsetY) mOffset.y = mMaxOffsetY;
+        if (mOffset.y < mMinOffsetY)
+        {
+            mOffset.y = mMinOffsetY;
+        }
+        if (mOffset.y > mMaxOffsetY)
+        {
+            mOffset.y = mMaxOffsetY;
+        }
     }
     
     // 次フレーム用に入力は消費済みにしておく
@@ -107,8 +125,14 @@ void OrbitCameraComponent::Update(float deltaTime)
     //    ・高いほど遠い
     //--------------------------------
     float t = (mOffset.y - mMinOffsetY) / (mMaxOffsetY - mMinOffsetY);
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
+    if (t < 0.0f)
+    {
+        t = 0.0f;
+    }
+    if (t > 1.0f)
+    {
+        t = 1.0f;
+    }
     
     const float nearDist = mMinDistance;
     const float farDist  = mMaxDistance;
@@ -120,8 +144,14 @@ void OrbitCameraComponent::Update(float deltaTime)
     const float zoomLerpSpeed = 10.0f; // 追従の速さ（大きいほどキビキビ）
     mDistance += (mTargetDistance - mDistance) * zoomLerpSpeed * deltaTime;
     
-    if (mDistance < mMinDistance) mDistance = mMinDistance;
-    if (mDistance > mMaxDistance) mDistance = mMaxDistance;
+    if (mDistance < mMinDistance)
+    {
+        mDistance = mMinDistance;
+    }
+    if (mDistance > mMaxDistance)
+    {
+        mDistance = mMaxDistance;
+    }
     
     // オフセット方向は維持しつつ、距離だけ反映
     Vector3 dir = mOffset;
@@ -168,12 +198,25 @@ void OrbitCameraComponent::Update(float deltaTime)
         mOffset = toCam;
         
         mDistance = mOffset.Length();
-        if (mDistance < mMinDistance) mDistance = mMinDistance;
-        if (mDistance > mMaxDistance) mDistance = mMaxDistance;
+        if (mDistance < mMinDistance)
+        {
+            mDistance = mMinDistance;
+        }
+        
+        if (mDistance > mMaxDistance)
+        {
+            mDistance = mMaxDistance;
+        }
         
         // 高さも再クランプ
-        if (mOffset.y < mMinOffsetY) mOffset.y = mMinOffsetY;
-        if (mOffset.y > mMaxOffsetY) mOffset.y = mMaxOffsetY;
+        if (mOffset.y < mMinOffsetY)
+        {
+            mOffset.y = mMinOffsetY;
+        }
+        if (mOffset.y > mMaxOffsetY)
+        {
+            mOffset.y = mMaxOffsetY;
+        }
         
         // 最終的なオフセットを距離付きで再構築
         Vector3 n = mOffset;

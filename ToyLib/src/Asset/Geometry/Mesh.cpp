@@ -52,9 +52,9 @@ static void MatrixAi2Gl(Matrix4& mat, const aiMatrix4x4 aim)
 namespace toy {
 
 Mesh::Mesh()
-: mScene(nullptr)
-, mNumBones(0)
-, mSpecPower(1.0f)
+    : mScene(nullptr)
+    , mNumBones(0)
+    , mSpecPower(1.0f)
 {
 }
 

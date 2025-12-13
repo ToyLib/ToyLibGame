@@ -13,8 +13,8 @@ namespace toy {
 //======================================================================
 
 TimeOfDaySystem::TimeOfDaySystem()
-: mTimeScale(60.0f)  // ● デフォルト：1秒でゲーム内1分進む
-, mRunning(true)     // ● 時間の進行 ON/OFF
+    : mTimeScale(60.0f)  // ● デフォルト：1秒でゲーム内1分進む
+    , mRunning(true)     // ● 時間の進行 ON/OFF
 {
 }
 
@@ -35,7 +35,10 @@ void TimeOfDaySystem::SetTime(int hour, int minute, float second)
 //----------------------------------------------------------------------
 void TimeOfDaySystem::Update(float deltaTime)
 {
-    if (!mRunning) return;  // 停止中なら進めない
+    if (!mRunning)
+    {
+        return;  // 停止中なら進めない
+    }
     
     float scaled = deltaTime * mTimeScale;   // タイムスケール適用（倍速・スロー）
     mTime.second += scaled;

@@ -12,14 +12,14 @@ namespace toy {
 //=============================================================
 
 AnimationPlayer::AnimationPlayer(std::shared_ptr<Mesh> mesh)
-: mMesh(mesh)
-, mAnimID(0)
-, mPlayTime(0.0f)
-, mPlayRate(1.0f)
-, mIsLooping(true)
-, mIsPaused(false)
-, mNextAnimID(-1)
-, mIsFinished(false)
+    : mMesh(mesh)
+    , mAnimID(0)
+    , mPlayTime(0.0f)
+    , mPlayRate(1.0f)
+    , mIsLooping(true)
+    , mIsPaused(false)
+    , mNextAnimID(-1)
+    , mIsFinished(false)
 {
 }
 
@@ -33,7 +33,9 @@ void AnimationPlayer::Play(int animID, bool loop)
 {
     // 同じ内容なら再生しなおさない
     if (mAnimID == animID && mIsLooping == loop && !mIsPaused)
+    {
         return;
+    }
     
     mAnimID     = animID;
     mPlayTime   = 0.0f;
@@ -52,7 +54,9 @@ void AnimationPlayer::Play(int animID, bool loop)
 void AnimationPlayer::Update(float deltaTime)
 {
     if (!mMesh || mIsPaused)
+    {
         return;
+    }
     
     //=========================================================
     // ① クリップ間ブレンド中
@@ -109,7 +113,9 @@ void AnimationPlayer::Update(float deltaTime)
     //=========================================================
     const auto& clips = mMesh->GetAnimationClips();
     if (mAnimID < 0 || mAnimID >= static_cast<int>(clips.size()))
+    {
         return;
+    }
     
     const aiAnimation* anim = clips[mAnimID].mAnimation;
     float ticksPerSecond    = clips[mAnimID].mTicksPerSecond;
@@ -163,10 +169,13 @@ void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
 {
     const auto& clips = mMesh->GetAnimationClips();
     if (fromAnimID < 0 || fromAnimID >= static_cast<int>(clips.size()))
+    {
         return;
+    }
     if (toAnimID < 0 || toAnimID >= static_cast<int>(clips.size()))
+    {
         return;
-    
+    }
     mBlend.fromAnim      = clips[fromAnimID].mAnimation;
     mBlend.toAnim        = clips[toAnimID].mAnimation;
     mBlend.blendDuration = duration;

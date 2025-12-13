@@ -8,11 +8,11 @@ namespace toy {
 // コンストラクタ
 //------------------------------------------------------------------------------
 FollowMoveComponent::FollowMoveComponent(Actor* owner, int updateOrder)
-: MoveComponent(owner, updateOrder)
-, mTarget(nullptr)
-, mFollowDistance(3.0f)   // これ以上離れたら追いかける
-, mFollowSpeed(200.0f)    // 追従速度
-, mRotationSpeed(90.0f)   // 1秒あたりの最大回転角（度）
+    : MoveComponent(owner, updateOrder)
+    , mTarget(nullptr)
+    , mFollowDistance(3.0f)   // これ以上離れたら追いかける
+    , mFollowSpeed(200.0f)    // 追従速度
+    , mRotationSpeed(90.0f)   // 1秒あたりの最大回転角（度）
 {
 }
 

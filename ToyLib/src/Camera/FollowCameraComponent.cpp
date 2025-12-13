@@ -4,15 +4,16 @@
 namespace toy {
 
 FollowCameraComponent::FollowCameraComponent(Actor* owner)
-: CameraComponent(owner)
-, mHorzDist(10.0f)              // Actor の後方距離
-, mVertDist(4.0f)               // 高さオフセット
-, mTargetDist(10.0f)            // LookAt の前方オフセット
-, mSpring{ 2000.0f, 1.0f }      // デフォルト：臨界減衰（バネ制御）
-, mActualPos(Vector3::Zero)     // 現在のカメラ位置（スプリングで追従）
-, mVelocity(Vector3::Zero)      // スプリング内部速度
-, mFirstUpdate(true)            // 初回だけスナップ
+    : CameraComponent(owner)
+    , mHorzDist(10.0f)              // Actor の後方距離
+    , mVertDist(4.0f)               // 高さオフセット
+    , mTargetDist(10.0f)            // LookAt の前方オフセット
+    , mSpring{ 2000.0f, 1.0f }      // デフォルト：臨界減衰（バネ制御）
+    , mActualPos(Vector3::Zero)     // 現在のカメラ位置（スプリングで追従）
+    , mVelocity(Vector3::Zero)      // スプリング内部速度
+    , mFirstUpdate(true)            // 初回だけスナップ
 {
+    
 }
 
 void FollowCameraComponent::Update(float deltaTime)
