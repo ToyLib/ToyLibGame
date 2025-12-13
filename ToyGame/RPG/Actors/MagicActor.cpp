@@ -16,6 +16,7 @@ MagicActor::MagicActor(toy::Application* a)
     mLight = CreateComponent<toy::PointLightComponent>();
     mLight->SetColor(Vector3(1.0f, 0.8f, 0.1f));
     mLight->SetEnabled(false);
+    
 }
 
 void MagicActor::UpdateActor(float deltaTime)
