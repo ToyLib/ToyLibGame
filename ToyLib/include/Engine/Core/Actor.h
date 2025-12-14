@@ -102,6 +102,8 @@ public:
     const Quaternion& GetPoseRotation() const { return mPoseRotation; }
     // ポーズ合成済みワールド行列取得
     const Matrix4& GetRenderWorldTransform() const { return mRenderWorldTransform; }
+    void SetInheritParentPose(const bool b) { mInheritParentPose = b; }
+    bool GetInheritParentPose() const { return mInheritParentPose; }
     
     //=========================================================
     // State / Application
