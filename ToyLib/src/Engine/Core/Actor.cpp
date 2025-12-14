@@ -20,6 +20,8 @@ Actor::Actor(Application* a)
     , mScale(1.0f)
     , mApp(a)
     , mIsRecomputeWorldTransform(true)
+    , mPoseRotation(Quaternion::Identity)
+    , mInheritParentPose(true)
     , mActorID("Unnamed Actor")
     , mParent(nullptr)
 {
@@ -91,7 +93,12 @@ void Actor::ComputeWorldTransform()
     if (mParent)
     {
         // 親ワールドのコピーを作る
-        Matrix4 parentNoScale = mParent->mWorldTransform;
+        Matrix4 parentBase =
+            (mInheritParentPose)
+                ? mParent->mRenderWorldTransform
+                : mParent->mWorldTransform;
+
+        Matrix4 parentNoScale = parentBase;
         
         // 親の軸は GetXAxis/Y/Z が「正規化済みの向き」を返すので、
         // それらを書き戻すことでスケール成分を 1 にリセット
@@ -107,6 +114,10 @@ void Actor::ComputeWorldTransform()
     {
         mWorldTransform = local;
     }
+    
+    // ポーズを反映
+    Matrix4 poseMatrix = Matrix4::CreateFromQuaternion(mPoseRotation);
+    mRenderWorldTransform = poseMatrix * mWorldTransform;
     
     mIsRecomputeWorldTransform = false;
     
