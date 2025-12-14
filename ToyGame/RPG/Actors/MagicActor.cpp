@@ -54,6 +54,7 @@ void MagicActor::Spawn(Vector3 pos, Vector3 front)
     mSpeed = 0.1f;
     mCnt = 0;
     mParticle->Stop();
+    mParticle->Reset();
     SetPosition(Vector3(pos.x, pos.y+2.0f, pos.z));
     mForward = front;
 }
