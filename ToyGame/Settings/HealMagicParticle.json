@@ -1,8 +1,8 @@
 {
-  "mode": "Water",
-  "maxParticles": 20,
+  "mode": "Smoke",
+  "maxParticles": 50,
   "componentLife": 0.0,
-  "particleLife": 0.4,
+  "particleLife": 0.8,
   "size": 1.5,
   "spawnRatePerSec": 2.0,
   "spawnRampSec": 1.0,

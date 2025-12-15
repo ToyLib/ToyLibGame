@@ -3,9 +3,9 @@
 
 MagicActor::MagicActor(toy::Application* a)
     : toy::Actor(a)
-    , mCnt(1000)
+    , mLifeTime(1000.0f)
     , mForward(Vector3::UnitZ)
-    , mSpeed(0.1f)
+    , mSpeed(6.0f)
 {
     mParticle = CreateComponent<toy::GPUParticleComponent>();
     auto tex = GetApp()->GetAssetManager()->GetTexture("fire.png");
@@ -21,42 +21,36 @@ MagicActor::MagicActor(toy::Application* a)
 
 void MagicActor::UpdateActor(float deltaTime)
 {
-    ++mCnt;
-    if (mCnt < 40)
-    {
-        
-    }
-    else if (mCnt == 20)
-    {
-        mLight->SetEnabled(true);
-    }
-    else if (mCnt == 40)
+    mLifeTime += deltaTime;
+    if (mLifeTime < 0.5f)
     {
         mParticle->Start();
         mLight->SetEnabled(true);
     }
-    else if (mCnt < 300)
+    else if (mLifeTime < 5.0f)
     {
+        Vector3 v = GetPosition() + mForward * mSpeed;// * deltaTime;
+        SetPosition(v);
     }
-    else if (mCnt == 300)
+    else
     {
         mParticle->Stop();
+        mParticle->Reset();
         mLight->SetEnabled(false);
     }
-    Vector3 v = GetPosition() + mForward * mSpeed;
-    SetPosition(v);
-    mSpeed += 0.0005f;
 }
 
 void MagicActor::Spawn(Vector3 pos, Vector3 front)
 {
-    mLight->SetEnabled(false);
-    mSpeed = 0.1f;
-    mCnt = 0;
     mParticle->Stop();
     mParticle->Reset();
-    SetPosition(Vector3(pos.x, pos.y+2.0f, pos.z));
+    mLight->SetEnabled(false);
+    mSpeed = 0.1f;
+    mLifeTime = 0.0f;
+    Vector3 p = pos;
     mForward = front;
+    p += front * 2;
+    SetPosition(Vector3(p.x, p.y+2.0f, p.z));
 }
 
 void MagicActor::Destroy()

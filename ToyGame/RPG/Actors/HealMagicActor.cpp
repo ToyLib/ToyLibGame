@@ -3,7 +3,7 @@
 
 HealMagicActor::HealMagicActor(toy::Application* a)
     : toy::Actor(a)
-    , mCnt(1000)
+    , mLifeTime(0.0f)
     , mAngle(0.0f)
     , mPos(Vector3::Zero)
 {
@@ -21,18 +21,18 @@ HealMagicActor::HealMagicActor(toy::Application* a)
 
 void HealMagicActor::UpdateActor(float deltaTime)
 {
-    ++mCnt;
-    if (mCnt > 120)
+    mLifeTime += deltaTime;
+    if (mLifeTime > 2.0f)
     {
         mParticle->Stop();
         mLight->SetEnabled(false);
     }
     else
     {
-        mAngle += 12.0f;
-        float x = mPos.x + std::sin(Math::ToRadians(mAngle)) * 2.0f;
-        float z = mPos.z + std::cos(Math::ToRadians(mAngle)) * 2.0f;
-        mPos.y -= 0.05f;
+        mAngle += 480.0f;
+        float x = mPos.x + std::sin(Math::ToRadians(mAngle * deltaTime)) * 2.0f;
+        float z = mPos.z + std::cos(Math::ToRadians(mAngle * deltaTime)) * 2.0f;
+        mPos.y -= 2.5f * deltaTime;
         
         SetPosition(Vector3(x, mPos.y, z));
 
@@ -44,11 +44,12 @@ void HealMagicActor::UpdateActor(float deltaTime)
 void HealMagicActor::Spawn(Vector3 pos)
 {
     mLight->SetEnabled(true);
+    mParticle->Stop();
     mParticle->Reset();
-    mAngle = 0.1f;
+    mAngle = 0.0f;
     mPos = pos;
     mPos.y = pos.y + 5.0f;
-    mCnt = 0;
+    mLifeTime = 0.0f;
     mParticle->Start();
     SetPosition(mPos);
 }

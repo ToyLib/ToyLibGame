@@ -14,7 +14,7 @@ public:
 private:
     class toy::GPUParticleComponent* mParticle;
     class toy::PointLightComponent* mLight;
-    unsigned int mCnt;
+    float mLifeTime;
     Vector3 mPos;
     float mAngle;
     
