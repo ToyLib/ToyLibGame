@@ -240,6 +240,9 @@ private:
     // VAO
     unsigned int mUpdateVAO;
     unsigned int mRenderVAO;
+    
+    bool mPendingHardReset = true;
+    int mSkipDrawFrames = 2;
 };
 
 } // namespace toy

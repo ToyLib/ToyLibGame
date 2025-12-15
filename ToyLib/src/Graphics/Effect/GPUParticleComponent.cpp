@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#
 
 namespace toy {
 
@@ -163,13 +164,23 @@ void GPUParticleComponent::Stop()
 
 void GPUParticleComponent::Reset()
 {
+/*
     // 粒だけ初期化（容量は変えない）
     if (!mInitialized)
     {
         return;
     }
     InitParticleBuffers(false);
-}
+*/
+    
+    // この場では何もしない（＝このフレームの途中で触らない）
+    mPendingHardReset = true;
+
+    // 以降、このフレームは描かない（呼ばれても安全）
+    mSkipDrawFrames = 2;     // 2推奨：描画パスが複数回ある場合に備える
+    mRunning = false;
+    mIsVisible = false;
+ }
 
 //======================================================================
 // 4) Update / Draw（ゲームループで呼ばれる）
@@ -177,6 +188,23 @@ void GPUParticleComponent::Reset()
 
 void GPUParticleComponent::Update(float deltaTime)
 {
+    if (mPendingHardReset)
+    {
+        mPendingHardReset = false;
+
+        if (mInitialized)
+        {
+            InitParticleBuffers(false); // A/B dead化
+            mTimeAcc = 0.0f;
+            mComponentLifeAcc = 0.0f;
+        }
+
+        // このフレームは描かない（次のclearが走るのを待つ）
+        mSkipDrawFrames = std::max(mSkipDrawFrames, 1);
+        return;
+    }
+    
+    
     if (!mIsVisible || !mRunning)
     {
         return;
@@ -211,6 +239,11 @@ void GPUParticleComponent::Update(float deltaTime)
 
 void GPUParticleComponent::Draw()
 {
+    if (mSkipDrawFrames > 0)
+    {
+        --mSkipDrawFrames;
+    }
+    
     if (!mIsVisible || !mRunning)
     {
         return;
