@@ -67,7 +67,7 @@ void GameRPG::LoadData()
     stanCllider->GetBoundingVolume()->ComputeBoundingVolume(GetAssetManager()->GetMesh("stan.gltf")->GetVertexArray());
     stanCllider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 0.0f, 0.0f), Vector3(0.5, 1.0f, 0.6f));
     stanCllider->GetBoundingVolume()->CreateVArray();
-    stanCllider->SetDisp(true);
+    stanCllider->SetEnabled(true);
     stanCllider->SetFlags(toy::C_WALL | toy::C_ENEMY | toy::C_FOOT | toy::C_GROUND);
     
     auto minionActor = CreateActor<MinionActor>();

@@ -17,7 +17,7 @@ WolfActor::WolfActor(toy::Application* a)
     auto collComp = CreateComponent<toy::ColliderComponent>();
     collComp->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("wolf.fbx")->GetVertexArray());
     collComp->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
-    collComp->SetDisp(true);
+    collComp->SetEnabled(true);
     collComp->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
     CreateComponent<toy::GravityComponent>();
     

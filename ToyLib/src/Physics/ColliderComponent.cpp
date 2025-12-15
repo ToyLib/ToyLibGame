@@ -18,7 +18,7 @@ ColliderComponent::ColliderComponent(Actor* a)
     : Component(a)
     , mFlags(C_NONE)
     , mIsCollided(false)
-    , mIsDisp(true)
+    , mEnabled(true)
     //, targetType(C_NONE)
 {
     // 当たり判定形状（AABB/OBB/Polygon）を持つコンポーネントを自動生成

@@ -51,7 +51,7 @@ HeroActor::HeroActor(toy::Application* a)
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
     //mCollComp->GetBoundingVolume()->SetVisible(true);
     mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER);
-    mCollComp->SetDisp(true);
+    mCollComp->SetEnabled(true);
 
     // --- 移動コンポーネント ---
     //mMoveComp = CreateComponent<toy::FPSMoveComponent>();

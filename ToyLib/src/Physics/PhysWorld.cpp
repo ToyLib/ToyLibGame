@@ -51,7 +51,7 @@ void PhysWorld::Test()
     for (auto& c1 : mColliders)
     {
         if (!c1->HasFlag(C_LASER)) continue;
-        if (!c1->GetDisp())        continue;
+        if (!c1->GetEnabled())        continue;
         
         // LaserColliderComponent が返す Ray
         Ray ray = c1->GetRay();
@@ -60,7 +60,7 @@ void PhysWorld::Test()
         {
             if (c1 == c2)              continue;
             if (!c2->HasFlag(C_ENEMY)) continue;
-            if (!c2->GetDisp())        continue;
+            if (!c2->GetEnabled())        continue;
             
             const auto& polygons = c2->GetBoundingVolume()->GetPolygons(); // Polygon 配列
             bool   hit      = false;
@@ -592,14 +592,14 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 {
     for (auto& c1 : mColliders)
     {
-        if (!c1->GetDisp() || !c1->HasFlag(flagA)) continue;
+        if (!c1->GetEnabled() || !c1->HasFlag(flagA)) continue;
         
         Vector3 totalPush = Vector3::Zero;
         bool    collided  = false;
         
         for (auto& c2 : mColliders)
         {
-            if (!c2->GetDisp() || !c2->HasFlag(flagB)) continue;
+            if (!c2->GetEnabled() || !c2->HasFlag(flagB)) continue;
             if (c1->GetOwner() == c2->GetOwner())      continue;
             
             // スフィアで早期判定 → OBB で精密判定
@@ -783,7 +783,7 @@ bool PhysWorld::Raycast(const Vector3& origin,
 
     for (auto* col : mColliders)
     {
-        if (!col->GetDisp())
+        if (!col->GetEnabled())
         {
             continue;
         }
