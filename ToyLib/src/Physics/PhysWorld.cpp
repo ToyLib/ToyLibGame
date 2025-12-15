@@ -156,41 +156,77 @@ bool PhysWorld::IsCollideBoxOBB(const OBB* cA, const OBB* cB)
     Vector3 vDistance = cB->pos - cA->pos;
     
     // 各ローカル軸を分離軸として比較
-    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance))
+    {
+        return false;
+    }
     
     // 各軸同士の外積も分離軸としてチェック
     Vector3 vSep = Vector3::Cross(cA->axisX, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisX, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisX, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     // すべての軸で分離していなければ衝突
     return true;
 }
