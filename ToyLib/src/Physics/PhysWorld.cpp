@@ -418,58 +418,93 @@ Vector3 PhysWorld::ComputePushBackDirection(ColliderComponent* a,
 //   の両方から「一番近い地面の高さ」を探すハイブリッド方式。
 //------------------------------------------------------------------------------
 bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
+{    GroundHit hit;
+    if (!GetNearestGroundHit(a, hit)) return false;
+    outY = hit.y;
+    return true;
+}
+
+bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 {
+    outHit = GroundHit{};
     if (!a) return false;
-    
-    // 足元の Collider（C_FOOT）を探す
+
+    // 足元の Collider（C_FOOT）
     const auto* foot = FindFootCollider(a);
     if (!foot) return false;
-    
+
     const Cube box = foot->GetBoundingVolume()->GetWorldAABB();
-    
+    const float footY = box.min.y;
+
     float highest = -std::numeric_limits<float>::max();
     bool  found   = false;
-    
-    float footY = box.min.y;
-    
+
+    // 候補の情報を保持（highestに対応するもの）
+    GroundSource bestSource = GroundSource::None;
+    const ColliderComponent* bestCol = nullptr;
+    Vector3 bestPos = Vector3::Zero;
+    Vector3 bestNormal = Vector3::UnitY;
+
     //--------------------------------------------------------------------------
-    // 1. C_GROUND コライダーから、最も高い地面を探す
+    // 1) C_GROUND コライダー（既存と同じ：最も高い地面）
     //--------------------------------------------------------------------------
     for (auto& c : mColliders)
     {
         if (!c->HasFlag(C_GROUND)) continue;
         if (c->GetOwner() == a)    continue;
-        
+
         const Cube other = c->GetBoundingVolume()->GetWorldAABB();
-        
-        // XZ平面上で足元と重なっているか
+
         const bool xzOverlap =
             box.max.x > other.min.x && box.min.x < other.max.x &&
             box.max.z > other.min.z && box.min.z < other.max.z;
-        
+
         const float yGap = footY - other.max.y;
-        
-        // 足より下にあり、かつ今までで一番高い地面なら採用
+
         if (xzOverlap && yGap > 0.0f && highest < other.max.y)
         {
             highest = other.max.y;
             found   = true;
+
+            bestSource = GroundSource::Collider;
+            bestCol    = c;
+            bestPos    = Vector3((box.min.x + box.max.x) * 0.5f, highest,
+                                 (box.min.z + box.max.z) * 0.5f);
+            bestNormal = Vector3::UnitY; // コライダー床はとりあえず上向き
         }
     }
-    
+
     //--------------------------------------------------------------------------
-    // 2. TerrainPolygon からの地面高さ（メッシュ地形）
+    // 2) TerrainPolygon（既存と同じ：Actor中心で高さ取得）
     //--------------------------------------------------------------------------
-    const Vector3 center   = a->GetPosition();
-    const float   terrainY = GetGroundHeightAt(center);
+    const Vector3 center = a->GetPosition();
+    const float terrainY = GetGroundHeightAt(center);
+
     if (terrainY > highest)
     {
         highest = terrainY;
         found   = true;
+
+        bestSource = GroundSource::Terrain;
+        bestCol    = nullptr;
+        bestPos    = Vector3(center.x, terrainY, center.z);
+
+        // normalは最小実装として UnitY でもOKだが、
+        // “GroundHitを返す意味”が出るので、可能なら後で埋める前提でいったんUnitY
+        bestNormal = Vector3::UnitY;
     }
-    
-    if (found) outY = highest;
-    return found;
+
+    if (!found) return false;
+
+    outHit.hit     = true;
+    outHit.y       = highest;
+    outHit.pos     = bestPos;
+    outHit.normal  = bestNormal;
+    outHit.source  = bestSource;
+    outHit.collider = bestCol;
+    outHit.yGap    = footY - highest;
+
+    return true;
 }
 
 //------------------------------------------------------------------------------

@@ -20,6 +20,29 @@ struct MTVResult
     bool    valid = false;
 };
 
+enum class GroundSource : uint8_t
+{
+    None,
+    Terrain,
+    Collider,
+};
+
+struct GroundHit
+{
+    bool hit = false;
+
+    float   y = 0.0f;
+    Vector3 pos = Vector3::Zero;
+    Vector3 normal = Vector3::UnitY;
+
+    float yGap = Math::Infinity;               // footY - y
+    GroundSource source = GroundSource::None;
+
+    const ColliderComponent* collider = nullptr; // source=Collider のとき
+};
+
+
+
 
 //------------------------------------------------------------------------------
 // PhysWorld
@@ -60,6 +83,8 @@ public:
     
     // 地形ポリゴンをセット（外部メッシュから読み込む三角形配列）
     void SetGroundPolygons(const std::vector<struct Polygon>& polys);
+    
+    bool GetNearestGroundHit(const Actor* a, GroundHit& outHit) const;
     
     //--------------------------------------------------------------------------
     // RayCCD / RayCast 系
@@ -121,6 +146,7 @@ private:
     
     bool JudgeWithRadius(class ColliderComponent* col1,
                          class ColliderComponent* col2);
+    
     
     //--------------------------------------------------------------------------
     // MTV（押し戻し）関連
