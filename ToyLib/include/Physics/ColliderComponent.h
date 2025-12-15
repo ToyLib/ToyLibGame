@@ -90,9 +90,9 @@ public:
     bool GetCollided() const { return mIsCollided; }
     void SetCollided(bool b) { mIsCollided = b; }
     
-    // 有効/無効（「表示されているかどうか」という名だが、実質オン/オフフラグ）
-    bool GetDisp() const { return mIsDisp; }
-    void SetDisp(bool b) { mIsDisp = b; }
+    // 有効/無効
+    bool GetEnabled() const { return mEnabled; }
+    void SetEnabled(bool b) { mEnabled = b; }
     
     // レイを取得（レイコライダー用に派生クラスで override する）
     virtual Ray GetRay() const { return Ray(); }
@@ -101,8 +101,8 @@ private:
     // 少なくとも 1 つ以上のコライダーと当たっているか
     bool mIsCollided;
     
-    // 判定を行うかどうかのフラグ（「見えている」的な意味合いも含む）
-    bool mIsDisp;
+    // 判定を行うかどうかのフラグ
+    bool mEnabled;
     
     // 自動で生成されたバウンディングボリューム
     class BoundingVolumeComponent* mBoundingVolume;

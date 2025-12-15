@@ -38,5 +38,6 @@ private:
     bool mMovable;
     
     
-    class MagicActor* magic;
+    class MagicActor* mMagic;
+    class HealMagicActor* mHeal;
 };

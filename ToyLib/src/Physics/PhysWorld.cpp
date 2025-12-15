@@ -51,7 +51,7 @@ void PhysWorld::Test()
     for (auto& c1 : mColliders)
     {
         if (!c1->HasFlag(C_LASER)) continue;
-        if (!c1->GetDisp())        continue;
+        if (!c1->GetEnabled())        continue;
         
         // LaserColliderComponent が返す Ray
         Ray ray = c1->GetRay();
@@ -60,7 +60,7 @@ void PhysWorld::Test()
         {
             if (c1 == c2)              continue;
             if (!c2->HasFlag(C_ENEMY)) continue;
-            if (!c2->GetDisp())        continue;
+            if (!c2->GetEnabled())        continue;
             
             const auto& polygons = c2->GetBoundingVolume()->GetPolygons(); // Polygon 配列
             bool   hit      = false;
@@ -156,41 +156,77 @@ bool PhysWorld::IsCollideBoxOBB(const OBB* cA, const OBB* cB)
     Vector3 vDistance = cB->pos - cA->pos;
     
     // 各ローカル軸を分離軸として比較
-    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance)) return false;
-    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance))
+    {
+        return false;
+    }
+    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance))
+    {
+        return false;
+    }
     
     // 各軸同士の外積も分離軸としてチェック
     Vector3 vSep = Vector3::Cross(cA->axisX, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisX, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisX, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisY, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     vSep = Vector3::Cross(cA->axisZ, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
-    
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance))
+    {
+        return false;
+    }
     // すべての軸で分離していなければ衝突
     return true;
 }
@@ -418,58 +454,93 @@ Vector3 PhysWorld::ComputePushBackDirection(ColliderComponent* a,
 //   の両方から「一番近い地面の高さ」を探すハイブリッド方式。
 //------------------------------------------------------------------------------
 bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
+{    GroundHit hit;
+    if (!GetNearestGroundHit(a, hit)) return false;
+    outY = hit.y;
+    return true;
+}
+
+bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 {
+    outHit = GroundHit{};
     if (!a) return false;
-    
-    // 足元の Collider（C_FOOT）を探す
+
+    // 足元の Collider（C_FOOT）
     const auto* foot = FindFootCollider(a);
     if (!foot) return false;
-    
+
     const Cube box = foot->GetBoundingVolume()->GetWorldAABB();
-    
+    const float footY = box.min.y;
+
     float highest = -std::numeric_limits<float>::max();
     bool  found   = false;
-    
-    float footY = box.min.y;
-    
+
+    // 候補の情報を保持（highestに対応するもの）
+    GroundSource bestSource = GroundSource::None;
+    const ColliderComponent* bestCol = nullptr;
+    Vector3 bestPos = Vector3::Zero;
+    Vector3 bestNormal = Vector3::UnitY;
+
     //--------------------------------------------------------------------------
-    // 1. C_GROUND コライダーから、最も高い地面を探す
+    // 1) C_GROUND コライダー（既存と同じ：最も高い地面）
     //--------------------------------------------------------------------------
     for (auto& c : mColliders)
     {
         if (!c->HasFlag(C_GROUND)) continue;
         if (c->GetOwner() == a)    continue;
-        
+
         const Cube other = c->GetBoundingVolume()->GetWorldAABB();
-        
-        // XZ平面上で足元と重なっているか
+
         const bool xzOverlap =
             box.max.x > other.min.x && box.min.x < other.max.x &&
             box.max.z > other.min.z && box.min.z < other.max.z;
-        
+
         const float yGap = footY - other.max.y;
-        
-        // 足より下にあり、かつ今までで一番高い地面なら採用
+
         if (xzOverlap && yGap > 0.0f && highest < other.max.y)
         {
             highest = other.max.y;
             found   = true;
+
+            bestSource = GroundSource::Collider;
+            bestCol    = c;
+            bestPos    = Vector3((box.min.x + box.max.x) * 0.5f, highest,
+                                 (box.min.z + box.max.z) * 0.5f);
+            bestNormal = Vector3::UnitY; // コライダー床はとりあえず上向き
         }
     }
-    
+
     //--------------------------------------------------------------------------
-    // 2. TerrainPolygon からの地面高さ（メッシュ地形）
+    // 2) TerrainPolygon（既存と同じ：Actor中心で高さ取得）
     //--------------------------------------------------------------------------
-    const Vector3 center   = a->GetPosition();
-    const float   terrainY = GetGroundHeightAt(center);
+    const Vector3 center = a->GetPosition();
+    const float terrainY = GetGroundHeightAt(center);
+
     if (terrainY > highest)
     {
         highest = terrainY;
         found   = true;
+
+        bestSource = GroundSource::Terrain;
+        bestCol    = nullptr;
+        bestPos    = Vector3(center.x, terrainY, center.z);
+
+        // normalは最小実装として UnitY でもOKだが、
+        // “GroundHitを返す意味”が出るので、可能なら後で埋める前提でいったんUnitY
+        bestNormal = Vector3::UnitY;
     }
-    
-    if (found) outY = highest;
-    return found;
+
+    if (!found) return false;
+
+    outHit.hit     = true;
+    outHit.y       = highest;
+    outHit.pos     = bestPos;
+    outHit.normal  = bestNormal;
+    outHit.source  = bestSource;
+    outHit.collider = bestCol;
+    outHit.yGap    = footY - highest;
+
+    return true;
 }
 
 //------------------------------------------------------------------------------
@@ -521,14 +592,14 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 {
     for (auto& c1 : mColliders)
     {
-        if (!c1->GetDisp() || !c1->HasFlag(flagA)) continue;
+        if (!c1->GetEnabled() || !c1->HasFlag(flagA)) continue;
         
         Vector3 totalPush = Vector3::Zero;
         bool    collided  = false;
         
         for (auto& c2 : mColliders)
         {
-            if (!c2->GetDisp() || !c2->HasFlag(flagB)) continue;
+            if (!c2->GetEnabled() || !c2->HasFlag(flagB)) continue;
             if (c1->GetOwner() == c2->GetOwner())      continue;
             
             // スフィアで早期判定 → OBB で精密判定
@@ -712,7 +783,7 @@ bool PhysWorld::Raycast(const Vector3& origin,
 
     for (auto* col : mColliders)
     {
-        if (!col->GetDisp())
+        if (!col->GetEnabled())
         {
             continue;
         }

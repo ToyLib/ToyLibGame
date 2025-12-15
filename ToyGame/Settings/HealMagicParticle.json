@@ -1,0 +1,15 @@
+{
+  "mode": "Water",
+  "maxParticles": 20,
+  "componentLife": 0.0,
+  "particleLife": 0.4,
+  "size": 1.5,
+  "spawnRatePerSec": 2.0,
+  "spawnRampSec": 1.0,
+  "spread": 2.4,
+  "gravity": 0.0,
+  "lift": 2.0,
+  "additiveBlend": true,
+  "warmStart": true,
+  "emitterOffset": [0.0, 0.0, 0.0]
+}

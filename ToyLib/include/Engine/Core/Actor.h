@@ -84,9 +84,8 @@ public:
     void ComputeWorldTransform();
     
     // ワールド行列取得
-    const Matrix4 GetWorldTransform() const { return mWorldTransform; }
+    const Matrix4& GetWorldTransform() const { return mWorldTransform; }
     void SetWorldTransform(const Matrix4& mat) { mWorldTransform = mat; }
-    
     // 向きベクトル（ローカル回転から算出）
     virtual Vector3 GetForward() { return Vector3::Transform(Vector3::UnitZ, mRotation); }
     virtual Vector3 GetRight()   { return Vector3::Transform(Vector3::UnitX, mRotation); }
@@ -94,6 +93,17 @@ public:
     
     // Forward を直接セットする（内部で回転を調整）
     void SetForward(const Vector3& dir);
+    
+    
+    //=============================================================
+    // Pose（描画用の姿勢：Pitch/Rollなど。物理には基本適用しない）
+    //=============================================================
+    void SetPoseRotation(const Quaternion& q) { mPoseRotation = q; };
+    const Quaternion& GetPoseRotation() const { return mPoseRotation; }
+    // ポーズ合成済みワールド行列取得
+    const Matrix4& GetRenderWorldTransform() const { return mRenderWorldTransform; }
+    void SetInheritParentPose(const bool b) { mInheritParentPose = b; }
+    bool GetInheritParentPose() const { return mInheritParentPose; }
     
     //=========================================================
     // State / Application
@@ -166,6 +176,18 @@ private:
     Quaternion  mRotation;
     float       mScale;
     bool        mIsRecomputeWorldTransform;
+    
+    //---------------------------------------------------------
+    // Pose
+    //---------------------------------------------------------
+    Quaternion  mPoseRotation;
+    Matrix4     mRenderWorldTransform;
+    //---------------------------------------------------------
+    // 親のポーズの影響を受けるか
+    // true  : 親の RenderTransform（Pose込み） を使う
+    // false : 親の WorldTransform（Poseなし） を使う
+    //---------------------------------------------------------
+    bool mInheritParentPose;
     
     //---------------------------------------------------------
     // 親子関係

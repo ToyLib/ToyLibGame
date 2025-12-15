@@ -1,5 +1,6 @@
 #include "HeroActor.h"
 #include "MagicActor.h"
+#include "HealMagicActor.h"
 #include <iostream>
 
 
@@ -51,7 +52,7 @@ HeroActor::HeroActor(toy::Application* a)
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
     //mCollComp->GetBoundingVolume()->SetVisible(true);
     mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER);
-    mCollComp->SetDisp(true);
+    mCollComp->SetEnabled(true);
 
     // --- 移動コンポーネント ---
     //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
@@ -73,7 +74,8 @@ HeroActor::HeroActor(toy::Application* a)
     mSound->SetUseDistanceAttenuation(true);
     
     
-    magic = GetApp()->CreateActor<MagicActor>();
+    mMagic = GetApp()->CreateActor<MagicActor>();
+    mHeal = GetApp()->CreateActor<HealMagicActor>();
     
     
 }
@@ -106,12 +108,13 @@ void HeroActor::ActorInput(const toy::InputState& state)
         {
             animPlayer->PlayOnce(H_Spin, H_Stand);
             inputAttack = true;
+            mHeal->Spawn(GetPosition());
         }
         else if (state.IsButtonPressed(toy::GameButton::Y))
         {
             animPlayer->PlayOnce(H_Stab, H_Stand);
             inputAttack = true;
-            magic->Spawn(GetPosition(), GetForward());
+            mMagic->Spawn(GetPosition(), GetForward());
         }
 
         if (inputAttack)

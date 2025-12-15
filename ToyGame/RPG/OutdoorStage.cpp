@@ -63,7 +63,7 @@ void OutdoorStage::InitStage()
     fireActor->SetScale(0.03f);
     auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
     fireCollider->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("campfile.x")->GetVertexArray());
-    fireCollider->SetDisp(true);
+    fireCollider->SetEnabled(true);
     fireCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
     fireActor->CreateComponent<toy::GravityComponent>();
     
@@ -241,7 +241,7 @@ void OutdoorStage::DeployHouse(const Vector3& pos)
     
     auto towerCollider = towerActor->CreateComponent<toy::ColliderComponent>();
     towerCollider->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("house.x")->GetVertexArray());
-    towerCollider->SetDisp(true);
+    towerCollider->SetEnabled(true);
     towerCollider->SetFlags(toy::C_WALL | toy::C_GROUND | toy::C_FOOT);
     towerCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0,0,0), Vector3(0.9, 0.9, 0.9));
     towerActor->SetPosition(pos);
