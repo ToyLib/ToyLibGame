@@ -90,7 +90,7 @@ void MeshComponent::Draw()
     mShader->SetBooleanUniform("uUseToon", mIsToon);
 
     // ワールド変換を送る
-    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetWorldTransform());
+    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
 
     //--------------------------------------------------------
     // メッシュ本体の描画
@@ -124,7 +124,7 @@ void MeshComponent::Draw()
 
         // わずかにスケールアップしたワールド行列
         Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
-        mShader->SetMatrixUniform("uWorldTransform", scaleOutline * GetOwner()->GetWorldTransform());
+        mShader->SetMatrixUniform("uWorldTransform", scaleOutline * GetOwner()->GetRenderWorldTransform());
 
         for (auto& v : vaList)
         {
@@ -189,7 +189,7 @@ void MeshComponent::DrawShadow()
     mShadowShader->SetActive();
 
     // ワールド行列＆ライト空間行列を送る
-    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetWorldTransform());
+    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
     // VAO を全サブメッシュ分描画
