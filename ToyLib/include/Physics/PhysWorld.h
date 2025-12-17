@@ -49,6 +49,39 @@ struct GroundHit
     const ColliderComponent* collider = nullptr; // source == Collider のときのみ
 };
 
+
+// PhysWorld.h（privateに追加）
+struct TerrainGrid
+{
+    bool enabled = false;
+
+    Vector2 origin = Vector2::Zero; // グリッド原点（minX, minZ）
+    float   cellSize = 1.0f;
+
+    int cols = 0;
+    int rows = 0;
+
+    // cell -> polygon indices
+    std::vector<std::vector<int>> cells;
+
+    void Clear()
+    {
+        enabled = false;
+        origin = Vector2::Zero;
+        cellSize = 1.0f;
+        cols = rows = 0;
+        cells.clear();
+    }
+
+    int CellIndex(int cx, int cz) const { return cz * cols + cx; }
+
+    bool IsValidCell(int cx, int cz) const
+    {
+        return (cx >= 0 && cx < cols && cz >= 0 && cz < rows);
+    }
+};
+
+
 //=============================================================================
 // PhysWorld
 //  - 毎フレームの衝突ペア判定（コールバック登録）
@@ -178,6 +211,8 @@ private:
     //-------------------------------------------------------------------------
     std::vector<ColliderComponent*> mColliders; // 登録された全コライダー
     std::vector<struct Polygon>     mTerrainPolygons; // 静的地形（三角形配列）
+    TerrainGrid mTerrainGrid;
+
 };
 
 } // namespace toy

@@ -117,28 +117,106 @@ Vector3 PhysWorld::PolygonNormal(const Polygon& pl) const
 //------------------------------------------------------------------------------
 bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
 {
+    outHit = GroundHit{};
+
+    if (mTerrainPolygons.empty())
+    {
+        return false;
+    }
+
+    // グリッドが無い/無効ならフォールバック（従来の全走査）
+    if (!mTerrainGrid.enabled || mTerrainGrid.cells.empty())
+    {
+        float highestY = -std::numeric_limits<float>::max();
+        bool  found    = false;
+
+        for (const auto& poly : mTerrainPolygons)
+        {
+            if (!IsInPolygon(&poly, pos)) continue;
+
+            float y = PolygonHeight(&poly, pos);
+            if (y > highestY)
+            {
+                highestY = y;
+                found    = true;
+
+                outHit.y       = y;
+                outHit.pos     = Vector3(pos.x, y, pos.z);
+                outHit.normal  = PolygonNormal(poly);
+
+                // 上向きに揃える（左手座標系でも UnitY を基準に揃えればOK）
+                if (Vector3::Dot(outHit.normal, Vector3::UnitY) < 0.0f)
+                {
+                    outHit.normal *= -1.0f;
+                }
+
+                outHit.source   = GroundSource::Terrain;
+                outHit.collider = nullptr;
+                outHit.hit      = true;
+            }
+        }
+
+        return found;
+    }
+
+    // ------------------------------------------------------------
+    // グリッド版：pos が属するセルの候補ポリゴンだけ走査
+    // ------------------------------------------------------------
+    const float minX = mTerrainGrid.origin.x;
+    const float minZ = mTerrainGrid.origin.y;
+    const float cs   = mTerrainGrid.cellSize;
+
+    int cx = static_cast<int>(std::floor((pos.x - minX) / cs));
+    int cz = static_cast<int>(std::floor((pos.z - minZ) / cs));
+
+    // セル外ならヒット無し（フォールバックしたいなら全走査にしてもOK）
+    if (!mTerrainGrid.IsValidCell(cx, cz))
+    {
+        return false;
+    }
+
+    const auto& candidates = mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)];
+    if (candidates.empty())
+    {
+        return false;
+    }
+
     float highestY = -std::numeric_limits<float>::max();
     bool  found    = false;
 
-    for (const auto& poly : mTerrainPolygons)
+    for (int idx : candidates)
     {
+        if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size()))
+        {
+            continue;
+        }
+
+        const auto& poly = mTerrainPolygons[idx];
+
         if (!IsInPolygon(&poly, pos))
         {
             continue;
         }
 
-        const float y = PolygonHeight(&poly, pos);
+        float y = PolygonHeight(&poly, pos);
         if (y > highestY)
         {
-            highestY      = y;
-            found         = true;
+            highestY = y;
+            found    = true;
 
-            outHit.hit     = true;
             outHit.y       = y;
             outHit.pos     = Vector3(pos.x, y, pos.z);
             outHit.normal  = PolygonNormal(poly);
-            outHit.source  = GroundSource::Terrain;
+
+            // 上向きに揃える
+            if (Vector3::Dot(outHit.normal, Vector3::UnitY) < 0.0f)
+            {
+                outHit.normal *= -1.0f;
+            }
+
+            outHit.source   = GroundSource::Terrain;
             outHit.collider = nullptr;
+            outHit.hit      = true;
         }
     }
 
@@ -151,6 +229,93 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
 void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
 {
     mTerrainPolygons = polys;
+
+    // ---- グリッドを作り直す ----
+    mTerrainGrid.Clear();
+
+    if (mTerrainPolygons.empty())
+    {
+        return;
+    }
+
+    // 1) 地形全体のXZ範囲を計算
+    float minX =  std::numeric_limits<float>::max();
+    float minZ =  std::numeric_limits<float>::max();
+    float maxX = -std::numeric_limits<float>::max();
+    float maxZ = -std::numeric_limits<float>::max();
+
+    for (const auto& p : mTerrainPolygons)
+    {
+        minX = std::min(minX, std::min({ p.a.x, p.b.x, p.c.x }));
+        minZ = std::min(minZ, std::min({ p.a.z, p.b.z, p.c.z }));
+        maxX = std::max(maxX, std::max({ p.a.x, p.b.x, p.c.x }));
+        maxZ = std::max(maxZ, std::max({ p.a.z, p.b.z, p.c.z }));
+    }
+
+    const float width  = std::max(0.001f, maxX - minX);
+    const float depth  = std::max(0.001f, maxZ - minZ);
+    const float areaXZ = width * depth;
+
+    // 2) セルサイズを自動決定（平均で targetPolysPerCell くらい）
+    const int   targetPolysPerCell = 100;
+    const int   polyCount = static_cast<int>(mTerrainPolygons.size());
+    const int   targetCellCount = std::max(1, polyCount / targetPolysPerCell);
+    const float targetCellArea  = areaXZ / static_cast<float>(targetCellCount);
+    float cellSize = std::sqrt(std::max(0.0001f, targetCellArea));
+
+    // あまりに小/大になりすぎると逆効果なのでクランプ（好みで調整）
+    const float minCell = 1.0f;    // 1m
+    const float maxCell = 50.0f;   // 50m
+    cellSize = Math::Clamp(cellSize, minCell, maxCell);
+
+    const int cols = std::max(1, static_cast<int>(std::ceil(width / cellSize)));
+    const int rows = std::max(1, static_cast<int>(std::ceil(depth / cellSize)));
+
+    mTerrainGrid.enabled  = true;
+    mTerrainGrid.origin   = Vector2(minX, minZ);
+    mTerrainGrid.cellSize = cellSize;
+    mTerrainGrid.cols     = cols;
+    mTerrainGrid.rows     = rows;
+    mTerrainGrid.cells.resize(static_cast<size_t>(cols * rows));
+
+    auto ToCellX = [&](float x)
+    {
+        return static_cast<int>(std::floor((x - minX) / cellSize));
+    };
+    auto ToCellZ = [&](float z)
+    {
+        return static_cast<int>(std::floor((z - minZ) / cellSize));
+    };
+
+    // 3) 各ポリゴンを「重なるセル全部」に登録（XZのAABBでセル範囲を取る）
+    for (int i = 0; i < polyCount; ++i)
+    {
+        const auto& p = mTerrainPolygons[i];
+
+        const float pMinX = std::min({ p.a.x, p.b.x, p.c.x });
+        const float pMaxX = std::max({ p.a.x, p.b.x, p.c.x });
+        const float pMinZ = std::min({ p.a.z, p.b.z, p.c.z });
+        const float pMaxZ = std::max({ p.a.z, p.b.z, p.c.z });
+
+        int cx0 = ToCellX(pMinX);
+        int cx1 = ToCellX(pMaxX);
+        int cz0 = ToCellZ(pMinZ);
+        int cz1 = ToCellZ(pMaxZ);
+
+        // 範囲クランプ
+        cx0 = Math::Clamp(cx0, 0, cols - 1);
+        cx1 = Math::Clamp(cx1, 0, cols - 1);
+        cz0 = Math::Clamp(cz0, 0, rows - 1);
+        cz1 = Math::Clamp(cz1, 0, rows - 1);
+
+        for (int cz = cz0; cz <= cz1; ++cz)
+        {
+            for (int cx = cx0; cx <= cx1; ++cx)
+            {
+                mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)].push_back(i);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -160,23 +325,12 @@ void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
 //------------------------------------------------------------------------------
 float PhysWorld::GetGroundHeightAt(const Vector3& pos) const
 {
-    float highestY = -std::numeric_limits<float>::max();
-
-    for (const auto& poly : mTerrainPolygons)
+    GroundHit hit;
+    if (GetGroundHitAt(pos, hit))
     {
-        if (!IsInPolygon(&poly, pos))
-        {
-            continue;
-        }
-
-        const float y = PolygonHeight(&poly, pos);
-        if (y > highestY)
-        {
-            highestY = y;
-        }
+        return hit.y;
     }
-
-    return highestY;
+    return -std::numeric_limits<float>::max();
 }
 
 //------------------------------------------------------------------------------
