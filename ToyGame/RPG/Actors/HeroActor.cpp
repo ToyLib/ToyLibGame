@@ -15,7 +15,7 @@ HeroActor::HeroActor(toy::Application* a)
     file >> json;
 
     // --- スケルタルメッシュ ---
-    mMeshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
+    mMeshComp = CreateComponent<toy::SkeletalMeshComponent>();
     std::string meshPath;
     if (json.contains("mesh") && json["mesh"].contains("file"))
     {

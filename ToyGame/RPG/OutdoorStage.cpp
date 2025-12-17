@@ -256,13 +256,13 @@ void OutdoorStage::DeployGround()
     // 地面
     auto b = mApp->CreateActor<toy::Actor>();
     auto g = b->CreateComponent<toy::MeshComponent>(false);
-    g->SetMesh(mApp->GetAssetManager()->GetMesh("g.x"));
+    g->SetMesh(mApp->GetAssetManager()->GetMesh("ground2.x"));
     b->SetPosition(Vector3(0,0,0));
     b->SetScale(1);
     g->SetToonRender(false);
     g->SetEnableShadow(false);
     
-    auto groundMesh = mApp->GetAssetManager()->GetMesh("g.x");
+    auto groundMesh = mApp->GetAssetManager()->GetMesh("ground2.x");
     auto va = groundMesh->GetVertexArray();
     auto vaList = groundMesh->GetVertexArray();
     for (auto& va : vaList)
