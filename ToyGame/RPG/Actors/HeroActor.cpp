@@ -65,7 +65,7 @@ HeroActor::HeroActor(toy::Application* a)
     
 
     mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
+    mGravComp->SetEnableGroundPose(true);
     //SetPosition(Vector3(0,100,0));
     
     
