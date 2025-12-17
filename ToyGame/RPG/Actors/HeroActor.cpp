@@ -15,7 +15,7 @@ HeroActor::HeroActor(toy::Application* a)
     file >> json;
 
     // --- スケルタルメッシュ ---
-    mMeshComp = CreateComponent<toy::SkeletalMeshComponent>();
+    mMeshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
     std::string meshPath;
     if (json.contains("mesh") && json["mesh"].contains("file"))
     {
@@ -65,6 +65,7 @@ HeroActor::HeroActor(toy::Application* a)
     
 
     mGravComp = CreateComponent<toy::GravityComponent>();
+    mGravComp->SetEnableGroundPose(false);
     //SetPosition(Vector3(0,100,0));
     
     

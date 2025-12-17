@@ -46,6 +46,9 @@ public:
     void SetMaxStepUp(float v)         { mMaxStepUp = v; }
     void SetMaxStepDown(float v)       { mMaxStepDown = v; }
     void SetPenetrationEps(float v)    { mPenetrationEps = v; }
+    
+    void SetEnableGroundPose(bool b)   { mEnableGroundPose = b; }
+    bool GetEnableGroundPose() const   { return mEnableGroundPose; }
 
 private:
     // Y方向の速度（正＝上昇、負＝落下）。単位：ユニット/秒
@@ -63,11 +66,16 @@ private:
     // 現在接地状態かどうか
     bool mIsGrounded;
     
+    // 地形に合わせてポーズを修正するか
+    bool mEnableGroundPose;
+    
     // 自分のコンポーネント群から C_FOOT フラグを持つ ColliderComponent を探すヘルパー
     class ColliderComponent* FindFootCollider();
     
     // 分割ステップごとに重力・接地処理を1回進める内部処理
     void StepGravityOnce(float dt, ColliderComponent* collider);
+    
+    void ApplyGroundPose(Actor* owner, const struct GroundHit& hit, float dt);
     
     // 段差・坂・落下の扱いを決めるパラメータ群
     float mMaxStepUp;        // 登れる最大段差・坂の高さ

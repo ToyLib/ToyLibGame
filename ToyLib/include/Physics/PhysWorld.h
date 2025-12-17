@@ -176,6 +176,9 @@ private:
     float PolygonHeight(const struct Polygon* pl,
                         const struct Vector3& p) const;
     
+    bool GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const;
+    Vector3 PolygonNormal(const Polygon& pl) const;
+    
     // Actor に紐づく C_FOOT コライダーを取得
     class ColliderComponent* FindFootCollider(const Actor* a) const;
     

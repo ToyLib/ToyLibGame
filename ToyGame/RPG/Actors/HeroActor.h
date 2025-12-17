@@ -15,7 +15,7 @@ enum HeroMotion
     H_Slash = 13,
     H_Spin = 14,
     H_Stab = 15
-    
+
 };
 #endif
 

@@ -460,6 +460,61 @@ bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
     return true;
 }
 
+//------------------------------------------------------------------------------
+// PolygonNormal
+//------------------------------------------------------------------------------
+// ・ポリゴンの法線を計算して返す。計算できない場合はUnitYを返す。
+//------------------------------------------------------------------------------
+Vector3 PhysWorld::PolygonNormal(const Polygon& pl) const
+{
+    Vector3 e1 = pl.b - pl.a;
+    Vector3 e2 = pl.c - pl.a;
+
+    Vector3 n = Vector3::Cross(e1, e2);
+
+    if (n.LengthSq() > Math::NearZeroEpsilon)
+    {
+        n.Normalize();
+    }
+    else
+    {
+        n = Vector3::UnitY; // 念のためのフォールバック
+    }
+
+    return n;
+}
+
+bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
+{
+    float highestY = -std::numeric_limits<float>::max();
+    bool  found    = false;
+
+    for (const auto& poly : mTerrainPolygons)
+    {
+        if (!IsInPolygon(&poly, pos)) continue;
+
+        float y = PolygonHeight(&poly, pos);
+        if (y > highestY)
+        {
+            highestY = y;
+            found    = true;
+
+            outHit.y      = y;
+            outHit.pos    = Vector3(pos.x, y, pos.z);
+            outHit.normal = PolygonNormal(poly);
+            // 上向き基準（左手座標系：UnitY）
+            if (Vector3::Dot(outHit.normal, Vector3::UnitY) < 0.0f)
+            {
+                outHit.normal *= -1.0f;
+            }
+            outHit.source = GroundSource::Terrain;
+            outHit.collider = nullptr;
+        }
+    }
+
+    return found;
+}
+
 bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 {
     outHit = GroundHit{};
@@ -511,27 +566,29 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
     }
 
     //--------------------------------------------------------------------------
-    // 2) TerrainPolygon（既存と同じ：Actor中心で高さ取得）
-    //--------------------------------------------------------------------------
+    // 2) TerrainPolygon    //--------------------------------------------------------------------------
     const Vector3 center = a->GetPosition();
-    const float terrainY = GetGroundHeightAt(center);
-
-    if (terrainY > highest)
+    
+    GroundHit terrainHit;
+    if (GetGroundHitAt(center, terrainHit))
     {
-        highest = terrainY;
-        found   = true;
+        if (terrainHit.y > highest)
+        {
+            highest     = terrainHit.y;
+            found       = true;
 
-        bestSource = GroundSource::Terrain;
-        bestCol    = nullptr;
-        bestPos    = Vector3(center.x, terrainY, center.z);
-
-        // normalは最小実装として UnitY でもOKだが、
-        // “GroundHitを返す意味”が出るので、可能なら後で埋める前提でいったんUnitY
-        bestNormal = Vector3::UnitY;
+            bestSource  = terrainHit.source;
+            bestCol     = nullptr;
+            bestPos     = terrainHit.pos;
+            bestNormal  = terrainHit.normal;
+        }
     }
-
-    if (!found) return false;
-
+    
+    if (!found)
+    {
+        return false;
+    }
+    
     outHit.hit     = true;
     outHit.y       = highest;
     outHit.pos     = bestPos;
@@ -592,16 +649,24 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 {
     for (auto& c1 : mColliders)
     {
-        if (!c1->GetEnabled() || !c1->HasFlag(flagA)) continue;
+        if (!c1->GetEnabled() || !c1->HasFlag(flagA))
+        {
+            continue;
+        }
         
         Vector3 totalPush = Vector3::Zero;
         bool    collided  = false;
         
         for (auto& c2 : mColliders)
         {
-            if (!c2->GetEnabled() || !c2->HasFlag(flagB)) continue;
-            if (c1->GetOwner() == c2->GetOwner())      continue;
-            
+            if (!c2->GetEnabled() || !c2->HasFlag(flagB))
+            {
+                continue;
+            }
+            if (c1->GetOwner() == c2->GetOwner())
+            {
+                continue;
+            }
             // スフィアで早期判定 → OBB で精密判定
             if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
             {
@@ -672,9 +737,21 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) con
         Vector3 axis;
         float   r = 0.0f;
         
-        if (i == 0) { axis = obb->axisX; r = obb->radius.x; }
-        if (i == 1) { axis = obb->axisY; r = obb->radius.y; }
-        if (i == 2) { axis = obb->axisZ; r = obb->radius.z; }
+        if (i == 0)
+        {
+            axis = obb->axisX;
+            r = obb->radius.x;
+        }
+        if (i == 1)
+        {
+            axis = obb->axisY;
+            r = obb->radius.y;
+        }
+        if (i == 2)
+        {
+            axis = obb->axisZ;
+            r = obb->radius.z;
+        }
         
         float e = Vector3::Dot(axis, p);
         float f = Vector3::Dot(ray.dir, axis);
@@ -683,8 +760,10 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) con
         {
             float t1 = (e + r) / f;
             float t2 = (e - r) / f;
-            if (t1 > t2) std::swap(t1, t2);
-            
+            if (t1 > t2)
+            {
+                std::swap(t1, t2);
+            }
             tMin = std::max(tMin, t1);
             tMax = std::min(tMax, t2);
             
@@ -731,7 +810,10 @@ bool PhysWorld::RayHitWall(const Vector3& start,
     
     for (auto& col : mColliders)
     {
-        if (!col->HasFlag(C_WALL)) continue;
+        if (!col->HasFlag(C_WALL))
+        {
+            continue;
+        }
         auto obb = col->GetBoundingVolume()->GetOBB();
         
         float t;

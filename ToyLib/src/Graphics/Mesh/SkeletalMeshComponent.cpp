@@ -72,7 +72,7 @@ void SkeletalMeshComponent::Draw()
     mShader->SetTextureUniform("uShadowMap", 1);
     mShader->SetFloatUniform("uShadowBias", 0.005f);
     mShader->SetBooleanUniform("uUseToon", mIsToon);
-    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetWorldTransform());
+    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
     
     // ボーン行列パレットを取得してシェーダに送る
     std::vector<Matrix4> transforms =
@@ -103,7 +103,7 @@ void SkeletalMeshComponent::Draw()
         glFrontFace(GL_CW);
         Matrix4 m = Matrix4::CreateScale(mContourFactor);
         mShader->SetMatrixUniform("uWorldTransform",
-                                  m * GetOwner()->GetWorldTransform());
+                                  m * GetOwner()->GetRenderWorldTransform());
         for (auto v : va)
         {
             auto mat = mMesh->GetMaterial(v->GetTextureID());
@@ -144,7 +144,7 @@ void SkeletalMeshComponent::DrawShadow()
     Matrix4 light   = renderer->GetLightSpaceMatrix();
     
     mShadowShader->SetActive();
-    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetWorldTransform());
+    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
     
     // アニメーション行列（無ければ空配列）
     static std::vector<Matrix4> gEmptyMatrixList;

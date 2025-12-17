@@ -27,6 +27,7 @@ GravityComponent::GravityComponent(Actor* a)
     , mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
     , mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
     , mPenetrationEps(0.05f)    // めり込み許容量
+    , mEnableGroundPose(false)
     , mIsGrounded(false)
 {
     // ★ mPenetrationEps がメンバにあるならここで初期化しておくと安全。
@@ -88,7 +89,11 @@ void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
 
     // 自分の真下にある「最も近い地面の Y」
     float groundY = -std::numeric_limits<float>::max();
-    bool hasGround = phys->GetNearestGroundY(owner, groundY);
+    //bool hasGround = phys->GetNearestGroundY(owner, groundY);
+    GroundHit hit;
+    bool hasGround = phys->GetNearestGroundHit(owner, hit);
+    groundY = hit.y;
+    
 
     const float kMaxStepUp      = mMaxStepUp;      // 段差・上り坂として許せる上方向の差分
     const float kMaxStepDown    = mMaxStepDown;    // 落下をキャッチする下方向の差分
@@ -115,6 +120,13 @@ void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
 
             mVelocityY  = 0.0f;                     // 着地したので速度リセット
             mIsGrounded = true;                     // 接地状態に遷移
+            
+            
+            if (mIsGrounded && mEnableGroundPose)
+            {
+                ApplyGroundPose(owner, hit, dt);
+            }
+            
             return;
         }
     }
@@ -125,6 +137,84 @@ void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
     //--- 2. 通常の落下（位置の更新） ---
     pos.y += mVelocityY * dt;
     owner->SetPosition(pos);
+}
+/*void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit)
+{
+    // ① ワールド normal → ローカル normal
+    Quaternion inv = owner->GetRotation();
+    inv.Conjugate();
+
+    Vector3 localNormal = Vector3::Transform(hit.normal, inv);
+    localNormal.Normalize();
+
+    // ② ローカル Up と比較
+    Vector3 localUp = Vector3::UnitY;
+
+    float dot = Vector3::Dot(localUp, localNormal);
+    dot = Math::Clamp(dot, -1.0f, 1.0f);
+
+    float angle = Math::Acos(dot);
+    if (angle < 0.001f)
+    {
+        owner->SetPoseRotation(Quaternion::Identity);
+        return;
+    }
+
+    Vector3 axis = Vector3::Cross(localUp, localNormal);
+    axis.Normalize();
+
+    Quaternion pose(axis, angle);
+    owner->SetPoseRotation(pose);
+}
+*/
+
+void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float dt)
+{
+    // ① ワールド normal → ローカル normal
+    Quaternion inv = owner->GetRotation();
+    inv.Conjugate();
+
+    Vector3 localNormal = Vector3::Transform(hit.normal, inv);
+    if (localNormal.LengthSq() < Math::NearZeroEpsilon)
+    {
+        return;
+    }
+    localNormal.Normalize();
+
+    // ② ローカル Up と比較（ToyLibは左手・Y up前提でOK）
+    const Vector3 localUp = Vector3::UnitY;
+
+    float dot = Vector3::Dot(localUp, localNormal);
+    dot = Math::Clamp(dot, -1.0f, 1.0f);
+
+    float angle = Math::Acos(dot);
+
+    // ③ 目標ポーズを作る（小さければ「戻る」を目標に）
+    Quaternion targetPose = Quaternion::Identity;
+
+    if (angle >= 0.001f)
+    {
+        Vector3 axis = Vector3::Cross(localUp, localNormal);
+
+        // axis が極小（ほぼ平行/反平行）なら不安定なのでガード
+        if (axis.LengthSq() > Math::NearZeroEpsilon)
+        {
+            axis.Normalize();
+            targetPose = Quaternion(axis, angle);
+        }
+        // 反平行に近いケース（dot ≒ -1）を厳密にやるなら別処理が必要だけど、
+        // 地面用途ならまずここまでで十分。
+    }
+
+    // ④ いまの Pose から targetPose へ Slerp
+    //    「補間速度」は調整用。10〜20あたりから試すのが定番。
+    const float poseLerpSpeed = 12.0f;
+    float t = Math::Clamp(dt * poseLerpSpeed, 0.0f, 1.0f);
+
+    Quaternion currentPose = owner->GetPoseRotation();
+    Quaternion smoothPose  = Quaternion::Slerp(currentPose, targetPose, t);
+
+    owner->SetPoseRotation(smoothPose);
 }
 
 //------------------------------------------------------------------------------
