@@ -22,7 +22,7 @@ private:
     ActionType mAction;
     toy::SkeletalMeshComponent* meshComp;
     
-    unsigned int mCounter;
+    float mLifeTime;
     
     void ActionIDLE(float deltaTime);
     void ActionWALK(float deltaTime);

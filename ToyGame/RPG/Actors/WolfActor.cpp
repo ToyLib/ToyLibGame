@@ -3,7 +3,7 @@
 WolfActor::WolfActor(toy::Application* a)
 : toy::Actor(a)
 , mAction(ActionType::IDLE)
-, mCounter(0)
+, mLifeTime(0.0f)
 {
     SetScale(0.05f);
     SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
@@ -50,7 +50,7 @@ WolfActor::~WolfActor()
 
 void WolfActor::UpdateActor(float deltaTime)
 {
-    ++mCounter;
+    mLifeTime += deltaTime;
     switch (mAction)
     {
         case ActionType::IDLE:
@@ -69,9 +69,10 @@ void WolfActor::UpdateActor(float deltaTime)
 
 void WolfActor::ActionIDLE(float deltaTime)
 {
-    if (mCounter % 500 == 0)
+    if (mLifeTime > 5.0f)
     {
-        mAction = ActionType::WALK;
+        //mAction = ActionType::WALK;
+        mLifeTime = 0.0f;
     }
     auto animPlayer = meshComp->GetAnimPlayer();
     animPlayer->Play(2);
@@ -80,9 +81,10 @@ void WolfActor::ActionIDLE(float deltaTime)
 
 void WolfActor::ActionWALK(float deltaTime)
 {
-    if (mCounter % 500 == 0)
+    if (mLifeTime > 5.0f)
     {
-        mAction = ActionType::RUN;
+        mAction = ActionType::RUN;        mLifeTime = 0.0f;
+        mLifeTime = 0.0f;
     }
     auto animPlayer = meshComp->GetAnimPlayer();
     animPlayer->Play(1);
@@ -90,9 +92,10 @@ void WolfActor::ActionWALK(float deltaTime)
 
 void WolfActor::ActionRUN(float deltaTime)
 {
-    if (mCounter % 500 == 0)
+    if (mLifeTime > 5.0f)
     {
         mAction = ActionType::IDLE;
+        mLifeTime = 0.0f;
     }
     auto animPlayer = meshComp->GetAnimPlayer();
     animPlayer->Play(3);
