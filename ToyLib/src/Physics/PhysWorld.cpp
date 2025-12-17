@@ -144,7 +144,7 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
                 outHit.pos     = Vector3(pos.x, y, pos.z);
                 outHit.normal  = PolygonNormal(poly);
 
-                // 上向きに揃える（左手座標系でも UnitY を基準に揃えればOK）
+                // 上向きに揃える（左手座標系でも UnitY を基準に揃える）
                 if (Vector3::Dot(outHit.normal, Vector3::UnitY) < 0.0f)
                 {
                     outHit.normal *= -1.0f;
@@ -160,67 +160,82 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
     }
 
     // ------------------------------------------------------------
-    // グリッド版：pos が属するセルの候補ポリゴンだけ走査
+    // グリッド版：pos が属するセルの「周囲 3×3」候補だけ走査
     // ------------------------------------------------------------
     const float minX = mTerrainGrid.origin.x;
     const float minZ = mTerrainGrid.origin.y;
     const float cs   = mTerrainGrid.cellSize;
 
-    int cx = static_cast<int>(std::floor((pos.x - minX) / cs));
-    int cz = static_cast<int>(std::floor((pos.z - minZ) / cs));
-
-    // セル外ならヒット無し（フォールバックしたいなら全走査にしてもOK）
-    if (!mTerrainGrid.IsValidCell(cx, cz))
-    {
-        return false;
-    }
-
-    const auto& candidates = mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)];
-    if (candidates.empty())
-    {
-        return false;
-    }
+    const int baseCX = static_cast<int>(std::floor((pos.x - minX) / cs));
+    const int baseCZ = static_cast<int>(std::floor((pos.z - minZ) / cs));
 
     float highestY = -std::numeric_limits<float>::max();
     bool  found    = false;
 
-    for (int idx : candidates)
+    Vector3 bestNormal = Vector3::UnitY;
+
+    // 3×3 セル（中心 + 周囲）
+    for (int dz = -1; dz <= 1; ++dz)
     {
-        if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size()))
+        for (int dx = -1; dx <= 1; ++dx)
         {
-            continue;
-        }
+            const int cx = baseCX + dx;
+            const int cz = baseCZ + dz;
 
-        const auto& poly = mTerrainPolygons[idx];
-
-        if (!IsInPolygon(&poly, pos))
-        {
-            continue;
-        }
-
-        float y = PolygonHeight(&poly, pos);
-        if (y > highestY)
-        {
-            highestY = y;
-            found    = true;
-
-            outHit.y       = y;
-            outHit.pos     = Vector3(pos.x, y, pos.z);
-            outHit.normal  = PolygonNormal(poly);
-
-            // 上向きに揃える
-            if (Vector3::Dot(outHit.normal, Vector3::UnitY) < 0.0f)
+            if (!mTerrainGrid.IsValidCell(cx, cz))
             {
-                outHit.normal *= -1.0f;
+                continue;
             }
 
-            outHit.source   = GroundSource::Terrain;
-            outHit.collider = nullptr;
-            outHit.hit      = true;
+            const auto& candidates = mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)];
+            if (candidates.empty())
+            {
+                continue;
+            }
+
+            for (int idx : candidates)
+            {
+                if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size()))
+                {
+                    continue;
+                }
+
+                const auto& poly = mTerrainPolygons[idx];
+
+                if (!IsInPolygon(&poly, pos))
+                {
+                    continue;
+                }
+
+                float y = PolygonHeight(&poly, pos);
+                if (y > highestY)
+                {
+                    highestY  = y;
+                    found     = true;
+
+                    bestNormal = PolygonNormal(poly);
+                    if (Vector3::Dot(bestNormal, Vector3::UnitY) < 0.0f)
+                    {
+                        bestNormal *= -1.0f;
+                    }
+                }
+            }
         }
     }
 
-    return found;
+    if (!found)
+    {
+        return false;
+    }
+
+    outHit.hit      = true;
+    outHit.y        = highestY;
+    outHit.pos      = Vector3(pos.x, highestY, pos.z);
+    outHit.normal   = bestNormal;
+    outHit.source   = GroundSource::Terrain;
+    outHit.collider = nullptr;
+
+    return true;
 }
 
 //------------------------------------------------------------------------------
