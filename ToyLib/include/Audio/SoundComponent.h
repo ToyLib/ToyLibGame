@@ -35,7 +35,7 @@ public:
 
     // 3D 音響設定
     //  - useAttenuation = true の場合、Actor のワールド位置から距離減衰を行う
-    void SetUseDistanceAttenuation(bool useAttenuation) { mUseDistanceAttenuation = useAttenuation; }
+    void Set3DSound(bool use3DSound) { mUse3DSound = use3DSound; }
 
     // 排他モード
     //  - true の場合、他の SoundComponent が同じ音を再生中なら再生しない
@@ -53,7 +53,7 @@ private:
 
     bool  mIsLoop;                   // ループ再生するか
     bool  mAutoPlay;                 // 生成直後に自動再生するか
-    bool  mUseDistanceAttenuation;   // 距離減衰を使うか
+    bool  mUse3DSound;               // 3Dサウンド（距離減衰を使うか)
     bool  mIsExclusive;              // 排他モード
 
     bool  mHasPlayed;                // AutoPlay 用フラグ

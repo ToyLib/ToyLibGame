@@ -25,7 +25,7 @@ WolfActor::WolfActor(toy::Application* a)
     auto soundCmomp = CreateComponent<toy::SoundComponent>();
     soundCmomp->SetSound("growling.wav");
     soundCmomp->SetLoop(true);
-    soundCmomp->SetUseDistanceAttenuation(true);
+    soundCmomp->Set3DSound(true);
     soundCmomp->Play();
     
     // 空間に出る文字

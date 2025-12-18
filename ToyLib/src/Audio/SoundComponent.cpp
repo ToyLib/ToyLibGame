@@ -16,7 +16,7 @@ SoundComponent::SoundComponent(Actor* owner, int updateOrder)
     , mVolume(1.0f)
     , mIsLoop(false)
     , mAutoPlay(false)
-    , mUseDistanceAttenuation(false)
+    , mUse3DSound(false)
     , mIsExclusive(false)
     , mHasPlayed(false)
     , mSource(0)
@@ -71,7 +71,7 @@ void SoundComponent::Play()
         alGenSources(1, &mSource);
 
         // 距離減衰に関するパラメータ（3D SE 用）
-        // ※ mUseDistanceAttenuation のオン/オフに応じて
+        // ※ mUse3DSound のオン/オフに応じて
         //    ここを分ける実装も可能
         alSourcef(mSource, AL_REFERENCE_DISTANCE, 3.0f);  // この距離まではほぼフル音量
         alSourcef(mSource, AL_MAX_DISTANCE,      50.0f);  // これ以上離れてもあまり変わらない

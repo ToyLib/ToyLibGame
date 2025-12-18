@@ -71,7 +71,7 @@ void OutdoorStage::InitStage()
     fireSound->SetSound("fire.wav");
     fireSound->SetLoop(true);
     fireSound->SetVolume(0.5f);
-    fireSound->SetUseDistanceAttenuation(true);
+    fireSound->Set3DSound(true);
     fireSound->Play();
     
     // ライト

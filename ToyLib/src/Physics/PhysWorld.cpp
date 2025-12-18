@@ -534,22 +534,18 @@ bool PhysWorld::CompareLengthOBB(const OBB* cA,
                                  const Vector3& vSep,
                                  const Vector3& vDistance) const
 {
-    // ゼロ軸（外積が潰れる等）は判定軸として無効 → “この軸では分離していない扱い”
     const float kAxisEps = 1e-6f;
     const float lenSq = vSep.LengthSq();
     if (lenSq < kAxisEps)
     {
-        return true;
+        return true; // 分離軸として無効（平行で外積が死んだ等）
     }
 
-    // ★正規化軸
     const float invLen = 1.0f / std::sqrt(lenSq);
-    const Vector3 sepN = vSep * invLen;
+    const Vector3 sepN = vSep * invLen; // ★正規化
 
-    // 中心間距離の投影
     const float length = fabsf(Vector3::Dot(sepN, vDistance));
 
-    // 両OBBの投影半径（sepN 上の半径）
     const float lenA =
         fabsf(Vector3::Dot(cA->axisX, sepN) * cA->radius.x) +
         fabsf(Vector3::Dot(cA->axisY, sepN) * cA->radius.y) +
@@ -560,7 +556,6 @@ bool PhysWorld::CompareLengthOBB(const OBB* cA,
         fabsf(Vector3::Dot(cB->axisY, sepN) * cB->radius.y) +
         fabsf(Vector3::Dot(cB->axisZ, sepN) * cB->radius.z);
 
-    // 分離していなければ true（衝突の可能性あり）
     return (length <= (lenA + lenB));
 }
 

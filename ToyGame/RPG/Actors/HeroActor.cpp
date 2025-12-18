@@ -65,14 +65,14 @@ HeroActor::HeroActor(toy::Application* a)
     
 
     mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(true);
+    mGravComp->SetEnableGroundPose(false);
     //SetPosition(Vector3(0,100,0));
     
     
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Walk.wav");
     mSound->SetVolume(0.5f);
-    mSound->SetUseDistanceAttenuation(false);
+    mSound->Set3DSound(true);
     
     
     mMagic = GetApp()->CreateActor<MagicActor>();
