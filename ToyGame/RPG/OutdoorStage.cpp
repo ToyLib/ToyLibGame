@@ -197,8 +197,8 @@ void OutdoorStage::InitStage()
     
     
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(18.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(6000.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(20.0f, 30.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
