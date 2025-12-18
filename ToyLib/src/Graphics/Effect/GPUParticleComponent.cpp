@@ -506,7 +506,7 @@ void GPUParticleComponent::InitRenderVAO()
 // 6) GPU 更新（Transform Feedback + ping-pong）
 //======================================================================
 
-void GPUParticleComponent::UpdateParticlesGPU(float dt)
+void GPUParticleComponent::UpdateParticlesGPU(float deltaTime)
 {
     const unsigned int src = CurrentSrcVBO();
     const unsigned int dst = CurrentDstVBO();
@@ -524,7 +524,7 @@ void GPUParticleComponent::UpdateParticlesGPU(float dt)
 
     // update shader uniforms
     mUpdateShader->SetActive();
-    mUpdateShader->SetFloatUniform("uDeltaTime", dt);
+    mUpdateShader->SetFloatUniform("uDeltaTime", deltaTime);
     mUpdateShader->SetFloatUniform("uTime", mTimeAcc);
 
     mUpdateShader->SetFloatUniform("uLifeMax", mDesc.particleLife);

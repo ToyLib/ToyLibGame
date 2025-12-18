@@ -195,7 +195,7 @@ private:
     void InitParticleBuffers(bool warmStart);
 
     // GPU 側で粒の更新（dt を渡す）
-    void UpdateParticlesGPU(float dt);
+    void UpdateParticlesGPU(float deltaTime);
 
     // ping-pong の現在の読み元/書き先 VBO を取得
     unsigned int CurrentSrcVBO() const;

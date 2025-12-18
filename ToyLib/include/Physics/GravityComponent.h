@@ -1,86 +1,108 @@
 #pragma once
+
 #include "Engine/Core/Component.h"
+#include <cstdint>
 
 namespace toy {
+
+class Actor;
+class ColliderComponent;
+struct GroundHit;
 
 //------------------------------------------------------------------------------
 // GravityComponent
 //------------------------------------------------------------------------------
-// ・Y方向の速度 mVelocityY を持ち、重力加速度を積算して落下／上昇を制御するコンポーネント。
-// ・PhysWorld::GetNearestGroundY() を使って足元の地面（足場）を検出し、
-//   突き抜けないように Actor の Y 位置を補正しつつ、接地状態（mIsGrounded）を管理する。
-// ・Jump() を呼ぶと、接地中のみ上向きの初速（ジャンプ速度）を与える。
-// ・内部では deltaTime を小さなステップに分割して処理することで、
-//   低FPS環境でも接地判定が破綻しにくいようにしている。
+// ・重力（加速度）を Y 速度に積算し、Actor の上下移動を制御する。
+// ・足元（C_FOOT Collider）の AABB(min.y) を基準に、PhysWorld の地面判定から
+//   「次の足元位置」と「地面の高さ」の差を見て、スナップ接地／落下を処理する。
+// ・deltaTime は内部で小ステップに分割して処理し、低FPSでも判定が破綻しにくい。
+// ・必要なら地面法線に合わせてポーズ（PoseRotation）を滑らかに補正する。
+// ・上昇中は天井（C_CEILING）を検出して押し戻し、上向き速度をクランプする。
 //------------------------------------------------------------------------------
 class GravityComponent : public Component
 {
 public:
-    GravityComponent(class Actor* a);
-    
-    // 毎フレームの重力・接地判定更新
+    explicit GravityComponent(Actor* owner);
+
+    // 毎フレーム更新（内部でサブステップ化）
     void Update(float deltaTime) override;
-    
-    // 接地中ならジャンプ初速を与えて空中状態に遷移させる
+
+    // 接地中のみジャンプ（上向き初速を与えて空中へ）
     void Jump();
-    
-    // 重力加速度を設定（単位：ユニット/秒^2、下向きなら負の値を推奨）
-    void SetGravityAccel(float g) { mGravityAccel = g; }
-    
-    // ジャンプ初速の設定・取得（単位：ユニット/秒）
-    void SetJumpSpeed(float s) { mJumpSpeed = s; }
-    float GetJumpSpeed() const { return mJumpSpeed; }
-    
-    // 現在接地しているかどうか
-    bool IsGrounded() const { return mIsGrounded; }
-    
-    // 現在のY方向速度（単位：ユニット/秒、正＝上昇、負＝落下）
+
+    //--------------------------------------------------------------------------
+    // フラグ設定
+    //--------------------------------------------------------------------------
+    // 自分自身のコライダー種別（例：C_PLAYER / C_ENEMY）
+    void     SetSelfFlag(uint32_t flag) { mSelfFlag = flag; }
+    uint32_t GetSelfFlag() const        { return mSelfFlag; }
+
+    //--------------------------------------------------------------------------
+    // 調整用パラメータ
+    //--------------------------------------------------------------------------
+    void  SetGravityAccel(float g) { mGravityAccel = g; }
+    float GetGravityAccel() const  { return mGravityAccel; }
+
+    void  SetJumpSpeed(float s) { mJumpSpeed = s; }
+    float GetJumpSpeed() const  { return mJumpSpeed; }
+
+    void  SetMaxFallSpeed(float v) { mMaxFallSpeed = v; }
+    float GetMaxFallSpeed() const  { return mMaxFallSpeed; }
+
+    void  SetMaxStepUp(float v) { mMaxStepUp = v; }
+    float GetMaxStepUp() const  { return mMaxStepUp; }
+
+    void  SetMaxStepDown(float v) { mMaxStepDown = v; }
+    float GetMaxStepDown() const  { return mMaxStepDown; }
+
+    void  SetPenetrationEps(float v) { mPenetrationEps = v; }
+    float GetPenetrationEps() const  { return mPenetrationEps; }
+
+    void SetEnableGroundPose(bool b) { mEnableGroundPose = b; }
+    bool GetEnableGroundPose() const { return mEnableGroundPose; }
+
+    //--------------------------------------------------------------------------
+    // 状態参照
+    //--------------------------------------------------------------------------
+    bool  IsGrounded() const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
-    
-    // パラメータ類（ゲームごとの調整用）
-    // ・mMaxFallSpeed    : 落下方向の最大速度（終端速度）
-    // ・mMaxStepUp      : 1ステップで「登れる」段差・坂の最大高さ
-    // ・mMaxStepDown    : 1ステップで「キャッチ」できる落下距離
-    // ・mPenetrationEps : めり込み／浮かせの微調整用の閾値
-    void SetMaxFallSpeed(float v)      { mMaxFallSpeed = v; }
-    void SetMaxStepUp(float v)         { mMaxStepUp = v; }
-    void SetMaxStepDown(float v)       { mMaxStepDown = v; }
-    void SetPenetrationEps(float v)    { mPenetrationEps = v; }
-    
-    void SetEnableGroundPose(bool b)   { mEnableGroundPose = b; }
-    bool GetEnableGroundPose() const   { return mEnableGroundPose; }
 
 private:
-    // Y方向の速度（正＝上昇、負＝落下）。単位：ユニット/秒
-    float mVelocityY;
-    
-    // 重力加速度。毎ステップ mVelocityY に加算される値（ユニット/秒^2）
-    float mGravityAccel;
-    
-    // ジャンプ時の初速（ユニット/秒）
-    float mJumpSpeed;
-    
-    // 落下速度の下限（負方向の終端速度）
-    float mMaxFallSpeed;
-    
-    // 現在接地状態かどうか
-    bool mIsGrounded;
-    
-    // 地形に合わせてポーズを修正するか
-    bool mEnableGroundPose;
-    
-    // 自分のコンポーネント群から C_FOOT フラグを持つ ColliderComponent を探すヘルパー
-    class ColliderComponent* FindFootCollider();
-    
-    // 分割ステップごとに重力・接地処理を1回進める内部処理
-    void StepGravityOnce(float dt, ColliderComponent* collider);
-    
-    void ApplyGroundPose(Actor* owner, const struct GroundHit& hit, float dt);
-    
-    // 段差・坂・落下の扱いを決めるパラメータ群
-    float mMaxStepUp;        // 登れる最大段差・坂の高さ
-    float mMaxStepDown;      // 落下をスナップで拾える最大距離
-    float mPenetrationEps;   // めり込み許容／浮かせ量の調整用
+    // サブステップ1回分の重力・接地処理
+    void StepGravityOnce(float deltaTime, ColliderComponent* footCollider);
+
+    // 上昇中の天井押し戻し
+    void ApplyCeilingClamp(Actor* owner);
+
+    // 地面法線に合わせたポーズ補正
+    void ApplyGroundPose(Actor* owner, const GroundHit& hit, float deltaTime);
+
+    // C_FOOT を持つ ColliderComponent を探す
+    ColliderComponent* FindFootCollider();
+
+private:
+    //--------------------------------------------------------------------------
+    // フラグ
+    //--------------------------------------------------------------------------
+    uint32_t mSelfFlag = 0; // 自分の種別（C_PLAYER など）
+
+    //--------------------------------------------------------------------------
+    // 速度・状態
+    //--------------------------------------------------------------------------
+    float mVelocityY    = 0.0f;
+    float mGravityAccel = -80.0f;
+    float mJumpSpeed    = 35.0f;
+    float mMaxFallSpeed = -40.0f;
+
+    bool  mIsGrounded       = false;
+    bool  mEnableGroundPose = false;
+
+    //--------------------------------------------------------------------------
+    // スナップ許容パラメータ
+    //--------------------------------------------------------------------------
+    float mMaxStepUp      = 0.35f;
+    float mMaxStepDown    = 0.75f;
+    float mPenetrationEps = 0.05f;
 };
 
 } // namespace toy

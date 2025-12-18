@@ -4,173 +4,170 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Physics/PhysWorld.h"
 #include "Engine/Core/Application.h"
+
 #include <limits>
 
 namespace toy {
 
 //------------------------------------------------------------------------------
-// コンストラクタ
+// GravityComponent
 //------------------------------------------------------------------------------
-// ・Y方向速度は 0 から開始。
-// ・mGravityAccel は「ユニット/秒^2」として扱う重力加速度。
-// ・mJumpSpeed は「ユニット/秒」として扱うジャンプ初速。
-// ・mMaxFallSpeed は「落下方向（負）の終端速度」。
-// ・mMaxStepUp / mMaxStepDown は、
-//   「1ステップでどれくらいの段差・落差までスナップで許容するか」の目安。
+// ・Y方向の速度(mVelocityY)を積算し、足元(C_FOOT)基準で地面へスナップする。
+// ・重力は「ユニット/秒^2」、速度は「ユニット/秒」。
+// ・deltaTime が大きい環境でも破綻しにくいよう、内部でサブステップ更新する。
 //------------------------------------------------------------------------------
 GravityComponent::GravityComponent(Actor* a)
     : Component(a)
     , mVelocityY(0.0f)
-    , mGravityAccel(-80.0f)     // 重力加速度（ユニット/秒^2）
-    , mJumpSpeed(35.0f)         // ジャンプ初速（ユニット/秒）
-    , mMaxFallSpeed(-40.0f)     // 最大落下速度（負方向の終端速度）
-    , mMaxStepUp(0.35f)         // 段差・上り坂として許容する最大高さ
-    , mMaxStepDown(0.75f)       // 落下をスナップで拾う最大距離
-    , mPenetrationEps(0.05f)    // めり込み許容量
+    , mGravityAccel(-80.0f)
+    , mJumpSpeed(35.0f)
+    , mMaxFallSpeed(-40.0f)
+    , mMaxStepUp(0.35f)
+    , mMaxStepDown(0.75f)
+    , mPenetrationEps(0.05f)
     , mEnableGroundPose(false)
     , mIsGrounded(false)
+    , mSelfFlag(C_PLAYER) // ★ 汎用化したいなら外から設定できるようにする
 {
-    // ★ mPenetrationEps がメンバにあるならここで初期化しておくと安全。
-    // mPenetrationEps = 0.05f;
 }
 
 //------------------------------------------------------------------------------
 // Update
 //------------------------------------------------------------------------------
-// ・1フレーム分の deltaTime を、最大 120fps 相当の小ステップに分割して処理する。
-//   - 例：deltaTime が大きくても、内部では 1/120秒ごとの StepGravityOnce() を複数回呼ぶ。
-//   - FPS が落ちた環境でも、重力・接地判定の精度を維持するためのサブステップ。
-// ・実際の重力計算・接地スナップ処理は StepGravityOnce() に委譲。
+// ・最大 120fps 相当の小ステップに分割し、重力/接地を安定させる。
+// ・最後に「上昇中の天井押し戻し」を行う（天井抜け防止）。
 //------------------------------------------------------------------------------
 void GravityComponent::Update(float deltaTime)
 {
-    // 足コライダー必須（C_FOOT を持つ ColliderComponent）
-    ColliderComponent* collider = FindFootCollider();
-    if (!collider) return;
+    ColliderComponent* foot = FindFootCollider();
+    if (!foot) return;
 
     float remaining = deltaTime;
-    const float kMaxStep = 1.0f / 120.0f; // 重力・接地の内部ステップ（最大 120fps 相当）
+    const float kMaxStep = 1.0f / 120.0f;
 
     while (remaining > 0.0f)
     {
         float step = (remaining > kMaxStep) ? kMaxStep : remaining;
-        StepGravityOnce(step, collider);
+        StepGravityOnce(step, foot);
         remaining -= step;
     }
+
+    ApplyCeilingClamp(GetOwner());
 }
 
 //------------------------------------------------------------------------------
 // StepGravityOnce
 //------------------------------------------------------------------------------
-// ・重力・接地判定を「dt 分だけ」1ステップ進める処理。
-// ・重力加速度から速度を積算し、終端速度でクランプしたあと、
-//   足元の位置と groundY の関係から接地スナップを行う。
-// ・PhysWorld::GetNearestGroundY() は、Actor の真下方向にある最も高い地面の Y を返す前提。
-//   - Collider(C_GROUND) や地形メッシュから groundY を算出している想定。
+// ・dt 分だけ重力を進める（サブステップ 1 回分）。
+// ・下向き速度のときのみ、地面(hit.y)へスナップを試みる。
+// ・スナップできなければ通常の自由落下として pos.y を更新。
 //------------------------------------------------------------------------------
-void GravityComponent::StepGravityOnce(float dt, ColliderComponent* collider)
+void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 {
     Actor* owner    = GetOwner();
     PhysWorld* phys = owner->GetApp()->GetPhysWorld();
     Vector3 pos     = owner->GetPosition();
 
-    //--- 1. 加速度 → 速度（終端速度込み） ---
-    mVelocityY += mGravityAccel * dt;
-
-    // 落下速度に下限（終端速度）を設ける
+    // 1) 加速度 → 速度（終端速度でクランプ）
+    mVelocityY += mGravityAccel * deltaTime;
     if (mVelocityY < mMaxFallSpeed)
     {
         mVelocityY = mMaxFallSpeed;
     }
-    
-    // 足元（C_FOOT の AABB の min.y）を基準に地面との関係を見る
-    float footY     = collider->GetBoundingVolume()->GetWorldAABB().min.y;
-    float nextFootY = footY + mVelocityY * dt;
 
-    // 自分の真下にある「最も近い地面の Y」
-    float groundY = -std::numeric_limits<float>::max();
-    //bool hasGround = phys->GetNearestGroundY(owner, groundY);
+    // 足元（C_FOOT の AABB.min.y）で地面との距離を見る
+    const float footY     = foot->GetBoundingVolume()->GetWorldAABB().min.y;
+    const float nextFootY = footY + mVelocityY * deltaTime;
+
+    // 真下方向の地面（Collider床 + Terrain の「最も高い地面」）
     GroundHit hit;
-    bool hasGround = phys->GetNearestGroundHit(owner, hit);
-    groundY = hit.y;
-    
+    const bool hasGround = phys->GetNearestGroundHit(owner, hit);
 
-    const float kMaxStepUp      = mMaxStepUp;      // 段差・上り坂として許せる上方向の差分
-    const float kMaxStepDown    = mMaxStepDown;    // 落下をキャッチする下方向の差分
-    const float kPenetrationEps = mPenetrationEps; // めり込み許容（浮かせ量との調整用）
-
-    if (hasGround && mVelocityY <= 0.0f) // 下向きに動いているときだけ接地検査
+    // 下向きのときだけ接地（スナップ）判定
+    if (hasGround && mVelocityY <= 0.0f)
     {
-        // 次フレームの足元位置に対して、地面がどれくらい上 / 下にあるか
-        //  yGapNext > 0 : 地面の方が高い（小さな段差・坂を登るケース）
-        //  yGapNext < 0 : 地面の方が低い（落下して地面に着地するケース）
-        float yGapNext = groundY - nextFootY;
+        const float groundY = hit.y;
 
-        // 上り・下り両方を「スナップしてよい範囲」として許容する
-        bool canSnap =
-            (yGapNext >= -kMaxStepDown - kPenetrationEps) && // 下方向（落下キャッチ）
-            (yGapNext <=  kMaxStepUp   + kPenetrationEps);   // 上方向（段差・坂）
+        // nextFootY に対して groundY がどれだけ上下にあるか
+        //  yGapNext > 0 : 地面が高い（段差/坂を拾う）
+        //  yGapNext < 0 : 地面が低い（落下して着地する）
+        const float yGapNext = groundY - nextFootY;
+
+        const float upLimit   = mMaxStepUp   + mPenetrationEps;
+        const float downLimit = mMaxStepDown + mPenetrationEps;
+
+        const bool canSnap =
+            (yGapNext >= -downLimit) &&
+            (yGapNext <=  upLimit);
 
         if (canSnap)
         {
-            // groundY に足元が乗るように Actor の Y を補正
-            float offset = pos.y - footY;           // Actor 原点 → 足元までのオフセット
-            pos.y = groundY + offset + 0.001f;      // ごくわずかに浮かせて誤差によるめり込みを防ぐ
+            // Actor原点 → 足元までのオフセットを維持して、足元を groundY に合わせる
+            const float offset = pos.y - footY;
+            pos.y = groundY + offset + 0.001f; // ほんの少し浮かせて誤差めり込み対策
             owner->SetPosition(pos);
 
-            mVelocityY  = 0.0f;                     // 着地したので速度リセット
-            mIsGrounded = true;                     // 接地状態に遷移
-            
-            
-            if (mIsGrounded && mEnableGroundPose)
+            mVelocityY  = 0.0f;
+            mIsGrounded = true;
+
+            if (mEnableGroundPose)
             {
-                ApplyGroundPose(owner, hit, dt);
+                ApplyGroundPose(owner, hit, deltaTime);
             }
-            
             return;
         }
     }
 
-    // ここまで来たら今ステップでは接地しなかった扱い
+    // 今回は接地しなかった
     mIsGrounded = false;
 
-    //--- 2. 通常の落下（位置の更新） ---
-    pos.y += mVelocityY * dt;
+    // 2) 自由落下
+    pos.y += mVelocityY * deltaTime;
     owner->SetPosition(pos);
+
+    // 空中時に姿勢を戻したいならここで Identity へ補間してもOK（任意）
+    // if (mEnableGroundPose) { ApplyAirPoseReturn(owner, dt); }
 }
-/*void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit)
+
+//------------------------------------------------------------------------------
+// ApplyCeilingClamp
+//------------------------------------------------------------------------------
+// ・上昇中のみ、天井(C_CEILING)にめり込んだら押し戻して上向き速度を止める。
+//------------------------------------------------------------------------------
+void GravityComponent::ApplyCeilingClamp(Actor* owner)
 {
-    // ① ワールド normal → ローカル normal
-    Quaternion inv = owner->GetRotation();
-    inv.Conjugate();
+    if (!owner) return;
 
-    Vector3 localNormal = Vector3::Transform(hit.normal, inv);
-    localNormal.Normalize();
-
-    // ② ローカル Up と比較
-    Vector3 localUp = Vector3::UnitY;
-
-    float dot = Vector3::Dot(localUp, localNormal);
-    dot = Math::Clamp(dot, -1.0f, 1.0f);
-
-    float angle = Math::Acos(dot);
-    if (angle < 0.001f)
+    // 上昇中のみ
+    if (mVelocityY <= 0.0f)
     {
-        owner->SetPoseRotation(Quaternion::Identity);
         return;
     }
 
-    Vector3 axis = Vector3::Cross(localUp, localNormal);
-    axis.Normalize();
+    auto* phys = owner->GetApp()->GetPhysWorld();
 
-    Quaternion pose(axis, angle);
-    owner->SetPoseRotation(pose);
+    Vector3 push = Vector3::Zero;
+    if (phys->ResolveCeiling(owner, mSelfFlag, C_CEILING, push))
+    {
+        owner->SetPosition(owner->GetPosition() + push);
+
+        // 下向きに押された = 天井ヒット
+        if (push.y < -0.0001f)
+        {
+            mVelocityY = 0.0f;
+        }
+    }
 }
-*/
 
-void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float dt)
+//------------------------------------------------------------------------------
+// ApplyGroundPose
+//------------------------------------------------------------------------------
+// ・地面法線(hit.normal)に合わせた「ポーズ回転」を作り、Slerp で滑らかに補間。
+// ・ワールドの normal を、Actor のローカル基準へ落としてから Up と比較する。
+//------------------------------------------------------------------------------
+void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float deltaTime)
 {
-    // ① ワールド normal → ローカル normal
+    // 1) ワールド normal → ローカル normal
     Quaternion inv = owner->GetRotation();
     inv.Conjugate();
 
@@ -181,38 +178,33 @@ void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float
     }
     localNormal.Normalize();
 
-    // ② ローカル Up と比較（ToyLibは左手・Y up前提でOK）
+    // 2) ローカル Up と比較
     const Vector3 localUp = Vector3::UnitY;
 
     float dot = Vector3::Dot(localUp, localNormal);
     dot = Math::Clamp(dot, -1.0f, 1.0f);
 
-    float angle = Math::Acos(dot);
+    const float angle = Math::Acos(dot);
 
-    // ③ 目標ポーズを作る（小さければ「戻る」を目標に）
+    // 3) 目標ポーズ
     Quaternion targetPose = Quaternion::Identity;
 
     if (angle >= 0.001f)
     {
         Vector3 axis = Vector3::Cross(localUp, localNormal);
-
-        // axis が極小（ほぼ平行/反平行）なら不安定なのでガード
         if (axis.LengthSq() > Math::NearZeroEpsilon)
         {
             axis.Normalize();
-            targetPose = Quaternion(axis, angle);
+            targetPose = Quaternion(axis, angle); // angle は rad 前提
         }
-        // 反平行に近いケース（dot ≒ -1）を厳密にやるなら別処理が必要だけど、
-        // 地面用途ならまずここまでで十分。
     }
 
-    // ④ いまの Pose から targetPose へ Slerp
-    //    「補間速度」は調整用。10〜20あたりから試すのが定番。
+    // 4) 補間（速度は好みで調整）
     const float poseLerpSpeed = 12.0f;
-    float t = Math::Clamp(dt * poseLerpSpeed, 0.0f, 1.0f);
+    const float t = Math::Clamp(deltaTime * poseLerpSpeed, 0.0f, 1.0f);
 
-    Quaternion currentPose = owner->GetPoseRotation();
-    Quaternion smoothPose  = Quaternion::Slerp(currentPose, targetPose, t);
+    const Quaternion currentPose = owner->GetPoseRotation();
+    const Quaternion smoothPose  = Quaternion::Slerp(currentPose, targetPose, t);
 
     owner->SetPoseRotation(smoothPose);
 }
@@ -220,14 +212,13 @@ void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float
 //------------------------------------------------------------------------------
 // Jump
 //------------------------------------------------------------------------------
-// ・接地中（mIsGrounded == true）のときだけジャンプ初速を与える。
-// ・ジャンプ後は mIsGrounded を false にして空中状態に遷移。
+// ・接地中のみジャンプ可能。
 //------------------------------------------------------------------------------
 void GravityComponent::Jump()
 {
     if (mIsGrounded)
     {
-        mVelocityY = mJumpSpeed;
+        mVelocityY  = mJumpSpeed;
         mIsGrounded = false;
     }
 }
@@ -235,9 +226,7 @@ void GravityComponent::Jump()
 //------------------------------------------------------------------------------
 // FindFootCollider
 //------------------------------------------------------------------------------
-// ・Actor に紐づく ColliderComponent 群から、C_FOOT フラグを持つものを探す。
-// ・足用の Collider（カプセルや小さめ AABB）を 1 つ用意し、
-//   それを地面判定専用として使用する前提のヘルパー関数。
+// ・Owner が持つ ColliderComponent のうち、C_FOOT を持つものを返す。
 //------------------------------------------------------------------------------
 ColliderComponent* GravityComponent::FindFootCollider()
 {

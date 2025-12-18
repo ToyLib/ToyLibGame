@@ -198,7 +198,7 @@ void OutdoorStage::InitStage()
     
     // 時間の設定
     mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(16.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(18.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
@@ -224,7 +224,7 @@ void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
     
     if (bWall)
     {
-        coll->SetFlags(toy::C_GROUND | toy::C_WALL);
+        coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
     }
     else
     {

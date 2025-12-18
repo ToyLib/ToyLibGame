@@ -39,6 +39,7 @@ enum ColliderType : uint32_t
     C_WALL    = 1 << 4,
     C_GROUND  = 1 << 5,
     C_FOOT    = 1 << 6,
+    C_CEILING = 1 << 7,
 };
 ENABLE_BITMASK_OPERATORS(ColliderType)
 
