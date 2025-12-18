@@ -147,7 +147,7 @@ public:
                         uint32_t moverFlag,
                         uint32_t ceilingFlag,
                         Vector3& outPush) const;
-
+    
 private:
     //-------------------------------------------------------------------------
     // OBB / Sphere collision (internal)

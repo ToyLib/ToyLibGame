@@ -2,11 +2,13 @@
 
 #include "Engine/Core/Component.h"
 #include "Utils/MathUtil.h"
+#include "Asset/Geometry/Polygon.h"
 
+#include <array>
 #include <vector>
 #include <memory>
+#include <span>
 
-extern const int NUM_VERTEX;
 
 namespace toy {
 
@@ -55,6 +57,7 @@ struct OBB
 class BoundingVolumeComponent : public Component
 {
 public:
+    static constexpr size_t kNumPolygons = 12;
     // コンストラクタ / デストラクタ
     BoundingVolumeComponent(class Actor* a);
     ~BoundingVolumeComponent();
@@ -63,7 +66,7 @@ public:
     // バウンディングボリュームの構築
     //--------------------------------------------------------------------------
     // VertexArray 群から AABB を計算し、OBB/ポリゴンも生成する
-    void ComputeBoundingVolume(const std::vector<std::shared_ptr<class VertexArray>> va);
+    void ComputeBoundingVolume(const std::vector<std::shared_ptr<class VertexArray>>& va);
     
     // Min/Max（ローカル空間）を直接指定して AABB/ポリゴンを生成
     void ComputeBoundingVolume(const Vector3& min, const Vector3& max);
@@ -90,8 +93,12 @@ public:
     struct Cube GetWorldAABB() const;
     
     // AABB から生成した 6面×2tri = 12枚のポリゴン（ローカル空間）
-    std::shared_ptr<struct Polygon[]> GetPolygons() const { return mPolygons; }
-    
+    //（コピー無し・サイズ付き）
+    std::span<const struct Polygon> GetPolygons() const
+    {
+        return { mPolygons.data(), mPolygons.size() };
+    }
+
     // バウンディングスフィア半径（OBB から算出）
     float GetRadius() const { return mRadius; }
     void  SetRadius(float f) { mRadius = f; }
@@ -110,7 +117,7 @@ private:
     float mRadius;
     
     // AABB から生成した 12枚のポリゴン（ローカル空間）
-    std::shared_ptr<struct Polygon[]> mPolygons;
+    std::array<Polygon, kNumPolygons> mPolygons{};
     
     // デバッグ表示用のワイヤーフレーム（AABB 可視化）
     std::unique_ptr<class WireframeComponent> mWireframe;

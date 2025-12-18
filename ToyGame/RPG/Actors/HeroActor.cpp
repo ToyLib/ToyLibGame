@@ -72,7 +72,7 @@ HeroActor::HeroActor(toy::Application* a)
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Walk.wav");
     mSound->SetVolume(0.5f);
-    mSound->SetUseDistanceAttenuation(true);
+    mSound->SetUseDistanceAttenuation(false);
     
     
     mMagic = GetApp()->CreateActor<MagicActor>();

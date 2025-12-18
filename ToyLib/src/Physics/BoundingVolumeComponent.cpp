@@ -12,7 +12,6 @@
 #include <vector>
 #include <algorithm>
 
-const int NUM_VERTEX = 12;
 
 namespace toy {
 
@@ -26,9 +25,7 @@ BoundingVolumeComponent::BoundingVolumeComponent(Actor* a)
     , mRadius(0.0f)
 {
     mBoundingBox = std::make_shared<Cube>();
-    mObb         = std::make_shared<OBB>();
-    mPolygons.reset(new Polygon[NUM_VERTEX]);
-    
+    mObb         = std::make_shared<OBB>();    
     // デバッグ時のみワイヤーフレームを生成して可視化
     if (GetOwner()->GetApp()->GetRenderer()->GetDebugMode())
     {
@@ -89,7 +86,7 @@ void BoundingVolumeComponent::OnUpdateWorldTransform()
 // ・複数 VertexArray のポリゴン群からローカル AABB を計算。
 // ・その後、デバッグ用の VAO とポリゴン配列を生成する。
 //------------------------------------------------------------------------------
-void BoundingVolumeComponent::ComputeBoundingVolume(const std::vector<std::shared_ptr<VertexArray>> va)
+void BoundingVolumeComponent::ComputeBoundingVolume(const std::vector<std::shared_ptr<VertexArray>>& va)
 {
     // 複数 VertexArray をまとめて min/max を更新
     for (const auto& v : va)

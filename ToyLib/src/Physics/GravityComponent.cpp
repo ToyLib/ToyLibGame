@@ -40,8 +40,11 @@ GravityComponent::GravityComponent(Actor* a)
 void GravityComponent::Update(float deltaTime)
 {
     ColliderComponent* foot = FindFootCollider();
-    if (!foot) return;
-
+    if (!foot)
+    {
+        return;
+    }
+    
     float remaining = deltaTime;
     const float kMaxStep = 1.0f / 120.0f;
 
@@ -53,6 +56,22 @@ void GravityComponent::Update(float deltaTime)
     }
 
     ApplyCeilingClamp(GetOwner());
+
+/*    // 壁めり込み保険（水平押し戻し）
+    if (auto* phys = GetOwner()->GetApp()->GetPhysWorld())
+    {
+        Vector3 wallPush = Vector3::Zero;
+
+        if (phys->ResolveWallPenetration(GetOwner(), mSelfFlag, C_WALL, wallPush))
+        {
+            // ResolveWallPenetration 内で一時的に位置を動かしているので、
+            // ここで戻したい派なら「outPushを返すだけ」にして適用は外側に寄せてもOK。
+            // ただ、今の実装は“保険優先”で内側で更新する方式。
+            (void)wallPush;
+        }
+    }
+    ApplyGroundDepenetration(GetOwner(), foot);
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -207,6 +226,64 @@ void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float
     const Quaternion smoothPose  = Quaternion::Slerp(currentPose, targetPose, t);
 
     owner->SetPoseRotation(smoothPose);
+}
+
+void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot)
+{
+    if (!owner)
+    {
+        return;
+    }
+    if (!foot)
+    {
+        return;
+    }
+
+    PhysWorld* phys = owner->GetApp()->GetPhysWorld();
+    if (!phys)
+    {
+        return;
+    }
+
+    GroundHit hit;
+    if (!phys->GetNearestGroundHit(owner, hit))
+    {
+        return;
+    }
+
+    // 足元のAABB min.y が「足の高さ基準」
+    const Cube box   = foot->GetBoundingVolume()->GetWorldAABB();
+    const float footY = box.min.y;
+
+    // yGap = footY - groundY
+    const float yGap = footY - hit.y;
+
+    // 足が地面より下（潜っている）なら引き上げる
+    // ここは “保険” なので、過剰に動かさず eps を超えたらだけ直す
+    if (yGap < -mPenetrationEps)
+    {
+        Vector3 pos = owner->GetPosition();
+
+        // Actor原点→足元のオフセットを維持したまま、足を groundY に乗せる
+        const float offset = pos.y - footY;
+        pos.y = hit.y + offset + 0.001f;
+        owner->SetPosition(pos);
+
+        // 下向き速度は止めておく（落下中の潜り救済）
+        if (mVelocityY < 0.0f)
+        {
+            mVelocityY = 0.0f;
+        }
+
+        mIsGrounded = true;
+
+        if (mEnableGroundPose)
+        {
+            // dt が無いので “軽く追従” させたい場合は固定値でもOK
+            // ここでは Update() 側から dt を渡す版にしてもいい
+            // ApplyGroundPose(owner, hit, /*dt=*/0.016f);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

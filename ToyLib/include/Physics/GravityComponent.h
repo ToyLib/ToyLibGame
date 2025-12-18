@@ -79,6 +79,10 @@ private:
 
     // C_FOOT を持つ ColliderComponent を探す
     ColliderComponent* FindFootCollider();
+    
+    // フレーム終端の保険：
+    // 「地面に潜っていたら」最小限だけ引き上げて整合を取る
+    void ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot);
 
 private:
     //--------------------------------------------------------------------------
