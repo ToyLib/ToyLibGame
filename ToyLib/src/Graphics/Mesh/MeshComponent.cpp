@@ -57,20 +57,17 @@ void MeshComponent::Draw()
     {
         return;
     }
-    
+
     // 加算ブレンドが指定されている場合はブレンドモード変更
     if (mIsBlendAdd)
     {
         glBlendFunc(GL_ONE, GL_ONE);
     }
 
-    // シャドウマップテクスチャ有効化（テクスチャユニット1）
-    mShadowMapTexture->SetActive(1);
-
     auto renderer = GetOwner()->GetApp()->GetRenderer();
-    Matrix4 view  = renderer->GetViewMatrix();
-    Matrix4 proj  = renderer->GetProjectionMatrix();
-    Matrix4 light = renderer->GetLightSpaceMatrix();
+
+    Matrix4 view = renderer->GetViewMatrix();
+    Matrix4 proj = renderer->GetProjectionMatrix();
 
     // メインのメッシュシェーダを使用
     mShader->SetActive();
@@ -80,11 +77,32 @@ void MeshComponent::Draw()
 
     // 行列類
     mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
-    // シャドウマップサンプラ設定
-    mShader->SetTextureUniform("uShadowMap", 1);
-    mShader->SetFloatUniform("uShadowBias", 0.005f);
+    // ----------------------------
+    // CSM: ShadowMap 2枚 + LightVP 2本 + split/blend
+    // ----------------------------
+    // ※ Texture unit は空いている番号なら何でもOK。ここでは 6/7 を使用。
+    {
+        auto sm0 = renderer->GetShadowMapTexture(0);
+        auto sm1 = renderer->GetShadowMapTexture(1);
+
+        if (sm0) sm0->SetActive(6);
+        if (sm1) sm1->SetActive(7);
+
+        // Phong.frag 側の uniform 名に合わせる
+        mShader->SetTextureUniform("uShadowMap0", 6);
+        mShader->SetTextureUniform("uShadowMap1", 7);
+
+        mShader->SetMatrixUniform("uLightViewProj0", renderer->GetLightSpaceMatrix(0));
+        mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
+
+        // まず動かす用の固定値（あとで Renderer 側の設定値に置き換え推奨）
+        mShader->SetFloatUniform("uCascadeSplit0", 25.0f);
+        mShader->SetFloatUniform("uCascadeBlend", 6.0f);
+
+        // Bias
+        mShader->SetFloatUniform("uShadowBias", 0.005f);
+    }
 
     // トゥーンレンダリングON/OFF
     mShader->SetBooleanUniform("uUseToon", mIsToon);
@@ -94,8 +112,6 @@ void MeshComponent::Draw()
 
     //--------------------------------------------------------
     // メッシュ本体の描画
-    //  - Mesh は複数 VertexArray（サブメッシュ）を持つ前提
-    //  - 各サブメッシュに対応した Material をバインドして描画
     //--------------------------------------------------------
     auto vaList = mMesh->GetVertexArray();
     for (auto& v : vaList)
@@ -114,17 +130,17 @@ void MeshComponent::Draw()
 
     //--------------------------------------------------------
     // トゥーン輪郭描画（アウトライン）
-    //  - 表面を少しスケールアップして黒で描画
-    //  - CW / CCW を反転して裏面を描くことで輪郭として見せる
     //--------------------------------------------------------
     if (mContourFactor > 1.0f)
     {
-        // 反時計回り(CCW)→時計回り(CW)に変更し裏面描画にする
         glFrontFace(GL_CW);
 
         // わずかにスケールアップしたワールド行列
         Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
-        mShader->SetMatrixUniform("uWorldTransform", scaleOutline * GetOwner()->GetRenderWorldTransform());
+        mShader->SetMatrixUniform(
+            "uWorldTransform",
+            scaleOutline * GetOwner()->GetRenderWorldTransform()
+        );
 
         for (auto& v : vaList)
         {
@@ -147,7 +163,6 @@ void MeshComponent::Draw()
             }
         }
 
-        // フロントフェイスを元に戻す
         glFrontFace(GL_CCW);
         renderer->AddDrawObject();
     }
@@ -157,6 +172,7 @@ void MeshComponent::Draw()
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+
     renderer->AddDrawObject();
 }
 
@@ -175,24 +191,19 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 //  - シャドウマップ用の深度描画
 //  - ライティングは不要で、LightSpaceMatrix と WorldTransform のみ
 //------------------------------------------------------------
-void MeshComponent::DrawShadow()
+void MeshComponent::DrawShadow(int cascadeIndex)
 {
-    if (!mMesh)
-    {
-        return;
-    }
-    
+    if (!mMesh) return;
+
     auto renderer = GetOwner()->GetApp()->GetRenderer();
-    Matrix4 light = renderer->GetLightSpaceMatrix();
 
-    // シャドウ専用シェーダを有効化
+    // ★カスケード指定で取得
+    Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
+
     mShadowShader->SetActive();
-
-    // ワールド行列＆ライト空間行列を送る
     mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
-    // VAO を全サブメッシュ分描画
     auto vaList = mMesh->GetVertexArray();
     for (auto& v : vaList)
     {
@@ -202,5 +213,4 @@ void MeshComponent::DrawShadow()
     }
     renderer->AddDrawObject();
 }
-
 } // namespace toy

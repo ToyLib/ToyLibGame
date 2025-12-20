@@ -187,10 +187,21 @@ public:
     //---------------------------------------------------------
     
     // ライト空間行列（ShadowMap 用の ViewProj）
-    Matrix4 GetLightSpaceMatrix() const { return mLightSpaceMatrix; }
+    //Matrix4 GetLightSpaceMatrix() const { return mLightSpaceMatrix; }
     
     // シャドウマップテクスチャ（デプス or sampler2DShadow 等）
-    std::shared_ptr<class Texture> GetShadowMapTexture() const { return mShadowMapTexture; }
+    //std::shared_ptr<class Texture> GetShadowMapTexture() const { return mShadowMapTexture; }
+    
+    // --- CSM用：カスケード数 ---
+    //static constexpr int kShadowCascadeCount = 2;
+
+    // --- CSM用：カスケード指定で取得 ---
+    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const { return mLightSpaceMatrix[cascadeIndex]; }
+    std::shared_ptr<class Texture> GetShadowMapTexture(int cascadeIndex) const { return mShadowMapTexture[cascadeIndex]; }
+
+    // 互換用：いままで通り1枚だけ欲しい人向け（とりあえずNearを返す）
+    Matrix4 GetLightSpaceMatrix() const { return GetLightSpaceMatrix(0); }
+    std::shared_ptr<class Texture> GetShadowMapTexture() const { return GetShadowMapTexture(0); }
     
     
     //---------------------------------------------------------
@@ -314,12 +325,22 @@ private:
     // シャドウマッピング処理
     //---------------------------------------------------------
     
-    GLuint mShadowFBO;
+    //GLuint mShadowFBO;
     bool   InitializeShadowMapping();
     void   RenderShadowMap();
     
-    Matrix4 mLightSpaceMatrix;
-    std::shared_ptr<class Texture> mShadowMapTexture;
+    //Matrix4 mLightSpaceMatrix;
+    //std::shared_ptr<class Texture> mShadowMapTexture;
+    
+    static constexpr int kShadowCascadeCount = 2;
+
+    GLuint  mShadowFBO[kShadowCascadeCount]{};
+    Matrix4 mLightSpaceMatrix[kShadowCascadeCount]{};
+    std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount]{};
+
+    // split/blend（Rendererがshaderに渡す用）
+    float mCascadeSplit0 = 25.0f;
+    float mCascadeBlend  = 6.0f;
     
     
     //---------------------------------------------------------

@@ -52,6 +52,8 @@ Renderer::Renderer()
     , mSkyDomeComp(nullptr)
     , mLightSpaceMatrix(Matrix4::Identity)
     , mWindowDisplayScale(1.0f)
+    , mCascadeSplit0(25.0f)
+    , mCascadeBlend(6.0f)
 {
     // ライティング管理クラス
     mLightingManager = std::make_shared<LightingManager>();
@@ -180,11 +182,15 @@ bool Renderer::Initialize(SDL_Window* window)
 // リリース処理
 void Renderer::Shutdown()
 {
-    if (mShadowFBO)
+    // FBOを2枚消す
+    glDeleteFramebuffers(kShadowCascadeCount, mShadowFBO);
+    for (int i = 0; i < kShadowCascadeCount; ++i)
     {
-        glDeleteFramebuffers(1, &mShadowFBO);
-        mShadowFBO = 0;
+        mShadowFBO[i] = 0;
+        mShadowMapTexture[i].reset();
+        mLightSpaceMatrix[i] = Matrix4::Identity;
     }
+
     if (mGLContext)
     {
         SDL_GL_DestroyContext(mGLContext);
@@ -499,116 +505,108 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
 // シャドウマップ用 FBO 初期化
 bool Renderer::InitializeShadowMapping()
 {
-    // シャドウマップ用 FBO 作成
-    glGenFramebuffers(1, &mShadowFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO);
-    
-    // シャドウ用テクスチャ生成（深度テクスチャ）
-    mShadowMapTexture = std::make_shared<Texture>();
-    mShadowMapTexture->CreateShadowMap(mShadowFBOWidth, mShadowFBOHeight);
-    
-    // FBO に深度テクスチャをアタッチ
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER,
-        GL_DEPTH_ATTACHMENT,
-        GL_TEXTURE_2D,
-        mShadowMapTexture->GetTextureID(),
-        0
-    );
-    
-    // カラーバッファ無し（深度のみ）
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
-    
-    // 完成チェック
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    glGenFramebuffers(kShadowCascadeCount, mShadowFBO);
+
+    for (int i = 0; i < kShadowCascadeCount; ++i)
     {
-        std::cerr << "Error: Shadow framebuffer is not complete!" << std::endl;
-        return false;
+        glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
+
+        mShadowMapTexture[i] = std::make_shared<Texture>();
+        mShadowMapTexture[i]->CreateShadowMap(mShadowFBOWidth, mShadowFBOHeight);
+
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            GL_DEPTH_ATTACHMENT,
+            GL_TEXTURE_2D,
+            mShadowMapTexture[i]->GetTextureID(),
+            0
+        );
+
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            std::cerr << "Error: Shadow framebuffer[" << i << "] is not complete!\n";
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            return false;
+        }
     }
-    
-    // FBOのバインド解除
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
 }
-
 // シャドウマップのレンダリング
 void Renderer::RenderShadowMap()
 {
-    //---------------------------------------------------------
-    // シャドウ FBO バインド
-    //---------------------------------------------------------
-    glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO);
-    glViewport(0, 0,
-               (GLsizei)mShadowFBOWidth,
-               (GLsizei)mShadowFBOHeight);
-
     glEnable(GL_DEPTH_TEST);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    
-    //---------------------------------------------------------
-    // ライト視点行列を構築
-    //   - カメラの前方方向の少し先を中心にライトカメラを置く
-    //   - Ortho + LookAt の組み合わせ
-    //---------------------------------------------------------
+
+    // ベースとなる中心とライト方向は共通
     Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
     Vector3 lightDir  = mLightingManager->GetLightDirection();
     Vector3 lightPos  = camCenter - lightDir * 50.0f;
-    
+
     Matrix4 lightView = Matrix4::CreateLookAt(
         lightPos,
         camCenter,
         Vector3::UnitY
     );
 
-    Matrix4 lightProj = Matrix4::CreateOrtho(
-        mShadowOrthoWidth,
+    // Near / Far 用の ortho サイズ（まずは固定でOK）
+    const float orthoW[kShadowCascadeCount] = {
+        mShadowOrthoWidth,          // Near（既存値）
+        mShadowOrthoWidth * 4.0f    // Far（とりあえず広げる。後で調整）
+    };
+    const float orthoH[kShadowCascadeCount] = {
         mShadowOrthoHeight,
-        mShadowNear,
-        mShadowFar
-    );
-    
-    // OpenGL では通常 Projection * View を使うが、
-    // ここでは view * proj の形で扱っている（フラスタム生成と対応）
-    Matrix4 lightVP = lightView * lightProj;
-    mLightSpaceMatrix = lightVP;
-    
-    // ライト側フラスタム（影用）を作成
-    Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
-    
-    //---------------------------------------------------------
-    // 影描画ループ
-    //---------------------------------------------------------
-    for (auto& visual : mVisualComps)
+        mShadowOrthoHeight * 4.0f
+    };
+
+    for (int i = 0; i < kShadowCascadeCount; ++i)
     {
-        if (!visual->GetEnableShadow() || !visual->IsVisible())
+        // --- FBO バインド & viewport ---
+        glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
+        glViewport(0, 0,
+                   (GLsizei)mShadowFBOWidth,
+                   (GLsizei)mShadowFBOHeight);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // --- Light VP 構築（ToyLib流：view * proj） ---
+        Matrix4 lightProj = Matrix4::CreateOrtho(
+            orthoW[i],
+            orthoH[i],
+            mShadowNear,
+            mShadowFar
+        );
+
+        Matrix4 lightVP = lightView * lightProj;
+        mLightSpaceMatrix[i] = lightVP;
+
+        // --- フラスタム作ってカリング ---
+        Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
+
+        for (auto& visual : mVisualComps)
         {
-            continue;
-        }
-        // ライト側フラスタムカリング
-        Actor* owner = visual->GetOwner();
-        if (owner)
-        {
-            auto bv = owner->GetComponent<BoundingVolumeComponent>();
-            if (bv)
+            if (!visual->GetEnableShadow() || !visual->IsVisible())
+                continue;
+
+
+            Actor* owner = visual->GetOwner();
+            if (owner)
             {
-                Cube aabb = bv->GetWorldAABB();
-                // 必要なら aabb.Expand(…) 等で少し余裕を持たせる
-                
-                if (!FrustumIntersectsAABB(shadowFrustum, aabb))
+                auto bv = owner->GetComponent<BoundingVolumeComponent>();
+                if (bv)
                 {
-                    continue;
+                    Cube aabb = bv->GetWorldAABB();
+                    if (!FrustumIntersectsAABB(shadowFrustum, aabb))
+                        continue;
                 }
             }
+            visual->DrawShadow(i);
         }
-        
-        // 影用描画（VisualComponent 側でシャドウシェーダーを使う）
-        visual->DrawShadow();
     }
-    
-    //---------------------------------------------------------
-    // 元のフレームバッファとビューポートに戻す
-    //---------------------------------------------------------
+
+    // 戻す
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0,
                (GLsizei)mScreenWidth,

@@ -83,7 +83,5 @@ void main()
     // 7) UV をそのまま転送
     fragTexCoord = inTexCoord;
 
-    // 8) シャドウマップ用：ライト空間座標
-    fragPosLightSpace = skinnedPos * uLightSpaceMatrix;
 }
 

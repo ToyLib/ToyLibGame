@@ -3,7 +3,8 @@
 //======================================================================
 //  Phong.frag
 //  ・Phong + Toon 切り替え可能なライティング
-//  ・ディレクショナルライト + シャドウマッピング + フォグ対応
+//  ・Directional + Point + Fog
+//  ・CSM(2 cascades) + PCF 3x3
 //======================================================================
 
 
@@ -14,7 +15,6 @@
 in vec2 fragTexCoord;
 in vec3 fragNormal;
 in vec3 fragWorldPos;
-in vec4 fragPosLightSpace;
 
 
 //======================================================================
@@ -40,9 +40,6 @@ uniform vec3 uAmbientLight;
 uniform float uShadowBias;
 uniform bool  uUseToon;
 
-// ★ 太陽専用の強度スケールは使わない（CPU 側で色やアンビエントに焼き込む）
-//uniform float uSunIntensity;
-
 
 //======================================================================
 //  Directional Light（平行光源）
@@ -55,8 +52,9 @@ struct DirectionalLight
 };
 uniform DirectionalLight uDirLight;
 
+
 //======================================================================
-//  Point Light （追加）
+//  Point Light
 //======================================================================
 struct PointLight
 {
@@ -74,8 +72,9 @@ struct PointLight
 uniform int uNumPointLights;
 uniform PointLight uPointLights[8];
 
+
 //======================================================================
-//  Fog（フォグ情報）
+//  Fog
 //======================================================================
 struct FogInfo
 {
@@ -87,9 +86,19 @@ uniform FogInfo uFoginfo;
 
 
 //======================================================================
-//  Shadow Mapping
+//  Shadow Mapping (CSM 2 cascades)
 //======================================================================
-uniform sampler2DShadow uShadowMap;
+uniform sampler2DShadow uShadowMap0;
+uniform sampler2DShadow uShadowMap1;
+
+uniform mat4 uLightViewProj0;
+uniform mat4 uLightViewProj1;
+
+// どこで近景→遠景に切り替えるか（ワールド距離ベースでOK）
+uniform float uCascadeSplit0;
+
+// 境界でのフェード幅（大きいほど切り替えが目立ちにくい）
+uniform float uCascadeBlend;
 
 
 //======================================================================
@@ -135,46 +144,6 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 
 
 //======================================================================
-//  関数：シャドウ判定
-//======================================================================
-float ComputeShadow()
-{
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-
-    // ライト投影外は影なし
-    if (projCoords.x < 0.0 || projCoords.x > 1.0 ||
-        projCoords.y < 0.0 || projCoords.y > 1.0 ||
-        projCoords.z < 0.0 || projCoords.z > 1.0)
-    {
-        return 1.0;
-    }
-
-    // 影マップの 1 texel サイズ
-    vec2 texelSize = 1.0 / vec2(textureSize(uShadowMap, 0));
-
-    // PCF 3x3
-    float sum = 0.0;
-    for (int y = -1; y <= 1; ++y)
-    {
-        for (int x = -1; x <= 1; ++x)
-        {
-            vec2 offset = vec2(x, y) * texelSize;
-
-            // sampler2DShadow: texture(uShadowMap, vec3(uv, refZ))
-            // 返り値は「光が当たってる率」(0..1)
-            sum += texture(uShadowMap, vec3(projCoords.xy + offset,
-                                            projCoords.z - uShadowBias));
-        }
-    }
-
-    float lit = sum / 9.0; // 1.0=明るい, 0.0=影
-
-    // 今までの「真っ黒にしない」仕様を維持
-    return mix(0.5, 1.0, lit);
-}
-
-//======================================================================
 //  関数：Point Light 計算（Phong / Toon 両対応）
 //======================================================================
 vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
@@ -185,7 +154,6 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
     if (dist <= 0.0001)
         return vec3(0.0);
 
-    // 距離でカリングしたい場合はここでチェック
     if (dist > light.radius)
         return vec3(0.0);
 
@@ -194,7 +162,6 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
     if (NdotL <= 0.0)
         return vec3(0.0);
 
-    // 距離減衰
     float attenuation =
         1.0 / (light.constant +
                light.linear * dist +
@@ -204,21 +171,16 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 
     if (uUseToon)
     {
-        // ---------- Toon 版 ----------
-        // Diffuse はしきい値で 0 or 1
         float diffIntensity = step(toonDiffuseThreshold, NdotL);
 
-        // Specular も同様に段階化
         float specIntensity = pow(max(dot(reflect(-L, N), V), 0.0), uSpecPower);
         specIntensity = step(toonSpecThreshold, specIntensity);
 
-        // PointLight は色1つなので、Diffuse/Specular 同じ色を使う
         result += light.color * diffIntensity;
         result += light.color * specIntensity;
     }
     else
     {
-        // ---------- Phong 版 ----------
         vec3 diffuse = light.color * NdotL;
 
         vec3 R = reflect(-L, N);
@@ -230,6 +192,46 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 
     return result * light.intensity * attenuation;
 }
+
+
+//======================================================================
+//  関数：CSM 用 Shadow PCF（3x3）
+//======================================================================
+float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
+{
+    vec4 lp = vec4(worldPos, 1.0) * lightVP;
+    vec3 projCoords = lp.xyz / lp.w;
+    projCoords = projCoords * 0.5 + 0.5;
+
+    // ライト投影外は影なし
+    if (projCoords.x < 0.0 || projCoords.x > 1.0 ||
+        projCoords.y < 0.0 || projCoords.y > 1.0 ||
+        projCoords.z < 0.0 || projCoords.z > 1.0)
+    {
+        return 1.0;
+    }
+
+    // 影マップの 1 texel サイズ
+    vec2 texelSize = 1.0 / vec2(textureSize(smp, 0));
+
+    // PCF 3x3
+    float sum = 0.0;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            vec2 offset = vec2(x, y) * texelSize;
+            sum += texture(smp, vec3(projCoords.xy + offset,
+                                     projCoords.z - uShadowBias));
+        }
+    }
+
+    float lit = sum / 9.0;
+
+    // 「真っ黒にしない」仕様を維持（ゲーム向け）
+    return mix(0.5, 1.0, lit);
+}
+
 
 //======================================================================
 //  main()
@@ -264,30 +266,32 @@ void main()
     vec3 L = normalize(-uDirLight.mDirection);
 
     //------------------------------------------------------------------
-    // Step 4 : ディレクショナルライトによるライティング
+    // Step 4 : ディレクショナルライト
     //------------------------------------------------------------------
     vec3 dirLight = ComputeLighting(N, V, L);
-
-    // ★ ここで uSunIntensity を掛けない。
-    //    昼夜・天候による強さは CPU 側で
-    //    uDirLight.mDiffuseColor / uAmbientLight に込める。
     vec3 lighting = uAmbientLight + dirLight;
 
-    //--------------------------------------------------------------
-    // Step 4.5 : Point Lights（追加）
-    //--------------------------------------------------------------
+    //------------------------------------------------------------------
+    // Step 4.5 : Point Lights
+    //------------------------------------------------------------------
     for (int i = 0; i < uNumPointLights; ++i)
     {
         lighting += ComputePointLight(uPointLights[i], N, V, fragWorldPos);
     }
-    
-    //------------------------------------------------------------------
-    // Step 5 : シャドウ（強さも uSunIntensity では制御しない）
-    //------------------------------------------------------------------
-    float shadowFactor = ComputeShadow();
 
-    // ★ 必要なら「影の濃さ」用に別 uniform を追加してもいい
-    // shadowFactor = mix(1.0, shadowFactor, uShadowStrength);
+    //------------------------------------------------------------------
+    // Step 5 : CSM シャドウ（2枚を距離でブレンド）
+    //------------------------------------------------------------------
+    float s0 = ShadowPCF(uShadowMap0, uLightViewProj0, fragWorldPos);
+    float s1 = ShadowPCF(uShadowMap1, uLightViewProj1, fragWorldPos);
+
+    float t = smoothstep(
+        uCascadeSplit0 - uCascadeBlend,
+        uCascadeSplit0 + uCascadeBlend,
+        dist
+    );
+
+    float shadowFactor = mix(s0, s1, t);
 
     //------------------------------------------------------------------
     // Step 6 : テクスチャ取得 + ライティング適用
@@ -301,4 +305,3 @@ void main()
     vec3 finalColor = mix(uFoginfo.color, texColor.rgb, fogFactor);
     outColor = vec4(finalColor, texColor.a);
 }
-

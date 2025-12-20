@@ -33,13 +33,13 @@ public:
     // Draw()
     //   ・通常のメッシュ描画
     //--------------------------------------------------------
-    virtual void Draw();
+    virtual void Draw() override;
 
     //--------------------------------------------------------
     // DrawShadow()
     //   ・影描画専用（ShadowMap生成用）
     //--------------------------------------------------------
-    virtual void DrawShadow();
+    virtual void DrawShadow(int cascadeIndex) override;
     
     //--------------------------------------------------------
     // Mesh / Texture 設定

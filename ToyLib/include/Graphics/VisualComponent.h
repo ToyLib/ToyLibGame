@@ -26,7 +26,8 @@ public:
 
     // シャドウマップへの描画
     //  影が不要なコンポーネントはデフォルト実装（何もしない）を使う
-    virtual void DrawShadow() {}
+    virtual void DrawShadow() { DrawShadow(0); }
+    virtual void DrawShadow(int cascadeIndex) { (void)cascadeIndex; }
 
     // 使用テクスチャの設定／取得
     virtual void SetTexture(std::shared_ptr<class Texture> tex) { mTexture = tex; }

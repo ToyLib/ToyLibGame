@@ -50,60 +50,106 @@ void SkeletalMeshComponent::Draw()
     {
         return;
     }
-    
+
     // 加算ブレンド指定時
     if (mIsBlendAdd)
     {
         glBlendFunc(GL_ONE, GL_ONE);
     }
-    
-    // シャドウマップテクスチャ
-    mShadowMapTexture->SetActive(1);
 
-    auto  renderer = GetOwner()->GetApp()->GetRenderer();
-    Matrix4 view   = renderer->GetViewMatrix();
-    Matrix4 proj   = renderer->GetProjectionMatrix();
-    Matrix4 light  = renderer->GetLightSpaceMatrix();
-    
+    auto renderer = GetOwner()->GetApp()->GetRenderer();
+    Matrix4 view  = renderer->GetViewMatrix();
+    Matrix4 proj  = renderer->GetProjectionMatrix();
+
     mShader->SetActive();
+
+    // ライティング情報を反映
     mLightingManger->ApplyToShader(mShader, view);
+
+    // 行列
     mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uLightSpaceMatrix", light);
-    mShader->SetTextureUniform("uShadowMap", 1);
-    mShader->SetFloatUniform("uShadowBias", 0.005f);
+
+    // ----------------------------
+    // CSM: ShadowMap 2枚 + LightVP 2本 + split/blend
+    // ----------------------------
+    {
+        auto sm0 = renderer->GetShadowMapTexture(0);
+        auto sm1 = renderer->GetShadowMapTexture(1);
+
+        // Texture unit は空いている番号なら何でもOK（ここでは 6/7）
+        if (sm0) sm0->SetActive(6);
+        if (sm1) sm1->SetActive(7);
+
+        // Phong.frag 側の uniform 名に合わせる
+        mShader->SetTextureUniform("uShadowMap0", 6);
+        mShader->SetTextureUniform("uShadowMap1", 7);
+
+        mShader->SetMatrixUniform("uLightViewProj0", renderer->GetLightSpaceMatrix(0));
+        mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
+
+        // まず動かす用の固定値（後で Renderer の設定値へ）
+        mShader->SetFloatUniform("uCascadeSplit0", 25.0f);
+        mShader->SetFloatUniform("uCascadeBlend", 6.0f);
+
+        // Bias
+        mShader->SetFloatUniform("uShadowBias", 0.005f);
+    }
+
+    // Toon ON/OFF
     mShader->SetBooleanUniform("uUseToon", mIsToon);
+
+    // World
     mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
-    
-    // ボーン行列パレットを取得してシェーダに送る
+
+    // ----------------------------
+    // ボーン行列パレット
+    // ----------------------------
+    static const std::vector<Matrix4> kEmpty;
     std::vector<Matrix4> transforms =
-        mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : std::vector<Matrix4>();
-    
-    mShader->SetMatrixUniforms("uMatrixPalette",
-                               transforms.data(),
-                               static_cast<unsigned int>(transforms.size()));
+        mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : kEmpty;
+
+    if (!transforms.empty())
+    {
+        mShader->SetMatrixUniforms(
+            "uMatrixPalette",
+            transforms.data(),
+            static_cast<unsigned int>(transforms.size())
+        );
+    }
+
     mShader->SetFloatUniform("uSpecPower", mMesh->GetSpecPower());
-    
+
+    // ----------------------------
     // メッシュ本体描画
+    // ----------------------------
     auto va = mMesh->GetVertexArray();
     for (auto v : va)
     {
         auto mat = mMesh->GetMaterial(v->GetTextureID());
         if (mat)
         {
+            // こっちは元コード通り（必要なら BindToShader(mShader,0) へ統一でもOK）
             mat->BindToShader(mShader);
         }
+
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
         renderer->AddDrawCall();
     }
-    
-    // トゥーン輪郭描画（アウトライン用にスケール拡大＋表裏反転）
+
+    // ----------------------------
+    // トゥーン輪郭描画（アウトライン）
+    // ----------------------------
     if (mContourFactor > 1.0f)
     {
         glFrontFace(GL_CW);
-        Matrix4 m = Matrix4::CreateScale(mContourFactor);
-        mShader->SetMatrixUniform("uWorldTransform",
-                                  m * GetOwner()->GetRenderWorldTransform());
+
+        Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
+        mShader->SetMatrixUniform(
+            "uWorldTransform",
+            scaleOutline * GetOwner()->GetRenderWorldTransform()
+        );
+
         for (auto v : va)
         {
             auto mat = mMesh->GetMaterial(v->GetTextureID());
@@ -112,20 +158,27 @@ void SkeletalMeshComponent::Draw()
                 mat->SetOverrideColor(true, Vector3(0.0f, 0.0f, 0.0f));
                 mat->BindToShader(mShader, 0);
             }
+
             v->SetActive();
             glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
             renderer->AddDrawCall();
-            mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
+
+            if (mat)
+            {
+                mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
+            }
         }
+
         glFrontFace(GL_CCW);
         renderer->AddDrawObject();
     }
-    
+
     // 加算ブレンド解除
     if (mIsBlendAdd)
     {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+
     renderer->AddDrawObject();
 }
 
@@ -133,30 +186,40 @@ void SkeletalMeshComponent::Draw()
 // シャドウ描画
 //  - 通常描画と同様にボーン行列を渡しつつ、深度のみ書き込む想定
 //----------------------------------------------------------------------
-void SkeletalMeshComponent::DrawShadow()
+void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
 {
     if (!mMesh)
     {
         return;
     }
-    
-    auto   renderer = GetOwner()->GetApp()->GetRenderer();
-    Matrix4 light   = renderer->GetLightSpaceMatrix();
-    
+
+    auto renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // ★カスケード指定でライト行列取得
+    Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
+
     mShadowShader->SetActive();
-    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
-    
+    mShadowShader->SetMatrixUniform(
+        "uWorldTransform",
+        GetOwner()->GetRenderWorldTransform()
+    );
+
     // アニメーション行列（無ければ空配列）
     static std::vector<Matrix4> gEmptyMatrixList;
-    std::vector<Matrix4> transforms =
-        mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : gEmptyMatrixList;
-    
-    mShadowShader->SetMatrixUniforms("uMatrixPalette",
-                                     transforms.data(),
-                                     static_cast<unsigned int>(transforms.size()));
+        std::vector<Matrix4> transforms =
+            mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : gEmptyMatrixList;
+    if (!transforms.empty())
+    {
+        mShadowShader->SetMatrixUniforms(
+            "uMatrixPalette",
+            transforms.data(),
+            static_cast<unsigned int>(transforms.size())
+        );
+    }
+
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
-    
-    // メッシュをシャドウマップ用に描画
+
+    // シャドウマップ描画
     auto va = mMesh->GetVertexArray();
     for (auto v : va)
     {

@@ -34,7 +34,7 @@ public:
     //    スキニング用のボーン行列をシェーダへ送る
     //--------------------------------------------------------
     void Draw() override;
-    void DrawShadow() override;
+    void DrawShadow(int cascadeIndex) override;
     
     //--------------------------------------------------------
     // Update
