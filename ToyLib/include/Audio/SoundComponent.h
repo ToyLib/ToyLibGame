@@ -35,7 +35,7 @@ public:
 
     // 3D 音響設定
     //  - useAttenuation = true の場合、Actor のワールド位置から距離減衰を行う
-    void Set3DSound(bool use3DSound) { mUse3DSound = use3DSound; }
+    void Enable3DSound(bool use3DSound) { mUse3DSound = use3DSound; }
 
     // 排他モード
     //  - true の場合、他の SoundComponent が同じ音を再生中なら再生しない

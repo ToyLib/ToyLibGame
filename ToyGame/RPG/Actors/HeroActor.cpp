@@ -50,7 +50,6 @@ HeroActor::HeroActor(toy::Application* a)
     Vector3 vScale;
     JsonHelper::GetVector3(json["collider"], "bounding_box_scale", vScale);
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
-    //mCollComp->GetBoundingVolume()->SetVisible(true);
     mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER);
     mCollComp->SetEnabled(true);
 
@@ -60,19 +59,18 @@ HeroActor::HeroActor(toy::Application* a)
     
     
     // --- カメラコンポーネント ---
-    mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
+    mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
     
 
     mGravComp = CreateComponent<toy::GravityComponent>();
     mGravComp->SetEnableGroundPose(false);
-    //SetPosition(Vector3(0,100,0));
     
     
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Walk.wav");
     mSound->SetVolume(0.5f);
-    mSound->Set3DSound(true);
+    mSound->Enable3DSound(true);
     
     
     mMagic = GetApp()->CreateActor<MagicActor>();
