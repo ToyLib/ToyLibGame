@@ -28,11 +28,11 @@ public:
     
 private:
 
-    bool    mFlipX = true;
-    bool    mFlipY = true;
+    bool    mFlipX;
+    bool    mFlipY;
 
-    float   mOpacity = 1.0f;
-    Vector3 mTint = Vector3(1.0f, 1.0f, 1.0f);
+    float   mOpacity;
+    Vector3 mTint;
 };
 
 } // namespace toy

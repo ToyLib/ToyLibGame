@@ -10,7 +10,9 @@
 namespace toy {
 
 SceneCaptureComponent::SceneCaptureComponent(Actor* owner)
-: Component(owner)
+    : Component(owner)
+    , mView(Matrix4::Identity)
+    , mProj(Matrix4::Identity)
 {
 }
 
@@ -37,10 +39,12 @@ void SceneCaptureComponent::SetViewProj(const Matrix4& view, const Matrix4& proj
     mProj = proj;
 }
 
-void SceneCaptureComponent::Update(float dt)
+void SceneCaptureComponent::Update(float deltaTime)
 {
-    if (!mDesc.enabled || !mRT) return;
-
+    if (!mDesc.enabled || !mRT)
+    {
+        return;
+    }
     if (mDesc.updateHz <= 0.0f)
     {
         Capture();
@@ -48,7 +52,7 @@ void SceneCaptureComponent::Update(float dt)
     }
 
     const float interval = 1.0f / mDesc.updateHz;
-    mAcc += dt;
+    mAcc += deltaTime;
     if (mAcc >= interval)
     {
         mAcc = 0.0f;
@@ -59,7 +63,10 @@ void SceneCaptureComponent::Update(float dt)
 void SceneCaptureComponent::Capture()
 {
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
+    if (!renderer)
+    {
+        return;
+    }
     // ---- Actor transform から camera basis を作る ----
     const Matrix4 world = GetOwner()->GetWorldTransform();
 
@@ -78,15 +85,15 @@ void SceneCaptureComponent::Capture()
     const float h = (float)mRT->GetHeight();
 
     mProj = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(45.0f),
-        w,
-        h,
+        Math::ToRadians(mDesc.fov),
+        mDesc.width,
+        mDesc.height,
         0.1f,
         1000.0f
     );
 
 
-    renderer->DrawToRenderTarget(mRT, mView, mProj);
+    renderer->DrawToRenderTarget(mRT, mView, mProj, mDesc.drawUI);
 
 }
 

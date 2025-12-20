@@ -294,8 +294,9 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     DrawVisualLayer(VisualLayer::Effect3D,     skipTex);
     DrawVisualLayer(VisualLayer::OverlayScreen,skipTex);
     if (drawUI)
+    {
         DrawVisualLayer(VisualLayer::UI, skipTex);
-
+    }
 
     // 戻す
     mViewMatrix = prevView;
@@ -406,7 +407,9 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
                 {
                     Cube aabb = bv->GetWorldAABB();
                     if (!FrustumIntersectsAABB(frustum, aabb))
+                    {
                         continue;
+                    }
                 }
             }
         }

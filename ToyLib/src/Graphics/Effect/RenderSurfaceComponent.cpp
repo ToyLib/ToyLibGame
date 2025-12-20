@@ -12,7 +12,11 @@
 namespace toy {
 
 RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
-: VisualComponent(owner, drawOrder, VisualLayer::Object3D)
+    : VisualComponent(owner, drawOrder, VisualLayer::Object3D)
+    , mFlipX(true)
+    , mFlipY(true)
+    , mOpacity(1.0f)
+    , mTint(Vector3(1.0f, 1.0f, 1.0f))
 {
     // 置物の板ポリ：ビルボードなし、通常 3D と同じ扱い
     

@@ -57,6 +57,8 @@ void OutdoorStage::InitStage()
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
     mirrorActor->SetPosition(Vector3(0.0f, -0.2f, 0.0f));
     mirrorActor->SetScale(10.f);
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(30.0f));
+    mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
     capture->Init({.width=512, .height=512});
 /*
@@ -223,7 +225,7 @@ void OutdoorStage::InitStage()
     
     // 時間の設定
     mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(14.0f, 30.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(21.0f, 30.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
