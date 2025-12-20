@@ -85,7 +85,12 @@ void BillboardComponent::Draw()
     );
 
     Matrix4 translate = Matrix4::CreateTranslation(pos);
-
+    
+    // アクターに反映
+    Quaternion q = Quaternion(Vector3::UnitY, angle);
+    GetOwner()->SetRotation(q);
+    
+    
     // ============================
     // シェーダー設定
     // ============================

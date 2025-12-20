@@ -57,6 +57,7 @@ struct UIScaleInfo
     float offsetY  = 0.0f;  // レターボックスの上下余白
 };
 
+
 //-------------------------------------------------------------
 // Renderer
 // ・SDL ウィンドウと OpenGL コンテキストを管理
@@ -81,6 +82,11 @@ public:
     
     // 1フレーム描画（Application から呼ばれるメイン描画）
     void Draw();
+    void DrawPass(bool drawUI);
+    void DrawToRenderTarget(std::shared_ptr<class RenderTarget> rt,
+                            const Matrix4& view,
+                            const Matrix4& proj,
+                            bool drawUI = false);
     
     // 破棄処理（OpenGL リソース等の解放）
     void Shutdown();
@@ -104,10 +110,10 @@ public:
     Matrix4 GetViewMatrix() const { return mViewMatrix; }
     Matrix4 GetInvViewMatrix() const { return mInvView; }
     Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
-    
+    void SetProjectionMatrix(const Matrix4& mat) { mProjectionMatrix = mat; }
+
     // View * Projection（描画時によく使う）
     Matrix4 GetViewProjMatrix() const { return mViewMatrix * mProjectionMatrix; }
-    
     // 視野角（Perspective FOV／度数法）
     float GetPerspectiveFov() const { return mPerspectiveFOV; }
     void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
@@ -207,6 +213,9 @@ public:
     
     std::shared_ptr<class VertexArray> GetParticleQuad() const { return mSpriteVerts; }
     
+    std::shared_ptr<VertexArray> GetSurfaceQuad() const { return mSurfaceQuad; }
+
+    
     
     //---------------------------------------------------------
     // テキスト描画補助
@@ -224,6 +233,8 @@ public:
     //---------------------------------------------------------
     // 2Dカメラの視界に入っているか
     ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
+    
+
     
 private:
     //---------------------------------------------------------
@@ -303,6 +314,8 @@ private:
     std::shared_ptr<class VertexArray> mSpriteVerts;
     void CreateSpriteVerts();
     
+    void CreateSurfaceQuad();
+    std::shared_ptr<VertexArray> mSurfaceQuad;
     
     //---------------------------------------------------------
     // シェーダ関連
@@ -342,7 +355,7 @@ private:
     class SkyDomeComponent* mSkyDomeComp;
     
     void DrawSky();
-    void DrawVisualLayer(VisualLayer layer);
+    void DrawVisualLayer(VisualLayer layer, const std::shared_ptr<class Texture>& skipTex = nullptr);
     
     
     //---------------------------------------------------------

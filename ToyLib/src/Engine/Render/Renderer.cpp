@@ -1,5 +1,6 @@
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
+#include "Engine/Render/RenderTarget.h"
 #include "Engine/Render/LightingManager.h"
 #include "Graphics/Sprite/SpriteComponent.h"
 #include "Asset/Material/Texture.h"
@@ -16,6 +17,7 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Engine/Core/Actor.h"
 #include "glad/glad.h"
+#include "Graphics/Effect/RenderSurfaceComponent.h"
 
 #include <algorithm>
 #include <string>
@@ -152,7 +154,8 @@ bool Renderer::Initialize(SDL_Window* window)
     //---------------------------------------------------------
     CreateSpriteVerts();
     CreateFullScreenQuad();
-
+    CreateSurfaceQuad();
+    
     //---------------------------------------------------------
     // シャドウマッピング初期化
     //---------------------------------------------------------
@@ -209,6 +212,15 @@ void Renderer::Draw()
     mDrawCallCount = 0;
     mDrawObjectCount = 0;
     
+    DrawPass(true);
+    
+    // バッファ入れ替え
+    SDL_GL_SwapWindow(mWindow);
+}
+
+
+void Renderer::DrawPass(bool drawUI)
+{
     // カラーバッファ／デプスバッファ初期化
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -230,11 +242,68 @@ void Renderer::Draw()
     DrawVisualLayer(VisualLayer::Object3D);
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
-    DrawVisualLayer(VisualLayer::UI);
+    if (drawUI)
+    {
+        DrawVisualLayer(VisualLayer::UI);
+    }
 
+}
+
+void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
+                                  const Matrix4& view,
+                                  const Matrix4& proj,
+                                  bool drawUI)
+{
     
-    // バッファ入れ替え
-    SDL_GL_SwapWindow(mWindow);
+    if (!rt)
+    {
+        return;
+    }
+    
+    // 退避
+    const Matrix4 prevView = mViewMatrix;
+    const Matrix4 prevProj = mProjectionMatrix;
+
+    GLint prevVP[4];
+    glGetIntegerv(GL_VIEWPORT, prevVP);
+    
+    // 出力先をRTへ
+    rt->Bind();
+
+    // カメラ差し替え
+    mViewMatrix = view;
+    mProjectionMatrix = proj;
+
+    auto skipTex = rt->GetColorTexture();
+
+    //DrawPass(drawUI);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // 影は一旦OFF推奨（必要なら前に話したFBO/VP退避復帰を入れて）
+    // RenderShadowMap();
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    DrawSky();
+    DrawVisualLayer(VisualLayer::Background2D, skipTex);
+    DrawVisualLayer(VisualLayer::Object3D,     skipTex);
+    DrawVisualLayer(VisualLayer::Effect3D,     skipTex);
+    DrawVisualLayer(VisualLayer::OverlayScreen,skipTex);
+    if (drawUI)
+        DrawVisualLayer(VisualLayer::UI, skipTex);
+
+
+    // 戻す
+    mViewMatrix = prevView;
+    mProjectionMatrix = prevProj;
+
+    RenderTarget::Unbind();
+    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
+    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 }
 
 // スカイドーム描画
@@ -246,6 +315,7 @@ void Renderer::DrawSky()
     }
     mSkyDomeComp->Draw();
 }
+
 
 
 //=============================================================
@@ -279,55 +349,55 @@ void Renderer::RemoveVisualComp(VisualComponent* comp)
 //=============================================================
 // レイヤー描画＆フラスタムカリング
 //=============================================================
-
-void Renderer::DrawVisualLayer(VisualLayer layer)
+void Renderer::DrawVisualLayer(VisualLayer layer,
+                               const std::shared_ptr<Texture>& skipTex)
 {
     bool is3DLayer =
         (layer == VisualLayer::Object3D ||
          layer == VisualLayer::Effect3D);
-    
+
     Frustum frustum;
     if (is3DLayer)
     {
-        // View * Projection からフラスタムを生成
         Matrix4 vp = mViewMatrix * mProjectionMatrix;
         frustum = BuildFrustumFromMatrix(vp);
     }
-    
-    //---------------------------------------------------------
-    // レイヤーごとのデプス設定
-    //---------------------------------------------------------
+
+    // レイヤーごとの depth 設定（既存のまま）
     if (layer == VisualLayer::UI || layer == VisualLayer::Background2D)
     {
-        // 2D/UI → Zテスト不要、書き込み不要
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
     }
     else if (layer == VisualLayer::Effect3D)
     {
-        // 3Dエフェクト → Zテストあり／書き込みなし（パーティクルなど）
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
     }
     else
     {
-        // 通常3D描画
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
     }
-    
-    //---------------------------------------------------------
-    // コンポーネント描画ループ
-    //---------------------------------------------------------
+
     for (auto& comp : mVisualComps)
     {
         if (!comp->IsVisible() || comp->GetLayer() != layer)
+        {
             continue;
-        
-        // 3Dレイヤーのみフラスタムカリング
+        }
+
+        if (skipTex)
+        {
+            if (comp->GetTexture() == skipTex)
+            {
+                continue;
+            }
+        }
+
+        // 3Dレイヤーのみフラスタムカリング（既存のまま）
         if (is3DLayer)
         {
-            // Actor の BoundingVolumeComponent から AABB を取得
             Actor* owner = comp->GetOwner();
             if (owner)
             {
@@ -335,20 +405,15 @@ void Renderer::DrawVisualLayer(VisualLayer layer)
                 if (bv)
                 {
                     Cube aabb = bv->GetWorldAABB();
-
-                    // 視錐台外ならスキップ
                     if (!FrustumIntersectsAABB(frustum, aabb))
-                    {
                         continue;
-                    }
                 }
             }
         }
-        
+
         comp->Draw();
     }
-    
-    // 状態戻し（保険）
+
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
 }
@@ -403,7 +468,60 @@ void Renderer::CreateFullScreenQuad()
     );
 }
 
+void Renderer::CreateSurfaceQuad()
+{
+    //==========================================================
+    // 3D置物用の 1x1 Quad（ローカル [-0.5..0.5], Z=0）
+    //  - pos/norm/uv を別配列で渡す（VertexArray 通常メッシュ用）
+    //  - 物理用ポリゴン生成も pos を正しく参照できる
+    //==========================================================
 
+    // ---- Position (vec3 * 4) ----
+    static const float pos[] =
+    {
+        -0.5f,  0.5f, 0.0f,   // 0: top left
+         0.5f,  0.5f, 0.0f,   // 1: top right
+         0.5f, -0.5f, 0.0f,   // 2: bottom right
+        -0.5f, -0.5f, 0.0f    // 3: bottom left
+    };
+
+    // ---- Normal (vec3 * 4) ----
+    // 表が +Z を向く想定。RenderSurface ではライティングしないが、
+    // 後でフレネル等を入れる可能性もあるので入れておく。
+    static const float norm[] =
+    {
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f
+    };
+
+    // ---- UV (vec2 * 4) ----
+    static const float uv[] =
+    {
+        0.0f, 0.0f,   // 0
+        1.0f, 0.0f,   // 1
+        1.0f, 1.0f,   // 2
+        0.0f, 1.0f    // 3
+    };
+
+    // ---- Indices (6) ----
+    // CCW を維持（表面が +Z 方向に見える）
+    static const unsigned int idx[] =
+    {
+        0, 2, 1,
+        0, 3, 2
+    };
+
+    mSurfaceQuad = std::make_shared<VertexArray>(
+        /*numVerts*/   4,
+        /*verts*/      pos,
+        /*norms*/      norm,
+        /*uvs*/        uv,
+        /*numIndices*/ 6,
+        /*indices*/    idx
+    );
+}
 //=============================================================
 // データ解放
 //=============================================================
@@ -539,6 +657,12 @@ bool Renderer::InitializeShadowMapping()
 // シャドウマップのレンダリング
 void Renderer::RenderShadowMap()
 {
+
+    // 現在のFBO/Viewportを退避（RTTでも壊さない）
+    GLint prevFBO = 0;
+    GLint prevVP[4];
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+    glGetIntegerv(GL_VIEWPORT, prevVP);
     glEnable(GL_DEPTH_TEST);
 
     // ベースとなる中心とライト方向は共通
@@ -607,10 +731,8 @@ void Renderer::RenderShadowMap()
     }
 
     // 戻す
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0,
-               (GLsizei)mScreenWidth,
-               (GLsizei)mScreenHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
 
 
@@ -767,6 +889,17 @@ bool Renderer::LoadShaders()
     fShaderName = mShaderPath + "ShadowMapping.frag";
     mShaders["ShadowMesh"] = std::make_shared<Shader>();
     if (!mShaders["ShadowMesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    {
+        return false;
+    }
+    
+    //---------------------------------------------------------
+    // RenderSurface（鏡/モニタ用の映像面）
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "RenderSurface.vert";
+    fShaderName = mShaderPath + "RenderSurface.frag";
+    mShaders["RenderSurface"] = std::make_shared<Shader>();
+    if (!mShaders["RenderSurface"]->Load(vShaderName.c_str(), fShaderName.c_str()))
     {
         return false;
     }
@@ -1040,4 +1173,6 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
     result.depth   = ndcZ;
     return result;
 }
+
+
 } // namespace toy

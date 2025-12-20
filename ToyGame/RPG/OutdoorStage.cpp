@@ -45,7 +45,7 @@ void OutdoorStage::InitStage()
     treeBillboard->SetVisible(true);
     treeActor->CreateComponent<toy::GravityComponent>();
     auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
-    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(20, -256, -4), Vector3(40,200,4));
+    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100,200,4));
     treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
     // シャドウ用スプライト
     auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
@@ -53,6 +53,31 @@ void OutdoorStage::InitStage()
     shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
     shadow->SetOffsetScale(0.03f);
     
+    // 鏡を出す
+    auto mirrorActor = mApp->CreateActor<toy::Actor>();
+    mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    mirrorActor->SetScale(6.f);
+    auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
+    capture->Init({.width=512, .height=512});
+/*
+    Matrix4 view = Matrix4::CreateLookAt(
+        Vector3(0, 0, -10),
+        Vector3::Zero,
+        Vector3::UnitY
+    );
+
+    Matrix4 proj = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(60.0f),
+        1.0f,        // RTは正方形想定
+        1.0f,
+        0.1f,
+        5000.0f
+    );
+
+    capture->SetViewProj(view, proj);
+    */
+    auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
+    mirrorComp->SetTexture(capture->GetColorTexture());
     
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();

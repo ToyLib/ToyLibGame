@@ -358,57 +358,40 @@ bool Texture::CreateRadialRays(int size,
     return true;
 }
 
-//============================================================
-// 任意ピクセル列 → テクスチャ
-//   - hasAlpha=false の場合は RGB テクスチャとして扱う
-//============================================================
-/*bool Texture::CreateFromPixels(const void* pixels,
-                               int width, int height, bool hasAlpha)
+void Texture::CreateRenderColorRGBA8(int w, int h)
 {
     if (mTextureID != 0)
     {
         glDeleteTextures(1, &mTextureID);
-        mTextureID = 0;
     }
-
-    mWidth  = width;
-    mHeight = height;
+    
+    mWidth = w;
+    mHeight = h;
 
     glGenTextures(1, &mTextureID);
     glBindTexture(GL_TEXTURE_2D, mTextureID);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA8,
+        mWidth,
+        mHeight,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        nullptr
+    );
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    GLenum format = hasAlpha ? GL_RGBA : GL_RGB;
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        format,
-        width,
-        height,
-        0,
-        format,
-        GL_UNSIGNED_BYTE,
-        pixels
-    );
-    
-    
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR)
-    {
-        std::cerr << "[Texture] CreateFromPixels glTexImage2D failed: 0x"
-                  << std::hex << err << std::dec << std::endl;
-        return false;
-    }
-
     glBindTexture(GL_TEXTURE_2D, 0);
-    return true;
 }
- */
+
+
 static void DrainGLErrors()
 {
     while (glGetError() != GL_NO_ERROR) {}

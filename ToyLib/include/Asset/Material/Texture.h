@@ -32,6 +32,8 @@ public:
     // SDL_ttf 等から受け取ったピクセルデータによるテクスチャ生成
     bool CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha = true);
 
+    void CreateRenderColorRGBA8(int w, int h);
+
     // --------------------------------------------------------
     // 特殊テクスチャ生成
     // --------------------------------------------------------
@@ -52,7 +54,7 @@ public:
                           float fadePow,
                           float rayStrength,
                           float intensityScale);
-
+    
     // --------------------------------------------------------
     // OpenGL制御 & 基本情報
     // --------------------------------------------------------

@@ -86,6 +86,8 @@
 #include "Graphics/Effect/ShadowSpriteComponent.h"
 #include "Graphics/Effect/WireframeComponent.h"
 #include "Graphics/Effect/GPUParticleComponent.h"
+#include "Graphics/Effect/RenderSurfaceComponent.h"
+#include "Graphics/Effect/SceneCaptureComponent.h"
 
 // --- Light 系 --
 #include "Graphics/Light/PointLightComponent.h"
