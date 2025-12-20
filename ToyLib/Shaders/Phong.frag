@@ -150,18 +150,21 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 {
     vec3 Lvec = light.position - fragPos;
     float dist = length(Lvec);
-
+    
     if (dist <= 0.0001)
+    {
         return vec3(0.0);
-
+    }
     if (dist > light.radius)
+    {
         return vec3(0.0);
-
+    }
     vec3 L = normalize(Lvec);
     float NdotL = max(dot(N, L), 0.0);
     if (NdotL <= 0.0)
+    {
         return vec3(0.0);
-
+    }
     float attenuation =
         1.0 / (light.constant +
                light.linear * dist +
