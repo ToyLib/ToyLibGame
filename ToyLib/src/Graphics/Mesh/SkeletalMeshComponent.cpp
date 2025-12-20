@@ -88,7 +88,7 @@ void SkeletalMeshComponent::Draw()
         mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
 
         // まず動かす用の固定値（後で Renderer の設定値へ）
-        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSprit0());
+        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSplit0());
         mShader->SetFloatUniform("uCascadeBlend", renderer->GetCascadeBlend());
 
         // Bias

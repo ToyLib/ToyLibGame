@@ -1,20 +1,30 @@
 #include "Engine/Render/RenderTarget.h"
 #include "Asset/Material/Texture.h"
+
 #include "glad/glad.h"
+
 #include <iostream>
 
 namespace toy {
 
+//==============================================================================
+// RenderTarget : 初期化
+//------------------------------------------------------------------------------
 bool RenderTarget::Create(int w, int h)
 {
+    // サイズ保持
     mW = w;
     mH = h;
 
-    // ---- FBO ----
+    //----------------------------------------------------------
+    // Framebuffer Object
+    //----------------------------------------------------------
     glGenFramebuffers(1, &mFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
 
-    // ---- Color ----
+    //----------------------------------------------------------
+    // Color Attachment（RGBA8 テクスチャ）
+    //----------------------------------------------------------
     mColorTex = std::make_shared<Texture>();
     mColorTex->CreateRenderColorRGBA8(w, h);
 
@@ -26,10 +36,18 @@ bool RenderTarget::Create(int w, int h)
         0
     );
 
-    // ---- Depth ----
+    //----------------------------------------------------------
+    // Depth / Stencil Renderbuffer
+    //----------------------------------------------------------
     glGenRenderbuffers(1, &mDepthRBO);
     glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+    glRenderbufferStorage(
+        GL_RENDERBUFFER,
+        GL_DEPTH24_STENCIL8,
+        w,
+        h
+    );
+
     glFramebufferRenderbuffer(
         GL_FRAMEBUFFER,
         GL_DEPTH_STENCIL_ATTACHMENT,
@@ -37,6 +55,9 @@ bool RenderTarget::Create(int w, int h)
         mDepthRBO
     );
 
+    //----------------------------------------------------------
+    // 完成チェック
+    //----------------------------------------------------------
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
         std::cerr << "[RenderTarget] FBO incomplete\n";
@@ -44,19 +65,26 @@ bool RenderTarget::Create(int w, int h)
         return false;
     }
 
+    // デフォルトに戻す
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
 }
 
+//==============================================================================
+// バインド
+//------------------------------------------------------------------------------
 void RenderTarget::Bind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
     glViewport(0, 0, mW, mH);
 }
 
+//==============================================================================
+// アンバインド
+//------------------------------------------------------------------------------
 void RenderTarget::Unbind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-}
+} // namespace toy

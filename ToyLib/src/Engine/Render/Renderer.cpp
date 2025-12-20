@@ -1,27 +1,66 @@
+//==============================================================================
+// Renderer.cpp
+//  - OpenGL 描画の初期化/終了
+//  - 描画パス（通常/RenderTarget）
+//  - VisualComponent 管理 & レイヤー描画（フラスタムカリング）
+//  - 共通ジオメトリ生成（Sprite/FullScreen/Surface）
+//  - シャドウマッピング（カスケード）
+//  - シェーダーロード
+//  - テキストテクスチャ生成（改行対応）
+//  - WorldToScreen（画面投影）
+//==============================================================================
+
 #include "Engine/Render/Renderer.h"
-#include "Engine/Render/Shader.h"
-#include "Engine/Render/RenderTarget.h"
+
+//==============================================================================
+// Engine / Render
+//==============================================================================
 #include "Engine/Render/LightingManager.h"
-#include "Graphics/Sprite/SpriteComponent.h"
-#include "Asset/Material/Texture.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Asset/Geometry/Mesh.h"
+#include "Engine/Render/RenderTarget.h"
+#include "Engine/Render/Shader.h"
+
+//==============================================================================
+// Graphics
+//==============================================================================
+#include "Graphics/VisualComponent.h"
+#include "Graphics/Effect/ParticleComponent.h"
+#include "Graphics/Effect/RenderSurfaceComponent.h"
 #include "Graphics/Mesh/MeshComponent.h"
 #include "Graphics/Mesh/SkeletalMeshComponent.h"
-#include "Graphics/Effect/ParticleComponent.h"
 #include "Graphics/Sprite/BillboardComponent.h"
-#include "Graphics/VisualComponent.h"
-#include "Environment/SkyDomeComponent.h"
+#include "Graphics/Sprite/SpriteComponent.h"
+
+//==============================================================================
+// Asset
+//==============================================================================
 #include "Asset/Font/TextFont.h"
-#include "Utils/FrustumUtil.h"
+#include "Asset/Geometry/Mesh.h"
+#include "Asset/Geometry/VertexArray.h"
+#include "Asset/Material/Texture.h"
+
+//==============================================================================
+// Environment / Physics / Core
+//==============================================================================
+#include "Environment/SkyDomeComponent.h"
 #include "Physics/BoundingVolumeComponent.h"
 #include "Engine/Core/Actor.h"
-#include "glad/glad.h"
-#include "Graphics/Effect/RenderSurfaceComponent.h"
 
+//==============================================================================
+// Utils
+//==============================================================================
+#include "Utils/FrustumUtil.h"
+
+//==============================================================================
+// GL
+//==============================================================================
+#include "glad/glad.h"
+
+//==============================================================================
+// Standard Library
+//==============================================================================
 #include <algorithm>
-#include <string>
 #include <iostream>
+#include <string>
 
 namespace toy {
 
@@ -29,7 +68,6 @@ namespace toy {
 // コンストラクタ／デストラクタ
 //=============================================================
 
-// コンストラクタ
 Renderer::Renderer()
     : mScreenWidth(0.0f)
     , mScreenHeight(0.0f)
@@ -57,15 +95,14 @@ Renderer::Renderer()
     , mCascadeSplit0(25.0f)
     , mCascadeBlend(6.0f)
 {
-    // ライティング管理クラス
+    // ライティング管理クラス（Directional/Point など）
     mLightingManager = std::make_shared<LightingManager>();
 
-    // Renderer の初期設定（タイトルや解像度など）を外部ファイルから読み込む
+    // Renderer の初期設定（タイトル/解像度など）を外部ファイルから読み込む
     // 例: ToyLib/Settings/Renderer_Settings.json
     LoadSettings("ToyLib/Settings/Renderer_Settings.json");
 }
 
-// デストラクタ
 Renderer::~Renderer()
 {
     // 実処理は Shutdown() 側で行う前提
@@ -155,7 +192,7 @@ bool Renderer::Initialize(SDL_Window* window)
     CreateSpriteVerts();
     CreateFullScreenQuad();
     CreateSurfaceQuad();
-    
+
     //---------------------------------------------------------
     // シャドウマッピング初期化
     //---------------------------------------------------------
@@ -168,8 +205,8 @@ bool Renderer::Initialize(SDL_Window* window)
     // クリアカラーの初期設定
     //---------------------------------------------------------
     SetClearColor(mClearColor);
-    mSkyDomeComp   = nullptr;
-    
+    mSkyDomeComp = nullptr;
+
     //---------------------------------------------------------
     // ビューポート＆射影行列など、サイズ依存の状態をまとめて更新
     //---------------------------------------------------------
@@ -182,10 +219,10 @@ bool Renderer::Initialize(SDL_Window* window)
 
     return true;
 }
-// リリース処理
+
 void Renderer::Shutdown()
 {
-    // FBOを2枚消す
+    // シャドウ用 FBO / テクスチャを破棄
     glDeleteFramebuffers(kShadowCascadeCount, mShadowFBO);
     for (int i = 0; i < kShadowCascadeCount; ++i)
     {
@@ -194,6 +231,7 @@ void Renderer::Shutdown()
         mLightSpaceMatrix[i] = Matrix4::Identity;
     }
 
+    // GL Context 破棄
     if (mGLContext)
     {
         SDL_GL_DestroyContext(mGLContext);
@@ -209,31 +247,30 @@ void Renderer::Shutdown()
 void Renderer::Draw()
 {
     // Debug 用カウンタリセット
-    mDrawCallCount = 0;
+    mDrawCallCount   = 0;
     mDrawObjectCount = 0;
-    
+
     DrawPass(true);
-    
+
     // バッファ入れ替え
     SDL_GL_SwapWindow(mWindow);
 }
-
 
 void Renderer::DrawPass(bool drawUI)
 {
     // カラーバッファ／デプスバッファ初期化
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
+
     // 1) ライト視点でのシャドウマップ描画
     RenderShadowMap();
-    
+
     // 2) 通常描画パス
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
-    
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
+
     // スカイドーム（背景）
     DrawSky();
 
@@ -246,7 +283,6 @@ void Renderer::DrawPass(bool drawUI)
     {
         DrawVisualLayer(VisualLayer::UI);
     }
-
 }
 
 void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
@@ -254,24 +290,23 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
                                   const Matrix4& proj,
                                   bool drawUI)
 {
-    
     if (!rt)
     {
         return;
     }
-    
-    // 退避
+
+    // 退避（描画先/カメラ/Viewport）
     const Matrix4 prevView = mViewMatrix;
     const Matrix4 prevProj = mProjectionMatrix;
 
     GLint prevVP[4];
     glGetIntegerv(GL_VIEWPORT, prevVP);
-    
+
     // 出力先をRTへ
     rt->Bind();
 
     // カメラ差し替え
-    mViewMatrix = view;
+    mViewMatrix       = view;
     mProjectionMatrix = proj;
 
     auto skipTex = rt->GetColorTexture();
@@ -281,7 +316,7 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 影は一旦OFF推奨（必要なら前に話したFBO/VP退避復帰を入れて）
-    // RenderShadowMap();
+    RenderShadowMap();
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
@@ -289,17 +324,17 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     DrawSky();
-    DrawVisualLayer(VisualLayer::Background2D, skipTex);
-    DrawVisualLayer(VisualLayer::Object3D,     skipTex);
-    DrawVisualLayer(VisualLayer::Effect3D,     skipTex);
-    DrawVisualLayer(VisualLayer::OverlayScreen,skipTex);
+    DrawVisualLayer(VisualLayer::Background2D,  skipTex);
+    DrawVisualLayer(VisualLayer::Object3D,      skipTex);
+    DrawVisualLayer(VisualLayer::Effect3D,      skipTex);
+    DrawVisualLayer(VisualLayer::OverlayScreen, skipTex);
     if (drawUI)
     {
         DrawVisualLayer(VisualLayer::UI, skipTex);
     }
 
     // 戻す
-    mViewMatrix = prevView;
+    mViewMatrix       = prevView;
     mProjectionMatrix = prevProj;
 
     RenderTarget::Unbind();
@@ -307,7 +342,11 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 }
 
-// スカイドーム描画
+
+//=============================================================
+// SkyDome
+//=============================================================
+
 void Renderer::DrawSky()
 {
     if (!mSkyDomeComp)
@@ -316,7 +355,6 @@ void Renderer::DrawSky()
     }
     mSkyDomeComp->Draw();
 }
-
 
 
 //=============================================================
@@ -350,13 +388,16 @@ void Renderer::RemoveVisualComp(VisualComponent* comp)
 //=============================================================
 // レイヤー描画＆フラスタムカリング
 //=============================================================
+
 void Renderer::DrawVisualLayer(VisualLayer layer,
                                const std::shared_ptr<Texture>& skipTex)
 {
+    // 3Dレイヤー判定（Object3D/Effect3D のみカリング対象）
     bool is3DLayer =
         (layer == VisualLayer::Object3D ||
          layer == VisualLayer::Effect3D);
 
+    // 3Dレイヤーのみ、VP からフラスタムを構築
     Frustum frustum;
     if (is3DLayer)
     {
@@ -388,6 +429,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
             continue;
         }
 
+        // RenderTarget への描画時に「自分自身のRTテクスチャ」を描かない用
         if (skipTex)
         {
             if (comp->GetTexture() == skipTex)
@@ -417,6 +459,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
         comp->Draw();
     }
 
+    // 後段に影響しないよう戻す
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
 }
@@ -426,9 +469,9 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
 // 共通ジオメトリ（スプライト／フルスクリーン）
 //=============================================================
 
-// スプライト用四角ポリゴン（ローカル [-0.5, 0.5] の正方形）
 void Renderer::CreateSpriteVerts()
 {
+    // スプライト用四角ポリゴン（ローカル [-0.5, 0.5] の正方形）
     const float vertices[] =
     {
         -0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, // top left
@@ -436,7 +479,7 @@ void Renderer::CreateSpriteVerts()
          0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, // bottom right
         -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f  // bottom left
     };
-    
+
     const unsigned int indices[] =
     {
         2, 1, 0,
@@ -449,9 +492,9 @@ void Renderer::CreateSpriteVerts()
     );
 }
 
-// フルスクリーンクアッド（PostEffect, 天候オーバーレイなど）
 void Renderer::CreateFullScreenQuad()
 {
+    // フルスクリーンクアッド（PostEffect / 天候オーバーレイなど）
     float quadVerts[] =
     {
         -1.0f, -1.0f,
@@ -525,6 +568,8 @@ void Renderer::CreateSurfaceQuad()
         /*indices*/    idx
     );
 }
+
+
 //=============================================================
 // データ解放
 //=============================================================
@@ -536,6 +581,7 @@ void Renderer::UnloadData()
     mVisualComps.clear();
 }
 
+
 //=============================================================
 // ウィンドウサイズ変更時
 //=============================================================
@@ -546,6 +592,7 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
     {
         return;
     }
+
     mScreenWidth  = static_cast<float>(pixelW);
     mScreenHeight = static_cast<float>(pixelH);
 
@@ -566,7 +613,8 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         0.1f,
         10000.0f
     );
-    
+
+    // Sprite シェーダーに 2D 用 ViewProj を再設定
     auto it = mShaders.find("Sprite");
     if (it != mShaders.end() && it->second)
     {
@@ -575,8 +623,8 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         it->second->SetMatrixUniform("uViewProj", viewProj);
         glUseProgram(0); // 保険（好み）
     }
-
 }
+
 
 //=============================================================
 // UI / Virtual 解像度関連
@@ -588,9 +636,9 @@ void Renderer::SetVirtualResolution(float w, float h)
     mVirtualHeight = h;
 }
 
-// UIScaleInfo を計算して返す
 UIScaleInfo Renderer::GetUIScaleInfo() const
 {
+    // UIScaleInfo を計算して返す
     UIScaleInfo info{};
 
     // 物理解像度（必ずピクセルベース）
@@ -601,6 +649,7 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
     info.virtualW = (mVirtualWidth  > 0.0f) ? mVirtualWidth  : mScreenWidth;
     info.virtualH = (mVirtualHeight > 0.0f) ? mVirtualHeight : mScreenHeight;
 
+    // 0除算回避
     if (info.virtualW <= 0.0f)
     {
         info.virtualW = 1.0f;
@@ -609,7 +658,7 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
     {
         info.virtualH = 1.0f;
     }
-    
+
     info.scaleX = info.screenW / info.virtualW;
     info.scaleY = info.screenH / info.virtualH;
 
@@ -619,13 +668,14 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
     return info;
 }
 
+
 //=============================================================
 // シャドウマッピング
 //=============================================================
 
-// シャドウマップ用 FBO 初期化
 bool Renderer::InitializeShadowMapping()
 {
+    // シャドウマップ用 FBO 初期化
     glGenFramebuffers(kShadowCascadeCount, mShadowFBO);
 
     for (int i = 0; i < kShadowCascadeCount; ++i)
@@ -657,10 +707,9 @@ bool Renderer::InitializeShadowMapping()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
 }
-// シャドウマップのレンダリング
+
 void Renderer::RenderShadowMap()
 {
-
     // 現在のFBO/Viewportを退避（RTTでも壊さない）
     GLint prevFBO = 0;
     GLint prevVP[4];
@@ -680,11 +729,13 @@ void Renderer::RenderShadowMap()
     );
 
     // Near / Far 用の ortho サイズ（まずは固定でOK）
-    const float orthoW[kShadowCascadeCount] = {
+    const float orthoW[kShadowCascadeCount] =
+    {
         mShadowOrthoWidth,          // Near（既存値）
         mShadowOrthoWidth * 4.0f    // Far（とりあえず広げる。後で調整）
     };
-    const float orthoH[kShadowCascadeCount] = {
+    const float orthoH[kShadowCascadeCount] =
+    {
         mShadowOrthoHeight,
         mShadowOrthoHeight * 4.0f
     };
@@ -693,9 +744,7 @@ void Renderer::RenderShadowMap()
     {
         // --- FBO バインド & viewport ---
         glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
-        glViewport(0, 0,
-                   (GLsizei)mShadowFBOWidth,
-                   (GLsizei)mShadowFBOHeight);
+        glViewport(0, 0, (GLsizei)mShadowFBOWidth, (GLsizei)mShadowFBOHeight);
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // --- Light VP 構築（ToyLib流：view * proj） ---
@@ -717,7 +766,7 @@ void Renderer::RenderShadowMap()
             if (!visual->GetEnableShadow() || !visual->IsVisible())
                 continue;
 
-
+            // 影パスでも BoundingVolume があればカリング（既存のまま）
             Actor* owner = visual->GetOwner();
             if (owner)
             {
@@ -729,6 +778,7 @@ void Renderer::RenderShadowMap()
                         continue;
                 }
             }
+
             visual->DrawShadow(i);
         }
     }
@@ -753,9 +803,9 @@ void Renderer::RegisterSkyDome(SkyDomeComponent* sky)
     }
 }
 
-// クリアカラー変更
 void Renderer::SetClearColor(const Vector3& color)
 {
+    // クリアカラー変更
     mClearColor = color;
     glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
 }
@@ -769,7 +819,7 @@ bool Renderer::LoadShaders()
 {
     std::string vShaderName;
     std::string fShaderName;
-    
+
     //---------------------------------------------------------
     // 天気オーバーレイ用シェーダー
     //---------------------------------------------------------
@@ -814,8 +864,8 @@ bool Renderer::LoadShaders()
         return false;
     }
 
+    // Sprite は 2D 用 ViewProj を最初に渡しておく
     mShaders["Sprite"]->SetActive();
-    // 2D用の固定 ViewProj をセット
     Matrix4 viewProj = Matrix4::CreateSimpleViewProj(mScreenWidth, mScreenHeight);
     mShaders["Sprite"]->SetMatrixUniform("uViewProj", viewProj);
 
@@ -842,7 +892,7 @@ bool Renderer::LoadShaders()
     }
 
     //---------------------------------------------------------
-    // GPUパーティクル (Update用頂点シェーダー)
+    // GPUパーティクル（Update用：Transform Feedback）
     //---------------------------------------------------------
     vShaderName = mShaderPath + "ParticleUpdate.vert";
     auto update = std::make_shared<Shader>();
@@ -853,16 +903,16 @@ bool Renderer::LoadShaders()
         GL_INTERLEAVED_ATTRIBS
     );
     mShaders["ParticleUpdate"] = update;
+
     //---------------------------------------------------------
-    // GPUパーティクル
+    // GPUパーティクル（Render用）
     //---------------------------------------------------------
     vShaderName = mShaderPath + "ParticleGPU.vert";
     fShaderName = mShaderPath + "ParticleGPU.frag";
     auto render = std::make_shared<Shader>();
     render->Load(vShaderName, fShaderName);
     mShaders["ParticleGPU"] = render;
-    
-    
+
     //---------------------------------------------------------
     // ソリッドカラー（ワイヤーフレーム／デバッグ用など）
     //---------------------------------------------------------
@@ -895,7 +945,7 @@ bool Renderer::LoadShaders()
     {
         return false;
     }
-    
+
     //---------------------------------------------------------
     // RenderSurface（鏡/モニタ用の映像面）
     //---------------------------------------------------------
@@ -937,9 +987,17 @@ bool Renderer::LoadShaders()
     return true;
 }
 
+std::shared_ptr<toy::Shader> toy::Renderer::GetShader(const std::string& name)
+{
+    // 名前から Shader を取得（なければ nullptr）
+    auto itr = mShaders.find(name);
+    return (itr != mShaders.end()) ? itr->second : nullptr;
+}
+
+
 //=============================================================
 // テキスト → テクスチャ生成（SDL3_ttf）
-//   - 改行(\n)対応版
+//  - 改行(\n)対応版
 //=============================================================
 
 std::shared_ptr<Texture> Renderer::CreateTextTexture(
@@ -1084,7 +1142,6 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     {
         std::cerr << "[Renderer] SDL_CreateSurface (combined) failed: "
                   << SDL_GetError() << std::endl;
-        // 後処理
         for (auto* s : lineSurfaces) SDL_DestroySurface(s);
         return nullptr;
     }
@@ -1135,9 +1192,12 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
     SDL_DestroySurface(conv);
     return tex;
 }
+
+
 //=============================================================
-// 2Dカメラの視界に入っているか
+// 2Dカメラの視界に入っているか（World → Screen）
 //=============================================================
+
 ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
 {
     ScreenProjectResult result{};
@@ -1176,6 +1236,5 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
     result.depth   = ndcZ;
     return result;
 }
-
 
 } // namespace toy

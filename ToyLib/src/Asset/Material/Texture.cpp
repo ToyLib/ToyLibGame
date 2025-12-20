@@ -5,13 +5,16 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
-#include <vector>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <vector>
 
 namespace toy {
 
+//============================================================
+// コンストラクタ / デストラクタ
+//============================================================
 Texture::Texture()
 : mTextureID(0)
 , mWidth(0)
@@ -25,7 +28,7 @@ Texture::~Texture()
 }
 
 //============================================================
-// 画像ファイル読み込み（SDL3_image）
+// 読み込み：画像ファイル（SDL3_image）
 //============================================================
 bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
 {
@@ -100,7 +103,7 @@ bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
 }
 
 //============================================================
-// メモリ上の画像データから読み込み（埋め込みテクスチャなど）
+// 読み込み：メモリ上の画像データ（埋め込みテクスチャなど）
 //   - Assimp の aiTexture などに対応
 //============================================================
 bool Texture::LoadFromMemory(const void* data, int size)
@@ -155,7 +158,7 @@ bool Texture::LoadFromMemory(const void* data, int size)
 }
 
 //============================================================
-// 生のピクセルから作成（RGBA 前提）
+// 読み込み：生のピクセルから作成（RGBA 前提）
 //   - フォントレンダリング結果などをそのままテクスチャ化
 //============================================================
 bool Texture::LoadFromMemory(const void* data, int width, int height)
@@ -186,7 +189,7 @@ bool Texture::LoadFromMemory(const void* data, int width, int height)
 }
 
 //============================================================
-// レンダリングターゲット用テクスチャ（カラー）
+// 生成：レンダリングターゲット用テクスチャ（カラー）
 //   - ポストエフェクト用 FBO のアタッチ先などで使用
 //============================================================
 void Texture::CreateForRendering(int w, int h, unsigned int format)
@@ -209,7 +212,7 @@ void Texture::CreateForRendering(int w, int h, unsigned int format)
 }
 
 //============================================================
-// シャドウマップ用テクスチャ（depth）
+// 生成：シャドウマップ用テクスチャ（depth）
 //   - sampler2DShadow 前提の深度比較テクスチャ
 //============================================================
 void Texture::CreateShadowMap(int width, int height)
@@ -243,7 +246,8 @@ void Texture::CreateShadowMap(int width, int height)
 }
 
 //============================================================
-// 自前生成（レンズフレア用などの円形グラデーション）
+// 生成：自前生成（円形グラデーション）
+//   - レンズフレア等のアルファ用
 //============================================================
 bool Texture::CreateAlphaCircle(int size,
                                 float centerX,
@@ -298,7 +302,7 @@ bool Texture::CreateAlphaCircle(int size,
 }
 
 //============================================================
-// 自前生成（放射状の光芒・ゴッドレイ風テクスチャ）
+// 生成：自前生成（放射状の光芒・ゴッドレイ風）
 //============================================================
 bool Texture::CreateRadialRays(int size,
                                int numRays,
@@ -358,6 +362,9 @@ bool Texture::CreateRadialRays(int size,
     return true;
 }
 
+//============================================================
+// 生成：RenderTarget 用 RGBA8 カラーテクスチャ
+//============================================================
 void Texture::CreateRenderColorRGBA8(int w, int h)
 {
     if (mTextureID != 0)
@@ -391,7 +398,9 @@ void Texture::CreateRenderColorRGBA8(int w, int h)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-
+//============================================================
+// 内部ユーティリティ（GL エラー確認）
+//============================================================
 static void DrainGLErrors()
 {
     while (glGetError() != GL_NO_ERROR) {}
@@ -401,10 +410,14 @@ static bool LogGLError(const char* tag)
 {
     GLenum err = glGetError();
     if (err == GL_NO_ERROR) return false;
-    std::cerr << "[GL ERROR] " << tag << " : 0x" << std::hex << err << std::dec << "\n";
+    std::cerr << "[GL ERROR] " << tag << " : 0x"
+              << std::hex << err << std::dec << "\n";
     return true;
 }
 
+//============================================================
+// 生成：ピクセルデータからテクスチャ作成
+//============================================================
 bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha)
 {
     if (!pixels || width <= 0 || height <= 0)
@@ -449,7 +462,10 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, srcFormat, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, internal,
+                 width, height, 0,
+                 srcFormat, GL_UNSIGNED_BYTE, pixels);
+
     if (LogGLError("glTexImage2D"))
     {
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -476,7 +492,8 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
     if (tw != width || th != height)
     {
         std::cerr << "[Texture] created size mismatch got "
-                  << tw << "x" << th << " expected " << width << "x" << height << "\n";
+                  << tw << "x" << th << " expected "
+                  << width << "x" << height << "\n";
         glBindTexture(GL_TEXTURE_2D, 0);
         return false;
     }

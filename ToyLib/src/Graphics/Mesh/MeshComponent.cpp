@@ -96,7 +96,7 @@ void MeshComponent::Draw()
         mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
 
         // まず動かす用の固定値（あとで Renderer 側の設定値に置き換え推奨）
-        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSprit0());
+        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSplit0());
         mShader->SetFloatUniform("uCascadeBlend", renderer->GetCascadeBlend());
 
         // Bias

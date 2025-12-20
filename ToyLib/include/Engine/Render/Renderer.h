@@ -3,376 +3,329 @@
 #include "Utils/MathUtil.h"
 #include "glad/glad.h"
 
-#include <string>
-#include <vector>
-#include <memory>
-#include <unordered_map>
 #include <SDL3/SDL.h>
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace toy {
 
-//-------------------------------------------------------------
+//==============================================================================
 // VisualLayer
-// ・描画順や用途ごとにレイヤーを分けるための種別
-// ・DrawVisualLayer() で使われる
-//-------------------------------------------------------------
+//==============================================================================
 enum class VisualLayer
 {
-    Background2D,   // 2D背景（遠景など）
-    Effect3D,       // パーティクルやエフェクト
-    Object3D,       // 通常3Dオブジェクト
-    OverlayScreen,  // 画面全体のポストエフェクトなど
-    UI,             // UI / HUD
+    Background2D,
+    Effect3D,
+    Object3D,
+    OverlayScreen,
+    UI,
 };
 
-//-------------------------------------------------------------
+//==============================================================================
 // ScreenProjectResult
-// ・画面内にプロジェクションされているか
-// ・WorldToScreen() で使われる
-//-------------------------------------------------------------
+//==============================================================================
 struct ScreenProjectResult
 {
-    bool    visible;   // 画面内にプロジェクションされているか
-    Vector2 screen;    // スクリーン座標（0〜width / 0〜height）
-    float   depth;     // 深度（0〜1）: 0=near,1=far
+    bool    visible; // 画面内に投影されているか
+    Vector2 screen;  // スクリーン座標（0〜width / 0〜height）
+    float   depth;   // 深度（0〜1）
 };
 
-
-//-------------------------------------------------------------
-// UI スケール情報
-// ・物理解像度 / 論理解像度 / スケール係数をまとめて保持
-//-------------------------------------------------------------
+//==============================================================================
+// UIScaleInfo
+//==============================================================================
 struct UIScaleInfo
 {
-    float screenW  = 0.0f;  // 物理スクリーン幅（ピクセル）
-    float screenH  = 0.0f;  // 物理スクリーン高さ（ピクセル）
+    float screenW  = 0.0f;
+    float screenH  = 0.0f;
 
-    float virtualW = 0.0f;  // 論理解像度の幅（UI座標系）
-    float virtualH = 0.0f;  // 論理解像度の高さ（UI座標系）
+    float virtualW = 0.0f;
+    float virtualH = 0.0f;
 
-    float scaleX   = 1.0f;  // screenW / virtualW
-    float scaleY   = 1.0f;  // screenH / virtualH
-    float scale    = 1.0f;  // min(scaleX, scaleY)  レターボックス用の共通スケール
-    float offsetX  = 0.0f;  // レターボックスの左右余白
-    float offsetY  = 0.0f;  // レターボックスの上下余白
+    float scaleX   = 1.0f;
+    float scaleY   = 1.0f;
+    float scale    = 1.0f;
+    float offsetX  = 0.0f;
+    float offsetY  = 0.0f;
 };
 
-
-//-------------------------------------------------------------
+//==============================================================================
 // Renderer
-// ・SDL ウィンドウと OpenGL コンテキストを管理
-// ・カメラ行列、ライト、シャドウ、スプライト等を一括して扱う
-// ・Application から Draw() が呼ばれてフレームを描画する
-//-------------------------------------------------------------
+//==============================================================================
 class Renderer
 {
 public:
     Renderer();
     virtual ~Renderer();
-    
-    //---------------------------------------------------------
-    // 初期化／終了
-    //---------------------------------------------------------
-    
-    // OpenGL コンテキストの初期化
+
+    //--------------------------------------------------------------------------
+    // 初期化 / 終了
+    //--------------------------------------------------------------------------
+
     bool Initialize(SDL_Window* window);
-    
-    // SDL_Window 取得
+    void Shutdown();
+
     SDL_Window* GetSDLWindow() const { return mWindow; }
-    
-    // 1フレーム描画（Application から呼ばれるメイン描画）
+
+    //--------------------------------------------------------------------------
+    // 描画
+    //--------------------------------------------------------------------------
+
     void Draw();
     void DrawPass(bool drawUI);
+
     void DrawToRenderTarget(std::shared_ptr<class RenderTarget> rt,
                             const Matrix4& view,
                             const Matrix4& proj,
                             bool drawUI = false);
-    
-    // 破棄処理（OpenGL リソース等の解放）
-    void Shutdown();
-    
-    // クリアカラー設定
+
+    //--------------------------------------------------------------------------
+    // クリア / デバッグ
+    //--------------------------------------------------------------------------
+
     void SetClearColor(const Vector3& color);
     const Vector3& GetClearColor() const { return mClearColor; }
-    
-    // ワイヤーフレームカラー
+
     void SetWireColor(const Vector3& color) { mWireColor = color; }
     const Vector3& GetWireColor() const { return mWireColor; }
-    
-    
-    //---------------------------------------------------------
-    // カメラ／ビュー系
-    //---------------------------------------------------------
-    
-    // ビュー行列設定（内部で逆行列もキャッシュ）
-    void SetViewMatrix(const Matrix4& view) { mInvView = mViewMatrix = view; mInvView.Invert(); }
-    
-    Matrix4 GetViewMatrix() const { return mViewMatrix; }
-    Matrix4 GetInvViewMatrix() const { return mInvView; }
-    Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
-    void SetProjectionMatrix(const Matrix4& mat) { mProjectionMatrix = mat; }
 
-    // View * Projection（描画時によく使う）
-    Matrix4 GetViewProjMatrix() const { return mViewMatrix * mProjectionMatrix; }
-    // 視野角（Perspective FOV／度数法）
-    float GetPerspectiveFov() const { return mPerspectiveFOV; }
-    void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
-    
-    Vector3 GetCameraPosition() const { return mInvView.GetTranslation(); }
-    
-    //---------------------------------------------------------
-    // スクリーン情報
-    //---------------------------------------------------------
-    
-    float GetScreenWidth() const { return mScreenWidth; }
-    float GetScreenHeight() const { return mScreenHeight; }
-    
-    float GetVirtualWidth() const { return mVirtualWidth; }
-    float GetVirtualHeight() const { return mVirtualHeight; }
-
-    // 論理解像度の設定（UI 座標系用）
-    void SetVirtualResolution(float w, float h);
-
-    // UI 用のスケール情報をまとめて取得
-    UIScaleInfo GetUIScaleInfo() const;
-    
-    // DPI スケール（Retina 等でのスケーリング用）
-    float GetWindowDisplayScale() const { return mWindowDisplayScale; }
-    
-    // ウィンドウの実ピクセルサイズの変更を受け取る
-    void OnWindowResized(int pixelW, int pixelH);
-    
-    //---------------------------------------------------------
-    // VisualComponent 管理
-    //---------------------------------------------------------
-    
-    // VisualComponent を登録／解除
-    void AddVisualComp(class VisualComponent* comp);
-    void RemoveVisualComp(class VisualComponent* comp);
-    
-    
-    //---------------------------------------------------------
-    // デバッグ系
-    //---------------------------------------------------------
-    
-    void SetDebugMode(const bool b) { mIsDebugMode = b; }
+    void SetDebugMode(bool b) { mIsDebugMode = b; }
     bool GetDebugMode() const { return mIsDebugMode; }
-    void SetDebugWireVisible(const bool b) { mIsDebugWireVisible = b; }
+
+    void SetDebugWireVisible(bool b) { mIsDebugWireVisible = b; }
     bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
-    
+
     void AddDrawCall() { ++mDrawCallCount; }
     unsigned int GetDrawCallCount() const { return mDrawCallCount; }
+
     void AddDrawObject() { ++mDrawObjectCount; }
     unsigned int GetDrawObjectCount() const { return mDrawObjectCount; }
 
-    
-    //---------------------------------------------------------
-    // リソース管理／補助
-    //---------------------------------------------------------
-    
-    // 全リソースの解放（シーン切り替えなど）
+    //--------------------------------------------------------------------------
+    // カメラ / ビュー
+    //--------------------------------------------------------------------------
+
+    void SetViewMatrix(const Matrix4& view)
+    {
+        mViewMatrix = view;
+        mInvView    = view;
+        mInvView.Invert();
+    }
+
+    Matrix4 GetViewMatrix() const { return mViewMatrix; }
+    Matrix4 GetInvViewMatrix() const { return mInvView; }
+
+    Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
+    void SetProjectionMatrix(const Matrix4& mat) { mProjectionMatrix = mat; }
+
+    Matrix4 GetViewProjMatrix() const
+    {
+        return mViewMatrix * mProjectionMatrix;
+    }
+
+    float GetPerspectiveFov() const { return mPerspectiveFOV; }
+    void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
+
+    Vector3 GetCameraPosition() const
+    {
+        return mInvView.GetTranslation();
+    }
+
+    //--------------------------------------------------------------------------
+    // スクリーン / UI
+    //--------------------------------------------------------------------------
+
+    float GetScreenWidth() const { return mScreenWidth; }
+    float GetScreenHeight() const { return mScreenHeight; }
+
+    float GetVirtualWidth() const { return mVirtualWidth; }
+    float GetVirtualHeight() const { return mVirtualHeight; }
+
+    void SetVirtualResolution(float w, float h);
+    UIScaleInfo GetUIScaleInfo() const;
+
+    float GetWindowDisplayScale() const { return mWindowDisplayScale; }
+    void OnWindowResized(int pixelW, int pixelH);
+
+    //--------------------------------------------------------------------------
+    // VisualComponent 管理
+    //--------------------------------------------------------------------------
+
+    void AddVisualComp(class VisualComponent* comp);
+    void RemoveVisualComp(class VisualComponent* comp);
+
+    //--------------------------------------------------------------------------
+    // リソース / 補助
+    //--------------------------------------------------------------------------
+
     void UnloadData();
-    
-    // スカイドーム登録（ゲーム側で生成し生ポインタで渡す）
+
     void RegisterSkyDome(class SkyDomeComponent* sky);
     class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
-    
-    // ライティング管理（ライト情報の一元管理）
-    std::shared_ptr<class LightingManager> GetLightingManager() const { return mLightingManager; }
-    
-    // 名前指定でシェーダ取得
-    std::shared_ptr<class Shader> GetShader(const std::string& name)
+
+    std::shared_ptr<class LightingManager> GetLightingManager() const
     {
-        auto itr = mShaders.find(name);
-        return (itr != mShaders.end()) ? itr->second : nullptr;
+        return mLightingManager;
     }
-    
-    
-    //---------------------------------------------------------
-    // シャドウマップ／ライト空間
-    //---------------------------------------------------------
 
-    // --- CSM用：カスケード指定で取得 ---
-    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const { return mLightSpaceMatrix[cascadeIndex]; }
-    std::shared_ptr<class Texture> GetShadowMapTexture(int cascadeIndex) const { return mShadowMapTexture[cascadeIndex]; }
-    
-    float GetCascadeSprit0() const { return mCascadeSplit0; }
-    void SetCascadeSprit0(const float f) { mCascadeSplit0 = f; }
+    std::shared_ptr<class Shader> GetShader(const std::string& name);
+
+    //--------------------------------------------------------------------------
+    // シャドウマップ（CSM）
+    //--------------------------------------------------------------------------
+
+    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const
+    {
+        return mLightSpaceMatrix[cascadeIndex];
+    }
+
+    std::shared_ptr<class Texture> GetShadowMapTexture(int cascadeIndex) const
+    {
+        return mShadowMapTexture[cascadeIndex];
+    }
+
+    float GetCascadeSplit0() const { return mCascadeSplit0; }
+    void SetCascadeSplit0(float f) { mCascadeSplit0 = f; }
+
     float GetCascadeBlend() const { return mCascadeBlend; }
-    void SetCascadeBlend(const float f) { mCascadeBlend = f; }
-   
-    //---------------------------------------------------------
-    // 共通ジオメトリ（スプライト / フルスクリーン）
-    //---------------------------------------------------------
-    
-    // スプライト描画用の四角形 VAO（Billboard 等にも利用）
-    std::shared_ptr<class VertexArray> GetSpriteVerts() const { return mSpriteVerts; }
-    
-    // フルスクリーン用ポリゴン（ポストプロセス等）
-    std::shared_ptr<class VertexArray> GetFullScreenQuad() const { return mFullScreenQuad; }
-    
-    std::shared_ptr<class VertexArray> GetParticleQuad() const { return mSpriteVerts; }
-    
-    std::shared_ptr<VertexArray> GetSurfaceQuad() const { return mSurfaceQuad; }
+    void SetCascadeBlend(float f) { mCascadeBlend = f; }
 
-    
-    
-    //---------------------------------------------------------
-    // テキスト描画補助
-    //---------------------------------------------------------
-    
-    // テキストからテクスチャを生成（フォント＋カラー指定）
+    //--------------------------------------------------------------------------
+    // 共通ジオメトリ
+    //--------------------------------------------------------------------------
+
+    std::shared_ptr<class VertexArray> GetSpriteVerts() const
+    {
+        return mSpriteVerts;
+    }
+
+    std::shared_ptr<class VertexArray> GetFullScreenQuad() const
+    {
+        return mFullScreenQuad;
+    }
+
+    std::shared_ptr<class VertexArray> GetParticleQuad() const
+    {
+        return mSpriteVerts;
+    }
+
+    std::shared_ptr<class VertexArray> GetSurfaceQuad() const
+    {
+        return mSurfaceQuad;
+    }
+
+    //--------------------------------------------------------------------------
+    // テキスト / 2D補助
+    //--------------------------------------------------------------------------
+
     std::shared_ptr<class Texture> CreateTextTexture(
         const std::string& text,
         const Vector3& color,
-        std::shared_ptr<class TextFont> font
-    );
-    
-    //---------------------------------------------------------
-    // 2Dエフェクト補助
-    //---------------------------------------------------------
-    // 2Dカメラの視界に入っているか
-    ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
-    
+        std::shared_ptr<class TextFont> font);
 
-    
+    ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
+
 private:
-    //---------------------------------------------------------
-    // 設定／初期化周り
-    //---------------------------------------------------------
-    
-    // 設定ファイル読み込み（ウィンドウサイズ／タイトルなど）
-    bool LoadSettings(const std::string& filePath);
-    
-    // ライティング管理
-    std::shared_ptr<class LightingManager> mLightingManager;
-    
-    // シェーダーの配置パスf
-    std::string mShaderPath;
-    
-   
-    // スクリーンサイズ (物理・仮想)
-    float mScreenWidth;
-    float mScreenHeight;
-    float mVirtualWidth;
-    float mVirtualHeight;
-    
-    // 視野角（Perspective FOV／度）
-    float mPerspectiveFOV;
-    
-    // デバッグワイヤー表示 ON/OFF
-    bool mIsDebugWireVisible;
-    // デバッグ描画 ON/OFF
-    bool mIsDebugMode;
-    
-   
-    // クリアカラー
+    //--------------------------------------------------------------------------
+    // SDL / OpenGL
+    //--------------------------------------------------------------------------
+
+    SDL_Window*   mWindow          = nullptr;
+    SDL_GLContext mGLContext       = nullptr;
+    float         mWindowDisplayScale = 1.0f;
+
+    //--------------------------------------------------------------------------
+    // スクリーン / カメラ
+    //--------------------------------------------------------------------------
+
+    float   mScreenWidth  = 0.0f;
+    float   mScreenHeight = 0.0f;
+    float   mVirtualWidth = 0.0f;
+    float   mVirtualHeight = 0.0f;
+
+    float   mPerspectiveFOV = 45.0f;
+
+    Matrix4 mViewMatrix;
+    Matrix4 mInvView;
+    Matrix4 mProjectionMatrix;
+
+    //--------------------------------------------------------------------------
+    // 描画状態 / デバッグ
+    //--------------------------------------------------------------------------
+
     Vector3 mClearColor;
-    
-    // ワイヤフレームのカラー
     Vector3 mWireColor;
-    
-    
-    //---------------------------------------------------------
-    // シャドウマッピング設定
-    //---------------------------------------------------------
-    
+
+    bool mIsDebugWireVisible = false;
+    bool mIsDebugMode        = false;
+
+    unsigned int mDrawObjectCount = 0;
+    unsigned int mDrawCallCount   = 0;
+
+    //--------------------------------------------------------------------------
+    // ライティング / シャドウ
+    //--------------------------------------------------------------------------
+
+    std::shared_ptr<class LightingManager> mLightingManager;
+
     float mShadowNear;
     float mShadowFar;
     float mShadowOrthoWidth;
     float mShadowOrthoHeight;
     int   mShadowFBOWidth;
     int   mShadowFBOHeight;
-    
-    
-    //---------------------------------------------------------
-    // カメラ行列
-    //---------------------------------------------------------
-    
-    Matrix4 mViewMatrix;
-    Matrix4 mInvView;
-    Matrix4 mProjectionMatrix;
-    
-    
-    //---------------------------------------------------------
-    // SDL / OpenGL ハンドル
-    //---------------------------------------------------------
-    
-    SDL_Window*   mWindow;
-    SDL_GLContext mGLContext;
-    
-    
-    //---------------------------------------------------------
-    // 共通ジオメトリ（フルスクリーン／スプライト）
-    //---------------------------------------------------------
-    
-    // フルスクリーン描画用 VAO
-    std::shared_ptr<class VertexArray> mFullScreenQuad;
-    void CreateFullScreenQuad();
-    
-    // スプライト用頂点（Billboard 等でも使う）
-    std::shared_ptr<class VertexArray> mSpriteVerts;
-    void CreateSpriteVerts();
-    
-    void CreateSurfaceQuad();
-    std::shared_ptr<VertexArray> mSurfaceQuad;
-    
-    //---------------------------------------------------------
-    // シェーダ関連
-    //---------------------------------------------------------
-    
-    std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
-    bool LoadShaders();
-    
-    
-    //---------------------------------------------------------
-    // シャドウマッピング処理
-    //---------------------------------------------------------
-    
-    //GLuint mShadowFBO;
-    bool   InitializeShadowMapping();
-    void   RenderShadowMap();
-    
-    // カスケードシャドウのレンダリング数（near/farの２つ）
+
     static constexpr int kShadowCascadeCount = 2;
 
     GLuint  mShadowFBO[kShadowCascadeCount]{};
     Matrix4 mLightSpaceMatrix[kShadowCascadeCount]{};
     std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount]{};
 
-    // split/blend（Rendererがshaderに渡す用）
     float mCascadeSplit0;
     float mCascadeBlend;
-    
-    
-    //---------------------------------------------------------
-    // Visual / SkyDome
-    //---------------------------------------------------------
-    
+
+    //--------------------------------------------------------------------------
+    // ジオメトリ
+    //--------------------------------------------------------------------------
+
+    std::shared_ptr<class VertexArray> mFullScreenQuad;
+    std::shared_ptr<class VertexArray> mSpriteVerts;
+    std::shared_ptr<class VertexArray> mSurfaceQuad;
+
+    void CreateFullScreenQuad();
+    void CreateSpriteVerts();
+    void CreateSurfaceQuad();
+
+    //--------------------------------------------------------------------------
+    // シェーダ
+    //--------------------------------------------------------------------------
+
+    std::string mShaderPath;
+    std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
+
+    bool LoadShaders();
+
+    //--------------------------------------------------------------------------
+    // Visual / Sky
+    //--------------------------------------------------------------------------
+
     std::vector<class VisualComponent*> mVisualComps;
-    
-    // SkyDome は Game 側で生成・所有し、生ポインタを保持
-    class SkyDomeComponent* mSkyDomeComp;
-    
+    class SkyDomeComponent* mSkyDomeComp = nullptr;
+
     void DrawSky();
-    void DrawVisualLayer(VisualLayer layer, const std::shared_ptr<class Texture>& skipTex = nullptr);
-    
-    
-    //---------------------------------------------------------
-    // デバッグ用カウンタ
-    //---------------------------------------------------------
-    
-    // 1フレーム内で描画したオブジェクト数（Debug/Test用）
-    unsigned int mDrawObjectCount;
-    // 描画カウント
-    unsigned int mDrawCallCount;
-    
-    
-    //---------------------------------------------------------
-    // DPI スケール
-    //---------------------------------------------------------
-    
-    float mWindowDisplayScale;
+    void DrawVisualLayer(VisualLayer layer,
+                         const std::shared_ptr<class Texture>& skipTex = nullptr);
+
+    //--------------------------------------------------------------------------
+    // 内部初期化
+    //--------------------------------------------------------------------------
+
+    bool LoadSettings(const std::string& filePath);
+    bool InitializeShadowMapping();
+    void RenderShadowMap();
 };
 
 } // namespace toy
