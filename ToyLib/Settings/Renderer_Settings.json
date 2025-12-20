@@ -28,8 +28,8 @@
   "shadow": {
     "near": 1.0,
     "far": 100.0,
-    "ortho_width": 100.0,
-    "ortho_height": 100.0,
+    "ortho_width": 40.0,
+    "ortho_height": 40.0,
     "resolution_width": 4096,
     "resolution_height": 4096
   }

@@ -140,9 +140,9 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 float ComputeShadow()
 {
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-
     projCoords = projCoords * 0.5 + 0.5;
 
+    // ライト投影外は影なし
     if (projCoords.x < 0.0 || projCoords.x > 1.0 ||
         projCoords.y < 0.0 || projCoords.y > 1.0 ||
         projCoords.z < 0.0 || projCoords.z > 1.0)
@@ -150,13 +150,28 @@ float ComputeShadow()
         return 1.0;
     }
 
-    float shadow = textureProj(
-        uShadowMap,
-        vec4(projCoords.xy, projCoords.z - uShadowBias, 1.0)
-    );
+    // 影マップの 1 texel サイズ
+    vec2 texelSize = 1.0 / vec2(textureSize(uShadowMap, 0));
 
-    // 0.5〜1.0 にマッピングして「完全な真っ暗」にはしない
-    return mix(0.5, 1.0, shadow);
+    // PCF 3x3
+    float sum = 0.0;
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            vec2 offset = vec2(x, y) * texelSize;
+
+            // sampler2DShadow: texture(uShadowMap, vec3(uv, refZ))
+            // 返り値は「光が当たってる率」(0..1)
+            sum += texture(uShadowMap, vec3(projCoords.xy + offset,
+                                            projCoords.z - uShadowBias));
+        }
+    }
+
+    float lit = sum / 9.0; // 1.0=明るい, 0.0=影
+
+    // 今までの「真っ黒にしない」仕様を維持
+    return mix(0.5, 1.0, lit);
 }
 
 //======================================================================
