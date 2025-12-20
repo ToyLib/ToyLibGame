@@ -21,15 +21,15 @@
     "target": [0.0, 0.0, 0.0]
   },
   "fog": {
-    "maxDist": 150.0,
+    "maxDist": 200.0,
     "minDist": 0.001,
     "color": [0.4, 0.4, 0.4]
   },
   "shadow": {
     "near": 1.0,
-    "far": 100.0,
-    "ortho_width": 100.0,
-    "ortho_height": 100.0,
+    "far": 150.0,
+    "ortho_width": 50.0,
+    "ortho_height": 50.0,
     "resolution_width": 2048,
     "resolution_height": 2048
   }

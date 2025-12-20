@@ -31,7 +31,6 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
     mShader          = renderer->GetShader("Mesh");
     mShadowShader    = renderer->GetShader("ShadowMesh");
     mLightingManger  = renderer->GetLightingManager();
-    mShadowMapTexture = renderer->GetShadowMapTexture();
 
     mIsVisible    = true;
     mLayer        = VisualLayer::Object3D;  // Mesh は基本3Dオブジェクト扱い
@@ -97,8 +96,8 @@ void MeshComponent::Draw()
         mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
 
         // まず動かす用の固定値（あとで Renderer 側の設定値に置き換え推奨）
-        mShader->SetFloatUniform("uCascadeSplit0", 25.0f);
-        mShader->SetFloatUniform("uCascadeBlend", 6.0f);
+        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSprit0());
+        mShader->SetFloatUniform("uCascadeBlend", renderer->GetCascadeBlend());
 
         // Bias
         mShader->SetFloatUniform("uShadowBias", 0.005f);
