@@ -55,8 +55,8 @@ void OutdoorStage::InitStage()
     
     // 鏡を出す
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
-    mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
-    mirrorActor->SetScale(6.f);
+    mirrorActor->SetPosition(Vector3(0.0f, -0.2f, 0.0f));
+    mirrorActor->SetScale(10.f);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
     capture->Init({.width=512, .height=512});
 /*

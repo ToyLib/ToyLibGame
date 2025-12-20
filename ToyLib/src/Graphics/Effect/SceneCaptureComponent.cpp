@@ -64,11 +64,12 @@ void SceneCaptureComponent::Capture()
     const Matrix4 world = GetOwner()->GetWorldTransform();
 
     // ToyLibの軸に合わせて：例) 前方 = +Z, 上 = +Y
-    const Vector3 camPos = world.GetTranslation();
+    Vector3 camPos = world.GetTranslation();
     const Vector3 camFwd = -1.0f * world.GetZAxis();   // -Z が前
     const Vector3 camUp  = world.GetYAxis();
 
-    const Vector3 target = camPos + camFwd * 1000.0f;
+    camPos = camPos - camFwd * 10.0f;
+    const Vector3 target = camPos + camFwd * 100.0f;
 
     mView = Matrix4::CreateLookAt(camPos, target, camUp);
 
@@ -77,7 +78,7 @@ void SceneCaptureComponent::Capture()
     const float h = (float)mRT->GetHeight();
 
     mProj = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(60.0f),
+        Math::ToRadians(45.0f),
         w,
         h,
         0.1f,
