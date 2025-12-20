@@ -134,7 +134,7 @@ void Shader::SetMatrixUniform(const char* name, const Matrix4& matrix)
 }
 
 // 4x4 行列配列を uniform に送る（スキンメッシュのボーン行列など）
-void Shader::SetMatrixUniforms(const char* name, Matrix4* matrices, unsigned count)
+void Shader::SetMatrixUniforms(const char* name, const Matrix4* matrices, unsigned count)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniformMatrix4fv(loc, count, GL_TRUE, matrices[0].GetAsFloatPtr());

@@ -57,7 +57,7 @@ public:
     void SetMatrixUniform(const char* name, const Matrix4& matrix);
     
     // 行列配列（スキニング等で使用）
-    void SetMatrixUniforms(const char* name, Matrix4* matrices, unsigned count);
+    void SetMatrixUniforms(const char* name, const Matrix4* matrices, unsigned count);
     
     // 3D ベクトル
     void SetVectorUniform(const char* name, const Vector3& vector);

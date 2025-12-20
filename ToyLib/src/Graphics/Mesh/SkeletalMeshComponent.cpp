@@ -105,7 +105,7 @@ void SkeletalMeshComponent::Draw()
     // ボーン行列パレット
     // ----------------------------
     static const std::vector<Matrix4> kEmpty;
-    std::vector<Matrix4> transforms =
+    const std::vector<Matrix4> transforms =
         mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : kEmpty;
 
     if (!transforms.empty())
@@ -206,7 +206,7 @@ void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
 
     // アニメーション行列（無ければ空配列）
     static std::vector<Matrix4> gEmptyMatrixList;
-        std::vector<Matrix4> transforms =
+    const std::vector<Matrix4> transforms =
             mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : gEmptyMatrixList;
     if (!transforms.empty())
     {
