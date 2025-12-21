@@ -55,31 +55,16 @@ void OutdoorStage::InitStage()
     
     // 鏡を出す
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
-    mirrorActor->SetPosition(Vector3(0.0f, -0.2f, 0.0f));
-    mirrorActor->SetScale(10.f);
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(30.0f));
+    mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    //mirrorActor->SetScale(10.f);
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(90.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=512, .height=512});
-/*
-    Matrix4 view = Matrix4::CreateLookAt(
-        Vector3(0, 0, -10),
-        Vector3::Zero,
-        Vector3::UnitY
-    );
+    capture->Init({.width=640, .height=384});
 
-    Matrix4 proj = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(60.0f),
-        1.0f,        // RTは正方形想定
-        1.0f,
-        0.1f,
-        5000.0f
-    );
-
-    capture->SetViewProj(view, proj);
-    */
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
     mirrorComp->SetTexture(capture->GetColorTexture());
+    mirrorComp->SetScale(16.0f, 9.0f);
     
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();
@@ -225,7 +210,7 @@ void OutdoorStage::InitStage()
     
     // 時間の設定
     mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(21.0f, 30.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(15.0f, 30.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)

@@ -32,8 +32,11 @@ RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
     : VisualComponent(owner, drawOrder, VisualLayer::Object3D)
     , mFlipX(true)
     , mFlipY(true)
+    , mScaleX(1.0f)
+    , mScaleY(1.0f)
     , mOpacity(1.0f)
     , mTint(Vector3(1.0f, 1.0f, 1.0f))
+    , mMode(SurfaceMode::Mirror)
 {
     // 置物の板ポリ：ビルボードなし、通常 3D と同じ扱い
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
@@ -85,7 +88,12 @@ void RenderSurfaceComponent::Draw()
     mShader->SetActive();
 
     // 行列：ToyLib流（m * v）なので、シェーダ側も vec4 * mat4 で合わせる
-    const Matrix4 world = GetOwner()->GetWorldTransform();
+    Matrix4 sc = Matrix4::CreateScale(mScaleX, mScaleY, 1.0f);
+    GetOwner()->ComputeWorldTransform();
+    const Matrix4 world = sc * GetOwner()->GetWorldTransform();
+    
+    
+    
     mShader->SetMatrixUniform("uWorld", world);
     mShader->SetMatrixUniform("uView",  renderer->GetViewMatrix());
     mShader->SetMatrixUniform("uProj",  renderer->GetProjectionMatrix());
@@ -95,11 +103,63 @@ void RenderSurfaceComponent::Draw()
     mShader->SetBooleanUniform("uFlipY", mFlipY);
     mShader->SetFloatUniform("uOpacity", mOpacity);
     mShader->SetVectorUniform("uTint",   mTint);
+    
+    switch (mMode)
+    {
+        case SurfaceMode::Plain:
+            mShader->SetIntUniform("uMode", 0);
 
+            mShader->SetFloatUniform("uDistortStrength", 0.0f);
+            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
+
+            mShader->SetFloatUniform("uFresnel", 0.0f);
+            mShader->SetFloatUniform("uFresnelPow", 1.0f);
+
+            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
+            break;
+        case SurfaceMode::Monitor:
+            mShader->SetIntUniform("uMode", 0);
+            
+            mShader->SetFloatUniform("uDistortStrength", 0.0f);
+            
+            mShader->SetFloatUniform("uScanlineStrength", 0.15f); // 0.1〜0.25
+            
+            mShader->SetFloatUniform("uFresnel", 0.0f);
+            mShader->SetFloatUniform("uFresnelPow", 1.0f);
+            
+            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
+            
+
+            break;
+        case SurfaceMode::Mirror:
+            mShader->SetIntUniform("uMode", 1);
+
+            mShader->SetFloatUniform("uDistortStrength", 0.01f); // 超重要：弱く
+
+            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
+
+            mShader->SetFloatUniform("uFresnel", 0.5f);   // カメラ側で計算できないなら固定でOK
+            mShader->SetFloatUniform("uFresnelPow", 5.0f); // 4〜8くらいが自然
+
+            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
+            break;
+        case SurfaceMode::Water:
+            mShader->SetIntUniform("uMode", 2);
+
+            mShader->SetFloatUniform("uDistortStrength", 0.03f); // 0.02〜0.04
+
+            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
+
+            mShader->SetFloatUniform("uFresnel", 0.0f);
+            mShader->SetFloatUniform("uFresnelPow", 1.0f);
+
+            mShader->SetFloatUniform("uWaveSpeed", 1.0f); // 0.5〜2.0
+            mShader->SetFloatUniform("uSwayStrength", 0.006f);
+            break;
+    }
     // テクスチャ
     mTexture->SetActive(0);
     mShader->SetIntUniform("uSurfaceTex", 0);
-
     //--------------------------------------------------------------------------
     // 描画
     //--------------------------------------------------------------------------
