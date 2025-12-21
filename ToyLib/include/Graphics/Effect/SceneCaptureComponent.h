@@ -44,7 +44,6 @@ public:
         float fov      = 45.0f;
         float updateHz = 60.0f; // 更新頻度。0 なら毎フレーム更新
         
-        CaptureMode captureMode = CaptureMode::Fixed;
     };
 
     //--------------------------------------------------------------------------
@@ -69,6 +68,8 @@ public:
     //--------------------------------------------------------------------------
     // キャプチャ用の View/Proj をセット（Actor の向きで生成する想定だが外部指定も可）
     void SetViewProj(const Matrix4& view, const Matrix4& proj);
+    
+    void SetCaptureMode(const CaptureMode mode) { mCaptureMode = mode; }
 
 private:
     //--------------------------------------------------------------------------
@@ -92,6 +93,8 @@ private:
 
     // updateHz 用の蓄積時間
     float mAcc;
+    
+    CaptureMode mCaptureMode;
 };
 
 } // namespace toy

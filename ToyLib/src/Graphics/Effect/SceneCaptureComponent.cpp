@@ -32,6 +32,7 @@ SceneCaptureComponent::SceneCaptureComponent(Actor* owner)
     : Component(owner)
     , mView(Matrix4::Identity)
     , mProj(Matrix4::Identity)
+    , mCaptureMode(CaptureMode::Fixed)
 {
 }
 
@@ -111,7 +112,11 @@ void SceneCaptureComponent::Capture()
         return;
     }
 
-    if (mDesc.captureMode == CaptureMode::Fixed)
+    if (mCaptureMode == CaptureMode::Fixed)
+    {
+        BuildFixedView();
+    }
+    else
     {
         BuildMirrorView();
     }

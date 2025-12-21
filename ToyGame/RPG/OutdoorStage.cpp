@@ -60,11 +60,13 @@ void OutdoorStage::InitStage()
     Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(90.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=640, .height=384});
+    capture->Init({.width=640, .height=384 });
+    capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
     mirrorComp->SetTexture(capture->GetColorTexture());
     mirrorComp->SetScale(16.0f, 9.0f);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Water);
     
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();
