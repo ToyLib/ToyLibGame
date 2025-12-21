@@ -17,6 +17,7 @@ private:
     
     void DeployBrick(const Vector3& pos, bool bWall = false);
     void DeployHouse(const Vector3& pos);
+    void DeployFire(const Vector3& pos);
     
     void DeployGround();
     void DeploySky();

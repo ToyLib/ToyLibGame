@@ -16,6 +16,7 @@ void OutdoorStage::InitStage()
 {
     DeployGround();
     DeploySky();
+    DeployFire(Vector3::Zero);
     
     // レンガ
     for (int i = 0; i < 8; ++i)
@@ -57,7 +58,7 @@ void OutdoorStage::InitStage()
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
     mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
     //mirrorActor->SetScale(10.f);
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(90.0f));
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(30.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
     capture->Init({.width=640, .height=384 });
@@ -68,6 +69,63 @@ void OutdoorStage::InitStage()
     mirrorComp->SetScale(16.0f, 9.0f);
     mirrorComp->SetSurfaceMode(toy::SurfaceMode::Water);
     
+ 
+    // 時間の設定
+    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(15.0f, 30.0f);
+}
+
+void OutdoorStage::Update(float deltaTime)
+{
+    if (mWeather)
+    {
+        mWeather->Update(deltaTime);
+    }
+}
+
+void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
+{
+    auto actor = mApp->CreateActor<toy::Actor>();
+    actor->SetPosition(pos);
+    actor->SetScale(5.0f);
+    
+    auto mesh = actor->CreateComponent<toy::MeshComponent>();
+    mesh->SetMesh(mApp->GetAssetManager()->GetMesh("brick.x"));
+    
+
+    auto coll = actor->CreateComponent<toy::ColliderComponent>();
+    coll->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
+    
+    if (bWall)
+    {
+        coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+    }
+    else
+    {
+        coll->SetFlags(toy::C_GROUND);
+    }
+}
+
+void OutdoorStage::DeployHouse(const Vector3& pos)
+{
+    // 建物
+    auto towerActor = mApp->CreateActor<toy::Actor>();
+    auto towerMesh = towerActor->CreateComponent<toy::MeshComponent>();
+    towerMesh->SetMesh(mApp->GetAssetManager()->GetMesh("house.x"));
+    
+    auto towerCollider = towerActor->CreateComponent<toy::ColliderComponent>();
+    towerCollider->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("house.x")->GetVertexArray());
+    towerCollider->SetEnabled(true);
+    towerCollider->SetFlags(toy::C_WALL | toy::C_GROUND | toy::C_FOOT);
+    towerCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0,0,0), Vector3(0.9, 0.9, 0.9));
+    towerActor->SetPosition(pos);
+    towerActor->SetScale(0.003f);
+    Quaternion(Vector3::UnitY, Math::ToRadians(150));
+    towerActor->CreateComponent<toy::GravityComponent>();
+}
+
+void OutdoorStage::DeployFire(const Vector3& pos)
+{
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -210,60 +268,7 @@ void OutdoorStage::InitStage()
     particle->Start();
     
     
-    // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(15.0f, 30.0f);
 }
-
-void OutdoorStage::Update(float deltaTime)
-{
-    if (mWeather)
-    {
-        mWeather->Update(deltaTime);
-    }
-}
-
-void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
-{
-    auto actor = mApp->CreateActor<toy::Actor>();
-    actor->SetPosition(pos);
-    actor->SetScale(5.0f);
-    
-    auto mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(mApp->GetAssetManager()->GetMesh("brick.x"));
-    
-
-    auto coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
-    
-    if (bWall)
-    {
-        coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
-    }
-    else
-    {
-        coll->SetFlags(toy::C_GROUND);
-    }
-}
-
-void OutdoorStage::DeployHouse(const Vector3& pos)
-{
-    // 建物
-    auto towerActor = mApp->CreateActor<toy::Actor>();
-    auto towerMesh = towerActor->CreateComponent<toy::MeshComponent>();
-    towerMesh->SetMesh(mApp->GetAssetManager()->GetMesh("house.x"));
-    
-    auto towerCollider = towerActor->CreateComponent<toy::ColliderComponent>();
-    towerCollider->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("house.x")->GetVertexArray());
-    towerCollider->SetEnabled(true);
-    towerCollider->SetFlags(toy::C_WALL | toy::C_GROUND | toy::C_FOOT);
-    towerCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0,0,0), Vector3(0.9, 0.9, 0.9));
-    towerActor->SetPosition(pos);
-    towerActor->SetScale(0.003f);
-    Quaternion(Vector3::UnitY, Math::ToRadians(150));
-    towerActor->CreateComponent<toy::GravityComponent>();
-}
-
 
 void OutdoorStage::DeployGround()
 {
