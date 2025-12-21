@@ -438,6 +438,7 @@ void Application::UpdateFrame()
 
     mPhysWorld->Test();
 
+    // Physのパフォーマンスカウンター
     Uint64 physEnd = SDL_GetPerformanceCounter();
     double physMs = (physEnd - physBegin) * 1000.0
                   / static_cast<double>(SDL_GetPerformanceFrequency());
@@ -459,6 +460,7 @@ void Application::UpdateFrame()
     }
     mPendingActors.clear();
     
+    // EDeadのActorを削除する
     mActors.erase(
         std::remove_if(
             mActors.begin(),
