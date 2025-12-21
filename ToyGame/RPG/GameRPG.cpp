@@ -84,7 +84,7 @@ void GameRPG::LoadData()
     // BGM
     GetSoundMixer()->LoadBGM("MusMus-BGM-112.mp3");
     GetSoundMixer()->PlayBGM();
-    GetSoundMixer()->SetVolume(0.001);
+    GetSoundMixer()->SetVolume(0.1);
     
     // フォント
     auto fnt = GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 24);
