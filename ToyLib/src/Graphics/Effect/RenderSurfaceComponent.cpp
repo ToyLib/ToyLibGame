@@ -156,8 +156,9 @@ void RenderSurfaceComponent::Draw()
             mShader->SetFloatUniform("uFresnel", 0.0f);
             mShader->SetFloatUniform("uFresnelPow", 1.0f);
 
-            mShader->SetFloatUniform("uWaveSpeed", 1.0f); // 0.5〜2.0
+            mShader->SetFloatUniform("uWaveSpeed", 2.0f); // 0.5〜2.0
             mShader->SetFloatUniform("uSwayStrength", 0.006f);
+            mShader->SetFloatUniform("uSparkleStrength", 0.1f);
             break;
     }
     // テクスチャ

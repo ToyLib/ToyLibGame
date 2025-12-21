@@ -250,8 +250,8 @@ void Renderer::Draw()
     mDrawCallCount   = 0;
     mDrawObjectCount = 0;
 
+    FlushSceneCaptures();
     DrawPass(true);
-
     // バッファ入れ替え
     SDL_GL_SwapWindow(mWindow);
 }
@@ -327,7 +327,7 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     DrawVisualLayer(VisualLayer::Background2D,  skipTex);
     DrawVisualLayer(VisualLayer::Object3D,      skipTex);
     DrawVisualLayer(VisualLayer::Effect3D,      skipTex);
-    DrawVisualLayer(VisualLayer::OverlayScreen, skipTex);
+    //DrawVisualLayer(VisualLayer::OverlayScreen, skipTex);
     if (drawUI)
     {
         DrawVisualLayer(VisualLayer::UI, skipTex);
@@ -341,7 +341,21 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 }
+void Renderer::FlushSceneCaptures()
+{
+    
+    for (const auto& req : mSceneCaptureQueue)
+    {
+        DrawToRenderTarget(
+            req.rt,
+            req.view,
+            req.proj,
+            req.drawUI
+        );
+    }
 
+    mSceneCaptureQueue.clear();
+}
 
 //=============================================================
 // SkyDome
@@ -464,6 +478,15 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
     glDepthMask(GL_TRUE);
 }
 
+
+//=============================================================
+// シーンキャプチャーリクエスト
+//=============================================================
+
+void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
+{
+    mSceneCaptureQueue.emplace_back(req);
+}
 
 //=============================================================
 // 共通ジオメトリ（スプライト／フルスクリーン）

@@ -132,9 +132,16 @@ void SceneCaptureComponent::Capture()
     );
 
     //----------------------------------------------------------------------
-    // RenderTarget へ描画
+    // Renderへリクエスト
     //----------------------------------------------------------------------
-    renderer->DrawToRenderTarget(mRT, mView, mProj, mDesc.drawUI);
+    SceneCaptureRequest req;
+    req.rt     = mRT;
+    req.view   = mView;
+    req.proj   = mProj;
+    req.drawUI = mDesc.drawUI;
+
+
+    renderer->RequestSceneCapture(req);
 }
 
 void SceneCaptureComponent::BuildFixedView()

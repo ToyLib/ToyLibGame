@@ -66,7 +66,7 @@ void OutdoorStage::InitStage()
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
     mirrorComp->SetTexture(capture->GetColorTexture());
     mirrorComp->SetScale(16.0f, 9.0f);
-    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Water);
     
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();
@@ -298,5 +298,5 @@ void OutdoorStage::DeploySky()
     mWeather = std::make_unique<toy::kit::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::CLOUDY);
 }

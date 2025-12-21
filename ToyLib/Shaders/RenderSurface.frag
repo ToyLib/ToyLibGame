@@ -44,6 +44,8 @@ uniform float uWaveSpeed;
 
 uniform float uSwayStrength; // 0..0.02 くらい
 
+uniform float uSparkleStrength;
+
 // ------------------------------------------------------------
 
 vec2 ApplyFlip(vec2 uv)
@@ -53,6 +55,26 @@ vec2 ApplyFlip(vec2 uv)
     return uv;
 }
 
+// wave: 0..1（あなたの w1*w2 でもOK）
+float softHighlight(vec2 uv, float t, float wave)
+{
+    // 波の山だけを拾う（帯になる）
+    float crest = smoothstep(0.55, 0.95, wave);
+
+    // UV方向にゆっくり動く細い帯（“水面の筋”）
+    float band = sin(uv.x * 6.0 + t * 0.6) * 0.5 + 0.5;
+    band *= sin(uv.y * 5.0 - t * 0.5) * 0.5 + 0.5; // 0..1
+
+    // 急峻すぎると粒状になるので滑らかに
+    band = smoothstep(0.45, 0.85, band);
+
+    // fwidthで解像度に応じて“ぼかし幅”を増やす（チラつき抑制）
+    float fw = fwidth(band);
+    band = smoothstep(0.45 - fw, 0.85 + fw, band);
+
+    // crest と band を掛けて、波の山にだけ上品に乗せる
+    return crest * band;
+}
 void main()
 {
     vec2 uv = ApplyFlip(vUV);
@@ -121,6 +143,15 @@ void main()
 
         vec4 c = texture(uSurfaceTex, duv);
 
+        float h = softHighlight(uv, t, wave);
+        float viewFactor = smoothstep(0.2, 0.8, abs(uv.y - 0.5) * 2.0);
+
+        // またはもっとシンプルに
+        // float viewFactor = pow(1.0 - abs(uv.y - 0.5) * 2.0, 2.0);
+
+        h *= viewFactor;
+        c.rgb += h * uSparkleStrength; // 0.05〜0.18くらい推奨（上品）
+        //c.rgb *= (1.0 + h * uSparkleStrength);
         float sparkle = pow(wave, 8.0) * 0.25;
         c.rgb += sparkle;
 
