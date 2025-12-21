@@ -94,7 +94,7 @@ void SceneCaptureComponent::Update(float deltaTime)
     // updateHz ベースの間引き更新
     const float interval = 1.0f / mDesc.updateHz;
     mAcc += deltaTime;
-    if (mAcc >= interval)
+//    if (mAcc >= interval)
     {
         mAcc = 0.0f;
         Capture();

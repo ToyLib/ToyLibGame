@@ -65,6 +65,15 @@ struct SceneCaptureRequest
 };
 
 //==============================================================================
+// デバッグ用の情報
+//==============================================================================
+struct DebugInfo
+{
+    unsigned int drawObjectCount = 0;
+    unsigned int drawCallCount   = 0;
+};
+
+//==============================================================================
 // Renderer
 //==============================================================================
 class Renderer
@@ -110,11 +119,13 @@ public:
     void SetDebugWireVisible(bool b) { mIsDebugWireVisible = b; }
     bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
 
-    void AddDrawCall() { ++mDrawCallCount; }
-    unsigned int GetDrawCallCount() const { return mDrawCallCount; }
+    void AddDrawCall() { ++mDebugActiveScreen->drawCallCount; }
+    unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
+    unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
 
-    void AddDrawObject() { ++mDrawObjectCount; }
-    unsigned int GetDrawObjectCount() const { return mDrawObjectCount; }
+    void AddDrawObject() { ++mDebugActiveScreen->drawObjectCount; }
+    unsigned int GetDrawObjectCount() const { return mDebugRTT.drawObjectCount; }
+    unsigned int GetDrawRTTObjectCount() const { return mDebugRTT.drawObjectCount; }
 
     //--------------------------------------------------------------------------
     // カメラ / ビュー
@@ -287,8 +298,14 @@ private:
     bool mIsDebugWireVisible = false;
     bool mIsDebugMode        = false;
 
-    unsigned int mDrawObjectCount = 0;
-    unsigned int mDrawCallCount   = 0;
+    //unsigned int mDrawObjectCount = 0;
+    //unsigned int mDrawCallCount   = 0;
+    DebugInfo mDebugOnScreen;
+    DebugInfo mDebugRTT;
+    DebugInfo* mDebugActiveScreen = &mDebugOnScreen;
+    void ChangeDebugOnScreen() { mDebugActiveScreen = &mDebugOnScreen; }
+    void ChangeDebugRTT() { mDebugActiveScreen = &mDebugRTT; }
+    void ResetDebugCounter() { mDebugOnScreen = mDebugRTT = {}; }
 
     //--------------------------------------------------------------------------
     // ライティング / シャドウ

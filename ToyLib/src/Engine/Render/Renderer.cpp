@@ -87,8 +87,8 @@ Renderer::Renderer()
     , mWindow(nullptr)
     , mGLContext(nullptr)
     , mShaderPath("ToyLib/Shaders/")
-    , mDrawObjectCount(0)
-    , mDrawCallCount(0)
+//    , mDrawObjectCount(0)
+//    , mDrawCallCount(0)
     , mSkyDomeComp(nullptr)
     , mLightSpaceMatrix(Matrix4::Identity)
     , mWindowDisplayScale(1.0f)
@@ -247,10 +247,12 @@ void Renderer::Shutdown()
 void Renderer::Draw()
 {
     // Debug 用カウンタリセット
-    mDrawCallCount   = 0;
-    mDrawObjectCount = 0;
+    ResetDebugCounter();
 
+    ChangeDebugRTT();
     FlushSceneCaptures();
+
+    ChangeDebugOnScreen();
     DrawPass(true);
     // バッファ入れ替え
     SDL_GL_SwapWindow(mWindow);

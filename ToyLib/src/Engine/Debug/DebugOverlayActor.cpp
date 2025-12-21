@@ -81,8 +81,10 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     text += StringUtil::Format("Colliders  : <<\n",     stats.ColliderCount);
     text += StringUtil::Format("DrawObjects: <<\n",     stats.DrawObjectCount);
     text += StringUtil::Format("DrawCalls  : <<\n",     stats.DrawCallCount);
+    text += StringUtil::Format("RTTObjects : <<\n",     stats.OffDrawObjectCount);
+    text += StringUtil::Format("RTTCalls   : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("PhysTime   : << ms\n",  stats.PhysicsTimeMs);
-    text += StringUtil::Format("RenderTime : << ms\n",  stats.RenderTimeMs);
+    text += StringUtil::Format("RenderTime : << ms",    stats.RenderTimeMs);
 
     mTextComp->SetText(text);
     

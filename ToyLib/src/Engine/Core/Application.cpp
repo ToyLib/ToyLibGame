@@ -485,11 +485,13 @@ void Application::UpdateFrame()
     stats.FrameTimeMs = deltaTime * 1000.0f;
     stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 
-    stats.ActorCount      = static_cast<int>(mActors.size());
-    stats.ColliderCount   = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
-    stats.DrawCallCount   = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
-    stats.DrawObjectCount = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
-    
+    stats.ActorCount         = static_cast<int>(mActors.size());
+    stats.ColliderCount      = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
+    stats.DrawCallCount      = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
+    stats.DrawObjectCount    = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
+    stats.OffDrawCallCount   = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;
+    stats.OffDrawObjectCount = mRenderer  ? mRenderer->GetDrawRTTObjectCount() : 0;
+
 }
 
 
