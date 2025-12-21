@@ -37,7 +37,7 @@ public:
         AddActor(std::move(actor));
         return rawPtr;
     }
-
+    
     void DestroyActor(class Actor* actor);
     
     //-----------------------------------------
@@ -49,6 +49,8 @@ public:
     class SoundMixer*      GetSoundMixer()      const { return mSoundMixer.get(); }
     class InputSystem*     GetInputSystem()     const { return mInputSys.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }
+    
+    float GetTimeSconds() const { return SDL_GetTicks() * 0.001f; }
     
     //-----------------------------------------
     // ウィンドウ操作

@@ -104,6 +104,9 @@ void RenderSurfaceComponent::Draw()
     mShader->SetFloatUniform("uOpacity", mOpacity);
     mShader->SetVectorUniform("uTint",   mTint);
     
+    float gameTime = GetOwner()->GetApp()->GetTimeSconds();
+    mShader->SetFloatUniform("uTime", gameTime);
+    
     switch (mMode)
     {
         case SurfaceMode::Plain:

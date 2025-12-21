@@ -107,19 +107,20 @@ void main()
     {
         float t = uTime * uWaveSpeed;
 
-        float w1 = sin(uv.x * 25.0 + t) * 0.5 + 0.5;
-        float w2 = sin(uv.y * 18.0 - t * 1.2) * 0.5 + 0.5;
-        float wave = w1 * w2; // 0..1
-        
+        // 先に “ゆらゆら” で uv を動かす
         float swayX = sin(t * 0.7 + uv.y * 6.0) * (uSwayStrength * 0.6);
         float swayY = cos(t * 0.6 + uv.x * 5.0) * (uSwayStrength * 0.4);
         uv += vec2(swayX, swayY);
+
+        // sway 後の uv で波を作る（模様も一緒に漂う）
+        float w1 = sin(uv.x * 25.0 + t) * 0.5 + 0.5;
+        float w2 = sin(uv.y * 18.0 - t * 1.2) * 0.5 + 0.5;
+        float wave = w1 * w2; // 0..1
 
         vec2 duv = uv + vec2(wave - 0.5, (1.0 - wave) - 0.5) * uDistortStrength;
 
         vec4 c = texture(uSurfaceTex, duv);
 
-        // ちょいスペキュラ風（雑に）
         float sparkle = pow(wave, 8.0) * 0.25;
         c.rgb += sparkle;
 
