@@ -21,7 +21,7 @@
 // GL
 //------------------------------------------------------------------------------
 #include "glad/glad.h"
-#include <iostream>
+
 namespace toy {
 
 
@@ -147,11 +147,11 @@ void SceneCaptureComponent::BuildFixedView()
     // ToyLib の軸系想定：
     //   前方 = +Z, 上 = +Y（ただし視線は -Z を使う）
     Vector3 camPos = world.GetTranslation();
-    const Vector3 camFwd = -1.0f * world.GetZAxis(); // -Z が前
+    const Vector3 camFwd = world.GetZAxis();
     const Vector3 camUp  = world.GetYAxis();
 
-    camPos = camPos - camFwd * 10.0f;
-    const Vector3 target = camPos + camFwd * 100.0f;
+//    camPos = camPos - camFwd * 10.0f;
+    const Vector3 target = camPos - camFwd * 100.0f;
 
     mView = Matrix4::CreateLookAt(camPos, target, camUp);
     //----------------------------------------------------------------------
@@ -232,7 +232,7 @@ void SceneCaptureComponent::BuildMirrorView()
     // ToyLibのQuadはローカル [-0.5..0.5] の 1x1。
     // WorldTransform の X/Y 軸ベクトル長が、そのまま「ワールド上の幅/高さ」になってる想定。
     float actorScale = GetOwner()->GetScale();
-    const float mirrorWsize = mirrorW.GetXAxis().Length() * mSurfaceInfo.scWidth * actorScale; // 幅（ワールド）
+    //const float mirrorWsize = mirrorW.GetXAxis().Length() * mSurfaceInfo.scWidth * actorScale; // 幅（ワールド）
     const float mirrorHsize = mirrorW.GetYAxis().Length() * mSurfaceInfo.scHeight * actorScale;; // 高さ（ワールド）
 
     // 記事は 1つの Size を使ってたので、まずは「高さ」を基準に縦FOVを作るのが自然
