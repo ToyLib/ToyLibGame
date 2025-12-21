@@ -19,6 +19,16 @@ enum class CaptureMode
 };
 
 //==============================================================================
+// レンダリング先のサーフェス情報
+//==============================================================================
+struct SurfaceInfo
+{
+    float scWidth     = 1.0f;    // スクリーン上にスケールされる実サイズ
+    float scHeight    = 1.0f;
+};
+
+
+//==============================================================================
 // SceneCaptureComponent
 //------------------------------------------------------------------------------
 // ・指定した View/Proj で RenderTarget に描画するキャプチャ用コンポーネント
@@ -70,6 +80,8 @@ public:
     void SetViewProj(const Matrix4& view, const Matrix4& proj);
     
     void SetCaptureMode(const CaptureMode mode) { mCaptureMode = mode; }
+    
+    void SetSurfaceInfo(const SurfaceInfo info) { mSurfaceInfo = info; }
 
 private:
     //--------------------------------------------------------------------------
@@ -95,6 +107,8 @@ private:
     float mAcc;
     
     CaptureMode mCaptureMode;
+    
+    SurfaceInfo mSurfaceInfo;
 };
 
 } // namespace toy

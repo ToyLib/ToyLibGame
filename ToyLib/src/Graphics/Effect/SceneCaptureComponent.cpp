@@ -21,7 +21,7 @@
 // GL
 //------------------------------------------------------------------------------
 #include "glad/glad.h"
-
+#include <iostream>
 namespace toy {
 
 
@@ -120,17 +120,10 @@ void SceneCaptureComponent::Capture()
     {
         BuildMirrorView();
     }
-    //----------------------------------------------------------------------
-    // Projection
-    //----------------------------------------------------------------------
-    mProj = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(mDesc.fov),
-        mDesc.width,
-        mDesc.height,
-        0.1f,
-        1000.0f
-    );
 
+
+    
+    
     //----------------------------------------------------------------------
     // Renderへリクエスト
     //----------------------------------------------------------------------
@@ -161,7 +154,16 @@ void SceneCaptureComponent::BuildFixedView()
     const Vector3 target = camPos + camFwd * 100.0f;
 
     mView = Matrix4::CreateLookAt(camPos, target, camUp);
-
+    //----------------------------------------------------------------------
+    // Projection
+    //----------------------------------------------------------------------
+    mProj = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mDesc.fov),
+        mDesc.width,
+        mDesc.height,
+        0.1f,
+        1000.0f
+    );
 
 }
 //------------------------------------------------------------------------------
@@ -169,67 +171,93 @@ void SceneCaptureComponent::BuildFixedView()
 // ・メインカメラを鏡平面で反射した View 行列を mView に設定する
 // ・「鏡に映る世界」を作るための仮想カメラ
 //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+// SceneCaptureComponent::BuildMirrorView
+// Qiita 記事の式ベースで「鏡に映る世界」の View を作る
+// ・mView を更新する（Projection/FOV/near は Capture() 側で反映）
+//------------------------------------------------------------------------------
 void SceneCaptureComponent::BuildMirrorView()
 {
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
-    auto mainInvView = renderer->GetInvViewMatrix();
-    auto mirrorWorld = GetOwner()->GetWorldTransform();
-    
-    // ------------------------------------------------------------
-    // 1) メインカメラ（ワールド）の基底を取り出す
-    //    ToyLib: viewは -Z を前として使ってるので forward = -ZAxis
-    // ------------------------------------------------------------
-    const Vector3 mainPos = mainInvView.GetTranslation();
-    const Vector3 mainFwd = mainInvView.GetZAxis(); // カメラ前方
-    const Vector3 mainUp  = mainInvView.GetYAxis();
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer) return;
 
-    // ------------------------------------------------------------
-    // 2) 鏡平面（ワールド）
-    //    鏡面の中心 = mirrorWorld の平行移動
-    //    法線 N は「鏡の表（反射面）」方向にしたい
-    //    ※ここが逆だと “向きが違う” になりやすい
-    // ------------------------------------------------------------
-    const Vector3 mirrorPos = mirrorWorld.GetTranslation();
+    //========================
+    // 0) 取得
+    //========================
+    const Matrix4 mainInvView = renderer->GetInvViewMatrix();
+    const Matrix4 mirrorW     = GetOwner()->GetWorldTransform();
 
-    // 鏡の“表”の法線をまず仮定（あなたの板ポリの前が +Z ならこれ）
-    Vector3 N = mirrorWorld.GetZAxis(); // まず +Z を法線とみなす
+    const Vector3 mainPos   = mainInvView.GetTranslation();  // メインカメラ位置（ワールド）
+    const Vector3 mirrorPos = mirrorW.GetTranslation();      // 鏡中心（ワールド）
+
+    //========================
+    // 1) 鏡面法線 N（ワールド）
+    //========================
+    // 板ポリの「表」が +Z なら、ワールド法線は +ZAxis。
+    // （Actor を X軸90度回して水面にしても、ワールドZ軸は回転後の法線になる）
+    Vector3 N = mirrorW.GetZAxis();
     N.Normalize();
 
-    // ★重要：N が必ず “メインカメラ側” を向くように反転チェック
-    // カメラが鏡の表側にいるなら dot(mainPos - mirrorPos, N) > 0 になるのが自然
-    if (Vector3::Dot(mainPos - mirrorPos, N) < 0.0f)
-    {
-        N = -1.0f * N;
-    }
+    //========================
+    // 2) 反射カメラ位置（面対称）
+    //   P' = P - 2 * dot(P - mirrorPos, N) * N
+    //========================
+    const float d = Vector3::Dot(mainPos - mirrorPos, N);
+    const Vector3 reflPos = mainPos - 2.0f * d * N;
 
-    // ------------------------------------------------------------
-    // 3) 平面反射（位置）
-    //    P' = P - 2 * dot(P - mirrorPos, N) * N
-    // ------------------------------------------------------------
-    const float dist = Vector3::Dot(mainPos - mirrorPos, N);
-    const Vector3 reflPos = mainPos - 2.0f * dist * N;
+    //========================
+    // 3) 反射カメラの向き：鏡中心へ LookAt
+    //========================
+    // Up は「鏡の上方向」を使うのが安定（記事は LookAt だけ）
+    Vector3 up = mirrorW.GetYAxis();
+    up.Normalize();
 
-    // ------------------------------------------------------------
-    // 4) 平面反射（向き）
-    //    v' = v - 2 * dot(v, N) * N
-    // ------------------------------------------------------------
-    auto ReflectVec = [](const Vector3& v, const Vector3& n) -> Vector3
-    {
-        return v - 2.0f * Vector3::Dot(v, n) * n;
-    };
+    mView = Matrix4::CreateLookAt(reflPos, mirrorPos, up);
 
-    Vector3 reflFwd = ReflectVec(mainFwd, N);
-    Vector3 reflUp  = ReflectVec(mainUp,  N);
+    //========================
+    // 4) distance（記事の distance）
+    //   distance = |mirrorPos - reflPos|
+    //========================
+    const float distance = (mirrorPos - reflPos).Length();
 
-    reflFwd.Normalize();
-    reflUp.Normalize();
+    //========================
+    // 5) near（記事の nearClipPlane = distance * 0.9）
+    //========================
+    float nearZ = distance * 0.9f;
+    nearZ = (nearZ > 0.01f) ? nearZ : 0.01f;
 
-    // ------------------------------------------------------------
-    // 5) LookAt（反射カメラ）
-    // ------------------------------------------------------------
-    const Vector3 target = reflPos + reflFwd * 100.0f;
-    mView =  Matrix4::CreateLookAt(reflPos, target, reflUp);
+    //========================
+    // 6) 鏡面サイズ Size（記事の Size）
+    //========================
+    // ToyLibのQuadはローカル [-0.5..0.5] の 1x1。
+    // WorldTransform の X/Y 軸ベクトル長が、そのまま「ワールド上の幅/高さ」になってる想定。
+    float actorScale = GetOwner()->GetScale();
+    const float mirrorWsize = mirrorW.GetXAxis().Length() * mSurfaceInfo.scWidth * actorScale; // 幅（ワールド）
+    const float mirrorHsize = mirrorW.GetYAxis().Length() * mSurfaceInfo.scHeight * actorScale;; // 高さ（ワールド）
 
+    // 記事は 1つの Size を使ってたので、まずは「高さ」を基準に縦FOVを作るのが自然
+    // （横FOVは aspect で決まる）
+    const float sizeY = (mirrorHsize > 1e-4f) ? mirrorHsize : 1e-4f;
 
+    //========================
+    // 7) FOV（記事の式）
+    //   fov = 2 * atan( Size / (2*distance) )
+    //========================
+    float fovRad = 2.0f * std::atan( sizeY / (2.0f * (distance > 1e-4f ? distance : 1e-4f)) );
+    float fovDeg = Math::ToDegrees(fovRad);
+
+    //========================
+    // 8) Projection（ここで作る）
+    //========================
+    // 既存の mDesc.width/height を使って aspect を合わせる
+    const float farZ = 1000.0f; // 必要なら desc に持たせてOK
+    mProj = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(fovDeg),
+        mDesc.width,
+        mDesc.height,
+        nearZ,
+        farZ
+    );
 }
+
 } // namespace toy
