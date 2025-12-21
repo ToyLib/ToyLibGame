@@ -124,7 +124,7 @@ public:
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
 
     void AddDrawObject() { ++mDebugActiveScreen->drawObjectCount; }
-    unsigned int GetDrawObjectCount() const { return mDebugRTT.drawObjectCount; }
+    unsigned int GetDrawObjectCount() const { return mDebugOnScreen.drawObjectCount; }
     unsigned int GetDrawRTTObjectCount() const { return mDebugRTT.drawObjectCount; }
 
     //--------------------------------------------------------------------------
