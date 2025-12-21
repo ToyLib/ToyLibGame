@@ -61,13 +61,13 @@ void OutdoorStage::InitStage()
     Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(30.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=640, .height=384 });
-    capture->SetCaptureMode(toy::CaptureMode::Mirror);
+    capture->Init({.width=640, .height=385 });
+    capture->SetCaptureMode(toy::CaptureMode::Fixed);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
     mirrorComp->SetTexture(capture->GetColorTexture());
     mirrorComp->SetScale(16.0f, 9.0f);
-    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Water);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
     
  
     // 時間の設定
@@ -303,5 +303,5 @@ void OutdoorStage::DeploySky()
     mWeather = std::make_unique<toy::kit::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLOUDY);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }
