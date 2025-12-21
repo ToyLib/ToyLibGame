@@ -56,18 +56,18 @@ void OutdoorStage::InitStage()
     
     // 鏡を出す
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
-    mirrorActor->SetPosition(Vector3(0.0f, -2.3f, 0.0f));
+    mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
     mirrorActor->SetScale(1.0f);
     Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(90.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=640, .height=385 });
+    capture->Init({.width=512, .height=512 });
     capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
     mirrorComp->SetTexture(capture->GetColorTexture());
-    mirrorComp->SetScale(16.0f, 9.0f);
-    capture->SetSurfaceInfo({ .scWidth=16.9, .scHeight=9.0f} );
+    mirrorComp->SetScale(10.0f, 10.0f);
+    capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
     mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
     
  
