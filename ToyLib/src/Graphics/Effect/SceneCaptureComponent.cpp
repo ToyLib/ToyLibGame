@@ -223,7 +223,7 @@ void SceneCaptureComponent::BuildMirrorView()
     //========================
     // 5) near（記事の nearClipPlane = distance * 0.9）
     //========================
-    float nearZ = distance * 0.9f;
+    float nearZ = distance * 0.95f;
     nearZ = (nearZ > 0.01f) ? nearZ : 0.01f;
 
     //========================

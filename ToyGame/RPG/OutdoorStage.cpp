@@ -23,13 +23,13 @@ void OutdoorStage::InitStage()
     {
         for (int j = 0; j < 5; ++j)
         {
-            DeployBrick(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2), true);
+            DeployIsland(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
         }
     }
 
     for (int i = 0; i < 5; ++i)
     {
-        DeployBrick(Vector3(0, 1+i*5, -50 + i*5), true);
+        DeployBrick(Vector3(0, 1+i*5, -50 + i*5));
 
     }
 
@@ -85,7 +85,7 @@ void OutdoorStage::Update(float deltaTime)
     }
 }
 
-void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
+void OutdoorStage::DeployBrick(const Vector3& pos)
 {
     auto actor = mApp->CreateActor<toy::Actor>();
     actor->SetPosition(pos);
@@ -98,14 +98,25 @@ void OutdoorStage::DeployBrick(const Vector3& pos, bool bWall)
     auto coll = actor->CreateComponent<toy::ColliderComponent>();
     coll->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
     
-    if (bWall)
-    {
-        coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
-    }
-    else
-    {
-        coll->SetFlags(toy::C_GROUND);
-    }
+    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+
+}
+
+void OutdoorStage::DeployIsland(const Vector3& pos)
+{
+    auto actor = mApp->CreateActor<toy::Actor>();
+    actor->SetPosition(pos);
+    actor->SetScale(0.05f);
+    
+    auto mesh = actor->CreateComponent<toy::MeshComponent>();
+    mesh->SetMesh(mApp->GetAssetManager()->GetMesh("island.x"));
+    
+
+    auto coll = actor->CreateComponent<toy::ColliderComponent>();
+    coll->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("island.x")->GetVertexArray());
+    
+    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+
 }
 
 void OutdoorStage::DeployHouse(const Vector3& pos)

@@ -15,7 +15,8 @@ private:
     toy::Application* mApp;
     std::unique_ptr<class toy::kit::WeatherManager> mWeather;
     
-    void DeployBrick(const Vector3& pos, bool bWall = false);
+    void DeployBrick(const Vector3& pos);
+    void DeployIsland(const Vector3& pos);
     void DeployHouse(const Vector3& pos);
     void DeployFire(const Vector3& pos);
     
