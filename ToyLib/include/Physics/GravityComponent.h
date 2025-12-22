@@ -66,6 +66,8 @@ public:
     //--------------------------------------------------------------------------
     bool  IsGrounded() const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
+    
+    const ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
 
 private:
     // サブステップ1回分の重力・接地処理
@@ -107,6 +109,9 @@ private:
     float mMaxStepUp      = 0.35f;
     float mMaxStepDown    = 0.75f;
     float mPenetrationEps = 0.05f;
+    
+    const ColliderComponent* mGroundCollider = nullptr;  // 今乗ってる C_GROUND
+    Vector3 mPrevGroundPos = Vector3::Zero;        // 前回の床位置（ワールド）
 };
 
 } // namespace toy

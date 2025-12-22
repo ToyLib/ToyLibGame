@@ -98,31 +98,68 @@ void MoveComponent::Reset()
 //------------------------------------------------------------------------------
 bool MoveComponent::TryMoveWithRayCheck(const Vector3& moveVec, float deltaTime)
 {
-    // オーナーが無い or そもそも移動不可なら何もしない
     if (!GetOwner() || !mIsMovable) return false;
 
-    // Ray のスタート／ゴール
-    Vector3 start = GetOwner()->GetPosition();
-    Vector3 goal  = start + moveVec * deltaTime;
+    Actor* owner = GetOwner();
+    PhysWorld* phys = owner->GetApp()->GetPhysWorld();
 
-    Vector3 stopPos;
-    // 壁との Ray 判定
-    if (GetOwner()->GetApp()->GetPhysWorld()->RayHitWall(start, goal, stopPos))
+    const Vector3 start = owner->GetPosition();
+    const Vector3 goal  = start + moveVec * deltaTime;
+
+    // ほぼ無移動なら終わり
+    if ((goal - start).LengthSq() < Math::NearZeroEpsilon)
     {
-        // 壁に当たった場合は、衝突直前まで移動
-        GetOwner()->SetPosition(stopPos);
-    }
-    else
-    {
-        // 何も無ければそのままゴールへ
-        GetOwner()->SetPosition(goal);
+        return true;
     }
 
-    // 念のための押し戻し（MTV での補正）
-    // C_PLAYER vs C_WALL：pushBack=true, callback=false
-    GetOwner()->GetApp()->GetPhysWorld()->CollideAndCallback(C_PLAYER, C_WALL, true, false);
+    //========================================================
+    // ★壁チェックRayを複数高さで撃つ（低い壁/床際の壁対策）
+    //========================================================
+    // キャラの当たりの高さ感に合わせて調整（まずはこの2本でOK）
+    const float kRayLow  = 0.15f;  // 足元より少し上（床の側面を拾いすぎない程度）
+    const float kRayMid  = 0.60f;  // 腰〜胸
+
+    Vector3 bestStop = goal;
+    bool hitAny = false;
+
+    auto CastAtHeight = [&](float h) -> void
+    {
+        Vector3 s = start; s.y += h;
+        Vector3 g = goal;  g.y += h;
+
+        Vector3 stop;
+        if (phys->RayHitWall(s, g, stop))
+        {
+            // このRayの結果を水平面に戻す
+            stop.y = goal.y;
+
+            // より手前（startに近い）を採用
+            const float curDistSq  = (bestStop - start).LengthSq();
+            const float newDistSq  = (stop    - start).LengthSq();
+            if (!hitAny || newDistSq < curDistSq)
+            {
+                bestStop = stop;
+            }
+            hitAny = true;
+        }
+    };
+
+    CastAtHeight(kRayMid);
+    CastAtHeight(kRayLow);
+
+    owner->SetPosition(hitAny ? bestStop : goal);
+
+    //========================================================
+    // ★MTV押し戻しは“最後の保険”として弱めに一回だけ
+    //   （床がWALL兼用だと詰まりやすいので、押し戻し量が大きい時だけにする）
+    //========================================================
+    const Vector3 before = owner->GetPosition();
+    phys->CollideAndCallback(C_PLAYER, C_WALL, true, false);
+    const Vector3 after = owner->GetPosition();
+
+    // 押し戻しが大きすぎる（=床側面を壁扱いしてる）なら戻す、なども可能
+    // まずはログで after-before を見て判断してもOK
 
     return true;
 }
-
 } // namespace toy

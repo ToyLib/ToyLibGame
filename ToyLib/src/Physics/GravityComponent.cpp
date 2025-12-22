@@ -27,7 +27,9 @@ GravityComponent::GravityComponent(Actor* a)
     , mPenetrationEps(0.05f)
     , mEnableGroundPose(false)
     , mIsGrounded(false)
-    , mSelfFlag(C_PLAYER) // ★ 汎用化したいなら外から設定できるようにする
+    , mSelfFlag(C_PLAYER)
+    , mGroundCollider(nullptr)
+    , mPrevGroundPos(Vector3::Zero)
 {
 }
 
@@ -57,21 +59,7 @@ void GravityComponent::Update(float deltaTime)
 
     ApplyCeilingClamp(GetOwner());
 
-/*    // 壁めり込み保険（水平押し戻し）
-    if (auto* phys = GetOwner()->GetApp()->GetPhysWorld())
-    {
-        Vector3 wallPush = Vector3::Zero;
 
-        if (phys->ResolveWallPenetration(GetOwner(), mSelfFlag, C_WALL, wallPush))
-        {
-            // ResolveWallPenetration 内で一時的に位置を動かしているので、
-            // ここで戻したい派なら「outPushを返すだけ」にして適用は外側に寄せてもOK。
-            // ただ、今の実装は“保険優先”で内側で更新する方式。
-            (void)wallPush;
-        }
-    }
-    ApplyGroundDepenetration(GetOwner(), foot);
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -94,16 +82,55 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         mVelocityY = mMaxFallSpeed;
     }
 
-    // 足元（C_FOOT の AABB.min.y）で地面との距離を見る
-    const float footY     = foot->GetBoundingVolume()->GetWorldAABB().min.y;
-    const float nextFootY = footY + mVelocityY * deltaTime;
-
     // 真下方向の地面（Collider床 + Terrain の「最も高い地面」）
     GroundHit hit;
     const bool hasGround = phys->GetNearestGroundHit(owner, hit);
 
-    // 下向きのときだけ接地（スナップ）判定
-    if (hasGround && mVelocityY <= 0.0f)
+    // 足元（C_FOOT の AABB.min.y）で地面との距離を見る
+    float footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
+
+    //============================================================
+    // ★ 床追従（同じ床に乗っている間は、床の移動Δに追従）
+    //   - 上昇床（エレベータ）対策：Yも含めて追従してOK
+    //   - 追従後は footY を取り直す
+    //============================================================
+    if (hasGround &&
+        mIsGrounded &&
+        hit.source == GroundSource::Collider &&
+        hit.collider &&
+        hit.collider->HasFlag(C_GROUND) &&
+        hit.collider == mGroundCollider)
+    {
+        // ※親子があるなら GetWorldPosition() 相当に置き換え推奨
+        const Vector3 groundPos = hit.collider->GetOwner()->GetPosition();
+        const Vector3 deltaG    = groundPos - mPrevGroundPos;
+
+        pos += deltaG;
+        owner->SetPosition(pos);
+
+        mPrevGroundPos = groundPos;
+
+        // 追従で足位置が変わるので取り直す
+        footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
+    }
+
+    // 予測足位置（自分のY速度による次フレーム）
+    const float nextFootY = footY + mVelocityY * deltaTime;
+
+    //============================================================
+    // ★ 接地（スナップ）判定
+    //   - 通常：落下中(mVelocityY<=0)だけ
+    //   - 例外：同じ床に“乗り続けている”間は上昇中でも許可（上昇床対策）
+    //============================================================
+    const bool allowSnap =
+        (mVelocityY <= 0.0f) ||
+        (mIsGrounded &&
+         hasGround &&
+         hit.source == GroundSource::Collider &&
+         hit.collider &&
+         hit.collider == mGroundCollider);
+
+    if (hasGround && allowSnap)
     {
         const float groundY = hit.y;
 
@@ -121,10 +148,42 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
         if (canSnap)
         {
-            // Actor原点 → 足元までのオフセットを維持して、足元を groundY に合わせる
-            const float offset = pos.y - footY;
-            pos.y = groundY + offset + 0.001f; // ほんの少し浮かせて誤差めり込み対策
-            owner->SetPosition(pos);
+            //--------------------------------------------------------
+            // 床の“乗り換え”検出（初回だけ prev を同期）
+            //--------------------------------------------------------
+            if (hit.source == GroundSource::Collider &&
+                hit.collider &&
+                hit.collider->HasFlag(C_GROUND))
+            {
+                const Vector3 groundPos = hit.collider->GetOwner()->GetPosition();
+
+                if (hit.collider != mGroundCollider)
+                {
+                    mGroundCollider = hit.collider;
+                    mPrevGroundPos  = groundPos;
+                }
+                else
+                {
+                    // 同じ床なら prev は床追従部で更新済みのはずだが、
+                    // 念のため同期しておく（差分ゼロになってもOK）
+                    mPrevGroundPos = groundPos;
+                }
+            }
+            else
+            {
+                mGroundCollider = nullptr;
+            }
+
+            //--------------------------------------------------------
+            // ★ Yだけスナップ（XZは保持して歩行を潰さない）
+            //--------------------------------------------------------
+            // 追従や他処理で足位置が変わっている可能性があるので再取得
+            footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
+
+            Vector3 cur = owner->GetPosition();
+            const float offsetY = cur.y - footY;
+            cur.y = groundY + offsetY + 0.001f;
+            owner->SetPosition(cur);
 
             mVelocityY  = 0.0f;
             mIsGrounded = true;
@@ -137,17 +196,17 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         }
     }
 
-    // 今回は接地しなかった
+    //============================================================
+    // 接地しなかった（空中）
+    //============================================================
     mIsGrounded = false;
+    mGroundCollider = nullptr;
 
-    // 2) 自由落下
+    // 自由落下（Yのみ）
+    pos = owner->GetPosition();
     pos.y += mVelocityY * deltaTime;
     owner->SetPosition(pos);
-
-    // 空中時に姿勢を戻したいならここで Identity へ補間してもOK（任意）
-    // if (mEnableGroundPose) { ApplyAirPoseReturn(owner, dt); }
 }
-
 //------------------------------------------------------------------------------
 // ApplyCeilingClamp
 //------------------------------------------------------------------------------

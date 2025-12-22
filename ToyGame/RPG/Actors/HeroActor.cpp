@@ -53,6 +53,12 @@ HeroActor::HeroActor(toy::Application* a)
     mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER);
     mCollComp->SetEnabled(true);
 
+    
+    
+    // --- 重力コンポーネント ---
+    mGravComp = CreateComponent<toy::GravityComponent>();
+    mGravComp->SetEnableGroundPose(false);
+    
     // --- 移動コンポーネント ---
     //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
     mMoveComp = CreateComponent<toy::DirMoveComponent>();
@@ -63,8 +69,7 @@ HeroActor::HeroActor(toy::Application* a)
     mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
     
 
-    mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
+
     
     
     mSound = CreateComponent<toy::SoundComponent>();

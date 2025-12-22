@@ -1,4 +1,6 @@
 #include "OutdoorStage.h"
+#include "Actors/IslandActor.h"
+
 
 OutdoorStage::OutdoorStage(toy::Application* app)
 : mApp(app)
@@ -36,6 +38,7 @@ void OutdoorStage::InitStage()
 
     DeployHouse(Vector3(-60, 0, 15));
 
+    auto islandActor = mApp->CreateActor<IslandActor>();
     
     // 木（ビルボード）
     auto treeActor = mApp->CreateActor<toy::Actor>();

@@ -111,7 +111,10 @@ public:
     bool RayHitWall(const Vector3& start,
                     const Vector3& end,
                     Vector3& hitPos) const;
-
+    bool RayHitWall(const Actor* mover,
+                    const Vector3& start,
+                    const Vector3& end,
+                    Vector3& hitPos) const;
     // Ray vs OBB の交差判定（t を返す）
     //  - outT は ray.start + ray.dir * outT の t 値
     bool IntersectRayOBB(const Ray& ray,

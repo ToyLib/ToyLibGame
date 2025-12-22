@@ -459,14 +459,31 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 
         const Cube other = c->GetBoundingVolume()->GetWorldAABB();
 
+        //========================================================
+        // ★床の端で「1フレーム粘る」対策：
+        //   足AABBを少し縮めて xzOverlap を判定する
+        //========================================================
+        const float kGroundEdgeEps = 0.08f; // 0.03〜0.15 目安（まず 0.08）
         const bool xzOverlap =
-            (box.max.x > other.min.x) && (box.min.x < other.max.x) &&
-            (box.max.z > other.min.z) && (box.min.z < other.max.z);
+            (box.max.x - kGroundEdgeEps > other.min.x) && (box.min.x + kGroundEdgeEps < other.max.x) &&
+            (box.max.z - kGroundEdgeEps > other.min.z) && (box.min.z + kGroundEdgeEps < other.max.z);
 
-        const float yGap = footY - other.max.y;
+        if (!xzOverlap)
+        {
+            continue;
+        }
 
-        // “足より下にある床”だけ候補（yGap > 0）
-        if (xzOverlap && (yGap > 0.0f) && (other.max.y > highest))
+        //========================================================
+        // ★床候補の“上面”は「足元より少し上まで」しか許さない
+        //========================================================
+        const float kFootAllowance = 0.25f;   // 既に値があるならそれを使う
+        if (other.max.y > footY + kFootAllowance)
+        {
+            continue;
+        }
+
+        // 「足より下〜少し上」だけに絞った上で、最も高いものを採用
+        if (other.max.y > highest)
         {
             highest = other.max.y;
             found = true;
@@ -474,12 +491,11 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
             bestSource = GroundSource::Collider;
             bestCol = c;
 
-            // 足AABBの中心XZに合わせる（床の高さだけ欲しい用途）
             bestPos = Vector3((box.min.x + box.max.x) * 0.5f,
                               highest,
                               (box.min.z + box.max.z) * 0.5f);
 
-            bestNormal = Vector3::UnitY; // コライダー床は上向き固定
+            bestNormal = Vector3::UnitY;
         }
     }
 
@@ -518,7 +534,6 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 
     return true;
 }
-
 //=============================================================================
 // OBB / Sphere collision
 //=============================================================================
