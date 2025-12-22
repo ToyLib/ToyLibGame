@@ -3,7 +3,7 @@
 IslandActor::IslandActor(toy::Application* a)
 : Actor(a)
 , mSpeed(6.0f)
-, mPosY(1.0f)
+, mPosY(1.5f)
 , mPosZ(0.0f)
 , mLifeTime(0.0f)
 {
@@ -24,15 +24,15 @@ void IslandActor::UpdateActor(float deltaTime)
     {
         mPosY -= mSpeed * deltaTime;
     }
-    else if (mLifeTime < 4.0f)
+    else if (mLifeTime < 6.0f)
     {
         mPosZ += mSpeed * deltaTime;
     }
-    else if (mLifeTime < 6.0f)
+    else if (mLifeTime < 8.0f)
     {
         mPosY += mSpeed * deltaTime;
     }
-    else if (mLifeTime < 8.0f)
+    else if (mLifeTime < 12.0f)
     {
         mPosZ -= mSpeed * deltaTime;
     }
