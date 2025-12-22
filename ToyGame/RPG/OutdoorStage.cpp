@@ -25,13 +25,13 @@ void OutdoorStage::InitStage()
     {
         for (int j = 0; j < 5; ++j)
         {
-            DeployIsland(Vector3(-100 + 20*j/2 + 10*i*2, 20, -20 + 5*j*2));
+            DeployIsland(Vector3(-100 + 20*j/2 + 10*i*2, 20, 20 + 5*j*2));
         }
     }
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 6; ++i)
     {
-        DeployBrick(Vector3(0, 1+i*5, -50 + i*5));
+        DeployBrick(Vector3(0, -1+i*5, -15 + i*5));
 
     }
 
@@ -59,9 +59,9 @@ void OutdoorStage::InitStage()
     
     // 鏡を出す
     auto mirrorActor = mApp->CreateActor<toy::Actor>();
-    mirrorActor->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
     mirrorActor->SetScale(1.0f);
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(-20.0f));
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(90.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
     capture->Init({.width=512, .height=512 });

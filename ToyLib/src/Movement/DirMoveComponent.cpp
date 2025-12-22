@@ -14,6 +14,7 @@ DirMoveComponent::DirMoveComponent(class Actor* a, int order)
     : MoveComponent(a, order)
     , mSpeed(9.0f)                    // カメラ基準移動の基本速度
     , mPrevPosition(Vector3::Zero)   // 前フレームの位置
+    , mDidMoveByInput(false)
 {
 }
 
@@ -30,33 +31,38 @@ DirMoveComponent::~DirMoveComponent()
 //------------------------------------------------------------------------------
 void DirMoveComponent::Update(float deltaTime)
 {
-    // カメラ基準の forward / right ベクトルを取得
+    mDidMoveByInput = false;
+
     Vector3 forward = GetOwner()->GetApp()->GetRenderer()->GetInvViewMatrix().GetZAxis();
     Vector3 right   = GetOwner()->GetApp()->GetRenderer()->GetInvViewMatrix().GetXAxis();
 
-    // Y成分を無視して地面平面に投影
     forward.y = 0.0f;
     right.y   = 0.0f;
     forward.Normalize();
     right.Normalize();
 
-    // 入力速度を合成して移動方向を作成
+    // 入力速度（mForwardSpeed/mRightSpeed）は ProcessInput が入れてる前提
     Vector3 moveDir = forward * mForwardSpeed + right * mRightSpeed;
 
-    // ノイズ防止：十分に動く時だけ移動
     if (moveDir.LengthSq() > Math::NearZeroEpsilon)
     {
+        mDidMoveByInput = true;
+
         moveDir.Normalize();
+
+        // ★ここ注意：mForwardSpeed に mSpeed を掛けてるなら二重掛けになる
+        // その場合は (moveDir * mSpeed) ではなく (moveDir * 1.0f) を渡す
         TryMoveWithRayCheck(moveDir * mSpeed, deltaTime);
     }
 
-    // 実際に動いた方向へ回転させる
-    AdjustDir();
+    // ★入力で移動したフレームだけ向きを変える
+    if (mDidMoveByInput)
+    {
+        AdjustDir();
+    }
 
-    // 次フレーム用に位置を保存
     mPrevPosition = GetOwner()->GetPosition();
 }
-
 //------------------------------------------------------------------------------
 // ProcessInput
 //------------------------------------------------------------------------------

@@ -31,6 +31,9 @@ private:
 
     // 実際に動いた方向へ Actor を向ける
     void AdjustDir();
+    
+    // ユーザーインプットによる自発的な動きか
+    bool mDidMoveByInput;
 };
 
 } // namespace toy

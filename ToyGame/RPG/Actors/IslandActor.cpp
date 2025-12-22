@@ -2,8 +2,8 @@
 
 IslandActor::IslandActor(toy::Application* a)
 : Actor(a)
-, mSpeed(3.0f)
-, mPosY(0.0f)
+, mSpeed(6.0f)
+, mPosY(1.0f)
 , mPosZ(0.0f)
 , mLifeTime(0.0f)
 {

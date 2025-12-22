@@ -55,10 +55,7 @@ HeroActor::HeroActor(toy::Application* a)
 
     
     
-    // --- 重力コンポーネント ---
-    mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
-    
+
     // --- 移動コンポーネント ---
     //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
     mMoveComp = CreateComponent<toy::DirMoveComponent>();
@@ -68,7 +65,10 @@ HeroActor::HeroActor(toy::Application* a)
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
     mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
     
-
+    // --- 重力コンポーネント ---
+    mGravComp = CreateComponent<toy::GravityComponent>();
+    mGravComp->SetEnableGroundPose(false);
+    
 
     
     
