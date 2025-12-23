@@ -40,6 +40,9 @@ enum ColliderFlags : uint32_t
     C_GROUND      = 1u << 5,
     C_FOOT        = 1u << 6,
     C_CEILING     = 1u << 7,
+    
+    // センサー
+    C_SENSOR      = 1u << 8
 };
 ENABLE_BITMASK_OPERATORS(ColliderFlags)
 

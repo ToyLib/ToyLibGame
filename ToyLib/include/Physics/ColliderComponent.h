@@ -67,6 +67,9 @@ public:
     // レイを取得（レイコライダー用に派生クラスで override する）
     virtual Ray GetRay() const { return Ray(); }
     
+    void SetIsTrigger(bool b) { mIsTrigger = b; }
+    bool IsTrigger() const    { return mIsTrigger; }
+    
 private:
     // 少なくとも 1 つ以上のコライダーと当たっているか
     bool mIsCollided;
@@ -82,6 +85,9 @@ private:
     
     // このフレーム中に衝突した相手の一覧
     std::vector<ColliderComponent*> mTargetColliders;
+    
+    // Trigger当たっても反応しない
+    bool mIsTrigger;
 };
 
 } // namespace toy

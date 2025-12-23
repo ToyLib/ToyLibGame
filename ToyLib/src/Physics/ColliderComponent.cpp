@@ -19,7 +19,7 @@ ColliderComponent::ColliderComponent(Actor* a)
     , mFlags(C_NONE)
     , mIsCollided(false)
     , mEnabled(true)
-    //, targetType(C_NONE)
+    , mIsTrigger(false)
 {
     // 当たり判定形状（AABB/OBB/Polygon）を持つコンポーネントを自動生成
     mBoundingVolume = GetOwner()->CreateComponent<BoundingVolumeComponent>();

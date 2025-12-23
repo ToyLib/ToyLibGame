@@ -1220,6 +1220,7 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 
         Vector3 totalPush = Vector3::Zero;
         bool collided = false;
+        bool didPush = false; // ★追加
 
         for (auto* c2 : mColliders)
         {
@@ -1232,21 +1233,27 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
                 continue;
             }
 
-            // Sphere で早期判定 → OBB で精密判定
             if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
             {
                 c1->Collided(c2);
                 c2->Collided(c1);
                 collided = true;
 
-                if (doPushBack)
+                const bool doPush =
+                    doPushBack &&
+                    !c1->IsTrigger() &&
+                    !c2->IsTrigger();
+
+                if (doPush)
                 {
                     totalPush += ComputePushBackDirection(c1, c2, allowY);
+                    didPush = true; // 実際に押したか
                 }
             }
         }
 
-        if (collided && doPushBack)
+        // ★ doPushBack ではなく「実際に押したか」で判定
+        if (collided && didPush)
         {
             c1->GetOwner()->SetPosition(c1->GetOwner()->GetPosition() + totalPush);
 
