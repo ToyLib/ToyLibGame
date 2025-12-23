@@ -98,6 +98,7 @@ void HeroActor::ActorInput(const toy::InputState& state)
     bool inputAttack = false;
 
     auto animPlayer = mMeshComp->GetAnimPlayer();
+    animPlayer->SetPlayRate(1.5f);
 
     // --- 移動可能状態 ---
     if (mMovable)

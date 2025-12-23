@@ -62,13 +62,13 @@ float softVignette(vec2 uv)
 vec2 dreamyWarp(vec2 uv, float t, float strength)
 {
     // 1周波数だけ（ゆっくり）
-    float w = sin(t * 0.010 + uv.y * 0.06);
+    float w = sin(t * 0.003 + uv.y * 0.06);
 
     // 上方向に寄せた流れ（固定）
-    vec2 dir = vec2(0.25, 1.0);
+    vec2 dir = vec2(0.45, 1.0);
 
     // 振幅を小さめに（チラつきに効く）
-    uv += dir * w * (0.0012 * strength);
+    uv += dir * w * (0.0042 * strength);
     return uv;
 }
 
@@ -194,14 +194,14 @@ void main()
         c = pow(c, vec3(mix(1.0, 0.88, I)));
 
         // 彩度は少しだけ上げて「おとぎ感」
-        c = adjustSaturation(c, mix(1.0, 1.10, I));
+        c = adjustSaturation(c, mix(1.0, 1.15, I));
 
         // --------------------------------------------
         // 4) sky fog color (top only)
         // --------------------------------------------
         // ラベンダーの霧：上に寄せる
-        vec3 fogTint = vec3(0.95, 0.90, 1.00);      // lavender-ish
-        float fogAmt = (0.10 + 0.20 * sky) * I;     // 上ほど濃い（調整ポイント）
+        vec3 fogTint = vec3(0.85, 0.80, 0.90);      // lavender-ish
+        float fogAmt = (0.10 + 0.40 * sky) * I;     // 上ほど濃い（調整ポイント）
 
         // fog-ish lift (上の方だけ「霞む」)
         c = mix(c, fogTint, fogAmt);
@@ -232,7 +232,7 @@ void main()
         vec3 c = texture(uSceneTex, uv).rgb;
 
         // gentle “watercolor” shaping: slightly desaturate + lift
-        c = adjustSaturation(c, mix(1.0, 0.88, I));
+        c = adjustSaturation(c, mix(1.0, 0.95, I));
         c = pow(c, vec3(mix(1.0, 0.90, I)));      // soft bright
         c = clamp(c, 0.0, 1.0);
 
@@ -250,7 +250,7 @@ void main()
         }
 
         // apply paper grain softly
-        float grainStrength = 0.18 * I;
+        float grainStrength = 0.5 * I;
         c *= mix(1.0, p + 0.15, grainStrength);
 
         // a little edge softness by mixing tiny noise
