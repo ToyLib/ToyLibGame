@@ -17,7 +17,7 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Sepia;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 0.8f;
     effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
@@ -45,7 +45,7 @@ void OutdoorStage::InitStage()
 
     DeployHouse(Vector3(-60, 0, 15));
 
-    auto islandActor = mApp->CreateActor<IslandActor>();
+    mApp->CreateActor<IslandActor>();
     
     // 木（ビルボード）
     auto treeActor = mApp->CreateActor<toy::Actor>();
