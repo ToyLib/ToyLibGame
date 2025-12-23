@@ -1180,6 +1180,21 @@ void PhysWorld::RemoveCollider(ColliderComponent* c)
     }
 }
 
+void PhysWorld::GetCollidersByFlag(uint32_t flag,
+                                   std::vector<ColliderComponent*>& out) const
+{
+    for (auto* col : mColliders)
+    {
+        if (!col) continue;
+        if (!col->GetEnabled()) continue;
+
+        if (col->HasFlag(flag))
+        {
+            out.push_back(col);
+        }
+    }
+}
+
 //=============================================================================
 // Pair scan / callbacks
 //=============================================================================
@@ -1251,70 +1266,75 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 //------------------------------------------------------------------------------
 void PhysWorld::Test()
 {
-    // まず全コライダーのヒットバッファをクリア
+    // 0) まず全コライダーのヒットバッファをクリア
     for (auto* c : mColliders)
     {
         c->ClearCollidBuffer();
     }
 
-    // 通常の衝突（OBB + Sphere）
-    CollideAndCallback(C_PLAYER, C_ENEMY);
-    CollideAndCallback(C_PLAYER, C_BULLET);
-    CollideAndCallback(C_ENEMY,  C_WALL, true, false);
+    // 1) 移動キャラ vs 壁（押し戻し）
+    CollideAndCallback(C_PLAYER_TEAM, C_WALL, true, false);
+    CollideAndCallback(C_ENEMY_TEAM,  C_WALL, true, false);
 
-    //--------------------------------------------------------------------------
-    // Laser vs Enemy（Ray vs Mesh）
-    //--------------------------------------------------------------------------
-    for (auto* c1 : mColliders)
+    // 2) （任意）キャラ同士（押し戻しなし／必要なら true に）
+    CollideAndCallback(C_PLAYER_TEAM, C_ENEMY_TEAM);
+
+    //============================================================
+    // 3) Combat: HITBOX -> HURTBOX（所属が逆のものだけ）
+    //    - ここは “mask AND” が必要なので Test 内で手書き
+    //============================================================
+    auto HasAll = [](const ColliderComponent* c, uint32_t mask)
     {
-        if (!c1->HasFlag(C_LASER) || !c1->GetEnabled())
+        return c && c->GetEnabled() && ((c->GetFlags() & mask) == mask);
+    };
+
+    // Player攻撃 -> Enemy被弾
+    {
+        const uint32_t A = C_PLAYER_TEAM | C_HITBOX;
+        const uint32_t B = C_ENEMY_TEAM  | C_HURTBOX;
+
+        for (auto* c1 : mColliders)
         {
-            continue;
-        }
+            if (!HasAll(c1, A)) continue;
 
-        const Ray ray = c1->GetRay();
-
-        for (auto* c2 : mColliders)
-        {
-            if (c1 == c2)
+            for (auto* c2 : mColliders)
             {
-                continue;
-            }
-            if (!c2->HasFlag(C_ENEMY) || !c2->GetEnabled())
-            {
-                continue;
-            }
+                if (!HasAll(c2, B)) continue;
+                if (c1->GetOwner() == c2->GetOwner()) continue;
 
-            const auto& polygons = c2->GetBoundingVolume()->GetPolygons();
-
-            bool hit = false;
-            float closestT = Math::Infinity;
-            Vector3 hitPoint = Vector3::Zero;
-
-            for (size_t i = 0; i < polygons.size(); ++i)
-            {
-                const auto& poly = polygons[i];
-
-                float t;
-                if (IntersectRayTriangle(ray, poly.a, poly.b, poly.c, t))
+                if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
                 {
-                    if (t < closestT)
-                    {
-                        closestT = t;
-                        hit = true;
-                        hitPoint = ray.start + ray.dir * t;
-                    }
+                    c1->Collided(c2);
+                    c2->Collided(c1);
                 }
-            }
-
-            if (hit)
-            {
-                c1->Collided(c2);
-                c2->Collided(c1);
-                (void)hitPoint; // エフェクト等に使うならここで利用
             }
         }
     }
+
+    // Enemy攻撃 -> Player被弾（必要になったらON）
+    /*
+    {
+        const uint32_t A = C_ENEMY_TEAM  | C_HITBOX;
+        const uint32_t B = C_PLAYER_TEAM | C_HURTBOX;
+
+        for (auto* c1 : mColliders)
+        {
+            if (!HasAll(c1, A)) continue;
+
+            for (auto* c2 : mColliders)
+            {
+                if (!HasAll(c2, B)) continue;
+                if (c1->GetOwner() == c2->GetOwner()) continue;
+
+                if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
+                {
+                    c1->Collided(c2);
+                    c2->Collided(c1);
+                }
+            }
+        }
+    }
+    */
 }
 
 } // namespace toy

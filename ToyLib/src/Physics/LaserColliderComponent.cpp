@@ -15,7 +15,7 @@ LaserColliderComponent::LaserColliderComponent(Actor* a)
     , mLength(100.0f) // デフォルトの射程（描画用）
 {
     // これはレーザー専用のコライダー
-    SetFlags(C_LASER);
+    SetFlags(C_HURTBOX);
 }
 
 //------------------------------------------------------------------------------

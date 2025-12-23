@@ -154,7 +154,7 @@ bool MoveComponent::TryMoveWithRayCheck(const Vector3& moveVec, float deltaTime)
     //   （床がWALL兼用だと詰まりやすいので、押し戻し量が大きい時だけにする）
     //========================================================
     const Vector3 before = owner->GetPosition();
-    phys->CollideAndCallback(C_PLAYER, C_WALL, true, false);
+    phys->CollideAndCallback(C_PLAYER_TEAM, C_WALL, true, false);
     const Vector3 after = owner->GetPosition();
 
     // 押し戻しが大きすぎる（=床側面を壁扱いしてる）なら戻す、なども可能

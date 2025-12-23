@@ -1,6 +1,7 @@
 #include "HeroActor.h"
 #include "MagicActor.h"
 #include "HealMagicActor.h"
+#include "Gameplay/LockOnComponent.h"
 #include <iostream>
 
 
@@ -50,7 +51,7 @@ HeroActor::HeroActor(toy::Application* a)
     Vector3 vScale;
     JsonHelper::GetVector3(json["collider"], "bounding_box_scale", vScale);
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
-    mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER);
+    mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER_TEAM);
     mCollComp->SetEnabled(true);
 
     
@@ -69,7 +70,8 @@ HeroActor::HeroActor(toy::Application* a)
     mGravComp = CreateComponent<toy::GravityComponent>();
     mGravComp->SetEnableGroundPose(false);
     
-
+    // --- ロックオンコンポーネント ---
+    CreateComponent<toy::kit::LockOnComponent>();
     
     
     mSound = CreateComponent<toy::SoundComponent>();

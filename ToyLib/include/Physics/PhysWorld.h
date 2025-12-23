@@ -179,6 +179,10 @@ public:
     void QueryView(const ViewQueryDesc& desc,
                    std::vector<ViewQueryHit>& outHits) const;
     
+    
+    // 指定フラグを持つ Collider をすべて返す（LockOn / AI 用）
+    void GetCollidersByFlag(uint32_t flag, std::vector<ColliderComponent*>& out) const;
+    
 private:
     //-------------------------------------------------------------------------
     // OBB / Sphere collision (internal)

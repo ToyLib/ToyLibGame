@@ -27,7 +27,7 @@ GravityComponent::GravityComponent(Actor* a)
     , mPenetrationEps(0.05f)
     , mEnableGroundPose(false)
     , mIsGrounded(false)
-    , mSelfFlag(C_PLAYER)
+    , mSelfFlag(C_PLAYER_TEAM)
     , mGroundCollider(nullptr)
     , mPrevGroundPos(Vector3::Zero)
 {
