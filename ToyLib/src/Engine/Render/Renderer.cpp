@@ -446,13 +446,44 @@ void Renderer::DrawPostFromSceneRT()
     sceneTex->SetActive(0);
     sh->SetTextureUniform("uSceneTex", 0);
 
-    // Post settings
-    sh->SetIntUniform("uPostType", static_cast<int>(mPost.type));
-    sh->SetFloatUniform("uIntensity", mPost.intensity);
-
-    // 任意：時間（CRTノイズ等）
-    sh->SetFloatUniform("uTime",  SDL_GetTicks());   // 累積秒
-    sh->SetIntUniform("uFlipY", 0);           // 上下逆なら 1 に
+    switch (mPost.type)
+    {
+        case PostEffectType::None:
+        case PostEffectType::Sepia:
+        case PostEffectType::CRT:
+            // Post settings
+            sh->SetIntUniform("uPostType", static_cast<int>(mPost.type));
+            sh->SetFloatUniform("uIntensity", mPost.intensity);
+            
+            // 任意：時間（CRTノイズ等）
+            sh->SetFloatUniform("uTime",  SDL_GetTicks());   // 累積秒
+            sh->SetIntUniform("uFlipY", 0);           // 上下逆なら 1 に
+            break;
+        case PostEffectType::FeilyLand:
+            sh->SetIntUniform("uPostType", 3);        // FairyLand
+            sh->SetFloatUniform("uIntensity", 1.0f);
+            sh->SetFloatUniform("uTime", SDL_GetTicks());
+            sh->SetIntUniform("uFlipY", 0);
+            
+            sh->SetIntUniform("uUsePaperTex", 0);
+            break;
+        case PostEffectType::Watercolor:
+            sh->SetIntUniform("uPostType", 4);
+            sh->SetFloatUniform("uIntensity", 1.0f);
+            sh->SetFloatUniform("uTime", SDL_GetTicks());
+            
+            sh->SetIntUniform("uUsePaperTex", 1);
+            if (mPost.paperTex)
+            {
+                mPost.paperTex->SetActive(1);
+                sh->SetTextureUniform("uPaperTex", 1);
+            }
+            else
+            {
+                sh->SetTextureUniform("uPaperTex", 0);
+            }
+            break;
+    }
 
     // Draw fullscreen
     mFullScreenQuad->SetActive();

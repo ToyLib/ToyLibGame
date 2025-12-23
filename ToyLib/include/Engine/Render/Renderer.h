@@ -343,7 +343,6 @@ private:
     //--------------------------------------------------------------------------
     // メインシーン（ポスト用）RenderTarget
     std::shared_ptr<RenderTarget> mSceneRT;
-
     // ポスト設定
     PostEffectDesc mPost;
 
@@ -351,6 +350,7 @@ private:
     void DrawPostFromSceneRT();
     void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
     void DrawUIPass_Only();     // UIだけ（クリアなし）
+
     
     //--------------------------------------------------------------------------
     // ジオメトリ
