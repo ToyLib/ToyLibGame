@@ -30,7 +30,7 @@ public:
     
 private:
     // 追従ターゲット
-    class Actor* mTarget;
+    class Actor* mTarget = nullptr;
     
     // この距離より遠いと前進する
     float mFollowDistance;
