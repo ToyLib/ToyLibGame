@@ -36,7 +36,7 @@ WolfActor::WolfActor(toy::Application* a)
     text->SetColor(Vector3(1.0f, 0.0f, 0.0f));
     text->SetText("Bow \nwow !");
 
-    textActor->SetParent(this);
+    textActor->SetPosition(GetPosition());
     textActor->SetScale(0.03f);
     
     auto light = CreateComponent<toy::PointLightComponent>();

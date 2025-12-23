@@ -244,8 +244,7 @@ void OutdoorStage::DeployFire(const Vector3& pos)
     
     // Actor
     auto particleActorGPU = mApp->CreateActor<toy::Actor>();
-    particleActorGPU->SetPosition(Vector3(0, 0, 0));
-    particleActorGPU->SetParent(fireActor);
+    particleActorGPU->SetPosition(fireActor->GetPosition());
 
     // Component
     auto* particle = particleActorGPU

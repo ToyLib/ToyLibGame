@@ -70,8 +70,8 @@ void GameRPG::LoadData()
     stanCllider->SetEnabled(true);
     stanCllider->SetFlags(toy::C_WALL | toy::C_ENEMY | toy::C_FOOT | toy::C_GROUND);
     
-    auto minionActor = CreateActor<MinionActor>();
-    minionActor->SetParent(hero);
+    //auto minionActor = CreateActor<MinionActor>();
+    //minionActor->SetParent(hero);
     
    
 

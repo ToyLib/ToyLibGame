@@ -11,5 +11,5 @@
   "lift": 2.0,
   "additiveBlend": true,
   "warmStart": true,
-  "emitterOffset": [0.0, 0.0, 0.0]
+  "emitterOffset": [0.0, -1.0, 0.0]
 }
