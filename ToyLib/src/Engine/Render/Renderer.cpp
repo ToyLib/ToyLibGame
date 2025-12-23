@@ -341,7 +341,7 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
 
     RenderTarget::Unbind();
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
-    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+    //glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 }
 void Renderer::FlushSceneCaptures()
 {
