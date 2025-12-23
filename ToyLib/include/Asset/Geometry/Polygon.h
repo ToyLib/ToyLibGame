@@ -31,7 +31,7 @@ struct Cube
     Vector3 min;
     Vector3 max;
 };
-
+/*
 //==============================
 // Ray（レイ）
 //==============================
@@ -55,7 +55,8 @@ struct RaycastHit
     float distance = 0.0f;
     class Actor* actor = nullptr;
 };
-
+ */
+/*
 //=====================================================
 // レイ vs 三角形（Möller–Trumbore 法）
 //=====================================================
@@ -66,5 +67,5 @@ bool IntersectRayTriangle(
     const Vector3& v1,
     const Vector3& v2,
     float& outT);
-
+*/
 } // namespace toy

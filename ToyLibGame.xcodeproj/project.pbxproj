@@ -29,6 +29,16 @@
 		7EDCE9C12ED72FE00069EE3D /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7E987C582EFB43BC008AE3D4 /* Exceptions for "ToyKit" folder in "ToyLibGame" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				src/Gameplay/LockOnComponent.cpp,
+			);
+			target = 7EDCE89F2ED72F7F0069EE3D /* ToyLibGame */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 		7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
@@ -76,6 +86,9 @@
 		};
 		7EE8FF072EE1D352002844FB /* ToyKit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7E987C582EFB43BC008AE3D4 /* Exceptions for "ToyKit" folder in "ToyLibGame" target */,
+			);
 			path = ToyKit;
 			sourceTree = "<group>";
 		};

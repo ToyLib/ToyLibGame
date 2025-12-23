@@ -7,6 +7,7 @@
 #include "Engine/Core/Actor.h"
 #include "Movement/MoveComponent.h"
 #include "Physics/BoundingVolumeComponent.h"
+#include "Physics/ColliderComponent.h"
 #include "Utils/MathUtil.h"
 
 #include <algorithm>
@@ -18,59 +19,26 @@ namespace toy {
 //=============================================================================
 // Lifecycle
 //=============================================================================
-PhysWorld::PhysWorld()
-{
-}
-
-PhysWorld::~PhysWorld()
-{
-}
+PhysWorld::PhysWorld() {}
+PhysWorld::~PhysWorld() {}
 
 //=============================================================================
 // Terrain polygon utilities
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// IsInPolygon
-//------------------------------------------------------------------------------
-// ・XZ 平面に投影した三角形に点 p が含まれるか判定
-// ・辺ごとの“同じ向き”を符号で見る簡易版
-// ・※ ポリゴン頂点の並び（CW/CCW）に依存しうるので、
-//    現状の地形データ前提で運用（必要ならバリセンタ法等へ差し替え）
-//------------------------------------------------------------------------------
 bool PhysWorld::IsInPolygon(const Polygon* pl, const Vector3& p) const
 {
-    // edge AB
     if (((pl->b.x - pl->a.x) * (p.z - pl->a.z) -
-         (pl->b.z - pl->a.z) * (p.x - pl->a.x)) < 0.0f)
-    {
-        return false;
-    }
+         (pl->b.z - pl->a.z) * (p.x - pl->a.x)) < 0.0f) return false;
 
-    // edge BC
     if (((pl->c.x - pl->b.x) * (p.z - pl->b.z) -
-         (pl->c.z - pl->b.z) * (p.x - pl->b.x)) < 0.0f)
-    {
-        return false;
-    }
+         (pl->c.z - pl->b.z) * (p.x - pl->b.x)) < 0.0f) return false;
 
-    // edge CA
     if (((pl->a.x - pl->c.x) * (p.z - pl->c.z) -
-         (pl->a.z - pl->c.z) * (p.x - pl->c.x)) < 0.0f)
-    {
-        return false;
-    }
+         (pl->a.z - pl->c.z) * (p.x - pl->c.x)) < 0.0f) return false;
 
     return true;
 }
 
-//------------------------------------------------------------------------------
-// PolygonHeight
-//------------------------------------------------------------------------------
-// ・XZ 平面上の点 p に対して、その三角形ポリゴン上の Y 高さを返す
-// ・3点から平面方程式を作り、y を解く
-// ・※ wc が 0 に近い（ほぼ垂直面）と不安定になり得るので保険フォールバック
-//------------------------------------------------------------------------------
 float PhysWorld::PolygonHeight(const Polygon* pl, const Vector3& p) const
 {
     const float wa =
@@ -85,8 +53,6 @@ float PhysWorld::PolygonHeight(const Polygon* pl, const Vector3& p) const
         (pl->c.x - pl->a.x) * (pl->b.z - pl->a.z) -
         (pl->c.z - pl->a.z) * (pl->b.x - pl->a.x);
 
-    // wc が 0 に近い（ほぼ垂直面）場合は不安定になり得る。
-    // 地面用途ならまず起きない想定だが、保険として頂点Aの高さを返す。
     if (fabsf(wc) < 1e-6f)
     {
         return pl->a.y;
@@ -95,12 +61,6 @@ float PhysWorld::PolygonHeight(const Polygon* pl, const Vector3& p) const
     return -(wa * (p.x - pl->a.x) + wb * (p.z - pl->a.z)) / wc + pl->a.y;
 }
 
-//------------------------------------------------------------------------------
-// PolygonNormal
-//------------------------------------------------------------------------------
-// ・ポリゴンの法線を返す（上向きに揃える）
-// ・左手/右手の違いがあっても、「地面の法線」として UnitY と同じ向きに揃える
-//------------------------------------------------------------------------------
 Vector3 PhysWorld::PolygonNormal(const Polygon& pl) const
 {
     const Vector3 e1 = pl.b - pl.a;
@@ -108,30 +68,14 @@ Vector3 PhysWorld::PolygonNormal(const Polygon& pl) const
 
     Vector3 n = Vector3::Cross(e1, e2);
 
-    if (n.LengthSq() > Math::NearZeroEpsilon)
-    {
-        n.Normalize();
-    }
-    else
-    {
-        n = Vector3::UnitY;
-    }
+    if (n.LengthSq() > Math::NearZeroEpsilon) n.Normalize();
+    else n = Vector3::UnitY;
 
-    // “地面の法線”用途：上向きに揃える（坂で裏返るのを防ぐ）
-    if (Vector3::Dot(n, Vector3::UnitY) < 0.0f)
-    {
-        n *= -1.0f;
-    }
+    if (Vector3::Dot(n, Vector3::UnitY) < 0.0f) n *= -1.0f;
 
     return n;
 }
 
-//------------------------------------------------------------------------------
-// GetGroundHitAt
-//------------------------------------------------------------------------------
-// ・pos の真下にある TerrainPolygons を走査し、最も高いヒットを返す（Terrainのみ）
-// ・mTerrainGrid が有効なら「周囲 3×3 セル」の候補だけを走査して高速化
-//------------------------------------------------------------------------------
 bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
 {
     outHit = GroundHit{};
@@ -142,7 +86,7 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
     }
 
     //--------------------------------------------------------------------------
-    // フォールバック：全走査（グリッド無効 / 未構築）
+    // fallback: full scan
     //--------------------------------------------------------------------------
     if (!mTerrainGrid.enabled || mTerrainGrid.cells.empty())
     {
@@ -151,10 +95,7 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
 
         for (const auto& poly : mTerrainPolygons)
         {
-            if (!IsInPolygon(&poly, pos))
-            {
-                continue;
-            }
+            if (!IsInPolygon(&poly, pos)) continue;
 
             const float y = PolygonHeight(&poly, pos);
             if (y > highestY)
@@ -175,7 +116,7 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
     }
 
     //--------------------------------------------------------------------------
-    // グリッド版：pos が属するセルの「周囲 3×3」候補だけ走査
+    // grid: scan neighbor 3x3 cells
     //--------------------------------------------------------------------------
     const float minX = mTerrainGrid.origin.x;
     const float minZ = mTerrainGrid.origin.y;
@@ -195,32 +136,18 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
             const int cx = baseCX + dx;
             const int cz = baseCZ + dz;
 
-            if (!mTerrainGrid.IsValidCell(cx, cz))
-            {
-                continue;
-            }
+            if (!mTerrainGrid.IsValidCell(cx, cz)) continue;
 
             const auto& candidates =
                 mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)];
 
-            if (candidates.empty())
-            {
-                continue;
-            }
-
             for (int idx : candidates)
             {
-                if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size()))
-                {
-                    continue;
-                }
+                if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size())) continue;
 
                 const auto& poly = mTerrainPolygons[idx];
 
-                if (!IsInPolygon(&poly, pos))
-                {
-                    continue;
-                }
+                if (!IsInPolygon(&poly, pos)) continue;
 
                 const float y = PolygonHeight(&poly, pos);
                 if (y > highestY)
@@ -233,10 +160,7 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
         }
     }
 
-    if (!found)
-    {
-        return false;
-    }
+    if (!found) return false;
 
     outHit.hit      = true;
     outHit.y        = highestY;
@@ -248,17 +172,9 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
     return true;
 }
 
-//------------------------------------------------------------------------------
-// SetGroundPolygons
-//------------------------------------------------------------------------------
-// ・地形ポリゴンを保持し、XZ グリッドで候補を間引くための索引を作る
-// ・セルサイズは「平均 targetPolysPerCell くらい」になるように自動決定
-//------------------------------------------------------------------------------
 void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
 {
     mTerrainPolygons = polys;
-
-    // グリッドを作り直す
     mTerrainGrid.Clear();
 
     if (mTerrainPolygons.empty())
@@ -266,9 +182,6 @@ void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
         return;
     }
 
-    //--------------------------------------------------------------------------
-    // 1) 地形全体のXZ範囲を計算
-    //--------------------------------------------------------------------------
     float minX =  std::numeric_limits<float>::max();
     float minZ =  std::numeric_limits<float>::max();
     float maxX = -std::numeric_limits<float>::max();
@@ -286,22 +199,14 @@ void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
     const float depth  = std::max(0.001f, maxZ - minZ);
     const float areaXZ = width * depth;
 
-    //--------------------------------------------------------------------------
-    // 2) セルサイズを自動決定（平均で targetPolysPerCell くらい）
-    //--------------------------------------------------------------------------
     const int targetPolysPerCell = 100;
     const int polyCount = static_cast<int>(mTerrainPolygons.size());
 
-    const int targetCellCount =
-        std::max(1, polyCount / targetPolysPerCell);
+    const int targetCellCount = std::max(1, polyCount / targetPolysPerCell);
+    const float targetCellArea = areaXZ / static_cast<float>(targetCellCount);
 
-    const float targetCellArea =
-        areaXZ / static_cast<float>(targetCellCount);
+    float cellSize = std::sqrt(std::max(0.0001f, targetCellArea));
 
-    float cellSize =
-        std::sqrt(std::max(0.0001f, targetCellArea));
-
-    // 小さすぎ / 大きすぎを防止（好みで調整）
     const float minCell = 1.0f;
     const float maxCell = 50.0f;
     cellSize = Math::Clamp(cellSize, minCell, maxCell);
@@ -326,9 +231,6 @@ void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
         return static_cast<int>(std::floor((z - minZ) / cellSize));
     };
 
-    //--------------------------------------------------------------------------
-    // 3) 各ポリゴンを「重なるセル全部」に登録（XZ AABB でセル範囲を取る）
-    //--------------------------------------------------------------------------
     for (int i = 0; i < polyCount; ++i)
     {
         const auto& p = mTerrainPolygons[i];
@@ -358,11 +260,6 @@ void PhysWorld::SetGroundPolygons(const std::vector<Polygon>& polys)
     }
 }
 
-//------------------------------------------------------------------------------
-// GetGroundHeightAt
-//------------------------------------------------------------------------------
-// ・TerrainPolygons のみ対象で高さだけ返す（見つからない場合は -∞）
-//------------------------------------------------------------------------------
 float PhysWorld::GetGroundHeightAt(const Vector3& pos) const
 {
     GroundHit hit;
@@ -370,15 +267,12 @@ float PhysWorld::GetGroundHeightAt(const Vector3& pos) const
     {
         return hit.y;
     }
-
     return -std::numeric_limits<float>::max();
 }
 
-//------------------------------------------------------------------------------
-// FindFootCollider
-//------------------------------------------------------------------------------
-// ・Actor が持つ ColliderComponent の中から C_FOOT を持つものを探す
-//------------------------------------------------------------------------------
+//=============================================================================
+// Ground (Collider + Terrain)
+//=============================================================================
 ColliderComponent* PhysWorld::FindFootCollider(const Actor* a) const
 {
     for (auto* comp : a->GetAllComponents<ColliderComponent>())
@@ -388,15 +282,9 @@ ColliderComponent* PhysWorld::FindFootCollider(const Actor* a) const
             return comp;
         }
     }
-
     return nullptr;
 }
 
-//------------------------------------------------------------------------------
-// GetNearestGroundY
-//------------------------------------------------------------------------------
-// ・互換用：GetNearestGroundHit の薄いラッパ
-//------------------------------------------------------------------------------
 bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
 {
     GroundHit hit;
@@ -404,19 +292,10 @@ bool PhysWorld::GetNearestGroundY(const Actor* a, float& outY) const
     {
         return false;
     }
-
     outY = hit.y;
     return true;
 }
 
-//------------------------------------------------------------------------------
-// GetNearestGroundHit
-//------------------------------------------------------------------------------
-// ・Actor の C_FOOT を基準に
-//    1) C_GROUND コライダーの上面（XZが重なり、かつ足より下のもの）
-//    2) TerrainPolygons の高さ（Actor中心点）
-//  を比較して、最も高いものを「地面」として返す
-//------------------------------------------------------------------------------
 bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 {
     outHit = GroundHit{};
@@ -443,46 +322,25 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
     Vector3 bestPos = Vector3::Zero;
     Vector3 bestNormal = Vector3::UnitY;
 
-    //--------------------------------------------------------------------------
-    // 1) C_GROUND コライダー（上面が最も高いもの）
-    //--------------------------------------------------------------------------
+    // 1) collider ground (highest top surface under foot)
     for (auto* c : mColliders)
     {
-        if (!c->HasFlag(C_GROUND))
-        {
-            continue;
-        }
-        if (c->GetOwner() == a)
-        {
-            continue;
-        }
+        if (!c || !c->GetEnabled()) continue;
+        if (!c->HasFlag(C_GROUND)) continue;
+        if (c->GetOwner() == a) continue;
 
         const Cube other = c->GetBoundingVolume()->GetWorldAABB();
 
-        //========================================================
-        // ★床の端で「1フレーム粘る」対策：
-        //   足AABBを少し縮めて xzOverlap を判定する
-        //========================================================
-        const float kGroundEdgeEps = 0.08f; // 0.03〜0.15 目安（まず 0.08）
+        const float kGroundEdgeEps = 0.08f;
         const bool xzOverlap =
             (box.max.x - kGroundEdgeEps > other.min.x) && (box.min.x + kGroundEdgeEps < other.max.x) &&
             (box.max.z - kGroundEdgeEps > other.min.z) && (box.min.z + kGroundEdgeEps < other.max.z);
 
-        if (!xzOverlap)
-        {
-            continue;
-        }
+        if (!xzOverlap) continue;
 
-        //========================================================
-        // ★床候補の“上面”は「足元より少し上まで」しか許さない
-        //========================================================
-        const float kFootAllowance = 0.25f;   // 既に値があるならそれを使う
-        if (other.max.y > footY + kFootAllowance)
-        {
-            continue;
-        }
+        const float kFootAllowance = 0.25f;
+        if (other.max.y > footY + kFootAllowance) continue;
 
-        // 「足より下〜少し上」だけに絞った上で、最も高いものを採用
         if (other.max.y > highest)
         {
             highest = other.max.y;
@@ -499,9 +357,7 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
         }
     }
 
-    //--------------------------------------------------------------------------
-    // 2) TerrainPolygons（Actor中心点）
-    //--------------------------------------------------------------------------
+    // 2) terrain at actor center
     const Vector3 center = a->GetPosition();
 
     GroundHit terrainHit;
@@ -519,10 +375,7 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
         }
     }
 
-    if (!found)
-    {
-        return false;
-    }
+    if (!found) return false;
 
     outHit.hit      = true;
     outHit.y        = highest;
@@ -534,30 +387,24 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
 
     return true;
 }
+
 //=============================================================================
 // OBB / Sphere collision
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// CompareLengthOBB (SAT判定用)
-//------------------------------------------------------------------------------
-// ・vSep を分離軸として、距離(vDistanceの投影) と AABB投影長(A+B) を比較
-// ・true なら「分離していない（重なっている可能性）」
-//------------------------------------------------------------------------------
 bool PhysWorld::CompareLengthOBB(const OBB* cA,
-                                 const OBB* cB,
-                                 const Vector3& vSep,
-                                 const Vector3& vDistance) const
+                                const OBB* cB,
+                                const Vector3& vSep,
+                                const Vector3& vDistance) const
 {
     const float kAxisEps = 1e-6f;
     const float lenSq = vSep.LengthSq();
     if (lenSq < kAxisEps)
     {
-        return true; // 分離軸として無効（平行で外積が死んだ等）
+        return true;
     }
 
     const float invLen = 1.0f / std::sqrt(lenSq);
-    const Vector3 sepN = vSep * invLen; // ★正規化
+    const Vector3 sepN = vSep * invLen;
 
     const float length = fabsf(Vector3::Dot(sepN, vDistance));
 
@@ -574,60 +421,56 @@ bool PhysWorld::CompareLengthOBB(const OBB* cA,
     return (length <= (lenA + lenB));
 }
 
+bool PhysWorld::IsCollideBoxOBB(const OBB* cA, const OBB* cB) const
+{
+    const Vector3 vDistance = cB->pos - cA->pos;
+
+    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance)) return false;
+
+    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance)) return false;
+    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance)) return false;
+
+    Vector3 vSep;
+
+    vSep = Vector3::Cross(cA->axisX, cB->axisX);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisX, cB->axisY);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisX, cB->axisZ);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisY, cB->axisX);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisY, cB->axisY);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisY, cB->axisZ);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisZ, cB->axisX);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisZ, cB->axisY);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    vSep = Vector3::Cross(cA->axisZ, cB->axisZ);
+    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) return false;
+
+    return true;
+}
+
 bool PhysWorld::JudgeWithOBB(const ColliderComponent* col1,
                             const ColliderComponent* col2) const
 {
     auto obb1 = col1->GetBoundingVolume()->GetOBB();
     auto obb2 = col2->GetBoundingVolume()->GetOBB();
-
     return IsCollideBoxOBB(obb1.get(), obb2.get());
-}
-
-bool PhysWorld::IsCollideBoxOBB(const OBB* cA, const OBB* cB) const
-{
-    const Vector3 vDistance = cB->pos - cA->pos;
-
-    // Aの軸
-    if (!CompareLengthOBB(cA, cB, cA->axisX, vDistance)) { return false; }
-    if (!CompareLengthOBB(cA, cB, cA->axisY, vDistance)) { return false; }
-    if (!CompareLengthOBB(cA, cB, cA->axisZ, vDistance)) { return false; }
-
-    // Bの軸
-    if (!CompareLengthOBB(cA, cB, cB->axisX, vDistance)) { return false; }
-    if (!CompareLengthOBB(cA, cB, cB->axisY, vDistance)) { return false; }
-    if (!CompareLengthOBB(cA, cB, cB->axisZ, vDistance)) { return false; }
-
-    // 外積軸
-    Vector3 vSep;
-
-    vSep = Vector3::Cross(cA->axisX, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisX, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisX, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisY, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisY, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisY, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisZ, cB->axisX);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisZ, cB->axisY);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    vSep = Vector3::Cross(cA->axisZ, cB->axisZ);
-    if (!CompareLengthOBB(cA, cB, vSep, vDistance)) { return false; }
-
-    return true;
 }
 
 bool PhysWorld::JudgeWithRadius(const ColliderComponent* col1,
@@ -646,14 +489,6 @@ bool PhysWorld::JudgeWithRadius(const ColliderComponent* col1,
 //=============================================================================
 // MTV (push back)
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// CompareLengthOBB_MTV
-//------------------------------------------------------------------------------
-// ・SAT軸に対する overlap（めり込み量）を計算し、最小 overlap を MTV として保持する
-// ・重要：軸を正規化して overlap を「距離」として扱えるようにする
-//   （正規化しないと軸長で overlap がスケールし、押し戻しが暴れやすい）
-//------------------------------------------------------------------------------
 bool PhysWorld::CompareLengthOBB_MTV(const OBB* cA,
                                     const OBB* cB,
                                     const Vector3& vSep,
@@ -663,13 +498,11 @@ bool PhysWorld::CompareLengthOBB_MTV(const OBB* cA,
     const float kAxisEps = 1e-6f;
     const float lenSq = vSep.LengthSq();
 
-    // ほぼゼロ軸（外積が潰れるケースなど）は無視
     if (lenSq < kAxisEps)
     {
         return true;
     }
 
-    // ★正規化して「距離としての overlap」を得る
     const float invLen = 1.0f / std::sqrt(lenSq);
     const Vector3 sepN = vSep * invLen;
 
@@ -687,17 +520,15 @@ bool PhysWorld::CompareLengthOBB_MTV(const OBB* cA,
 
     const float overlap = (lenA + lenB) - length;
 
-    // overlap < 0 なら分離（=非衝突）
     if (overlap < 0.0f)
     {
         return false;
     }
 
-    // 最小 overlap を更新
     if (overlap < mtv.depth)
     {
         mtv.depth = overlap;
-        mtv.axis  = sepN;   // ★正規化軸を保存
+        mtv.axis  = sepN;
         mtv.valid = true;
     }
 
@@ -728,12 +559,6 @@ bool PhysWorld::IsCollideBoxOBB_MTV(const OBB* cA,
         CompareLengthOBB_MTV(cA, cB, Vector3::Cross(cA->axisZ, cB->axisZ), vDistance, mtv);
 }
 
-//------------------------------------------------------------------------------
-// ComputePushBackDirection
-//------------------------------------------------------------------------------
-// ・OBB×OBB の MTV を元に「押し戻し量（距離）」を返す
-// ・allowY=false のときは水平面（XZ）だけで押し戻す
-//------------------------------------------------------------------------------
 Vector3 PhysWorld::ComputePushBackDirection(const ColliderComponent* a,
                                            const ColliderComponent* b,
                                            bool allowY) const
@@ -745,50 +570,31 @@ Vector3 PhysWorld::ComputePushBackDirection(const ColliderComponent* a,
 
     if (!IsCollideBoxOBB_MTV(obb1.get(), obb2.get(), mtv) || !mtv.valid)
     {
-        // フォールバック：距離ベクトルから押し戻し方向を作る
         Vector3 delta = a->GetPosition() - b->GetPosition();
 
-        if (!allowY)
-        {
-            delta.y = 0.0f;
-        }
+        if (!allowY) delta.y = 0.0f;
 
-        if (delta.LengthSq() > Math::NearZeroEpsilon)
-        {
-            delta.Normalize();
-        }
-        else
-        {
-            delta = Vector3::UnitZ;
-        }
+        if (delta.LengthSq() > Math::NearZeroEpsilon) delta.Normalize();
+        else delta = Vector3::UnitZ;
 
         return delta * 0.1f;
     }
 
-    // mtv.axis は CompareLengthOBB_MTV で正規化済み（※ allowY=false でYを潰す場合は再正規化が必要）
     Vector3 pushAxis = mtv.axis;
 
     if (!allowY)
     {
         pushAxis.y = 0.0f;
-        if (pushAxis.LengthSq() > Math::NearZeroEpsilon)
-        {
-            pushAxis.Normalize();
-        }
-        else
-        {
-            return Vector3::Zero;
-        }
+        if (pushAxis.LengthSq() > Math::NearZeroEpsilon) pushAxis.Normalize();
+        else return Vector3::Zero;
     }
 
-    // a の視点から見て外側へ向くように補正
     const Vector3 dirAB = a->GetPosition() - b->GetPosition();
     if (Vector3::Dot(pushAxis, dirAB) < 0.0f)
     {
         pushAxis *= -1.0f;
     }
 
-    // 押し戻し距離（小さい余裕を足して“再めり込み”を減らす）
     const float kPushEps = 0.05f;
     return pushAxis * (mtv.depth + kPushEps);
 }
@@ -796,13 +602,6 @@ Vector3 PhysWorld::ComputePushBackDirection(const ColliderComponent* a,
 //=============================================================================
 // Depenetration helpers (insurance)
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// ResolveCeiling
-//------------------------------------------------------------------------------
-// ・moverFlag を持つ Actor のコライダーが ceilingFlag に“めり込んでいたら”
-//   下向き成分だけ押し戻しベクトルとして合算して返す
-//------------------------------------------------------------------------------
 bool PhysWorld::ResolveCeiling(Actor* a,
                               uint32_t moverFlag,
                               uint32_t ceilingFlag,
@@ -810,31 +609,19 @@ bool PhysWorld::ResolveCeiling(Actor* a,
 {
     outPush = Vector3::Zero;
 
-    if (!a)
-    {
-        return false;
-    }
+    if (!a) return false;
 
     bool hitAny = false;
 
     for (auto* c1 : mColliders)
     {
-        if (!c1->GetEnabled())
-        {
-            continue;
-        }
-        if (c1->GetOwner() != a)
-        {
-            continue;
-        }
-        if (!c1->HasFlag(moverFlag))
-        {
-            continue;
-        }
+        if (!c1 || !c1->GetEnabled()) continue;
+        if (c1->GetOwner() != a) continue;
+        if (!c1->HasFlag(moverFlag)) continue;
 
         for (auto* c2 : mColliders)
         {
-            if (!c2->GetEnabled())
+            if (!c2 || !c2->GetEnabled())
             {
                 continue;
             }
@@ -846,16 +633,14 @@ bool PhysWorld::ResolveCeiling(Actor* a,
             {
                 continue;
             }
-
+            
             if (!(JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2)))
             {
                 continue;
             }
-
-            // 天井なので allowY = true
+            
             const Vector3 push = ComputePushBackDirection(c1, c2, true);
 
-            // “天井ヒット”として扱うのは「下に押される」成分のみ
             if (push.y < -0.0001f)
             {
                 outPush += push;
@@ -867,14 +652,9 @@ bool PhysWorld::ResolveCeiling(Actor* a,
     return hitAny;
 }
 
-
 //=============================================================================
 // Ray utilities
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// IntersectRayOBB
-//------------------------------------------------------------------------------
 bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) const
 {
     const float epsilon = 1e-6f;
@@ -889,21 +669,9 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) con
         Vector3 axis = Vector3::Zero;
         float r = 0.0f;
 
-        if (i == 0)
-        {
-            axis = obb->axisX;
-            r = obb->radius.x;
-        }
-        else if (i == 1)
-        {
-            axis = obb->axisY;
-            r = obb->radius.y;
-        }
-        else
-        {
-            axis = obb->axisZ;
-            r = obb->radius.z;
-        }
+        if (i == 0)      { axis = obb->axisX; r = obb->radius.x; }
+        else if (i == 1) { axis = obb->axisY; r = obb->radius.y; }
+        else             { axis = obb->axisZ; r = obb->radius.z; }
 
         const float e = Vector3::Dot(axis, p);
         const float f = Vector3::Dot(ray.dir, axis);
@@ -913,26 +681,16 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) con
             float t1 = (e + r) / f;
             float t2 = (e - r) / f;
 
-            if (t1 > t2)
-            {
-                std::swap(t1, t2);
-            }
+            if (t1 > t2) std::swap(t1, t2);
 
             tMin = std::max(tMin, t1);
             tMax = std::min(tMax, t2);
 
-            if (tMin > tMax)
-            {
-                return false;
-            }
+            if (tMin > tMax) return false;
         }
         else
         {
-            // Ray が軸にほぼ平行：中心投影がスラブ外なら非交差
-            if (-e - r > 0.0f || -e + r < 0.0f)
-            {
-                return false;
-            }
+            if (-e - r > 0.0f || -e + r < 0.0f) return false;
         }
     }
 
@@ -940,9 +698,6 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray, const OBB* obb, float& outT) con
     return true;
 }
 
-//------------------------------------------------------------------------------
-// RayHitWall
-//------------------------------------------------------------------------------
 bool PhysWorld::RayHitWall(const Vector3& start,
                           const Vector3& end,
                           Vector3& hitPos) const
@@ -952,10 +707,7 @@ bool PhysWorld::RayHitWall(const Vector3& start,
     ray.dir   = end - start;
 
     const float rayLen = ray.dir.Length();
-    if (rayLen < Math::NearZeroEpsilon)
-    {
-        return false;
-    }
+    if (rayLen < Math::NearZeroEpsilon) return false;
 
     ray.dir.Normalize();
 
@@ -964,16 +716,11 @@ bool PhysWorld::RayHitWall(const Vector3& start,
 
     for (auto* col : mColliders)
     {
-        if (!col->HasFlag(C_WALL))
-        {
-            continue;
-        }
+        if (!col || !col->GetEnabled()) continue;
+        if (!col->HasFlag(C_WALL)) continue;
 
         auto obb = col->GetBoundingVolume()->GetOBB();
-        if (!obb)
-        {
-            continue;
-        }
+        if (!obb) continue;
 
         float t;
         if (IntersectRayOBB(ray, obb.get(), t))
@@ -986,19 +733,12 @@ bool PhysWorld::RayHitWall(const Vector3& start,
         }
     }
 
-    if (!hit)
-    {
-        return false;
-    }
+    if (!hit) return false;
 
-    // ほんの少し手前で止めてめり込み防止
     hitPos = ray.start + ray.dir * (closestT - 0.01f);
     return true;
 }
 
-//------------------------------------------------------------------------------
-// Raycast
-//------------------------------------------------------------------------------
 bool PhysWorld::Raycast(const Vector3& origin,
                        const Vector3& dir,
                        float maxDist,
@@ -1009,10 +749,7 @@ bool PhysWorld::Raycast(const Vector3& origin,
     ray.start = origin;
     ray.dir   = dir;
 
-    if (ray.dir.LengthSq() < Math::NearZeroEpsilon)
-    {
-        return false;
-    }
+    if (ray.dir.LengthSq() < Math::NearZeroEpsilon) return false;
 
     ray.dir.Normalize();
 
@@ -1021,20 +758,13 @@ bool PhysWorld::Raycast(const Vector3& origin,
 
     for (auto* col : mColliders)
     {
-        if (!col->GetEnabled())
-        {
-            continue;
-        }
-        if (!(col->GetFlags() & flagMask))
-        {
-            continue;
-        }
+        if (!col || !col->GetEnabled()) continue;
+
+        // Any 判定
+        if ((col->GetFlags() & flagMask) == 0) continue;
 
         auto obb = col->GetBoundingVolume()->GetOBB();
-        if (!obb)
-        {
-            continue;
-        }
+        if (!obb) continue;
 
         float t;
         if (IntersectRayOBB(ray, obb.get(), t))
@@ -1053,38 +783,36 @@ bool PhysWorld::Raycast(const Vector3& origin,
     return hit;
 }
 
-
+//=============================================================================
+// View query (sensor)
+//=============================================================================
 void PhysWorld::QueryView(const ViewQueryDesc& desc,
                           std::vector<ViewQueryHit>& outHits) const
 {
     outHits.clear();
 
-    // sanitize
     Vector3 fwd = desc.forward;
-    if (fwd.LengthSq() < Math::NearZeroEpsilon)
-    {
-        return;
-    }
+    if (fwd.LengthSq() < Math::NearZeroEpsilon) return;
     fwd.Normalize();
 
     const float maxDist = std::max(0.0f, desc.maxDist);
     const float maxDistSq = maxDist * maxDist;
 
-    // halfFov の cos を閾値にする（dot >= cosHalfFov が視界内）
     const float halfFov = desc.fovRad * 0.5f;
     const float cosHalfFov = std::cos(halfFov);
 
     for (auto* col : mColliders)
     {
-        if (!col->GetEnabled())
+        if (!col || !col->GetEnabled())
         {
             continue;
         }
-        if (0 == (col->GetFlags() & desc.flagMask))
+        // ★ Any 判定：候補になるか
+//        if ((col->GetFlags() & desc.flagMask) == 0)
+        if (!col->HasFlag(desc.flagMask))
         {
             continue;
         }
-
         Actor* owner = col->GetOwner();
         if (!owner)
         {
@@ -1094,9 +822,7 @@ void PhysWorld::QueryView(const ViewQueryDesc& desc,
         {
             continue;
         }
-
-        // ターゲット点は「コライダー中心」寄りの方が安定
-        // すでに OBB.pos がワールド中心を持ってるのでそれを使う
+        
         Vector3 targetPos;
         if (auto obb = col->GetBoundingVolume()->GetOBB())
         {
@@ -1104,63 +830,44 @@ void PhysWorld::QueryView(const ViewQueryDesc& desc,
         }
         else
         {
-            // フォールバック：Actor位置
             targetPos = owner->GetPosition();
         }
 
         Vector3 to = targetPos - desc.origin;
         const float distSq = to.LengthSq();
-        if (distSq > maxDistSq)
-        {
-            continue;
-        }
+        if (distSq > maxDistSq) continue;
 
         float dist = 0.0f;
         if (distSq > Math::NearZeroEpsilon)
         {
             dist = std::sqrt(distSq);
-            to *= (1.0f / dist); // normalize
+            to *= (1.0f / dist);
         }
         else
         {
-            // origin と同位置なら「視界内扱い」でOK
             to = fwd;
             dist = 0.0f;
         }
 
         const float cosAng = Vector3::Dot(fwd, to);
-        if (cosAng < cosHalfFov)
-        {
-            continue;
-        }
+        if (cosAng < cosHalfFov) continue;
 
-        // 遮蔽チェック（必要なときだけ）
         if (desc.requireLOS)
         {
             RaycastHit hit;
-            // origin から target 方向へ、target までの距離で Raycast
-            // ※ self が当たるのを避けたいなら Raycast に ignoreActor を足すのが理想
             if (Raycast(desc.origin, to, dist, desc.losBlockMask, hit))
             {
-                // 壁に先に当たった＝見えてない
-                // （hit.distance < dist を厳密に見る）
-                if (hit.distance + 0.02f < dist)
-                {
-                    continue;
-                }
+                if (hit.distance + 0.02f < dist) continue;
             }
         }
 
         ViewQueryHit h;
-        h.actor = owner;
+        h.actor    = owner;
         h.collider = col;
-        h.dist = dist;
+        h.dist     = dist;
         h.cosAngle = cosAng;
         outHits.emplace_back(h);
     }
-
-    // kit側で使いやすいように「近い順 + 中央寄り」を軽く整列しておく案
-    // ただし “選び方” は kit の責務なので、ここでは並べ替えない方針でもOK
 }
 
 //=============================================================================
@@ -1180,15 +887,28 @@ void PhysWorld::RemoveCollider(ColliderComponent* c)
     }
 }
 
-void PhysWorld::GetCollidersByFlag(uint32_t flag,
-                                   std::vector<ColliderComponent*>& out) const
+void PhysWorld::GetCollidersByAnyFlags(uint32_t mask,
+                                      std::vector<ColliderComponent*>& out) const
 {
+    out.clear();
     for (auto* col : mColliders)
     {
-        if (!col) continue;
-        if (!col->GetEnabled()) continue;
+        if (!col || !col->GetEnabled()) continue;
+        if (col->HasAnyFlags(mask))
+        {
+            out.push_back(col);
+        }
+    }
+}
 
-        if (col->HasFlag(flag))
+void PhysWorld::GetCollidersByAllFlags(uint32_t mask,
+                                      std::vector<ColliderComponent*>& out) const
+{
+    out.clear();
+    for (auto* col : mColliders)
+    {
+        if (!col || !col->GetEnabled()) continue;
+        if (col->HasAllFlags(mask))
         {
             out.push_back(col);
         }
@@ -1198,13 +918,6 @@ void PhysWorld::GetCollidersByFlag(uint32_t flag,
 //=============================================================================
 // Pair scan / callbacks
 //=============================================================================
-
-//------------------------------------------------------------------------------
-// CollideAndCallback
-//------------------------------------------------------------------------------
-// ・flagA と flagB の組み合わせを総当たりで判定し、Collided() を呼ぶ
-// ・doPushBack=true なら c1(=flagA側) を押し戻す
-//------------------------------------------------------------------------------
 void PhysWorld::CollideAndCallback(uint32_t flagA,
                                   uint32_t flagB,
                                   bool doPushBack,
@@ -1213,18 +926,18 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 {
     for (auto* c1 : mColliders)
     {
-        if (!c1->GetEnabled() || !c1->HasFlag(flagA))
+        if (!c1 || !c1->GetEnabled() || !c1->HasFlag(flagA))
         {
             continue;
         }
 
         Vector3 totalPush = Vector3::Zero;
         bool collided = false;
-        bool didPush = false; // ★追加
+        bool didPush = false;
 
         for (auto* c2 : mColliders)
         {
-            if (!c2->GetEnabled() || !c2->HasFlag(flagB))
+            if (!c2 || !c2->GetEnabled() || !c2->HasFlag(flagB))
             {
                 continue;
             }
@@ -1247,12 +960,11 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
                 if (doPush)
                 {
                     totalPush += ComputePushBackDirection(c1, c2, allowY);
-                    didPush = true; // 実際に押したか
+                    didPush = true;
                 }
             }
         }
 
-        // ★ doPushBack ではなく「実際に押したか」で判定
         if (collided && didPush)
         {
             c1->GetOwner()->SetPosition(c1->GetOwner()->GetPosition() + totalPush);
@@ -1268,34 +980,28 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
     }
 }
 
-//------------------------------------------------------------------------------
-// Test
-//------------------------------------------------------------------------------
 void PhysWorld::Test()
 {
-    // 0) まず全コライダーのヒットバッファをクリア
+    // 0) clear buffers
     for (auto* c : mColliders)
     {
-        c->ClearCollidBuffer();
+        if (c) c->ClearCollidBuffer();
     }
 
-    // 1) 移動キャラ vs 壁（押し戻し）
+    // 1) movers vs wall (pushback)
     CollideAndCallback(C_PLAYER_TEAM, C_WALL, true, false);
     CollideAndCallback(C_ENEMY_TEAM,  C_WALL, true, false);
 
-    // 2) （任意）キャラ同士（押し戻しなし／必要なら true に）
+    // 2) character vs character (optional)
     CollideAndCallback(C_PLAYER_TEAM, C_ENEMY_TEAM);
 
-    //============================================================
-    // 3) Combat: HITBOX -> HURTBOX（所属が逆のものだけ）
-    //    - ここは “mask AND” が必要なので Test 内で手書き
-    //============================================================
+    // 3) Combat: HITBOX -> HURTBOX (All flags)
     auto HasAll = [](const ColliderComponent* c, uint32_t mask)
     {
-        return c && c->GetEnabled() && ((c->GetFlags() & mask) == mask);
+        return c && c->GetEnabled() && c->HasAllFlags(mask);
     };
 
-    // Player攻撃 -> Enemy被弾
+    // Player attack -> Enemy hurt
     {
         const uint32_t A = C_PLAYER_TEAM | C_HITBOX;
         const uint32_t B = C_ENEMY_TEAM  | C_HURTBOX;
@@ -1318,7 +1024,7 @@ void PhysWorld::Test()
         }
     }
 
-    // Enemy攻撃 -> Player被弾（必要になったらON）
+    // Enemy attack -> Player hurt (必要になったらON)
     /*
     {
         const uint32_t A = C_ENEMY_TEAM  | C_HITBOX;

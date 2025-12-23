@@ -3,6 +3,7 @@
 #include "Engine/Core/Component.h"
 #include "Physics/ColliderFlags.h"
 #include "Asset/Geometry/Polygon.h"
+#include "Physics/PhysWorld.h"
 
 #include <vector>
 #include <memory>
@@ -28,14 +29,31 @@ public:
     //--------------------------------------------------------------------------
     // 自分のコライダーフラグの操作
     //--------------------------------------------------------------------------
-    // ※現状は uint32_t で扱っているが、ColliderType を OR した値を想定。
-    void SetFlags(uint32_t flags)              { mFlags = flags; }
-    void AddFlag(uint32_t flag)                { mFlags |= flag; }
-    void RemoveFlag(uint32_t flag)             { mFlags &= ~flag; }
-    bool HasFlag(uint32_t flag) const          { return HasAnyFlag(flag); }
-    bool HasAnyFlag(uint32_t flags) const      { return (mFlags & flags) != 0; }
-    bool HasAllFlags(uint32_t flags) const     { return (mFlags & flags) == flags;}
-    uint32_t GetFlags() const                  { return mFlags; }
+    // フラグ操作
+    //--------------------------------------------------------------------------
+    void SetFlags(uint32_t flags)          { mFlags = flags; }
+    void AddFlag(uint32_t flag)            { mFlags |= flag; }
+    void RemoveFlag(uint32_t flag)         { mFlags &= ~flag; }
+
+    // 単一フラグ判定（C_PLAYER_TEAM など）
+    bool HasFlag(uint32_t flag) const
+    {
+        return (mFlags & flag) != 0;
+    }
+
+    // 複数のうち「どれか1つ」
+    bool HasAnyFlags(uint32_t mask) const
+    {
+        return (mFlags & mask) != 0;
+    }
+
+    // 複数すべて含む（TEAM | HURTBOX 等）
+    bool HasAllFlags(uint32_t mask) const
+    {
+        return (mFlags & mask) == mask;
+    }
+
+    uint32_t GetFlags() const { return mFlags; }
     
     //--------------------------------------------------------------------------
     // 衝突情報

@@ -12,7 +12,7 @@ void Polygon::ComputeWorldTransform(const Matrix4& transform)
     offsetB = Vector3::Transform(b, transform);
     offsetC = Vector3::Transform(c, transform);
 }
-
+/*
 //-----------------------------------------
 // レイ vs 三角形（Möller–Trumbore 法）
 //-----------------------------------------
@@ -64,5 +64,5 @@ bool IntersectRayTriangle(
 
     return false;
 }
-
+*/
 } // namespace toy

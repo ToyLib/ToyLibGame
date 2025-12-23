@@ -4,7 +4,7 @@
 #include "Engine/Render/Renderer.h"
 #include "Physics/PhysWorld.h"
 #include "Physics/ColliderComponent.h"
-
+/*
 #include <limits>
 
 namespace toy::kit {
@@ -38,7 +38,7 @@ void LockOnComponent::Unlock()
     mTarget = nullptr;
 }
 
-void LockOnComponent::Update(float /*dt*/)
+void LockOnComponent::Update(float /*dt)
 {
     if (!IsLocked())
     {
@@ -116,7 +116,7 @@ toy::Actor* LockOnComponent::PickNearestTarget() const
     if (!phys) return nullptr;
 
     std::vector<toy::ColliderComponent*> enemies;
-    phys->GetCollidersByFlag(C_ENEMY_TEAM, enemies);
+    //phys->GetCollidersByFlag(C_ENEMY_TEAM, enemies);
 
     const Vector3 selfPos = owner->GetPosition();
 
@@ -140,3 +140,4 @@ toy::Actor* LockOnComponent::PickNearestTarget() const
     return best;
 }
 } // namespace toy
+*/
