@@ -1053,6 +1053,116 @@ bool PhysWorld::Raycast(const Vector3& origin,
     return hit;
 }
 
+
+void PhysWorld::QueryView(const ViewQueryDesc& desc,
+                          std::vector<ViewQueryHit>& outHits) const
+{
+    outHits.clear();
+
+    // sanitize
+    Vector3 fwd = desc.forward;
+    if (fwd.LengthSq() < Math::NearZeroEpsilon)
+    {
+        return;
+    }
+    fwd.Normalize();
+
+    const float maxDist = std::max(0.0f, desc.maxDist);
+    const float maxDistSq = maxDist * maxDist;
+
+    // halfFov の cos を閾値にする（dot >= cosHalfFov が視界内）
+    const float halfFov = desc.fovRad * 0.5f;
+    const float cosHalfFov = std::cos(halfFov);
+
+    for (auto* col : mColliders)
+    {
+        if (!col->GetEnabled())
+        {
+            continue;
+        }
+        if (!(col->GetFlags() & desc.flagMask))
+        {
+            continue;
+        }
+
+        Actor* owner = col->GetOwner();
+        if (!owner)
+        {
+            continue;
+        }
+        if (desc.ignoreActor && owner == desc.ignoreActor)
+        {
+            continue;
+        }
+
+        // ターゲット点は「コライダー中心」寄りの方が安定
+        // すでに OBB.pos がワールド中心を持ってるのでそれを使う
+        Vector3 targetPos;
+        if (auto obb = col->GetBoundingVolume()->GetOBB())
+        {
+            targetPos = obb->pos;
+        }
+        else
+        {
+            // フォールバック：Actor位置
+            targetPos = owner->GetPosition();
+        }
+
+        Vector3 to = targetPos - desc.origin;
+        const float distSq = to.LengthSq();
+        if (distSq > maxDistSq)
+        {
+            continue;
+        }
+
+        float dist = 0.0f;
+        if (distSq > Math::NearZeroEpsilon)
+        {
+            dist = std::sqrt(distSq);
+            to *= (1.0f / dist); // normalize
+        }
+        else
+        {
+            // origin と同位置なら「視界内扱い」でOK
+            to = fwd;
+            dist = 0.0f;
+        }
+
+        const float cosAng = Vector3::Dot(fwd, to);
+        if (cosAng < cosHalfFov)
+        {
+            continue;
+        }
+
+        // 遮蔽チェック（必要なときだけ）
+        if (desc.requireLOS)
+        {
+            RaycastHit hit;
+            // origin から target 方向へ、target までの距離で Raycast
+            // ※ self が当たるのを避けたいなら Raycast に ignoreActor を足すのが理想
+            if (Raycast(desc.origin, to, dist, desc.losBlockMask, hit))
+            {
+                // 壁に先に当たった＝見えてない
+                // （hit.distance < dist を厳密に見る）
+                if (hit.distance + 0.02f < dist)
+                {
+                    continue;
+                }
+            }
+        }
+
+        ViewQueryHit h;
+        h.actor = owner;
+        h.collider = col;
+        h.dist = dist;
+        h.cosAngle = cosAng;
+        outHits.emplace_back(h);
+    }
+
+    // kit側で使いやすいように「近い順 + 中央寄り」を軽く整列しておく案
+    // ただし “選び方” は kit の責務なので、ここでは並べ替えない方針でもOK
+}
+
 //=============================================================================
 // Collider management
 //=============================================================================

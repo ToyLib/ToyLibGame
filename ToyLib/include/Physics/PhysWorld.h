@@ -55,6 +55,30 @@ struct GroundHit
 };
 
 //=============================================================================
+// 視界クエリ
+//=============================================================================
+struct ViewQueryDesc
+{
+    Vector3 origin   = Vector3::Zero;   // 視点
+    Vector3 forward  = Vector3::UnitZ;  // 前方（正規化推奨）
+    float   maxDist  = 10.0f;           // 最大距離
+    float   fovRad   = Math::PiOver2;   // 視野角（ラジアン）
+    uint32_t flagMask = 0xFFFFFFFF;     // 対象フラグ（例：C_ENEMY）
+    const Actor* ignoreActor = nullptr; // 自分など除外
+    bool    requireLOS = false;         // 壁遮蔽チェック（Line of Sight）
+    uint32_t losBlockMask = C_WALL;     // 遮蔽に使うフラグ（壁など）
+};
+
+// 返却（必要ならスコアも返せる）
+struct ViewQueryHit
+{
+    Actor* actor = nullptr;
+    ColliderComponent* collider = nullptr;
+    float dist = 0.0f;
+    float cosAngle = 0.0f; // forward との cos（大きいほど中央）
+};
+
+//=============================================================================
 // PhysWorld
 //  - 毎フレームの衝突ペア判定（コールバック登録）
 //  - RayCast / RayCCD（壁ヒット）
@@ -150,6 +174,10 @@ public:
                         uint32_t moverFlag,
                         uint32_t ceilingFlag,
                         Vector3& outPush) const;
+    
+    
+    void QueryView(const ViewQueryDesc& desc,
+                   std::vector<ViewQueryHit>& outHits) const;
     
 private:
     //-------------------------------------------------------------------------

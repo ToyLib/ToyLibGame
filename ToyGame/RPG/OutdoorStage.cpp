@@ -17,7 +17,7 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Watercolor;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
     //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
@@ -83,7 +83,7 @@ void OutdoorStage::InitStage()
     
  
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(6000.0f);
     mApp->GetTimeOfDaySystem()->SetTime(12.0f, 0.0f);
 }
 
