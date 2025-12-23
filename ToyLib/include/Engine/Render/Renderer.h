@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
+#include "Engine/Render/PostEffect.h"
 #include "glad/glad.h"
 
 #include <SDL3/SDL.h>
@@ -257,6 +258,13 @@ public:
         std::shared_ptr<class TextFont> font);
 
     ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
+    
+    //--------------------------------------------------------------------------
+    // ポストエフェクト
+    //--------------------------------------------------------------------------
+    
+    void SetPostEffect(const PostEffectDesc& desc) { mPost = desc; }
+    const PostEffectDesc& GetPostEffect() const { return mPost; }
 
 private:
     //--------------------------------------------------------------------------
@@ -281,6 +289,7 @@ private:
     Matrix4 mViewMatrix;
     Matrix4 mInvView;
     Matrix4 mProjectionMatrix;
+    
     
     //--------------------------------------------------------------------------
     // キャプチャーリクエストのキュー
@@ -330,6 +339,20 @@ private:
     float mCascadeBlend;
 
     //--------------------------------------------------------------------------
+    // ポストエフェクト
+    //--------------------------------------------------------------------------
+    // メインシーン（ポスト用）RenderTarget
+    std::shared_ptr<RenderTarget> mSceneRT;
+
+    // ポスト設定
+    PostEffectDesc mPost;
+
+    // ポスト描画
+    void DrawPostFromSceneRT();
+    void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
+    void DrawUIPass_Only();     // UIだけ（クリアなし）
+    
+    //--------------------------------------------------------------------------
     // ジオメトリ
     //--------------------------------------------------------------------------
 
@@ -368,6 +391,7 @@ private:
     bool LoadSettings(const std::string& filePath);
     bool InitializeShadowMapping();
     void RenderShadowMap();
+    
 };
 
 } // namespace toy

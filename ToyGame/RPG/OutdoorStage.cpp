@@ -16,6 +16,12 @@ OutdoorStage::~OutdoorStage()
 
 void OutdoorStage::InitStage()
 {
+    toy::PostEffectDesc effectDesc;
+    effectDesc.type = toy::PostEffectType::CRT;
+    effectDesc.intensity = 1.0f;
+    mApp->GetRenderer()->SetPostEffect(effectDesc);
+    ;
+    
     DeployGround();
     DeploySky();
     DeployFire(Vector3::Zero);

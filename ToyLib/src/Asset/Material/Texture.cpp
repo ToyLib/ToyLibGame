@@ -188,28 +188,6 @@ bool Texture::LoadFromMemory(const void* data, int width, int height)
     return true;
 }
 
-//============================================================
-// 生成：レンダリングターゲット用テクスチャ（カラー）
-//   - ポストエフェクト用 FBO のアタッチ先などで使用
-//============================================================
-void Texture::CreateForRendering(int w, int h, unsigned int format)
-{
-    mWidth  = w;
-    mHeight = h;
-
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, format,
-        mWidth, mHeight, 0,
-        GL_RGB, GL_FLOAT,
-        nullptr
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-}
 
 //============================================================
 // 生成：シャドウマップ用テクスチャ（depth）

@@ -48,8 +48,6 @@ public:
     // RGBA8 の描画用カラーテクスチャ（RenderTarget 用）
     void CreateRenderColorRGBA8(int w, int h);
 
-    // 任意フォーマットの描画用テクスチャ作成（FBO 等で利用）
-    void CreateForRendering(int w, int h, unsigned int format);
 
     //--------------------------------------------------------------------------
     // エフェクト用テクスチャ生成

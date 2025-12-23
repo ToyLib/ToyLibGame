@@ -243,19 +243,84 @@ void Renderer::Shutdown()
 //=============================================================
 // メイン描画パス
 //=============================================================
-
 void Renderer::Draw()
 {
-    // Debug 用カウンタリセット
     ResetDebugCounter();
 
     ChangeDebugRTT();
     FlushSceneCaptures();
 
     ChangeDebugOnScreen();
-    DrawPass(true);
-    // バッファ入れ替え
+
+    const bool usePost = (mPost.type != PostEffectType::None) && (mSceneRT != nullptr);
+
+    if (usePost)
+    {
+        // 1) ワールドを SceneRT へ（UIなし）
+        //    既存の DrawToRenderTarget を使うならこれでもOK：
+        //    DrawToRenderTarget(mSceneRT, mViewMatrix, mProjectionMatrix, false);
+        //
+        //    ただ DrawToRenderTarget は少し独自分岐があるので、
+        //    “完全にメインと同じ” を狙うなら以下の方式もアリ：
+
+        {
+            GLint prevVP[4];
+            glGetIntegerv(GL_VIEWPORT, prevVP);
+
+            mSceneRT->Bind();
+            DrawWorldPass_NoUI();
+
+            RenderTarget::Unbind();
+            glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
+            glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+        }
+
+        // 2) バックバッファへポスト適用
+        glClear(GL_COLOR_BUFFER_BIT);
+        DrawPostFromSceneRT();
+
+        // 3) UIを後乗せ
+        DrawUIPass_Only();
+    }
+    else
+    {
+        // 従来
+        DrawPass(true);
+    }
+
     SDL_GL_SwapWindow(mWindow);
+}
+
+void Renderer::DrawWorldPass_NoUI()
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    RenderShadowMap();
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    DrawSky();
+
+    DrawVisualLayer(VisualLayer::Background2D);
+    DrawVisualLayer(VisualLayer::Object3D);
+    DrawVisualLayer(VisualLayer::Effect3D);
+    DrawVisualLayer(VisualLayer::OverlayScreen);
+}
+
+void Renderer::DrawUIPass_Only()
+{
+    // DrawVisualLayer 内でも UI は depth off にしてくれるが、ここで保険
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    DrawVisualLayer(VisualLayer::UI);
+
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
 }
 
 void Renderer::DrawPass(bool drawUI)
@@ -359,6 +424,44 @@ void Renderer::FlushSceneCaptures()
     mSceneCaptureQueue.clear();
 }
 
+void Renderer::DrawPostFromSceneRT()
+{
+    if (!mSceneRT) return;
+
+    auto sceneTex = mSceneRT->GetColorTexture();
+    if (!sceneTex) return;
+
+    // ここは「上書き」したいのでブレンド切るのが無難
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    auto sh = GetShader("PostEffect");
+    if (!sh) return;
+
+    sh->SetActive();
+
+    // sampler2D
+    // Texture::SetActive(unit) が glActiveTexture + glBindTexture をやってくれる
+    sceneTex->SetActive(0);
+    sh->SetTextureUniform("uSceneTex", 0);
+
+    // Post settings
+    sh->SetIntUniform("uPostType", static_cast<int>(mPost.type));
+    sh->SetFloatUniform("uIntensity", mPost.intensity);
+
+    // 任意：時間（CRTノイズ等）
+    sh->SetFloatUniform("uTime",  SDL_GetTicks());   // 累積秒
+    sh->SetIntUniform("uFlipY", 0);           // 上下逆なら 1 に
+
+    // Draw fullscreen
+    mFullScreenQuad->SetActive();
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    // 復帰
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+}
 //=============================================================
 // SkyDome
 //=============================================================
@@ -623,6 +726,27 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
 
     glViewport(0, 0, pixelW, pixelH);
 
+    // ---- ここで SceneRT を用意（ポスト用） ----
+    if (!mSceneRT)
+    {
+        mSceneRT = std::make_shared<RenderTarget>();
+        if (!mSceneRT->Create(pixelW, pixelH))
+        {
+            std::cerr << "[Renderer] Failed to create SceneRT\n";
+            mSceneRT.reset();
+        }
+    }
+    else
+    {
+        // 今は作り直し（※ RenderTarget側が解放できる設計にしてからが理想）
+        mSceneRT = std::make_shared<RenderTarget>();
+        if (!mSceneRT->Create(pixelW, pixelH))
+        {
+            std::cerr << "[Renderer] Failed to recreate SceneRT\n";
+            mSceneRT.reset();
+        }
+    }
+    
     // DPI スケールもここで取り直しておくと、モニタ跨ぎ時も安全
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
     if (mWindowDisplayScale <= 0.0f)
@@ -852,6 +976,17 @@ bool Renderer::LoadShaders()
     fShaderName = mShaderPath + "WeatherScreen.frag";
     mShaders["WeatherOverlay"] = std::make_shared<Shader>();
     if (!mShaders["WeatherOverlay"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    {
+        return false;
+    }
+    
+    //---------------------------------------------------------
+    // ポストエフェクト（フルスクリーン）
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "PostEffect.vert";
+    fShaderName = mShaderPath + "PostEffect.frag";
+    mShaders["PostEffect"] = std::make_shared<Shader>();
+    if (!mShaders["PostEffect"]->Load(vShaderName.c_str(), fShaderName.c_str()))
     {
         return false;
     }
