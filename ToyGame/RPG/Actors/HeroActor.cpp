@@ -1,7 +1,6 @@
 #include "HeroActor.h"
 #include "MagicActor.h"
 #include "HealMagicActor.h"
-#include "Gameplay/LockOnComponent.h"
 #include <iostream>
 
 
@@ -70,9 +69,8 @@ HeroActor::HeroActor(toy::Application* a)
     mGravComp = CreateComponent<toy::GravityComponent>();
     mGravComp->SetEnableGroundPose(false);
     
-    // --- ロックオンコンポーネント ---
-    CreateComponent<toy::kit::LockOnComponent>();
-    
+    // --- センサーコンポーネント ---
+    mSensor= CreateComponent<toy::SensorComponent>();
     
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Walk.wav");
@@ -93,6 +91,8 @@ HeroActor::~HeroActor()
 
 void HeroActor::UpdateActor(float deltaTime)
 {
+    auto hits = mSensor->GetHits();
+    std::cout << "Sensor hits... " << hits.size() << std::endl;
 }
 
 void HeroActor::ActorInput(const toy::InputState& state)

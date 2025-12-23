@@ -35,6 +35,7 @@ private:
     class toy::CameraComponent* mCameraComp;
     class toy::GravityComponent* mGravComp;
     class toy::SoundComponent* mSound;
+    class toy::SensorComponent* mSensor;
     bool mMovable;
     
     

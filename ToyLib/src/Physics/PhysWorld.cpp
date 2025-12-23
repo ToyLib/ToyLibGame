@@ -1080,7 +1080,7 @@ void PhysWorld::QueryView(const ViewQueryDesc& desc,
         {
             continue;
         }
-        if (!(col->GetFlags() & desc.flagMask))
+        if (0 == (col->GetFlags() & desc.flagMask))
         {
             continue;
         }

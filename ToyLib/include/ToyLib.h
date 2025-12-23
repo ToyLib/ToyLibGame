@@ -118,6 +118,7 @@
 #include "Physics/GravityComponent.h"
 #include "Physics/LaserColliderComponent.h"
 #include "Physics/PhysWorld.h"
+#include "Physics/SensorComponent.h"
 
 //======================================
 // Audio (再生系)
