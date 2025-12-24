@@ -87,7 +87,7 @@ HeroActor::HeroActor(toy::Application* a)
     mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::UI);
     mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
     mTarget->SetBlendAdd(false);
-    mTarget->SetIsTopLeft(false);
+    mTarget->SetIsTopLeft(true);
     
     
     
@@ -113,6 +113,7 @@ void HeroActor::UpdateActor(float deltaTime)
         {
             mTargetActor->SetPosition(Vector3(scInfo.screen.x, scInfo.screen.y, 0));
             mTarget->SetVisible(true);
+			std::cout << "Target Screen Pos: " << scInfo.screen.x << ", " << scInfo.screen.y << std::endl;
         }
     }
     
