@@ -14,7 +14,7 @@
     "bounding_box_offset": [0.0, 0.0, 0.0],
     "bounding_box_scale": [0.5, 1.0, 0.4],
     "visible": true,
-    "type": "C_PLAYER"
+    "type": "C_PLAYER_TEAM"
   },
 
   "move_component": {

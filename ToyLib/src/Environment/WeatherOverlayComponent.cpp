@@ -69,7 +69,7 @@ void WeatherOverlayComponent::Draw()
                                             rayOrigin,
                                             dirCamToSun,
                                             maxDist,
-                                            C_WALL | C_GROUND | C_ENEMY_TEAM,
+                                            C_WALL | C_GROUND | C_CEILING|  C_ENEMY_TEAM,
                                             hit
                                             );
                 

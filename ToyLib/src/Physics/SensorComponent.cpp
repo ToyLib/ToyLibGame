@@ -33,6 +33,8 @@ void SensorComponent::Update(float)
     q.losBlockMask = mDesc.losBlock;
     q.requireLOS   = mDesc.requireLOS;
     q.ignoreActor  = GetOwner();
+    q.nearOverrideDist = mDesc.nearOverrideDist;
+    q.nearOverrideRequireLOS = mDesc.nearOverrideRequireLOS;
 
     phys->QueryView(q, mHits);
 }

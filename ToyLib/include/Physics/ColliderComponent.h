@@ -42,7 +42,7 @@ public:
     }
 
     // 複数のうち「どれか1つ」
-    bool HasAnyFlags(uint32_t mask) const
+    bool HasAnyFlag(uint32_t mask) const
     {
         return (mFlags & mask) != 0;
     }

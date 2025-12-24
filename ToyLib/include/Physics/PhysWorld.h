@@ -1,12 +1,5 @@
 //=============================================================================
 // PhysWorld.h
-//  - Collider の集約管理と、ゲーム向けの軽量な衝突/地面判定ユーティリティ
-//  - OBB(AABB含む) / Sphere / Ray / TerrainPolygons を扱う
-//  - 地面判定は「C_GROUND コライダー + TerrainPolygons」のハイブリッド方式
-//=============================================================================
-
-//=============================================================================
-// PhysWorld.h
 //=============================================================================
 #pragma once
 
@@ -44,6 +37,46 @@ struct GroundHit
 };
 
 //=============================================================================
+// Ray / Raycast
+//=============================================================================
+struct Ray
+{
+    Vector3 start = Vector3::Zero;
+    Vector3 dir   = Vector3::UnitZ; // normalized expected
+
+    Ray() {}
+    Ray(const Vector3& s, const Vector3& d)
+        : start(s)
+        , dir(d)
+    {
+        if (dir.LengthSq() > Math::NearZeroEpsilon)
+        {
+            dir.Normalize();
+        }
+        else
+        {
+            dir = Vector3::UnitZ;
+        }
+    }
+};
+
+struct RaycastHit
+{
+    bool hit = false;
+    Vector3 point = Vector3::Zero;
+    float distance = 0.0f;
+    Actor* actor = nullptr;
+};
+
+// Ray vs triangle (Möller–Trumbore)
+bool IntersectRayTriangle(
+    const Ray& ray,
+    const Vector3& v0,
+    const Vector3& v1,
+    const Vector3& v2,
+    float& outT);
+
+//=============================================================================
 // View query (sensor)
 //=============================================================================
 struct ViewQueryDesc
@@ -53,21 +86,24 @@ struct ViewQueryDesc
     float     fovRad       = Math::ToRadians(90.0f);
     float     maxDist      = 30.0f;
 
-    // ★ Any 判定： (colliderFlags & flagMask) != 0 で候補
+    // Any: (colliderFlags & flagMask) != 0 で候補
     uint32_t  flagMask     = 0;
 
     // LOS
     bool      requireLOS   = true;
     uint32_t  losBlockMask = 0;      // 壁など
-    Actor*    ignoreActor  = nullptr;
+    Actor*    ignoreActor  = nullptr; // 自分など
+    
+    float    nearOverrideDist = 2.0f;
+    bool     nearOverrideRequireLOS = false; // 近接でも遮蔽を見たいなら true
 };
 
 struct ViewQueryHit
 {
-    Actor*            actor    = nullptr;
+    Actor*            actor     = nullptr;
     ColliderComponent* collider = nullptr;
-    float             dist     = 0.0f;
-    float             cosAngle = -1.0f;
+    float             dist      = 0.0f;
+    float             cosAngle  = -1.0f;
 };
 
 //=============================================================================
@@ -77,8 +113,7 @@ struct TerrainGrid
 {
     bool enabled = false;
 
-    // origin.x = minX, origin.y = minZ
-    Vector2 origin = Vector2::Zero;
+    Vector2 origin = Vector2::Zero; // origin.x=minX, origin.y=minZ
     float cellSize = 10.0f;
 
     int cols = 0;
@@ -106,30 +141,6 @@ struct TerrainGrid
     }
 };
 
-//==============================
-// Ray（レイ）
-//==============================
-struct Ray
-{
-    Vector3 start;  // 始点（ワールド座標）
-    Vector3 dir;    // 正規化された方向
-
-    Ray() {}
-    Ray(const Vector3& s, const Vector3& d)
-        : start(s), dir(Vector3::Normalize(d)) {}
-};
-
-//==============================
-// RaycastHit（レイ判定結果）
-//==============================
-struct RaycastHit
-{
-    bool hit = false;
-    Vector3 point = Vector3::Zero;
-    float distance = 0.0f;
-    class Actor* actor = nullptr;
-};
-
 //=============================================================================
 // PhysWorld
 //=============================================================================
@@ -139,10 +150,8 @@ public:
     PhysWorld();
     ~PhysWorld();
 
-    //------------------------------------------------------------------------
     // Terrain
-    //------------------------------------------------------------------------
-    void SetGroundPolygons(const std::vector<struct Polygon>& polys);
+    void SetGroundPolygons(const std::vector<Polygon>& polys);
     float GetGroundHeightAt(const Vector3& pos) const;
 
     bool GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const;
@@ -150,9 +159,7 @@ public:
     bool GetNearestGroundY(const Actor* a, float& outY) const;
     bool GetNearestGroundHit(const Actor* a, GroundHit& outHit) const;
 
-    //------------------------------------------------------------------------
     // Ray
-    //------------------------------------------------------------------------
     bool RayHitWall(const Vector3& start, const Vector3& end, Vector3& hitPos) const;
 
     bool Raycast(const Vector3& origin,
@@ -161,28 +168,21 @@ public:
                  uint32_t flagMask,
                  RaycastHit& outHit) const;
 
-    //------------------------------------------------------------------------
-    // View query (sensor / lockon candidate)
-    //------------------------------------------------------------------------
+    // View query
     void QueryView(const ViewQueryDesc& desc,
                    std::vector<ViewQueryHit>& outHits) const;
 
-    //------------------------------------------------------------------------
     // Collider management
-    //------------------------------------------------------------------------
     void AddCollider(ColliderComponent* c);
     void RemoveCollider(ColliderComponent* c);
 
-    // Any / All で明確に分ける
     void GetCollidersByAnyFlags(uint32_t mask,
                                 std::vector<ColliderComponent*>& out) const;
 
     void GetCollidersByAllFlags(uint32_t mask,
                                 std::vector<ColliderComponent*>& out) const;
 
-    //------------------------------------------------------------------------
     // Pair scan / callbacks
-    //------------------------------------------------------------------------
     void CollideAndCallback(uint32_t flagA,
                             uint32_t flagB,
                             bool doPushBack = false,
@@ -191,9 +191,7 @@ public:
 
     void Test();
 
-    //------------------------------------------------------------------------
     // Utilities
-    //------------------------------------------------------------------------
     Vector3 ComputePushBackDirection(const ColliderComponent* a,
                                      const ColliderComponent* b,
                                      bool allowY) const;
@@ -203,8 +201,7 @@ public:
                         uint32_t ceilingFlag,
                         Vector3& outPush) const;
 
-
-    // collider count (debug / test / sensor)
+    // debug
     size_t GetColliderCount() const { return mColliders.size(); }
 
 private:
@@ -213,7 +210,6 @@ private:
     float PolygonHeight(const Polygon* pl, const Vector3& p) const;
     Vector3 PolygonNormal(const Polygon& pl) const;
 
-    // Ground helper
     ColliderComponent* FindFootCollider(const Actor* a) const;
 
     // OBB / Sphere
@@ -223,7 +219,6 @@ private:
     bool JudgeWithOBB(const ColliderComponent* col1,
                       const ColliderComponent* col2) const;
 
-    // SAT
     bool CompareLengthOBB(const struct OBB* cA,
                           const struct OBB* cB,
                           const Vector3& vSep,
@@ -251,15 +246,12 @@ private:
 
     // Ray vs OBB
     bool IntersectRayOBB(const Ray& ray, const struct OBB* obb, float& outT) const;
-    
 
 private:
-    // Terrain
     std::vector<Polygon> mTerrainPolygons;
     TerrainGrid          mTerrainGrid;
 
-    // Colliders (raw ptr; owned by Actor via unique_ptr components)
-    std::vector<ColliderComponent*> mColliders;
+    std::vector<ColliderComponent*> mColliders; // owned by Actor components
 };
 
 } // namespace toy

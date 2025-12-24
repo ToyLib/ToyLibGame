@@ -14,10 +14,13 @@ public:
     struct Desc
     {
         float    fovRad      = Math::ToRadians(90.0f);
-        float    maxDist     = 30.0f;
+        float    maxDist     = 40.0f;
         uint32_t targetMask  = C_ENEMY_TEAM | C_HURTBOX;
-        uint32_t losBlock    = C_WALL;
-        bool     requireLOS  = false;
+        uint32_t losBlock    = C_WALL | C_GROUND;
+        bool     requireLOS  = true;
+        
+        float    nearOverrideDist = 5.0f;
+        bool     nearOverrideRequireLOS = false;
     };
     SensorComponent(Actor* owner, int order = 5);
     SensorComponent(class Actor* owner, const Desc& d, int order = 5);
