@@ -203,6 +203,10 @@ void SpriteComponent::Draw()
 
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
+    if (mIsBlendAdd)
+    {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
     
     renderer->AddDrawObject();
 }

@@ -15,7 +15,7 @@ namespace toy {
 // コンストラクタ
 //-------------------------------------------------------------
 Actor::Actor(Application* a)
-    : mStatus(EActive)
+    : mStatus(State::Active)
     , mPosition(Vector3::Zero)
     , mRotation(Quaternion::Identity)
     , mScale(1.0f)
@@ -90,7 +90,7 @@ void Actor::ComputeWorldTransform()
 //-------------------------------------------------------------
 void Actor::Update(float deltaTime)
 {
-    if (mStatus != EActive)
+    if (mStatus != State::Active)
     {
         return;
     }
@@ -126,7 +126,7 @@ void Actor::UpdateComponents(float deltaTime)
 //-------------------------------------------------------------
 void Actor::ProcessInput(const struct InputState& state)
 {
-    if (mStatus != EActive)
+    if (mStatus != State::Active)
     {
         return;
     }

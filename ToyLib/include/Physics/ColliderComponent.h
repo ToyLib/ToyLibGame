@@ -10,7 +10,17 @@
 
 namespace toy {
 
-
+//-------------------------------------------------------------
+// TargetingState
+//------------------------------------------------------------------------------
+// ・ゲーム中のSearch/Sensor機能からの通知状態を受け取る
+//-------------------------------------------------------------
+enum class TargetState
+{
+    None,       // 候補外
+    Candidate,  // 候補（薄いマーク）
+    Locked      // ロック中（強調マーク）
+};
 
 //------------------------------------------------------------------------------
 // ColliderComponent
@@ -88,6 +98,9 @@ public:
     void SetIsTrigger(bool b) { mIsTrigger = b; }
     bool IsTrigger() const    { return mIsTrigger; }
     
+    void SetTargetState(TargetState s) { mTargetState = s; }
+    TargetState GetTargetState() const { return mTargetState; }
+
 private:
     // 少なくとも 1 つ以上のコライダーと当たっているか
     bool mIsCollided;
@@ -106,6 +119,9 @@ private:
     
     // Trigger当たっても反応しない
     bool mIsTrigger;
+    
+    // ターゲッティング状態
+    TargetState mTargetState;
 };
 
 } // namespace toy

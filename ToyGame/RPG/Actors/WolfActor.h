@@ -21,6 +21,9 @@ public:
 private:
     ActionType mAction;
     toy::SkeletalMeshComponent* meshComp;
+    toy::SpriteComponent* mTarget;
+    toy::Actor* mTargetActor;
+    toy::ColliderComponent* mColleder;
     
     float mLifeTime;
     

@@ -7,7 +7,7 @@
 
 
 KitRPG::KitRPG()
-: Game()
+    : Game()
 {
     InitAssetManager("GameApp/Assets/RPG/");
 }

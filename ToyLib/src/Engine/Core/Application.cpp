@@ -367,7 +367,7 @@ void Application::DestroyActor(Actor* actor)
 {
     if (actor)
     {
-        actor->SetState(Actor::EDead);
+        actor->SetState(Actor::State::Dead);
     }
 }
 
@@ -467,7 +467,7 @@ void Application::UpdateFrame()
             mActors.end(),
             [](const std::unique_ptr<Actor>& actor)
             {
-                return actor->GetState() == Actor::EDead;
+                return actor->GetState() == Actor::State::Dead;
             }
         ),
         mActors.end()
@@ -486,7 +486,7 @@ void Application::UpdateFrame()
     stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 
     stats.ActorCount         = static_cast<int>(mActors.size());
-    stats.ColliderCount      = mPhysWorld ? mPhysWorld->GetColliderCount() : 0;
+    stats.ColliderCount      = mPhysWorld ? static_cast<int>(mPhysWorld->GetColliderCount()) : 0;
     stats.DrawCallCount      = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
     stats.DrawObjectCount    = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
     stats.OffDrawCallCount   = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;

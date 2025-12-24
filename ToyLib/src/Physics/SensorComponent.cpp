@@ -2,6 +2,7 @@
 #include "Physics/PhysWorld.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
+#include "Physics/ColliderComponent.h"
 
 namespace toy {
 
@@ -36,7 +37,35 @@ void SensorComponent::Update(float)
     q.nearOverrideDist = mDesc.nearOverrideDist;
     q.nearOverrideRequireLOS = mDesc.nearOverrideRequireLOS;
 
+
+    mPrev = mCurr;
+    mCurr.clear();
+    
     phys->QueryView(q, mHits);
+    
+    
+    for (auto& h : mHits)
+    {
+        mCurr.push_back(h.collider);
+    }
+
+    // Enter
+    for (auto* c : mCurr)
+    {
+        if (std::find(mPrev.begin(), mPrev.end(), c) == mPrev.end())
+        {
+            c->SetTargetState(TargetState::Candidate);
+        }
+    }
+
+    // Leave
+    for (auto* c : mPrev)
+    {
+        if (std::find(mCurr.begin(), mCurr.end(), c) == mCurr.end())
+        {
+            c->SetTargetState(TargetState::None);
+        }
+    }
 }
 
 } // namespace toy

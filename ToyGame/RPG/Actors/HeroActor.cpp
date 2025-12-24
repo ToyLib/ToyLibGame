@@ -82,13 +82,14 @@ HeroActor::HeroActor(toy::Application* a)
     mMagic = GetApp()->CreateActor<MagicActor>();
     mHeal = GetApp()->CreateActor<HealMagicActor>();
     
+    /*
     // ターゲットスプライト
     mTargetActor = GetApp()-> CreateActor<toy::Actor>();
     mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::UI);
     mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
     mTarget->SetBlendAdd(false);
     mTarget->SetIsTopLeft(false);
-    
+    */
     
     
 }
@@ -100,23 +101,14 @@ HeroActor::~HeroActor()
 
 void HeroActor::UpdateActor(float deltaTime)
 {
-    mTarget->SetVisible(false);
+    //mTarget->SetVisible(false);
 
     auto hits = mSensor->GetHits();
-    if (hits.size() > 0)
+//    for (auto h : hits)
     {
-        auto bb = hits[0].collider->GetBoundingVolume()->GetWorldAABB();
-        auto v = (bb.max + bb.min) * 0.5f;
-
-        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        if (scInfo.visible)
-        {
-            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            mTarget->SetVisible(true);
-        }
+        //h.collider->SetTargetState(toy::TargetState::Candidate);
     }
-    
-    
+        
 }
 
 void HeroActor::ActorInput(const toy::InputState& state)

@@ -35,6 +35,9 @@ public:
 private:
     Desc mDesc{};
     std::vector<struct ViewQueryHit> mHits;
+    
+    std::vector<class ColliderComponent*> mPrev;
+    std::vector<class ColliderComponent*> mCurr;
 };
 
 } // namespace toy
