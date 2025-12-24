@@ -255,6 +255,18 @@ elseif(APPLE)
         BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_RPATH "@executable_path/../lib;/opt/homebrew/lib"
     )
+
+    # マニフェストコピー
+    set(DPI_MANIFEST_TEMPLATE "${CMAKE_SOURCE_DIR}/cmake/win_dpiaware.manifest")
+
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DPI_MANIFEST_TEMPLATE}"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:${PROJECT_NAME}>.manifest"
+        COMMENT "Copying DPI-aware manifest for ${PROJECT_NAME}"
+    )
 endif()
 
 #========================
