@@ -1421,9 +1421,12 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
 
     float screenX = (ndcX * 0.5f + 0.5f) * GetScreenWidth();
     float screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetScreenHeight();
+    float virtualX = (ndcX * 0.5f + 0.5f) * GetVirtualWidth();
+    float virtualY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetVirtualHeight();
 
     result.visible = true;
     result.screen  = Vector2(screenX, screenY);
+    result.virtualScreen = Vector2(virtualX, virtualY);
     result.depth   = ndcZ;
     return result;
 }

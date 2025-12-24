@@ -109,14 +109,10 @@ void HeroActor::UpdateActor(float deltaTime)
         auto v = (bb.max + bb.min) * 0.5f;
 
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        auto uiInfo = GetApp()->GetRenderer()->GetUIScaleInfo();
-        uiInfo.scale;
-		std::cout << "UI Scale: " << uiInfo.scale << std::endl;
         if (scInfo.visible)
         {
-            mTargetActor->SetPosition(Vector3(scInfo.screen.x/ uiInfo.scale, scInfo.screen.y/ uiInfo.scale, 0));
+            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
             mTarget->SetVisible(true);
-			std::cout << "Target Screen Pos: " << scInfo.screen.x << ", " << scInfo.screen.y << std::endl;
         }
     }
     
