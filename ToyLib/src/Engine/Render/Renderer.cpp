@@ -1421,8 +1421,11 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
 
     float screenX = (ndcX * 0.5f + 0.5f) * GetScreenWidth();
     float screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetScreenHeight();
-    float virtualX = (ndcX * 0.5f + 0.5f) * GetVirtualWidth();
-    float virtualY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetVirtualHeight();
+    
+    float dpiScale = GetUIScaleInfo().scale;
+    
+    float virtualX = screenX / dpiScale;
+    float virtualY = screenY / dpiScale;
 
     result.visible = true;
     result.screen  = Vector2(screenX, screenY);

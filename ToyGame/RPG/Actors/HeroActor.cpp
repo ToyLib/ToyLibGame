@@ -109,14 +109,9 @@ void HeroActor::UpdateActor(float deltaTime)
         auto v = (bb.max + bb.min) * 0.5f;
 
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        float dpi = GetApp()->GetRenderer()->GetUIScaleInfo().scale;
-        if (dpi == 0.0f) // ゼロ除算ガード
-        {
-            dpi = 1.0f;
-        }
         if (scInfo.visible)
         {
-            mTargetActor->SetPosition(Vector3(scInfo.screen.x/dpi, scInfo.screen.y/dpi, 0));
+            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
             mTarget->SetVisible(true);
         }
     }
