@@ -141,11 +141,33 @@ void SpriteComponent::Draw()
     }
     else
     {
+        // 論理座標（左上原点 / 右+ / 下+）
+        Vector3 logicalPos = GetOwner()->GetPosition();
+
+        // -----------------------------
+        // 1. 論理座標 → 画面ピクセル (左上原点)
+        // -----------------------------
+        // 論理 (0,0) が「黒帯込みの画面左上」に来るようにする
+        float px = ui.offsetX + logicalPos.x * scale;
+        float py = ui.offsetY + logicalPos.y * scale;
+
+        // -----------------------------
+        // 2. 画面ピクセル → ワールド座標（中心原点 / 右+ / 上+）
+        // -----------------------------
+        // SimpleViewProj(sw, sh) が
+        //   X: [-sw/2, +sw/2]
+        //   Y: [-sh/2, +sh/2] (上が＋)
+        // を前提とした行列だとすると：
+        pos.x = px - sw * 0.5f;
+        pos.y = sh * 0.5f - py;   // 画面上が＋になるよう反転
+        pos.z = logicalPos.z;     // UI用途なら 0 でもOK
+        /*
         // 従来の「中心原点」座標（レターボックス無視で中央基準）
         pos = GetOwner()->GetPosition();
         pos.x *= scale;
         pos.y *= scale;
         // pos.z はそのまま
+         */
     }
 
     //==============================

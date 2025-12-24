@@ -36,6 +36,8 @@ private:
     class toy::GravityComponent* mGravComp;
     class toy::SoundComponent* mSound;
     class toy::SensorComponent* mSensor;
+    class toy::SpriteComponent* mTarget;
+    class toy::Actor* mTargetActor;
     bool mMovable;
     
     
