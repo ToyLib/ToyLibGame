@@ -32,6 +32,7 @@ struct ScreenProjectResult
 {
     bool    visible; // 画面内に投影されているか
     Vector2 screen;  // スクリーン座標（0〜width / 0〜height）
+    Vector2 virtualScreen; // 仮想スクリーン座標
     float   depth;   // 深度（0〜1）
 };
 

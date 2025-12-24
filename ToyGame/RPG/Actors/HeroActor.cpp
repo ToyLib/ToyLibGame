@@ -109,6 +109,8 @@ void HeroActor::UpdateActor(float deltaTime)
         auto v = (bb.max + bb.min) * 0.5f;
 
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
+        auto uiInfo = GetApp()->GetRenderer()->GetUIScaleInfo();
+        uiInfo.scale;
         if (scInfo.visible)
         {
             mTargetActor->SetPosition(Vector3(scInfo.screen.x, scInfo.screen.y, 0));
