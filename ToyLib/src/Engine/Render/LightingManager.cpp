@@ -13,7 +13,7 @@ namespace toy {
 LightingManager::LightingManager()
     : mSunIntensity(1.0f)
     , mDirLight(Vector3::Zero)
-    , mAmbientColor(Vector3(0.5f, 0.5f, 0.5f))
+    , mAmbientColor(Vector3(0.8f, 0.8f, 0.8f))
 
 {
 }
