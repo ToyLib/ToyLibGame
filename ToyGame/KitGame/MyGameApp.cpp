@@ -6,7 +6,7 @@
 MyGameApp::MyGameApp()
     : toy::Application()
 {
-    GetAssetManager()->SetAssetsPath("ToyGame/KitGame/Assets/");
+    GetAssetManager()->SetAssetsPath("ToyGame/Assets/KitGame/");
 
 }
 

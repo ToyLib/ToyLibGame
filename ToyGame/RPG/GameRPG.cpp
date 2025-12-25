@@ -10,7 +10,7 @@
 GameRPG::GameRPG()
 : toy::Application()
 {
-    InitAssetManager("ToyGame/RPG/Assets/", GetRenderer()->GetWindowDisplayScale());
+    InitAssetManager("ToyGam/Assets/RPG/", GetRenderer()->GetWindowDisplayScale());
     
     mStage = std::make_unique<OutdoorStage>(this);
 
