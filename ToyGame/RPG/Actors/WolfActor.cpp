@@ -12,11 +12,11 @@ WolfActor::WolfActor(toy::Application* a)
     meshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
     //meshComp->SetToonRender(true);
     //meshComp->SetContourFactor(1.01f);
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("wolf.fbx"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("enemys/wolf.fbx"));
     
     
     mColleder = CreateComponent<toy::ColliderComponent>();
-    mColleder->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("wolf.fbx")->GetVertexArray());
+    mColleder->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("enemys/wolf.fbx")->GetVertexArray());
     mColleder->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
     mColleder->SetEnabled(true);
     mColleder->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);

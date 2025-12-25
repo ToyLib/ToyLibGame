@@ -74,7 +74,7 @@ private:
     void LoadMeshData();
 
     // マテリアル読み込み
-    void LoadMaterials(class AssetManager* assetMamager);
+    void LoadMaterials(class AssetManager* assetMamager, const std::string& meshFilename);
 
     // アニメーションクリップ読み込み
     void LoadAnimations();

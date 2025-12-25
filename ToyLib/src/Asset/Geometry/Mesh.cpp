@@ -5,6 +5,7 @@
 #include "Asset/Geometry/Bone.h"
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Material/Material.h"
+#include "Utils/StringUtil.h"
 
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
@@ -550,7 +551,7 @@ bool Mesh::Load(const std::string& fileName,
     MatrixAi2Gl(mGlobalInverseTransform, inv);
 
     LoadMeshData();
-    LoadMaterials(assetMamager);
+    LoadMaterials(assetMamager, fileName);
     LoadAnimations();
 
     return true;
@@ -581,7 +582,7 @@ void Mesh::LoadMeshData()
 // - Ambient / Diffuse / Specular / Shininess を Material に反映
 // - Diffuse テクスチャ（外部 or 埋め込み）を読み込む
 //==============================================================
-void Mesh::LoadMaterials(AssetManager* assetMamager)
+void Mesh::LoadMaterials(AssetManager* assetMamager, const std::string& meshFilename)
 {
     for (unsigned int i = 0; i < mScene->mNumMaterials; ++i)
     {
@@ -640,8 +641,9 @@ void Mesh::LoadMaterials(AssetManager* assetMamager)
             }
             else
             {
+                std::string meshPath = StringUtil::GetDirectory(meshFilename);
                 // 通常のファイルパス
-                auto tex = assetMamager->GetTexture(texPath);
+                auto tex = assetMamager->GetTexture(meshPath + texPath);
                 if (tex)
                 {
                     mat->SetDiffuseMap(tex);
