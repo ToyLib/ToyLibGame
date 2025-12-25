@@ -6,9 +6,9 @@
 
 
 HeroActor::HeroActor(toy::Application* a)
-: Actor(a)
-, mAnimID(H_Stand)
-, mMovable(true)
+    : Actor(a)
+    , mAnimID(H_Stand)
+    , mMovable(true)
 {
     // --- JSON読み込み ---
     std::ifstream file("ToyGame/Settings/HeroActor.json");
@@ -30,7 +30,7 @@ HeroActor::HeroActor(toy::Application* a)
     JsonHelper::GetFloat(json["mesh"], "contour_factor", contour);
     mMeshComp->SetToonRender(useToon);
     mMeshComp->SetContourFactor(contour);
-    mMeshComp->SetContourColor(Vector3(1.0f, 0.0f, 0.0f));
+    mMeshComp->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
 
     // --- Transform設定 ---
     Vector3 pos;
