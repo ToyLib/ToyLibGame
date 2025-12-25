@@ -322,7 +322,7 @@ void OutdoorStage::DeploySky()
     // オーバーレイ
     auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
     
-    mWeather = std::make_unique<toy::kit::WeatherManager>();
+    mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
     mWeather->ChangeWeather(toy::WeatherType::CLEAR);

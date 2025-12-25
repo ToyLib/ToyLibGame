@@ -344,6 +344,8 @@ void Application::ProcessInput()
     {
         actor->ProcessInput(state);
     }
+    
+    ProcessInput(state);
 }
 
 

@@ -99,6 +99,7 @@
 #include "Environment/SkyDomeMeshGenerator.h"
 #include "Environment/WeatherDomeComponent.h"
 #include "Environment/WeatherOverlayComponent.h"
+#include "Environment/WeatherManager.h"
 
 //======================================
 // Movement

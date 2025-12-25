@@ -1,7 +1,7 @@
-#include "KitCore/WeatherManager.h"
+#include "Environment/WeatherManager.h"
 #include "Utils/MathUtil.h"
 
-namespace toy::kit {
+namespace toy {
 
 WeatherManager::WeatherManager()
 : mWeather(WeatherType::CLEAR)

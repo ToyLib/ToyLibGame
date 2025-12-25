@@ -29,17 +29,14 @@
 		7EDCE9C12ED72FE00069EE3D /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7E987C582EFB43BC008AE3D4 /* Exceptions for "ToyKit" folder in "ToyLibGame" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				src/Gameplay/LockOnComponent.cpp,
-			);
-			target = 7EDCE89F2ED72F7F0069EE3D /* ToyLibGame */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		7E9892852EFD12DF008AE3D4 /* Exceptions for "ToyKit" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
+			membershipExceptions = (
+				include/KitCore/GameFlow.h,
+			);
+		};
 		7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
@@ -48,25 +45,11 @@
 				include/Utils/StringUtil.h,
 			);
 		};
-		7EE8FEFF2EE1BD69002844FB /* Exceptions for "ToyGame" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
-			membershipExceptions = (
-				KitRPG/FieldScene.h,
-			);
-		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7EDCE8F52ED72FC00069EE3D /* ToyGame */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				7EE8FEFF2EE1BD69002844FB /* Exceptions for "ToyGame" folder in "Compile Sources" phase from "ToyLibGame" target */,
-			);
-			explicitFileTypes = {
-				KitRPG/FieldScene.h = sourcecode.c.h;
-				KitRPG/KitRPG.cpp = sourcecode.cpp.cpp;
-			};
 			path = ToyGame;
 			sourceTree = "<group>";
 		};
@@ -87,8 +70,11 @@
 		7EE8FF072EE1D352002844FB /* ToyKit */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7E987C582EFB43BC008AE3D4 /* Exceptions for "ToyKit" folder in "ToyLibGame" target */,
+				7E9892852EFD12DF008AE3D4 /* Exceptions for "ToyKit" folder in "Compile Sources" phase from "ToyLibGame" target */,
 			);
+			explicitFileTypes = {
+				include/KitCore/GameFlow.h = sourcecode.cpp.h;
+			};
 			path = ToyKit;
 			sourceTree = "<group>";
 		};

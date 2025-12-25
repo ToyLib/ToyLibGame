@@ -16,7 +16,7 @@ public:
     virtual ~Application();
     
     // アプリ全体の初期化（SDL, Renderer, 各Subsystem 初期化）
-    virtual bool Initialize();
+    bool Initialize();
     
     // メインループ（ProcessInput → UpdateFrame → Draw）
     void RunLoop();
@@ -73,6 +73,7 @@ protected:
     virtual void UpdateGame(float deltaTime) { }
     virtual void InitGame() {}
     virtual void ShutdownGame() {}
+    virtual void ProcessInput(const struct InputState& input) {}
 
     void InitAssetManager(const std::string& path, float dpi = 1.0f);
     

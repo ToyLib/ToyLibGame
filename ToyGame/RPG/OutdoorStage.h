@@ -13,7 +13,7 @@ public:
     
 private:
     toy::Application* mApp;
-    std::unique_ptr<class toy::kit::WeatherManager> mWeather;
+    std::unique_ptr<class toy::WeatherManager> mWeather;
     
     void DeployBrick(const Vector3& pos);
     void DeployIsland(const Vector3& pos);

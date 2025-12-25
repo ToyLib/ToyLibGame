@@ -5,7 +5,7 @@
 #include <memory>
 
 
-namespace toy::kit {
+namespace toy {
 
 class WeatherManager
 {
