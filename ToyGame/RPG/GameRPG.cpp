@@ -7,14 +7,10 @@
 #include "Actors/MinionActor.h"
 #include "ToyLib.h"
 
-// ToyLibの起動Applicationとして登録
-TOYLIB_REGISTER_APP(GameRPG)
-
-
 GameRPG::GameRPG()
 : toy::Application()
 {
-    InitAssetManager("ToyGame/Assets/RPG/", GetRenderer()->GetWindowDisplayScale());
+    InitAssetManager("ToyGame/RPG/Assets/", GetRenderer()->GetWindowDisplayScale());
     
     mStage = std::make_unique<OutdoorStage>(this);
 

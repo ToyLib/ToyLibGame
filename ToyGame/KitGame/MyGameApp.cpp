@@ -2,12 +2,11 @@
 #include "Engine/Core/ApplicationEntry.h"
 #include "ToyLib.h"
 
-//TOYLIB_REGISTER_APP(MyGameApp);
 
 MyGameApp::MyGameApp()
     : toy::Application()
 {
-    GetAssetManager()->SetAssetsPath("ToyGame/Assets/KitGame/");
+    GetAssetManager()->SetAssetsPath("ToyGame/KitGame/Assets/");
 
 }
 
