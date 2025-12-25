@@ -155,7 +155,7 @@ void SkeletalMeshComponent::Draw()
             auto mat = mMesh->GetMaterial(v->GetTextureID());
             if (mat)
             {
-                mat->SetOverrideColor(true, Vector3(0.0f, 0.0f, 0.0f));
+                mat->SetOverrideColor(true, mContourColor);
                 mat->BindToShader(mShader, 0);
             }
 
@@ -163,6 +163,7 @@ void SkeletalMeshComponent::Draw()
             glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
             renderer->AddDrawCall();
 
+            // 上書きカラーを元に戻す
             if (mat)
             {
                 mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));

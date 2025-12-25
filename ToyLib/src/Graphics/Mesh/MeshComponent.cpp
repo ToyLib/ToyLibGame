@@ -26,6 +26,7 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
     , mIsSkeletal(isSkeletal)
     , mIsToon(false)
     , mContourFactor(1.0f)
+    , mContourColor(Vector3(0.0f, 0.0f, 0.0f))
 {
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     mShader          = renderer->GetShader("Mesh");
@@ -147,7 +148,7 @@ void MeshComponent::Draw()
             if (mat)
             {
                 // 色を強制的に黒に上書きするモード
-                mat->SetOverrideColor(true, Vector3(0.0f, 0.0f, 0.0f));
+                mat->SetOverrideColor(true, mContourColor);
                 mat->BindToShader(mShader, 0);
             }
 

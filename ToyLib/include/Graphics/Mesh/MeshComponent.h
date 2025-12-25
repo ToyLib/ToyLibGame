@@ -65,6 +65,7 @@ public:
     //--------------------------------------------------------
     void SetContourFactor(float f) { mContourFactor = f; }
     bool GetToon() const { return mIsToon; }
+    void SetContourColor(const Vector3& color) { mContourColor = color; }
 
     //--------------------------------------------------------
     // アニメーションの現在IDをセット（SkeletalMeshComponent が override）
@@ -92,6 +93,7 @@ protected:
     //--------------------------------------------------------
     bool  mIsToon;          // true なら toon + Outline
     float mContourFactor;   // 1.05f など。輪郭スケール係数
+    Vector3 mContourColor;  // 輪郭色
 };
 
 } // namespace toy

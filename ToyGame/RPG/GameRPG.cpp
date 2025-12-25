@@ -8,7 +8,7 @@
 #include "ToyLib.h"
 
 // ToyLibの起動Applicationとして登録
-//TOYLIB_REGISTER_APP(GameRPG)
+TOYLIB_REGISTER_APP(GameRPG)
 
 
 GameRPG::GameRPG()

@@ -1,19 +1,17 @@
 #pragma once
 
-#include <iostream>
 #include "KitCore/IScene.h"
+#include "ToyLib.h"
+#include <iostream>
+#include <memory>
 
 class TitleScene : public toy::kit::IScene
 {
 public:
-    void OnEnter(const toy::kit::SceneContext& ctx) override
-    {
-        IScene::OnEnter(ctx);
-        std::cout << "[TitleScene] Enter\n";
-    }
+    void OnEnter(const toy::kit::SceneContext& ctx) override;
 
-    void Update(float dt) override
-    {
-        std::cout << "[TitleScene] Update dt=" << dt << "\n";
-    }
+    void Update(float dt) override;
+private:
+    toy::MeshComponent* mLogoMesh;
+    toy::Actor* mLogoActor;
 };

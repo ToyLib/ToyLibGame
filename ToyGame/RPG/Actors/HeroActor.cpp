@@ -23,7 +23,6 @@ HeroActor::HeroActor(toy::Application* a)
         JsonHelper::GetString(json["mesh"], "file", meshPath);
     }
     mMeshComp->SetMesh(a->GetAssetManager()->GetMesh(meshPath));
-    //mMeshComp->SetAnimID(mAnimID, PLAY_CYCLIC);
 
     bool useToon = false;
     float contour = 1.00f;
@@ -31,6 +30,7 @@ HeroActor::HeroActor(toy::Application* a)
     JsonHelper::GetFloat(json["mesh"], "contour_factor", contour);
     mMeshComp->SetToonRender(useToon);
     mMeshComp->SetContourFactor(contour);
+    mMeshComp->SetContourColor(Vector3(1.0f, 0.0f, 0.0f));
 
     // --- Transform設定 ---
     Vector3 pos;
