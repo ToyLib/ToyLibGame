@@ -40,6 +40,13 @@ uniform vec3 uAmbientLight;
 uniform float uShadowBias;
 uniform bool  uUseToon;
 
+//======================================================================
+//  Uniforms - マテリアル基本色
+//======================================================================
+
+uniform vec3 uDiffuseColor;
+uniform bool uUseTexture;
+
 
 //======================================================================
 //  Directional Light（平行光源）
@@ -299,12 +306,31 @@ void main()
     //------------------------------------------------------------------
     // Step 6 : テクスチャ取得 + ライティング適用
     //------------------------------------------------------------------
-    vec4 texColor = texture(uTexture, fragTexCoord);
+    /*
+     vec4 texColor = texture(uTexture, fragTexCoord);
     texColor.rgb *= lighting * shadowFactor;
+    */
+    //------------------------------------------------------------------
+    // Step 6 : テクスチャ or DiffuseColor
+    //------------------------------------------------------------------
+    vec4 baseColor;
 
+    if (uUseTexture)
+    {
+        baseColor = texture(uTexture, fragTexCoord);
+    }
+    else
+    {
+        baseColor = vec4(uDiffuseColor, 1.0);
+    }
+
+    // ライティング適用
+    baseColor.rgb *= lighting * shadowFactor;
+    
     //------------------------------------------------------------------
     // Step 7 : フォグ合成
     //------------------------------------------------------------------
-    vec3 finalColor = mix(uFoginfo.color, texColor.rgb, fogFactor);
-    outColor = vec4(finalColor, texColor.a);
+    //vec3 finalColor = mix(uFoginfo.color, texColor.rgb, fogFactor);
+    vec3 finalColor = mix(uFoginfo.color, baseColor.rgb, fogFactor);
+    outColor = vec4(finalColor, baseColor.a);
 }

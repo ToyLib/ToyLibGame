@@ -45,6 +45,11 @@ void Material::BindToShader(std::shared_ptr<Shader> shader,
     {
         mDiffuseMap->SetActive(textureUnit);
         shader->SetTextureUniform("uTexture", textureUnit);
+        shader->SetBooleanUniform("uUseTexture", true);
+    }
+    else
+    {
+        shader->SetBooleanUniform("uUseTexture", false);
     }
 }
 
