@@ -44,7 +44,7 @@ WolfActor::WolfActor(toy::Application* a)
     textActor->SetScale(0.03f);
     
     mTargetActor = GetApp()->CreateActor<toy::Actor>();
-    mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Effect3D);
+    mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
     mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
     mTarget->SetBlendAdd(false);
     mTarget->SetIsTopLeft(false);

@@ -19,9 +19,10 @@ namespace toy {
 enum class VisualLayer
 {
     Background2D,
-    Effect3D,
     Object3D,
+    Effect3D,
     OverlayScreen,
+    Object2D,
     UI,
 };
 

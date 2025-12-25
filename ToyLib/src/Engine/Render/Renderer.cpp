@@ -309,6 +309,7 @@ void Renderer::DrawWorldPass_NoUI()
     DrawVisualLayer(VisualLayer::Object3D);
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
+    DrawVisualLayer(VisualLayer::Object2D);
 }
 
 void Renderer::DrawUIPass_Only()
@@ -346,6 +347,7 @@ void Renderer::DrawPass(bool drawUI)
     DrawVisualLayer(VisualLayer::Object3D);
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
+    DrawVisualLayer(VisualLayer::Object2D);
     if (drawUI)
     {
         DrawVisualLayer(VisualLayer::UI);
@@ -556,7 +558,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
     }
 
     // レイヤーごとの depth 設定（既存のまま）
-    if (layer == VisualLayer::UI || layer == VisualLayer::Background2D)
+    if (layer == VisualLayer::UI || layer == VisualLayer::Background2D || layer == VisualLayer::Object2D)
     {
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
