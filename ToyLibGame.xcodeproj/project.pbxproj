@@ -48,6 +48,11 @@
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		7E0377422EFE21FC005A8DE2 /* doc */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = doc;
+			sourceTree = "<group>";
+		};
 		7EDCE8F52ED72FC00069EE3D /* ToyGame */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
@@ -103,6 +108,7 @@
 				7EDCE9852ED72FC00069EE3D /* ToyLib */,
 				7EDCE9BE2ED72FD00069EE3D /* Frameworks */,
 				7EDCE8A12ED72F7F0069EE3D /* Products */,
+				7E0377422EFE21FC005A8DE2 /* doc */,
 			);
 			sourceTree = "<group>";
 		};
