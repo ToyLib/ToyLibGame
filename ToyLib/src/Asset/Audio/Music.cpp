@@ -15,7 +15,7 @@ Music::Music()
 
 Music::~Music()
 {
-    if (mHandle)
+/*    if (mHandle)
     {
         mpg123_close(mHandle);
         mpg123_delete(mHandle);
@@ -24,6 +24,7 @@ Music::~Music()
         // ↓ インスタンス単位の破棄なのでライブラリ参照カウントも減らす
         ShutdownLib();
     }
+*/
 }
 
 //----------------------------------------------------
@@ -86,6 +87,21 @@ bool Music::Load(const std::string& fileName, AssetManager* manager)
     return true;
 }
 
+//----------------------------------------------------
+// リソース解放
+//----------------------------------------------------
+void Music::Unload()
+{
+    if (mHandle)
+    {
+        mpg123_close(mHandle);
+        mpg123_delete(mHandle);
+        mHandle = nullptr;
+
+        // ↓ インスタンス単位の破棄なのでライブラリ参照カウントも減らす
+        ShutdownLib();
+    }
+}
 //----------------------------------------------------
 // 再生位置のリセット
 //----------------------------------------------------

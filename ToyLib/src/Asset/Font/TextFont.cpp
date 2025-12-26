@@ -12,7 +12,7 @@ TextFont::TextFont()
 
 TextFont::~TextFont()
 {
-    Unload();
+    //Unload();
 }
 
 bool TextFont::Load(const std::string& filePath, int pointSize)

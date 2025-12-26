@@ -15,11 +15,13 @@ SoundEffect::SoundEffect()
 
 SoundEffect::~SoundEffect()
 {
+    /*
     if (mBuffer != 0)
     {
         alDeleteBuffers(1, &mBuffer);
         mBuffer = 0;
     }
+     */
 }
 
 bool SoundEffect::Load(const std::string& fileName, AssetManager* manager)
@@ -68,6 +70,17 @@ bool SoundEffect::Load(const std::string& fileName, AssetManager* manager)
     }
 
     return true;
+}
+//------------------------------------------
+// リソース解放
+//------------------------------------------
+void SoundEffect::Unload()
+{
+    if (mBuffer != 0)
+    {
+        alDeleteBuffers(1, &mBuffer);
+        mBuffer = 0;
+    }
 }
 
 //------------------------------------------

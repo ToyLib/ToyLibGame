@@ -29,6 +29,8 @@ public:
     //   - OpenAL バッファに書き込む
     //----------------------------------------------------------------------
     bool Load(const std::string& fileName, class AssetManager* manager);
+    
+    void Unload();
 
     //----------------------------------------------------------------------
     // GetBuffer()
