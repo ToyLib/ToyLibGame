@@ -16,14 +16,19 @@ void TitleScene::InitScene()
     
     mLogoActor = CreateActor<toy::Actor>();
     mLogoMesh = mLogoActor->CreateComponent<toy::MeshComponent>();
-    mLogoMesh->SetMesh(mApp->GetAssetManager()->GetMesh("Logo.x"));
+    mLogoMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Logo.x"));
     mLogoMesh->SetContourFactor(1.05f);
 
     
     toy::PostEffectDesc effectDesc;
     effectDesc.type = toy::PostEffectType::CRT;
     effectDesc.intensity = 1.0f;
-    mApp->GetRenderer()->SetPostEffect(effectDesc);
+    GetApp()->GetRenderer()->SetPostEffect(effectDesc);
+}
+
+void TitleScene::UnloadScene()
+{
+    GetApp()->GetAssetManager()->UnloadData();
 }
 
 

@@ -22,6 +22,7 @@ public:
     void Update(float deltaTime);
 
 private:
+    SceneContext mCtx;
     void ApplyPendingScene();
     toy::Application* mApp = nullptr;
     std::unique_ptr<IScene> mCurrentScene;

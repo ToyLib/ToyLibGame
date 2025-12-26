@@ -72,10 +72,10 @@ protected:
     virtual void UnloadScene() {}
 
     
-protected:
-    toy::Application* mApp = nullptr;
+    const toy::Application* GetApp() { return mApp; }
 
 private:
+    toy::Application* mApp = nullptr;
     // Scene が生成した Actor 一覧
     std::vector<Actor*> mActors;
 

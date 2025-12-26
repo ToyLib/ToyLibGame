@@ -6,6 +6,7 @@ namespace toy::kit {
 GameFlow::GameFlow(toy::Application* app)
     : mApp(app)
 {
+    mCtx.app = app;
 }
 
 void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
@@ -44,19 +45,19 @@ void GameFlow::Update(float deltaTime)
         ApplyPendingScene();
     }
 
-    if (mCurrentScene) mCurrentScene->Update(deltaTime);
-
-    // Update中にRequestされたら、このフレーム末に適用するのもアリ
-    if (mPendingScene)
+    if (mCurrentScene)
     {
-        ApplyPendingScene();
+        mCurrentScene->Update(deltaTime);
     }
 }
 
 void GameFlow::ApplyPendingScene()
 {
-    if (mCurrentScene) mCurrentScene->Unload();
-
+    if (mCurrentScene)
+    {
+        mCurrentScene->Unload();
+    }
+    
     mCurrentScene = std::move(mPendingScene);
 
     if (mCurrentScene)
