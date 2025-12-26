@@ -15,16 +15,7 @@ Music::Music()
 
 Music::~Music()
 {
-/*    if (mHandle)
-    {
-        mpg123_close(mHandle);
-        mpg123_delete(mHandle);
-        mHandle = nullptr;
 
-        // ↓ インスタンス単位の破棄なのでライブラリ参照カウントも減らす
-        ShutdownLib();
-    }
-*/
 }
 
 //----------------------------------------------------
@@ -126,9 +117,14 @@ size_t Music::ReadChunk(unsigned char* out, size_t chunkSize)
     size_t done = 0;
     int res = mpg123_read(mHandle, out, chunkSize, &done);
 
-    if (res == MPG123_DONE) return 0;  // 終端
-    if (res != MPG123_OK)   return 0;  // エラー
-
+    if (res == MPG123_DONE)
+    {
+        return 0;  // 終端
+    }
+    if (res != MPG123_OK)
+    {
+        return 0;  // エラー
+    }
     return done;
 }
 
