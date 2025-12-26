@@ -17,12 +17,12 @@ AssetManager::AssetManager()
 
 void AssetManager::UnloadData()
 {
-    // すべてのアセットを破棄（シーン切り替えなど）
+    // OpenGL, OpenALについてはUnload()でライフサイクル中に破棄する。
     for (auto& [name, tex] : mTextures)
     {
         if (tex)
         {
-            tex->Unload();   // ★ ここで glDelete
+            tex->Unload();
         }
     }
     mTextures.clear();

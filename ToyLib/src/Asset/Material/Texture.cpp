@@ -24,7 +24,13 @@ Texture::Texture()
 
 Texture::~Texture()
 {
-    //Unload();
+#if defined(_DEBUG)
+    if (mTextureID != 0)
+    {
+        std::cerr << "[Texture] Unload() not called\n";
+    }
+#endif
+
 }
 
 //============================================================

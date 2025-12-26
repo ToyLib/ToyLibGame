@@ -375,10 +375,12 @@ VertexArray::~VertexArray()
 {
     mPolygons.clear();
 
-    // 生成済みの VBO / IBO / VAO を破棄
-    //glDeleteBuffers(5, mVertexBuffer);       // 未使用スロットは 0 のままなので安全
-    //glDeleteBuffers(1, &mIndexBufferID);
-    //glDeleteVertexArrays(1, &mVertexBufferID);
+#if defined(_DEBUG)
+    if (mVAO || mVBO)
+    {
+        std::cerr << "[VertexArray] Unload() not called\n";
+    }
+#endif
 }
 
 void VertexArray::Unload()

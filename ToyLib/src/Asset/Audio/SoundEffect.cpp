@@ -15,13 +15,13 @@ SoundEffect::SoundEffect()
 
 SoundEffect::~SoundEffect()
 {
-    /*
+#if defined(_DEBUG)
     if (mBuffer != 0)
     {
-        alDeleteBuffers(1, &mBuffer);
-        mBuffer = 0;
+        std::cerr << "[SoundEffect] Unload() not called\n";
     }
-     */
+#endif
+
 }
 
 bool SoundEffect::Load(const std::string& fileName, AssetManager* manager)
