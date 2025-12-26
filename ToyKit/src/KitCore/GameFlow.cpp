@@ -14,11 +14,14 @@ void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
     {
         mCurrentScene->OnExit();
     }
-
     mCurrentScene = std::move(next);
 
     if (mCurrentScene)
     {
+        mCurrentScene->SetRequestChange([this](std::unique_ptr<IScene> s){
+            this->ChangeScene(std::move(s));
+        });
+
         SceneContext ctx{ mApp };
         mCurrentScene->OnEnter(ctx);
     }

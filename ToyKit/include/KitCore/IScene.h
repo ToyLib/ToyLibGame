@@ -1,11 +1,12 @@
 #pragma once
 
-#include <vector>
-#include <utility>
-
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Runtime/InputSystem.h"
+
+#include <vector>
+#include <utility>
+#include <functional>
 
 namespace toy::kit {
 
@@ -41,6 +42,13 @@ public:
 
     // 更新処理（必要な Scene のみ override）
     virtual void Update(float) {}
+    
+    
+    using RequestChangeFn = std::function<void(std::unique_ptr<IScene>)>;
+
+    void SetRequestChange(RequestChangeFn fn) { mRequestChange = std::move(fn); }
+
+    
 
 protected:
     //========================================================
@@ -56,6 +64,11 @@ protected:
         return actor;
     }
 
+    void RequestChange(std::unique_ptr<IScene> next)
+    {
+        if (mRequestChange) mRequestChange(std::move(next));
+    }
+    
 protected:
     toy::Application* mApp = nullptr;
 
@@ -65,6 +78,8 @@ private:
 
     // Scene 終了時の一括破棄
     void DestroyAllActors();
+    
+    RequestChangeFn mRequestChange;
 };
 
 } // namespace toy::kit
