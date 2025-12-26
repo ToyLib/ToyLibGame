@@ -41,6 +41,8 @@ public:
     int GetWidth()  const { return mW; }
     int GetHeight() const { return mH; }
 
+    void Unload();
+
 private:
     //--------------------------------------------------------------------------
     // GL リソース

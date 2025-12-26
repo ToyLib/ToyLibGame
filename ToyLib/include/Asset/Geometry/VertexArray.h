@@ -64,6 +64,8 @@ public:
                 bool isVec2Only);
 
     virtual ~VertexArray();
+    
+    void Unload();
 
     //-----------------------------------------------
     // 描画時に VAO を bind

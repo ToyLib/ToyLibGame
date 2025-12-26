@@ -745,6 +745,7 @@ void Renderer::UnloadData()
     // VisualComponent の登録だけをクリア
     // 実際の Mesh/Texture などのリソースは AssetManager 側で管理する想定
     mVisualComps.clear();
+    mSceneRT->Unload();
 }
 
 
