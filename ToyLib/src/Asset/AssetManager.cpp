@@ -18,6 +18,13 @@ AssetManager::AssetManager()
 void AssetManager::UnloadData()
 {
     // すべてのアセットを破棄（シーン切り替えなど）
+    for (auto& [name, tex] : mTextures)
+    {
+        if (tex)
+        {
+            tex->Unload();   // ★ ここで glDelete
+        }
+    }
     mTextures.clear();
     mMeshes.clear();
     mSoundEffects.clear();

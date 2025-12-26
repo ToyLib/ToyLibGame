@@ -222,6 +222,11 @@ bool Renderer::Initialize(SDL_Window* window)
 
 void Renderer::Shutdown()
 {
+    if (mWindow && mGLContext)
+    {
+        SDL_GL_MakeCurrent(mWindow, mGLContext);
+    }
+
     // シャドウ用 FBO / テクスチャを破棄
     glDeleteFramebuffers(kShadowCascadeCount, mShadowFBO);
     for (int i = 0; i < kShadowCascadeCount; ++i)
