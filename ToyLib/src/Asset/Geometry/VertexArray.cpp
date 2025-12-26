@@ -375,12 +375,7 @@ VertexArray::~VertexArray()
 {
     mPolygons.clear();
 
-#if defined(_DEBUG)
-    if (mVAO || mVBO)
-    {
-        std::cerr << "[VertexArray] Unload() not called\n";
-    }
-#endif
+
 }
 
 void VertexArray::Unload()
