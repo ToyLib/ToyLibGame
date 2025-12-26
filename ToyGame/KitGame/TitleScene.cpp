@@ -28,7 +28,6 @@ void TitleScene::InitScene()
 
 void TitleScene::UnloadScene()
 {
-    GetApp()->GetAssetManager()->UnloadData();
 }
 
 
