@@ -8,7 +8,11 @@ class StageScene : public toy::kit::IScene
 {
 public:
     explicit StageScene(){}// : mStageNo(stageNo) {}
-    void Update(float delatTime) {std::cout << "Scene Stage " << delatTime << std::endl;}
+    void Update(float delatTime) override;
+    
+protected:
+    void InitScene() override;
+    
 private:
     int mStageNo = 1;
 };

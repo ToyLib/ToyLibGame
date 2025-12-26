@@ -8,12 +8,17 @@
 class TitleScene : public toy::kit::IScene
 {
 public:
-    void OnEnter(const toy::kit::SceneContext& ctx) override;
+    TitleScene();
 
-    void Update(float dt) override;
+
+
     
     void ProcessInput(const struct toy::InputState& input) override;
+    void Update(float dt) override;
+protected:
+    void InitScene() override;
 private:
     toy::MeshComponent* mLogoMesh;
     toy::Actor* mLogoActor;
+    float mColor;
 };

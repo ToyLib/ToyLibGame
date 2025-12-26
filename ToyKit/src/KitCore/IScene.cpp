@@ -3,18 +3,21 @@
 namespace toy::kit {
 
 //============================================================
-// OnEnter
+// Init
 //============================================================
-void IScene::OnEnter(const SceneContext& ctx)
+void IScene::Init(const SceneContext& ctx)
 {
     mApp = ctx.app;
+    InitScene();
 }
 
 //============================================================
-// OnExit
+// Unload
 //============================================================
-void IScene::OnExit()
+void IScene::Unload()
 {
+    UnloadScene();
+    
     DestroyAllActors();
     mApp = nullptr;
 }
@@ -28,7 +31,7 @@ void IScene::DestroyAllActors()
     {
         if (actor)
         {
-            actor->SetState(toy::Actor::State::Dead);
+            actor->DestroyActor();
         }
     }
     mActors.clear();

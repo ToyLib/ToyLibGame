@@ -12,7 +12,7 @@ void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
 {
     if (mCurrentScene)
     {
-        mCurrentScene->OnExit();
+        mCurrentScene->Unload();
     }
     mCurrentScene = std::move(next);
 
@@ -23,9 +23,10 @@ void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
         });
 
         SceneContext ctx{ mApp };
-        mCurrentScene->OnEnter(ctx);
+        mCurrentScene->Init(ctx);
     }
 }
+
 
 void GameFlow::ProcessInput(const toy::InputState& input)
 {
@@ -37,9 +38,31 @@ void GameFlow::ProcessInput(const toy::InputState& input)
 
 void GameFlow::Update(float deltaTime)
 {
+    // まずは遷移を安全なタイミングで反映
+    if (mPendingScene)
+    {
+        ApplyPendingScene();
+    }
+
+    if (mCurrentScene) mCurrentScene->Update(deltaTime);
+
+    // Update中にRequestされたら、このフレーム末に適用するのもアリ
+    if (mPendingScene)
+    {
+        ApplyPendingScene();
+    }
+}
+
+void GameFlow::ApplyPendingScene()
+{
+    if (mCurrentScene) mCurrentScene->Unload();
+
+    mCurrentScene = std::move(mPendingScene);
+
     if (mCurrentScene)
     {
-        mCurrentScene->Update(deltaTime);
+        SceneContext ctx{ mApp };
+        mCurrentScene->Init(ctx);
     }
 }
 

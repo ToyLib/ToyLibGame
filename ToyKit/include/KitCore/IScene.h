@@ -30,18 +30,17 @@ public:
     virtual ~IScene() = default;
 
     // シーン開始時に呼ばれる
-    // 派生クラスは override する場合も、必ず親を呼ぶこと
-    virtual void OnEnter(const SceneContext& ctx);
+    void Init(const SceneContext& ctx);
 
     // シーン終了時に呼ばれる
     // 生成した Actor はここで全て破棄される
-    virtual void OnExit();
+    void Unload();
 
     // 入力処理（必要な Scene のみ override）
     virtual void ProcessInput(const InputState&) {}
 
     // 更新処理（必要な Scene のみ override）
-    virtual void Update(float) {}
+    virtual void Update(float deltaTime) {}
     
     
     using RequestChangeFn = std::function<void(std::unique_ptr<IScene>)>;
@@ -68,6 +67,10 @@ protected:
     {
         if (mRequestChange) mRequestChange(std::move(next));
     }
+    
+    virtual void InitScene() {};
+    virtual void UnloadScene() {}
+
     
 protected:
     toy::Application* mApp = nullptr;
