@@ -9,6 +9,7 @@ IslandActor::IslandActor(toy::Application* a)
 {
     auto meshComp = CreateComponent<toy::MeshComponent>();
     meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("island.x"));
+    
     auto collComp = CreateComponent<toy::ColliderComponent>();
     collComp->SetFlags(toy::C_WALL | toy::C_GROUND);
     collComp->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("island.x")->GetVertexArray());

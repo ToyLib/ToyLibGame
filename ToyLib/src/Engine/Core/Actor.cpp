@@ -139,13 +139,7 @@ void Actor::ProcessInput(const struct InputState& state)
     ActorInput(state);
 }
 
-//-------------------------------------------------------------
-// Actor 固有の入力処理（デフォルトは何もしない）
-//-------------------------------------------------------------
-void Actor::ActorInput(const struct InputState& state)
-{
-    (void)state;
-}
+
 
 //=============================================================================
 // Component management

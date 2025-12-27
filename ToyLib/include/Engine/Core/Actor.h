@@ -52,25 +52,25 @@ public:
     void ProcessInput(const struct InputState& state);
 
     // Actor 固有の入力処理
-    virtual void ActorInput(const struct InputState& state);
+    virtual void ActorInput(const struct InputState& state) {};
 
     //=========================================================================
     // Transform (SRT)  ※保持しているのはワールド基準の値
     //=========================================================================
     // 変更が入ったら MarkWorldDirty() を立て、WorldTransform は遅延再計算する
-    Vector3 GetPosition() const { return mPosition; }
+    const Vector3& GetPosition() const { return mPosition; }
     void SetPosition(const Vector3& pos) { mPosition = pos; MarkWorldDirty(); }
 
-    float GetScale() const { return mScale; }
+    const float& GetScale() const { return mScale; }
     void SetScale(float sc) { mScale = sc; MarkWorldDirty(); }
 
     const Quaternion& GetRotation() const { return mRotation; }
     void SetRotation(const Quaternion& rot) { mRotation = rot; MarkWorldDirty(); }
 
-    // Forward/Right/Up（ローカル回転から算出）
-    virtual Vector3 GetForward() { return Vector3::Transform(Vector3::UnitZ, mRotation); }
-    virtual Vector3 GetRight()   { return Vector3::Transform(Vector3::UnitX, mRotation); }
-    virtual Vector3 GetUpward()  { return Vector3::Transform(Vector3::UnitY, mRotation); }
+    // Forward/Right/Up
+    const Vector3 GetForward() const { return Vector3::Transform(Vector3::UnitZ, mRotation); }
+    const Vector3 GetRight()   const { return Vector3::Transform(Vector3::UnitX, mRotation); }
+    const Vector3 GetUpward()  const { return Vector3::Transform(Vector3::UnitY, mRotation); }
 
     // Forward を直接セットする（内部で回転を調整）
     void SetForward(const Vector3& dir);
@@ -108,8 +108,8 @@ public:
     //=========================================================================
     // State / Application
     //=========================================================================
-    State GetState() const { return mStatus; }
-    void SetState(State state) { mStatus = state; }
+    const State& GetState() const { return mStatus; }
+    void SetState(const State& state) { mStatus = state; }
 
     class Application* GetApp() { return mApp; }
 
@@ -165,7 +165,7 @@ public:
     //=========================================================================
     // ID
     //=========================================================================
-    void SetActorID(const std::string actorID) { mActorID = actorID; }
+    void SetActorID(const std::string& actorID) { mActorID = actorID; }
     std::string GetActorID() const { return mActorID; }
 
 private:

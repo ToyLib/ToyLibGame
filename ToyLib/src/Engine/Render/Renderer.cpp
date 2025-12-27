@@ -212,7 +212,7 @@ bool Renderer::Initialize(SDL_Window* window)
     //---------------------------------------------------------
     OnWindowResized(pixelW, pixelH);
 
-    std::cout << "[Renderer] GL Init Complete. "
+    std::cerr << "[Renderer] GL Init Complete. "
               << "Pixels("  << pixelW   << "x" << pixelH   << ") "
               << "Scale="   << mWindowDisplayScale
               << std::endl;
