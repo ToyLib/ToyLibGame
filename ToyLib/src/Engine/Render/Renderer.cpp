@@ -292,6 +292,9 @@ void Renderer::Draw()
         // 従来
         DrawPass(true);
     }
+    
+    // 4) フェード
+    DrawFadeOverlay();
 
     SDL_GL_SwapWindow(mWindow);
 }
@@ -500,6 +503,34 @@ void Renderer::DrawPostFromSceneRT()
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }
+
+void Renderer::DrawFadeOverlay()
+{
+    if (!mEnableFade)
+    {
+        return;
+    }
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    auto sh = GetShader("Fade");
+    if (!sh)
+    {
+        return;
+    }
+    
+    sh->SetActive();
+    sh->SetVectorUniform("uColor", mFadeColor);
+    sh->SetFloatUniform("uAlpha", mFadeAlpha);
+
+    mFullScreenQuad->SetActive();
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    glDisable(GL_BLEND);
+}
+
 //=============================================================
 // SkyDome
 //=============================================================
@@ -1026,6 +1057,17 @@ bool Renderer::LoadShaders()
     fShaderName = mShaderPath + "PostEffect.frag";
     mShaders["PostEffect"] = std::make_shared<Shader>();
     if (!mShaders["PostEffect"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    {
+        return false;
+    }
+    
+    //---------------------------------------------------------
+    // フェード（フルスクリーン）
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "PostEffect.vert";
+    fShaderName = mShaderPath + "Fade.frag";
+    mShaders["Fade"] = std::make_shared<Shader>();
+    if (!mShaders["Fade"]->Load(vShaderName.c_str(), fShaderName.c_str()))
     {
         return false;
     }

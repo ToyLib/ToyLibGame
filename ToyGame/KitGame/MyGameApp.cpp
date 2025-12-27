@@ -13,7 +13,8 @@ MyGameApp::MyGameApp()
 void MyGameApp::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
-    mGameFlow->ChangeScene(                                                   std::make_unique<TitleScene>());
+    mGameFlow->Init();
+    mGameFlow->SetInitialScene(                                                   std::make_unique<TitleScene>());
 }
 
 void MyGameApp::ProcessInput(const toy::InputState& input)

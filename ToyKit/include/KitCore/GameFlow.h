@@ -1,32 +1,51 @@
 #pragma once
 
-#include <memory>
 #include "KitCore/IScene.h"
+#include <memory>
 
 namespace toy::kit {
+
+enum class FlowState
+{
+    Running,
+    FadeOut,
+    SwitchScene,
+    FadeIn
+};
+
+
 
 class GameFlow
 {
 public:
-    explicit GameFlow(toy::Application* app);
+    explicit GameFlow(class toy::Application* app);
 
-    void RequestChange(std::unique_ptr<IScene> next)
-    {
-        mPendingScene = std::move(next);
-    }
-    
-    // Scene を直接差し替える
-    void ChangeScene(std::unique_ptr<IScene> next);
+    void Init(); // ← 今は空でOK
 
-    void ProcessInput(const InputState& input);
+    void SetInitialScene(std::unique_ptr<class IScene> scene);
+
+    void RequestChange(std::unique_ptr<class IScene> next);
+    void ChangeScene(std::unique_ptr<class IScene> next);
+
+    void ProcessInput(const struct InputState& input);
     void Update(float deltaTime);
 
 private:
-    SceneContext mCtx;
     void ApplyPendingScene();
-    toy::Application* mApp = nullptr;
-    std::unique_ptr<IScene> mCurrentScene;
-    std::unique_ptr<IScene> mPendingScene;
+    void AttachSceneHooks(class IScene* scene);
+
+private:
+    class toy::Application* mApp = nullptr;
+    struct SceneContext mCtx;
+
+    std::unique_ptr<class IScene> mCurrentScene;
+    std::unique_ptr<class IScene> mPendingScene;
+
+    FlowState mState = FlowState::Running;
+
+    float mFadeAlpha;
+    float mFadeOutSec;
+    float mFadeInSec;
 };
 
 } // namespace toy::kit

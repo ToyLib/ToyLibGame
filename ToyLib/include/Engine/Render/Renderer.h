@@ -267,6 +267,16 @@ public:
     
     void SetPostEffect(const PostEffectDesc& desc) { mPost = desc; }
     const PostEffectDesc& GetPostEffect() const { return mPost; }
+    
+    //--------------------------------------------------------------------------
+    // フェードパラメーター設定
+    //--------------------------------------------------------------------------
+    void SetFade(float alpha, const Vector3& color = Vector3(0,0,0))
+    {
+        mFadeAlpha  = std::clamp(alpha, 0.0f, 1.0f);
+        mFadeColor  = color;
+        mEnableFade = (mFadeAlpha > 0.0f);
+    }
 
 private:
     //--------------------------------------------------------------------------
@@ -353,7 +363,14 @@ private:
     void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
     void DrawUIPass_Only();     // UIだけ（クリアなし）
 
-    
+    //--------------------------------------------------------------------------
+    // フェード
+    //--------------------------------------------------------------------------
+    float   mFadeAlpha = 0.0f;     // 0=表示, 1=完全暗転
+    Vector3 mFadeColor = Vector3(0,0,0);
+    bool    mEnableFade = false;
+    void    DrawFadeOverlay();
+
     //--------------------------------------------------------------------------
     // ジオメトリ
     //--------------------------------------------------------------------------
