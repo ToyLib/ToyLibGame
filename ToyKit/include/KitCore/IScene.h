@@ -16,7 +16,7 @@ namespace toy::kit {
 //============================================================
 struct SceneContext
 {
-    toy::Application* app = nullptr;
+    toy::Application* app   = nullptr;
 };
 
 //============================================================

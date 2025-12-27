@@ -11,7 +11,7 @@ public:
     TitleScene();
 
     void ProcessInput(const struct toy::InputState& input) override;
-    void Update(float dt) override;
+    void Update(float deltaTime) override;
 protected:
     void InitScene() override;
     void UnloadScene() override;

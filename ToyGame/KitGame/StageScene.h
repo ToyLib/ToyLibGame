@@ -7,12 +7,12 @@
 class StageScene : public toy::kit::IScene
 {
 public:
-    explicit StageScene(){}// : mStageNo(stageNo) {}
+    explicit StageScene(){}
     void Update(float delatTime) override;
     
 protected:
     void InitScene() override;
     
 private:
-    int mStageNo = 1;
+
 };

@@ -1,6 +1,6 @@
 #include "TitleScene.h"
 #include "ToyLib.h"
-#include "StageScene.h"
+#include "FieldScene/FieldScene.h"
 
 TitleScene::TitleScene()
     : toy::kit::IScene()
@@ -45,6 +45,6 @@ void TitleScene::ProcessInput(const toy::InputState& input)
 {
     if (input.Keyboard.GetKeyState(SDL_SCANCODE_RETURN) == toy::EPressed)
     {
-        RequestChange(std::make_unique<StageScene>());
+        RequestChange(std::make_unique<FieldScene>());
     }
 }
