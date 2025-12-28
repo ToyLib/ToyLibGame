@@ -18,15 +18,17 @@ void StageScene::InitScene()
     
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 20);
     // メッセージボックス生成
-    auto msgActor = CreateActor<toy::MessageBoxActor>(font);
-
-    // Actorの位置で文字位置を調整（背景左上基準）
-    msgActor->SetBoxPosition(Vector3(300.0f, 520.0f, 0.0f));
-    msgActor->SetBoxSize(Vector2(640.0f, 160.0f));
-
-    //mMessageBox = msgActor.get();
-    //AddActor(std::move(msgActor));
+    toy::MessageBoxActor::Desc d;
+    d.position  = Vector3(300, 520, 0);
+    d.boxSize   = Vector2(680, 180);
+    d.padding   = Vector2(18, 14);
+    d.bgAlpha   = 0.6f;
+    d.lineGapPx = 3;
+    d.font      = font;
+    d.textColor = Vector3(0.8, 0.8, 0.8);
     
+    auto msgActor = CreateActor<toy::MessageBoxActor>(d);
+
 
     // テスト用メッセージ
     msgActor->Open(

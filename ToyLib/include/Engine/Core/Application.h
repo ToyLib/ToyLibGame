@@ -46,6 +46,7 @@ public:
     class Renderer*        GetRenderer()        const { return mRenderer.get(); }
     class PhysWorld*       GetPhysWorld()       const { return mPhysWorld.get(); }
     class AssetManager*    GetAssetManager()    const { return mAssetManager.get(); }
+    class AssetManager*    GetSysAssetManager() const { return mSystemAssetManager.get(); }
     class SoundMixer*      GetSoundMixer()      const { return mSoundMixer.get(); }
     class InputSystem*     GetInputSystem()     const { return mInputSys.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }

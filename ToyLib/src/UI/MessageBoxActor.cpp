@@ -4,118 +4,111 @@
 #include "Engine/Runtime/InputSystem.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Font/TextFont.h"
-#include "Asset/Material/Texture.h"
 
 #include "Graphics/Sprite/SpriteComponent.h"
 #include "UI/MessageTextComponent.h"
 
-#include <algorithm> // std::max
-
 namespace toy {
 
-//==============================================================
-// MessageBoxActor
-//  - 背景(Sprite) + 本文(MessageText) を束ねた “UIの塊”
-//  - Scene 側から位置/サイズ/padding を Setter で注入して使う
-//  - 入力：A=次へ（文字送り中なら全文表示） / B=閉じる
-//==============================================================
-MessageBoxActor::MessageBoxActor(Application* app, std::shared_ptr<TextFont> font)
+MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     : Actor(app)
-    , mBg(nullptr)
-    , mText(nullptr)
-    , mOpen((false))
-    , mEnabled(false)
-    , mBoxSize(Vector2(640.0f, 160.0f))
-    , mPadding(Vector2(16.0f, 16.0f))
+    , mDesc(desc)
 {
     SetActorID("MessageBox");
 
-    //----------------------------------------------------------
-    // 背景（半透明の矩形）
-    //----------------------------------------------------------
+    // 位置（Actor位置＝ボックス基準）
+    SetPosition(mDesc.position);
+
+    // 背景
     mBg = CreateComponent<SpriteComponent>(900, VisualLayer::UI);
     mBg->SetTexture(app->GetAssetManager()->GetWhite1x1Texture());
-    mBg->SetColor(Vector3(0.05f, 0.05f, 0.08f));
-    mBg->SetAlpha(0.5f);
+    mBg->SetColor(mDesc.bgColor);
+    mBg->SetAlpha(mDesc.bgAlpha);
 
-    //----------------------------------------------------------
-    // 本文（折り返し/改ページ/文字送り担当）
-    //----------------------------------------------------------
-    mText = CreateComponent<MessageTextComponent>(910, VisualLayer::UI);
+    // 本文
+    mText = CreateComponent<MessageTextComponent>(9001, VisualLayer::UI);
 
-    // フォントは外から注入できる。無ければデフォルトを使う。
-    if (font)
+    // フォント（未指定ならデフォルト）
+    if (mDesc.font)
     {
-        mText->SetFont(font);
+        mText->SetFont(mDesc.font);
     }
     else
     {
-        auto defaultFont = app->GetAssetManager()->GetFont(
-            "Font/rounded-mplus-1c-bold.ttf", 20
-        );
-        mText->SetFont(defaultFont);
+        auto f = app->GetSysAssetManager()->GetFont(mDesc.defaultFontPath, mDesc.defaultFontSize);
+        mText->SetFont(f);
+        mDesc.font = f; // 次回以降のために保持（任意）
     }
 
-    // 文字色
-    mText->SetColor(Vector3(1.0f, 1.0f, 1.0f));
+    // 色・行間
+    mText->SetColor(mDesc.textColor);
+    mText->SetLineGapPx(mDesc.lineGapPx);
 
-    //----------------------------------------------------------
-    // 初期値（※決め打ちではなく“デフォルト値”）
-    //  Scene側が SetBoxPosition/SetBoxSize/SetPadding で上書きできる
-    //----------------------------------------------------------
-    mBoxSize = Vector2(640.0f, 160.0f);
-    mPadding = Vector2(16.0f, 16.0f);
-
-    // 行間（好み）
-    mText->SetLineGapPx(2);
-
-    // 初期レイアウト反映（非表示でも設定だけ整えておく）
+    // 初期レイアウト反映
     ApplyLayout();
 
     // 初期は非表示
     SetEnabled(false);
 }
 
-//--------------------------------------------------------------
-// 表示ON/OFF（Open/Closeとは別に隠したい用途にも使う）
-//--------------------------------------------------------------
-void MessageBoxActor::SetEnabled(bool enabled)
+void MessageBoxActor::ApplyDesc(const Desc& desc)
 {
-    mEnabled = enabled;
+    mDesc = desc;
+
+    // 位置は Actor 自体
+    SetPosition(mDesc.position);
 
     if (mBg)
     {
-        mBg->SetVisible(enabled);
+        mBg->SetColor(mDesc.bgColor);
+        mBg->SetAlpha(mDesc.bgAlpha);
+        // drawOrder/layer変更は再生成が必要なのでここでは触らない（必要なら作り直し関数を用意）
     }
+
     if (mText)
     {
-        mText->SetVisible(enabled);
+        if (mDesc.font)
+        {
+            mText->SetFont(mDesc.font);
+        }
+        else
+        {
+            auto f = GetApp()->GetAssetManager()->GetFont(mDesc.defaultFontPath, mDesc.defaultFontSize);
+            mText->SetFont(f);
+            mDesc.font = f;
+        }
+
+        mText->SetColor(mDesc.textColor);
+        mText->SetLineGapPx(mDesc.lineGapPx);
     }
+
+    ApplyLayout();
 }
 
-//--------------------------------------------------------------
-// Open / Close
-//--------------------------------------------------------------
+void MessageBoxActor::SetEnabled(bool enabled)
+{
+    mEnabled = enabled;
+    if (mBg)   mBg->SetVisible(enabled);
+    if (mText) mText->SetVisible(enabled);
+}
+
 void MessageBoxActor::Open(const std::string& text, std::function<void()> onClose)
 {
     mOnClose = std::move(onClose);
-    mOpen    = true;
+    mOpen = true;
 
     SetEnabled(true);
 
-    // 位置/サイズ/padding が外から変更されていても正しく反映する
+    // 直前にDescが変わってても正しく反映
     ApplyLayout();
 
-    // ページ構築＆表示開始
     mText->SetMessage(text);
 }
 
 void MessageBoxActor::Close()
 {
-    if (!mOpen)
-    {
-        return;
-    }
+    if (!mOpen) return;
+
     mOpen = false;
     SetEnabled(false);
 
@@ -125,16 +118,10 @@ void MessageBoxActor::Close()
     }
 }
 
-//--------------------------------------------------------------
-// 入力：A=進む / B=閉じる
-//--------------------------------------------------------------
 void MessageBoxActor::ActorInput(const InputState& state)
 {
-    if (!mOpen || !mEnabled)
-    {
-        return;
-    }
-    // A: 文字送り中なら全文表示 / それ以外はページ送り / 終端なら閉じる
+    if (!mOpen || !mEnabled) return;
+
     if (state.IsButtonPressed(GameButton::A))
     {
         if (mText->IsTyping())
@@ -151,67 +138,33 @@ void MessageBoxActor::ActorInput(const InputState& state)
         }
     }
 
-    // B: 即閉じ（必要なら無効化してもOK）
-    if (state.IsButtonPressed(GameButton::B))
+    if (mDesc.enableBToClose && state.IsButtonPressed(GameButton::B))
     {
         Close();
     }
 }
 
-//--------------------------------------------------------------
-// 毎フレーム更新
-//--------------------------------------------------------------
 void MessageBoxActor::UpdateActor(float dt)
 {
-    if (!mOpen || !mEnabled)
-    {
-        return;
-    }
-    // 文字送りを MessageTextComponent の Update で回しているならここで呼ぶ
+    if (!mOpen || !mEnabled) return;
+
+    // 文字送りを回すならここ（MessageTextComponent側がComponent Updateで回る設計なら不要）
     // mText->Update(dt);
 }
 
-//--------------------------------------------------------------
-// レイアウト反映
-//  - 背景：mBoxSize
-//  - 本文：mBoxSize + mPadding（内側計算は MessageTextComponent が行う前提）
-//  - 本文の開始位置：padding分だけオフセット
-//--------------------------------------------------------------
 void MessageBoxActor::ApplyLayout()
 {
-    if (!mBg || !mText)
-    {
-        return;
-    }
+    if (!mBg || !mText) return;
+
     // 背景サイズ
-    mBg->SetScale(mBoxSize.x, mBoxSize.y);
+    mBg->SetScale(mDesc.boxSize.x, mDesc.boxSize.y);
 
-    // 本文のレイアウト条件（外枠サイズ＋padding）
-    mText->SetTextBoxSize(mBoxSize);
-    mText->SetPadding(mPadding);
+    // 本文の折り返し条件
+    mText->SetTextBoxSize(mDesc.boxSize);
+    mText->SetPadding(mDesc.padding);
 
-    // 本文の描画開始位置を padding だけ内側へ
-    mText->SetOffset(Vector3(mPadding.x, mPadding.y, 0.0f));
-}
-
-//--------------------------------------------------------------
-// Layout setters（Scene側から注入）
-//--------------------------------------------------------------
-void MessageBoxActor::SetBoxPosition(const Vector3& pos)
-{
-    SetPosition(pos);
-}
-
-void MessageBoxActor::SetBoxSize(const Vector2& size)
-{
-    mBoxSize = size;
-    ApplyLayout();
-}
-
-void MessageBoxActor::SetPadding(const Vector2& padding)
-{
-    mPadding = padding;
-    ApplyLayout();
+    // 本文開始位置（padding分だけ内側）
+    mText->SetOffset(Vector3(mDesc.padding.x, mDesc.padding.y, 0.0f));
 }
 
 } // namespace toy
