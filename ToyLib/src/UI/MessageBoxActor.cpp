@@ -83,8 +83,14 @@ void MessageBoxActor::SetEnabled(bool enabled)
 {
     mEnabled = enabled;
 
-    if (mBg)   mBg->SetVisible(enabled);
-    if (mText) mText->SetVisible(enabled);
+    if (mBg)
+    {
+        mBg->SetVisible(enabled);
+    }
+    if (mText)
+    {
+        mText->SetVisible(enabled);
+    }
 }
 
 //--------------------------------------------------------------
@@ -106,8 +112,10 @@ void MessageBoxActor::Open(const std::string& text, std::function<void()> onClos
 
 void MessageBoxActor::Close()
 {
-    if (!mOpen) return;
-
+    if (!mOpen)
+    {
+        return;
+    }
     mOpen = false;
     SetEnabled(false);
 
@@ -122,8 +130,10 @@ void MessageBoxActor::Close()
 //--------------------------------------------------------------
 void MessageBoxActor::ActorInput(const InputState& state)
 {
-    if (!mOpen || !mEnabled) return;
-
+    if (!mOpen || !mEnabled)
+    {
+        return;
+    }
     // A: 文字送り中なら全文表示 / それ以外はページ送り / 終端なら閉じる
     if (state.IsButtonPressed(GameButton::A))
     {
@@ -153,8 +163,10 @@ void MessageBoxActor::ActorInput(const InputState& state)
 //--------------------------------------------------------------
 void MessageBoxActor::UpdateActor(float dt)
 {
-    if (!mOpen || !mEnabled) return;
-
+    if (!mOpen || !mEnabled)
+    {
+        return;
+    }
     // 文字送りを MessageTextComponent の Update で回しているならここで呼ぶ
     // mText->Update(dt);
 }
@@ -167,8 +179,10 @@ void MessageBoxActor::UpdateActor(float dt)
 //--------------------------------------------------------------
 void MessageBoxActor::ApplyLayout()
 {
-    if (!mBg || !mText) return;
-
+    if (!mBg || !mText)
+    {
+        return;
+    }
     // 背景サイズ
     mBg->SetScale(mBoxSize.x, mBoxSize.y);
 
