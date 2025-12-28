@@ -1,6 +1,6 @@
 #include "PlayerActor.h"
-#include "MagicActor.h"
-#include "HealMagicActor.h"
+//#include "MagicActor.h"
+//#include "HealMagicActor.h"
 #include "ToyLib.h"
 #include <iostream>
 
