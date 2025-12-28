@@ -74,7 +74,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mSensor= CreateComponent<toy::SensorComponent>();
     
     mSound = CreateComponent<toy::SoundComponent>();
-    mSound->SetSound("Walk.wav");
+    mSound->SetSound("Hero/Walk.wav");
     mSound->SetVolume(0.5f);
     mSound->Enable3DSound(true);
     
