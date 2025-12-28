@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "Asset/Font/TextFont.h"
 #include "Engine/Core/Actor.h"

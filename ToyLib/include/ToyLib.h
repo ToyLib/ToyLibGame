@@ -128,6 +128,12 @@
 #include "Audio/SoundMixer.h"
 
 //======================================
+// UI
+//======================================
+#include "UI/MessageBoxActor.h"
+#include "UI/MessageTextComponent.h"
+
+//======================================
 // Utils
 //======================================
 #include "Utils/MathUtil.h"

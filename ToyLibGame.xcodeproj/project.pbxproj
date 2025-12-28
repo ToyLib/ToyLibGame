@@ -33,7 +33,6 @@
 			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
 			membershipExceptions = (
 				include/KitCore/GameFlow.h,
-				include/UI/MessageBoxComponent.h,
 			);
 		};
 		7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
@@ -41,6 +40,7 @@
 			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
 			membershipExceptions = (
 				include/Graphics/Sprite/TextSpriteComponent.h,
+				include/UI/MessageBoxActor.h,
 				include/Utils/StringUtil.h,
 			);
 		};
@@ -81,7 +81,6 @@
 			);
 			explicitFileTypes = {
 				include/KitCore/GameFlow.h = sourcecode.cpp.h;
-				include/UI/MessageBoxComponent.h = sourcecode.c.h;
 			};
 			path = ToyKit;
 			sourceTree = "<group>";

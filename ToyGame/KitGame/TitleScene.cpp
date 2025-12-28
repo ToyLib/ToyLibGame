@@ -1,6 +1,7 @@
 #include "TitleScene.h"
 #include "ToyLib.h"
-#include "FieldScene/FieldScene.h"
+#include "Scenes/FieldScene.h"
+#include "Scenes/StageScene.h"
 
 TitleScene::TitleScene()
     : toy::kit::IScene()
@@ -18,6 +19,7 @@ void TitleScene::InitScene()
     mLogoMesh = mLogoActor->CreateComponent<toy::MeshComponent>();
     mLogoMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Logo.x"));
     mLogoMesh->SetContourFactor(1.05f);
+    mLogoActor->SetScale(0.05f);
 
     
     toy::PostEffectDesc effectDesc;
@@ -45,6 +47,6 @@ void TitleScene::ProcessInput(const toy::InputState& input)
 {
     if (input.Keyboard.GetKeyState(SDL_SCANCODE_RETURN) == toy::EPressed)
     {
-        RequestChange(std::make_unique<FieldScene>());
+        RequestChange(std::make_unique<StageScene>());
     }
 }
