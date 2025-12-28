@@ -26,18 +26,35 @@ bool MessageTextComponent::HasNextPage() const
 
 void MessageTextComponent::NextPage()
 {
+    //mCurrentPage = 0;
     if (!HasNextPage()) return;
     ++mCurrentPage;
     SetText(mPages[mCurrentPage]);
+    
+    if (!mPages.empty())
+    {
+        BuildCharEndsForPage();
+        mVisibleChars = 0;
+        mCharAcc = 0.0f;
+        mTyping = true;
+
+        SetText(""); // 最初は空
+    }
 }
 
 void MessageTextComponent::ResetPage()
 {
     mCurrentPage = 0;
+
     if (!mPages.empty())
-        SetText(mPages[0]);
-    else
-        SetText("");
+    {
+        BuildCharEndsForPage();
+        mVisibleChars = 0;
+        mCharAcc = 0.0f;
+        mTyping = true;
+
+        SetText(""); // 最初は空
+    }
 }
 
 //----------------------------------
@@ -78,6 +95,38 @@ size_t MessageTextComponent::NextUtf8CharBytes(const std::string& s, size_t i)
     return 1;
 }
 
+void MessageTextComponent::Update(float dt)
+{
+    if (!mTyping) return;
+    if (mPages.empty() || mCurrentPage >= (int)mPages.size()) return;
+
+    const std::string& page = mPages[mCurrentPage];
+
+    mCharAcc += dt * mCharSpeed;
+    size_t target = (size_t)mCharAcc;
+
+    if (target >= mCharEnds.size())
+    {
+        // 完了
+        mVisibleCharCount = mCharEnds.size();
+        mTyping = false;
+        SetText(page);
+        return;
+    }
+
+    mVisibleCharCount = target;
+
+    // 0文字なら空
+    if (mVisibleCharCount == 0)
+    {
+        SetText("");
+        return;
+    }
+
+    // “文字数→バイト長” に変換して substr
+    const size_t byteLen = mCharEnds[mVisibleCharCount - 1];
+    SetText(page.substr(0, byteLen));
+}
 //----------------------------------
 // BuildPages（本体）
 //----------------------------------
@@ -174,6 +223,35 @@ void MessageTextComponent::BuildPages()
 
         mPages.push_back(StringUtil::Join(pageLines, "\n"));
     }
+}
+
+void MessageTextComponent::BuildCharEndsForPage()
+{
+    mCharEnds.clear();
+
+    if (mPages.empty() || mCurrentPage >= (int)mPages.size())
+        return;
+
+    const std::string& page = mPages[mCurrentPage];
+
+    size_t i = 0;
+    while (i < page.size())
+    {
+        const size_t n = NextUtf8CharBytes(page, i);
+        i += n;
+
+        // i は「ここまでが1文字」なバイト位置
+        mCharEnds.push_back(i);
+    }
+}
+
+void MessageTextComponent::FinishTyping()
+{
+    if (!mTyping) return;
+
+    mTyping = false;
+    const auto& page = mPages[mCurrentPage];
+    SetText(page);
 }
 
 } // namespace toy

@@ -41,6 +41,14 @@ public:
     // 状態参照
     int GetPageCount() const { return (int)mPages.size(); }
     int GetCurrentPageIndex() const { return mCurrentPage; }
+    
+    void Update(float deltaTime) override;
+    
+    bool IsTyping() const { return mTyping; }
+
+    void FinishTyping();
+    
+    void BuildCharEndsForPage();
 
 private:
     void BuildPages();
@@ -62,6 +70,14 @@ private:
 
     std::vector<std::string> mPages;
     int mCurrentPage = 0;
+    
+    float mCharSpeed = 30.0f;   // chars per second
+    float mCharAcc   = 0.0f;
+    size_t mVisibleChars = SIZE_MAX; // SIZE_MAX = 全表示
+    bool mTyping = false;
+    
+    std::vector<size_t> mCharEnds;   // i文字目までの “バイト長”
+    size_t mVisibleCharCount = 0;   // 表示している “文字数”
 };
 
 } // namespace toy

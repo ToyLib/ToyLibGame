@@ -24,14 +24,14 @@ public:
     // --------------------------------------------------------------
     SpriteComponent(class Actor* a, int drawOrder,
                     VisualLayer layer = VisualLayer::UI);
-
+    
     ~SpriteComponent();
-
+    
     //==================================================
     // 描画処理 (Renderer が呼び出す)
     //==================================================
     void Draw() override;
-
+    
     //==================================================
     // スプライトの幅・高さスケール設定
     //   w: 幅方向のスケール
@@ -42,12 +42,12 @@ public:
         mScaleWidth  = w;
         mScaleHeight = h;
     }
-
+    
     //==================================================
     // 使用するテクスチャを設定
     //==================================================
     void SetTexture(std::shared_ptr<class Texture> tex) override;
-
+    
     //==================================================
     // 左上固定フラグ
     //
@@ -61,35 +61,41 @@ public:
     // 色（RGB）
     void SetColor(const Vector3& color) { mColor = color; }
     const Vector3& GetColor() const { return mColor; }
-
+    
     // 透明度（0.0〜1.0）
     void SetAlpha(float a) { mAlpha = Math::Clamp(a, 0.0f, 1.0f); }
     float GetAlpha() const { return mAlpha; }
-
-
+    
+    // 追加：同一Actor内で部品を組み立てる用のローカルオフセット（論理座標）
+    void SetOffset(const Vector3& o) { mOffset = o; }
+    const Vector3& GetOffset() const { return mOffset; }
+    
+    
 private:
     //==================================================
     // パラメータ
     //==================================================
-
+    
     // スケール（幅／高さ）
     float mScaleWidth;   // X方向の拡大率
     float mScaleHeight;  // Y方向の拡大率
-
+    
     // テクスチャサイズ
     int   mTexWidth;     // ピクセル幅
     float mTexHeight;    // ピクセル高さ
-
+    
     // 現在の画面サイズ（UI の場合に使用）
     int   mScreenWidth;
     int   mScreenHeight;
-
+    
     // 左上固定（true のとき Actor 位置ではなく画面座標で描画）
     bool  mIsTopLeft;
     
     // カラー属性
     Vector3 mColor;     // RGB
     float mAlpha;       // A
+    
+    Vector3 mOffset = Vector3::Zero;
 };
 
 } // namespace toy

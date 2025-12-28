@@ -114,7 +114,7 @@ void SpriteComponent::Draw()
     if (mIsTopLeft)
     {
         // 論理座標（左上原点 / 右+ / 下+）
-        Vector3 logicalPos = GetOwner()->GetPosition();
+        Vector3 logicalPos = GetOwner()->GetPosition() + mOffset;
 
         // -----------------------------
         // 1. 論理座標 → 画面ピクセル (左上原点)
@@ -142,7 +142,7 @@ void SpriteComponent::Draw()
     else
     {
         // 論理座標（左上原点 / 右+ / 下+）
-        Vector3 logicalPos = GetOwner()->GetPosition();
+        Vector3 logicalPos = GetOwner()->GetPosition() + mOffset;
 
         // -----------------------------
         // 1. 論理座標 → 画面ピクセル (左上原点)
