@@ -22,8 +22,10 @@ void GameFlow::Init()
 
 void GameFlow::SetInitialScene(std::unique_ptr<IScene> scene)
 {
-    if (!scene) return;
-
+    if (!scene)
+    {
+        return;
+    }
     // 念のため既存シーンを破棄（基本は無い想定）
     if (mCurrentScene)
     {
