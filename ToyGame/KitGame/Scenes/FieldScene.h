@@ -13,8 +13,11 @@ public:
 protected:
     void InitScene() override;
 private:
+    void InitField();
     void DeployGround();
     void DeploySky();
+    void DeployBrick(Vector3 pos);
+    void DeployFire(Vector3 pos);
     std::unique_ptr<class toy::WeatherManager> mWeather;
     
 

@@ -25,9 +25,8 @@ void FieldScene::InitScene()
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.mp3");
     GetApp()->GetSoundMixer()->PlayBGM();
     GetApp()->GetSoundMixer()->SetVolume(0.1);
-    
-    DeployGround();
-    DeploySky();
+
+    InitField();
     CreateActor<PlayerActor>();
 }
 
@@ -42,6 +41,63 @@ void FieldScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
+}
+
+void FieldScene::InitField()
+{
+    DeployGround();
+    DeploySky();
+    DeployFire(Vector3::Zero);
+
+    // レンガ
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 5; ++j)
+        {
+            DeployBrick(Vector3(-100 + 20*j/2 + 10*i*2, 20, 20 + 5*j*2));
+        }
+    }
+
+    for (int i = 0; i < 6; ++i)
+    {
+        DeployBrick(Vector3(0, -1+i*5, -15 + i*5));
+
+    }
+    
+    // 木（ビルボード）
+    auto treeActor = CreateActor<toy::Actor>();
+    treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
+    treeActor->SetScale(0.02);
+    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>(100);
+    treeBillboard->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/tree.png"));
+    treeBillboard->SetVisible(true);
+    treeActor->CreateComponent<toy::GravityComponent>();
+    auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
+    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100,200,4));
+    treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
+    // シャドウ用スプライト
+    auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
+    shadow->SetVisible(true);
+    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
+    shadow->SetOffsetScale(0.03f);
+    
+    // 鏡を出す
+    auto mirrorActor = CreateActor<toy::Actor>();
+    mirrorActor->SetPosition(Vector3(-20.0f, 0.0f, 15.0f));
+    mirrorActor->SetScale(1.0f);
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(-45.0f));
+    mirrorActor->SetRotation(q);
+    auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
+    capture->Init({.width=512, .height=512 });
+    capture->SetCaptureMode(toy::CaptureMode::Mirror);
+
+    auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
+    mirrorComp->SetTexture(capture->GetColorTexture());
+    mirrorComp->SetScale(10.0f, 10.0f);
+    capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
+    mirrorComp->SetFlip(true, true);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
+
 }
 
 void FieldScene::DeploySky()
@@ -79,4 +135,99 @@ void FieldScene::DeployGround()
         const auto& polys = va->GetWorldPolygons(actor->GetWorldTransform());
         GetApp()->GetPhysWorld()->SetGroundPolygons(polys);
     }
+}
+
+void FieldScene::DeployBrick(Vector3 pos)
+{
+    auto actor = CreateActor<toy::Actor>();
+    actor->SetPosition(pos);
+    actor->SetScale(5.0f);
+    
+    auto mesh = actor->CreateComponent<toy::MeshComponent>();
+    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.x"));
+    
+
+    auto coll = actor->CreateComponent<toy::ColliderComponent>();
+    coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.x")->GetVertexArray());
+    
+    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+
+}
+
+void FieldScene::DeployFire(Vector3 pos)
+{
+    // 焚き火
+    auto fireActor = CreateActor<toy::Actor>();
+    auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
+    fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
+  
+    fireActor->SetPosition(Vector3(-8, 0, -30));
+    fireActor->SetScale(0.03f);
+    auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
+    fireCollider->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x")->GetVertexArray());
+    fireCollider->SetEnabled(true);
+    fireCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
+    fireActor->CreateComponent<toy::GravityComponent>();
+    
+    auto fireSound = fireActor->CreateComponent<toy::SoundComponent>();
+    fireSound->SetSound("Field/fire.wav");
+    fireSound->SetLoop(true);
+    fireSound->SetVolume(0.5f);
+    fireSound->Enable3DSound(true);
+    fireSound->Play();
+    
+    // ライト
+    auto fireLight = fireActor->CreateComponent<toy::PointLightComponent>();
+    fireLight->SetColor(Vector3(1.0f, 0.5f, 0.0f));
+
+    
+    
+    // Actor
+    auto particleActorGPU = CreateActor<toy::Actor>();
+    particleActorGPU->SetPosition(fireActor->GetPosition());
+
+    // Component
+    auto* particle = particleActorGPU
+        ->CreateComponent<toy::GPUParticleComponent>();
+
+    particle->SetTexture(
+        GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
+    
+    //==============================
+    // Desc で全設定
+    //==============================
+    toy::GPUParticleComponent::Desc desc;
+
+    // --- 基本 ---
+    desc.maxParticles   = 10;        // 旧 num
+    desc.particleLife   = 0.6f;       // 旧 partLife
+    desc.size           = 5.5f;       // 旧 size
+    desc.mode           = toy::GPUParticleComponent::ParticleMode::Smoke;
+
+    // --- エミッタ ---
+    desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
+    desc.spawnRatePerSec = 30.0f;     // 1秒あたりの発生数
+    desc.spawnRampSec    = 0.6f;      // 立ち上がり時間
+
+    // --- 見た目 ---
+    desc.additiveBlend  = true;       // SetAddBlend(true) 相当
+
+    // --- 物理 ---
+    desc.gravity = 0.0f;              // Smoke
+    desc.lift    = 2.0f;              // 上昇力
+    desc.spread  = 2.0f;              // 拡散速度
+
+    // --- コンポーネント寿命 ---
+    // 0 = 無限（焚き火用）
+    desc.componentLife = 0.0f;
+
+    // --- 初期分散（塊回避） ---
+    desc.warmStart = true;
+
+    
+    particle->Init(desc);
+    //particle->InitFromFile("ToyGame/Settings/Fire.json");
+    particle->Start();
+    
+    
 }
