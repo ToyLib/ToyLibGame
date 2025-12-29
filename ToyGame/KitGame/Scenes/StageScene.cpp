@@ -1,4 +1,5 @@
 #include "StageScene.h"
+#include "FieldScene.h"
 
 void StageScene::InitScene()
 {
@@ -27,16 +28,17 @@ void StageScene::InitScene()
     d.font      = font;
     d.textColor = Vector3(0.8, 0.8, 0.8);
     
-    auto msgActor = CreateActor<toy::MessageBoxActor>(d);
+    mMsgActor = CreateActor<toy::MessageBoxActor>(d);
 
 
     // テスト用メッセージ
-    msgActor->Open(
+    mMsgActor->Open(
         "むかしむかし、あるところに、おじいさんとおばあさんが住んでいました。\n おじいさんは山へしばかりに、おばあさんは川へせんたくに行きました。\n　おばあさんが川でせんたくをしていると、ドンブラコ、ドンブラコと、大きな桃が流れてきました。\n「おや、これは良いおみやげになるわ」\n　おばあさんは大きな桃をひろいあげて、家に持ち帰りました。　そして、おじいさんとおばあさんが桃を食べようと桃を切ってみると、なんと中から元気の良い男の赤ちゃんが飛び出してきました。「これはきっと、神さまがくださったにちがいない」\n　子どものいなかったおじいさんとおばあさんは、大喜びです。\n　桃から生まれた男の子を、おじいさんとおばあさんは桃太郎と名付けました。\n　桃太郎はスクスク育って、やがて強い男の子になりました。\n　そしてある日、桃太郎が言いました。",
         []()
         {
             // 閉じたときのコールバック（とりあえずログ）
             SDL_Log("MessageBox closed.");
+
         }
     );
     
@@ -47,3 +49,14 @@ void StageScene::Update(float delatTime)
 {
 
 }
+void StageScene::ProcessInput(const toy::InputState& input)
+{
+    if (input.Keyboard.GetKeyState(SDL_SCANCODE_RETURN) == toy::EPressed)
+    {
+        if (!mMsgActor->IsOpen())
+        {
+            RequestChange(std::make_unique<FieldScene>());
+        }
+    }
+}
+
