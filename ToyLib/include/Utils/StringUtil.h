@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <cctype>      // std::isspace, std::tolower, std::toupper
+#include <fstream>
 
 namespace StringUtil
 {
@@ -447,6 +448,36 @@ inline std::string GetFileNameWithoutExtension(const std::string& path)
         return filename;
     }
     return filename.substr(0, pos);
+}
+
+inline std::string ReadTextFileNormalized(const std::string& path)
+{
+    std::ifstream ifs(path, std::ios::in | std::ios::binary);
+    if (!ifs)
+    {
+        throw std::runtime_error("Failed to open file: " + path);
+    }
+
+    std::string data(
+        (std::istreambuf_iterator<char>(ifs)),
+        std::istreambuf_iterator<char>());
+
+    // --- 改行正規化 ---
+    // 1) CRLF → LF
+    size_t pos = 0;
+    while ((pos = data.find("\r\n", pos)) != std::string::npos)
+    {
+        data.replace(pos, 2, "\n");
+    }
+
+    // 2) 残った CR → LF
+    pos = 0;
+    while ((pos = data.find('\r', pos)) != std::string::npos)
+    {
+        data.replace(pos, 1, "\n");
+    }
+
+    return data;
 }
 
 } // namespace StringUtil
