@@ -37,7 +37,7 @@ private:
     class toy::SoundComponent* mSound;
     class toy::SensorComponent* mSensor;
     class toy::SpriteComponent* mTarget;
-    class toy::Actor* mTargetActor;
+    //class toy::Actor* mTargetActor;
     bool mMovable;
     
     
