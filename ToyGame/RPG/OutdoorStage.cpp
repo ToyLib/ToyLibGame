@@ -17,9 +17,9 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::FeilyLand;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
-    //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
+    effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
     ;
     
@@ -83,8 +83,8 @@ void OutdoorStage::InitStage()
     
  
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(16.0f, 30.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(00.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(17.0f, 30.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
