@@ -93,13 +93,8 @@ PlayerActor::~PlayerActor()
 
 void PlayerActor::UpdateActor(float deltaTime)
 {
-    //mTarget->SetVisible(false);
 
-    auto hits = mSensor->GetHits();
-//    for (auto h : hits)
-    {
-        //h.collider->SetTargetState(toy::TargetState::Candidate);
-    }
+
         
 }
 
