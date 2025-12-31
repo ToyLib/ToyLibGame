@@ -83,8 +83,10 @@ void MessageTextComponent::ResetPage()
 //==============================================================
 int MessageTextComponent::MeasureWidthPx(TTF_Font* font, const std::string& utf8)
 {
-    if (!font || utf8.empty()) return 0;
-
+    if (!font || utf8.empty())
+    {
+        return 0;
+    }
     int w = 0, h = 0;
 
     // SDL3_ttf: true = success

@@ -148,8 +148,6 @@ void MessageBoxActor::UpdateActor(float dt)
 {
     if (!mOpen || !mEnabled) return;
 
-    // 文字送りを回すならここ（MessageTextComponent側がComponent Updateで回る設計なら不要）
-    // mText->Update(dt);
 }
 
 void MessageBoxActor::ApplyLayout()
