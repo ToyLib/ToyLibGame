@@ -78,7 +78,7 @@ void GameFlow::RequestChange(std::unique_ptr<IScene> next)
     // 念のため即反映
     mApp->GetRenderer()->SetFade(mFadeAlpha);
 }
-
+/*
 void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
 {
     // 「即時切替」用途なら名前を ChangeSceneImmediate にしたい
@@ -90,7 +90,7 @@ void GameFlow::ChangeScene(std::unique_ptr<IScene> next)
     mApp->GetRenderer()->SetFade(0.0f);
     mState = FlowState::Running;
 }
-
+*/
 void GameFlow::ApplyPendingScene()
 {
     if (!mPendingScene)

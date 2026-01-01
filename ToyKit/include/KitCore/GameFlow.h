@@ -25,7 +25,7 @@ public:
     void SetInitialScene(std::unique_ptr<class IScene> scene);
 
     void RequestChange(std::unique_ptr<class IScene> next);
-    void ChangeScene(std::unique_ptr<class IScene> next);
+    //void ChangeScene(std::unique_ptr<class IScene> next);
 
     void ProcessInput(const struct InputState& input);
     void Update(float deltaTime);

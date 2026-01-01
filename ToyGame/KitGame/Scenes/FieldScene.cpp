@@ -1,6 +1,7 @@
 #include "FieldScene.h"
 #include "ToyLib.h"
 #include "../Actors/PlayerActor.h"
+#include "../Actors/RPGCharacter.h"
 
 FieldScene::FieldScene()
 {
@@ -27,7 +28,8 @@ void FieldScene::InitScene()
     GetApp()->GetSoundMixer()->SetVolume(0.1);
 
     InitField();
-    CreateActor<PlayerActor>();
+//    CreateActor<PlayerActor>();
+    CreateActor<RPGCharacter>();
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
