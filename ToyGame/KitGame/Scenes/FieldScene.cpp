@@ -29,14 +29,14 @@ void FieldScene::InitScene()
     GetApp()->GetSoundMixer()->SetVolume(0.1);
 
     InitField();
-    //CreateActor<PlayerActor>();
-    CreateActor<RPGCharacter>();
+
+
+    CreateActor<PlayerActor>();
+    //CreateActor<RPGCharacter>();
     
     
     auto enemy = CreateActor<EnemyActor>();
     enemy->SetPosition(Vector3(10.0f, 3.0f, 10.0f));
-    //CreateActor<PlayerActor>();
-    CreateActor<RPGCharacter>();
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
