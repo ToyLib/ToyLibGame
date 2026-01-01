@@ -28,8 +28,8 @@ void FieldScene::InitScene()
     GetApp()->GetSoundMixer()->SetVolume(0.1);
 
     InitField();
-    CreateActor<PlayerActor>();
-    //CreateActor<RPGCharacter>();
+    //CreateActor<PlayerActor>();
+    CreateActor<RPGCharacter>();
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
