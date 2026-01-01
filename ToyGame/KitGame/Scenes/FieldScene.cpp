@@ -2,6 +2,7 @@
 #include "ToyLib.h"
 #include "../Actors/PlayerActor.h"
 #include "../Actors/RPGCharacter.h"
+#include "../Actors/EnemyActor.h"
 
 FieldScene::FieldScene()
 {
@@ -30,6 +31,10 @@ void FieldScene::InitScene()
     InitField();
     CreateActor<PlayerActor>();
     //CreateActor<RPGCharacter>();
+    
+    
+    auto enemy = CreateActor<EnemyActor>();
+    enemy->SetPosition(Vector3(10.0f, 3.0f, 10.0f));
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
