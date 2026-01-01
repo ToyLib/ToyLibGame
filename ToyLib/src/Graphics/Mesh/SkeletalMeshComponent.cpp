@@ -98,8 +98,14 @@ void SkeletalMeshComponent::Draw()
     // Toon ON/OFF
     mShader->SetBooleanUniform("uUseToon", mIsToon);
 
+    
+    Matrix4 worldMatrix =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetWorldTransform();
     // World
-    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
+    mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
 
     // ----------------------------
     // ボーン行列パレット
@@ -122,8 +128,8 @@ void SkeletalMeshComponent::Draw()
     // ----------------------------
     // メッシュ本体描画
     // ----------------------------
-    auto va = mMesh->GetVertexArray();
-    for (auto v : va)
+    auto& va = mMesh->GetVertexArray();
+    for (auto& v : va)
     {
         auto mat = mMesh->GetMaterial(v->GetTextureID());
         if (mat)
@@ -147,10 +153,10 @@ void SkeletalMeshComponent::Draw()
         Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
         mShader->SetMatrixUniform(
             "uWorldTransform",
-            scaleOutline * GetOwner()->GetRenderWorldTransform()
+            scaleOutline * worldMatrix
         );
 
-        for (auto v : va)
+        for (auto& v : va)
         {
             auto mat = mMesh->GetMaterial(v->GetTextureID());
             if (mat)
@@ -200,9 +206,14 @@ void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
     Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
 
     mShadowShader->SetActive();
+    Matrix4 worldMatrix =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetWorldTransform();
     mShadowShader->SetMatrixUniform(
         "uWorldTransform",
-        GetOwner()->GetRenderWorldTransform()
+        worldMatrix
     );
 
     // アニメーション行列（無ければ空配列）
@@ -221,8 +232,8 @@ void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
     // シャドウマップ描画
-    auto va = mMesh->GetVertexArray();
-    for (auto v : va)
+    auto& va = mMesh->GetVertexArray();
+    for (auto& v : va)
     {
         v->SetActive();
         glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);

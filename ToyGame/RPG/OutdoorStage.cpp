@@ -21,7 +21,6 @@ void OutdoorStage::InitStage()
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
-    ;
     
     DeployGround();
     DeploySky();
@@ -116,14 +115,15 @@ void OutdoorStage::DeployIsland(const Vector3& pos)
 {
     auto actor = mApp->CreateActor<toy::Actor>();
     actor->SetPosition(pos);
-    actor->SetScale(0.05f);
+    //actor->SetScale(0.05f);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(mApp->GetAssetManager()->GetMesh("island.x"));
+    mesh->SetLocalScale(0.05f);
     
 
     auto coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("island.x")->GetVertexArray());
+    coll->GetBoundingVolume()->ComputeFromMeshComponent(mesh);
     
     coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
 
@@ -151,13 +151,13 @@ void OutdoorStage::DeployFire(const Vector3& pos)
 {
     // 焚き火
     auto fireActor = mApp->CreateActor<toy::Actor>();
+    fireActor->SetPosition(Vector3(-8, 0, -30));
+
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
     fireMesh->SetMesh(mApp->GetAssetManager()->GetMesh("campfile.x"));
-  
-    fireActor->SetPosition(Vector3(-8, 0, -30));
-    fireActor->SetScale(0.03f);
+    fireMesh->SetLocalScale(0.03f);
     auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
-    fireCollider->GetBoundingVolume()->ComputeBoundingVolume(mApp->GetAssetManager()->GetMesh("campfile.x")->GetVertexArray());
+    fireCollider->GetBoundingVolume()->ComputeFromMeshComponent(fireMesh);
     fireCollider->SetEnabled(true);
     fireCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
     fireActor->CreateComponent<toy::GravityComponent>();

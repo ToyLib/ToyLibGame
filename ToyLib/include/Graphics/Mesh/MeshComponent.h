@@ -45,6 +45,7 @@ public:
     // Mesh / Texture 設定
     //--------------------------------------------------------
     virtual void SetMesh(std::shared_ptr<class Mesh> m) { mMesh = m; }
+    const std::shared_ptr<class Mesh>& GetMesh() const { return mMesh; }
     void SetTextureIndex(unsigned int index) { mTextureIndex = index; }
 
     //--------------------------------------------------------
@@ -72,6 +73,14 @@ public:
     //--------------------------------------------------------
     virtual void SetAnimID(unsigned int animID, bool mode) {}
     
+    void SetLocalScale(const float scale) { mLocalScale = scale; }
+    float GetLocalScale() const { return mLocalScale; }
+    void SetLocalPositon(const Vector3& pos) { mLocalPos = pos; }
+    const Vector3& GetLocalPosition() const { return mLocalPos; }
+    void SetYawOffset(float radians)
+    {
+        mLocalRot = Quaternion(Vector3::UnitY, radians);
+    }
 protected:
     //--------------------------------------------------------
     // 保持している描画リソース
@@ -94,6 +103,15 @@ protected:
     bool  mIsToon;          // true なら toon + Outline
     float mContourFactor;   // 1.05f など。輪郭スケール係数
     Vector3 mContourColor;  // 輪郭色
+    
+    
+    //--------------------------------------------------------
+    // ローカル変換（補正値）
+    //--------------------------------------------------------
+    Vector3    mLocalPos;
+    Quaternion mLocalRot;
+    float      mLocalScale;
+    
 };
 
 } // namespace toy

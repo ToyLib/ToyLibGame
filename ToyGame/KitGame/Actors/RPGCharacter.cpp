@@ -7,19 +7,23 @@ RPGCharacter::RPGCharacter(toy::Application* a)
 {
 
     // --- スケルタルメッシュ ---
-    std::string meshPath = "RPGPack/w.fbx";
+    std::string meshPath = "RPGPack/Ranger.gltf";
     mMeshComp = CreateComponent<toy::SkeletalMeshComponent>();
     mMeshComp->SetMesh(a->GetAssetManager()->GetMesh(meshPath));
 
-    bool useToon = true;
-    float contour = 1.01f;
+    bool useToon = false;
+    float contour = 1.0f;
+    mMeshComp->SetToonRender(useToon);
     mMeshComp->SetContourFactor(contour);
     mMeshComp->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
+    mMeshComp->SetYawOffset(Math::ToRadians(180.0f));
+    mMeshComp->SetLocalScale(1.f);
+
 
     // --- Transform設定 ---
     Vector3 pos = Vector3(0.0f, 10.0f, 0.0f);
     SetPosition(pos);
-    Quaternion q = Quaternion(Vector3::UnitY, 180.0f);
+    Quaternion q = Quaternion(Vector3::UnitY, 0.0f);
     SetRotation(q);
     float scale = 1.0f;
     SetScale(scale);
@@ -123,7 +127,7 @@ void RPGCharacter::ActorInput(const toy::InputState& state)
                      mMoveComp->GetAngularSpeed() == 0.0f &&
                      mMoveComp->GetRightSpeed() == 0.0f)
             {
-                animPlayer->Play(5);
+                animPlayer->Play(10);
                 mSound->Stop();
 
             }

@@ -27,6 +27,9 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
     , mIsToon(false)
     , mContourFactor(1.0f)
     , mContourColor(Vector3(0.0f, 0.0f, 0.0f))
+    , mLocalPos(Vector3::Zero)
+    , mLocalRot(Quaternion(Vector3::UnitY, 0.0f))
+    , mLocalScale(1.0f)
 {
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     mShader          = renderer->GetShader("Mesh");
@@ -108,7 +111,13 @@ void MeshComponent::Draw()
     mShader->SetBooleanUniform("uUseToon", mIsToon);
 
     // ワールド変換を送る
-    mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
+    Matrix4 worldMatrix =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetWorldTransform();
+
+    mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
 
     //--------------------------------------------------------
     // メッシュ本体の描画
@@ -139,7 +148,7 @@ void MeshComponent::Draw()
         Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
         mShader->SetMatrixUniform(
             "uWorldTransform",
-            scaleOutline * GetOwner()->GetRenderWorldTransform()
+            scaleOutline * worldMatrix
         );
 
         for (auto& v : vaList)
@@ -201,7 +210,14 @@ void MeshComponent::DrawShadow(int cascadeIndex)
     Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
 
     mShadowShader->SetActive();
-    mShadowShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetRenderWorldTransform());
+    
+    Matrix4 worldMatrix =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetWorldTransform();
+    
+    mShadowShader->SetMatrixUniform("uWorldTransform", worldMatrix);
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
     auto vaList = mMesh->GetVertexArray();

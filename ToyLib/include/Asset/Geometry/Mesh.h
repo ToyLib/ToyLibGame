@@ -34,7 +34,7 @@ public:
 
     // 頂点配列（VAO）を取得
     // （1つのファイル内に複数 aiMesh がある場合に対応）
-    const std::vector<std::shared_ptr<class VertexArray>>& GetVertexArray()
+    const std::vector<std::shared_ptr<class VertexArray>>& GetVertexArray() const
     {
         return mVertexArray;
     }

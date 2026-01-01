@@ -1,6 +1,7 @@
 #include "MyGameApp.h"
 #include "Engine/Core/ApplicationEntry.h"
 #include "ToyLib.h"
+#include "Scenes/FieldScene.h"
 
 
 MyGameApp::MyGameApp()
@@ -14,7 +15,8 @@ void MyGameApp::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
     mGameFlow->Init();
-    mGameFlow->SetInitialScene(                                                   std::make_unique<TitleScene>());
+    //mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
+    mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
 }
 
 void MyGameApp::ProcessInput(const toy::InputState& input)

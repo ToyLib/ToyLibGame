@@ -518,6 +518,8 @@ bool Mesh::Load(const std::string& fileName,
                 AssetManager* assetMamager,
                 bool isRightHanded)
 {
+    Unload();
+    
     unsigned int ASSIMP_LOAD_FLAGS =
         aiProcess_Triangulate |
         aiProcess_GenSmoothNormals |
@@ -564,15 +566,18 @@ void Mesh::LoadMeshData()
 {
     for (int i = 0; i < static_cast<int>(mScene->mNumMeshes); ++i)
     {
+        
         aiMesh* m = mScene->mMeshes[i];
 
         if (m->HasBones())
         {
             CreateMeshBone(m);
+            std::cout << "aaaa " << i << std::endl;
         }
         else
         {
             CreateMesh(m);
+            std::cout << "bbbb " << i << std::endl;
         }
     }
 }

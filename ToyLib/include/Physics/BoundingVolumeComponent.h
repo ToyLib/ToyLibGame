@@ -71,6 +71,9 @@ public:
     // Min/Max（ローカル空間）を直接指定して AABB/ポリゴンを生成
     void ComputeBoundingVolume(const Vector3& min, const Vector3& max);
     
+    // MeshComponentからAABBポリゴンを生成する
+    void ComputeFromMeshComponent(const class MeshComponent* meshComp);
+    
     // 手動補正用ヘルパー：
     // ・pos : ボックス全体の平行移動
     // ・sc  : 各軸ごとのスケール倍率
@@ -122,5 +125,7 @@ private:
     // デバッグ表示用のワイヤーフレーム（AABB 可視化）
     std::unique_ptr<class WireframeComponent> mWireframe;
 };
+
+
 
 } // namespace toy

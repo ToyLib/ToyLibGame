@@ -1,8 +1,10 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Graphics/Effect/WireframeComponent.h"
+#include "Graphics/Mesh/MeshComponent.h"
 #include "Engine/Core/Actor.h"
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Geometry/VertexArray.h"
+#include "Asset/Geometry/Mesh.h"
 #include "Engine/Render/Shader.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
@@ -256,6 +258,23 @@ Cube BoundingVolumeComponent::GetWorldAABB() const
     worldBox.max = mBoundingBox->max * scale + pos;
     
     return worldBox;
+}
+
+void BoundingVolumeComponent::ComputeFromMeshComponent(const MeshComponent* meshComp)
+{
+    if (!meshComp) return;
+
+    auto mesh = meshComp->GetMesh();
+    if (!mesh) return;
+
+    // 1) 素のローカル AABB をメッシュの VA から計算
+    ComputeBoundingVolume(mesh->GetVertexArray());
+
+    // 2) MeshComponent が持っているローカル補正を一回だけ焼き込む
+    const Vector3 offset = meshComp->GetLocalPosition(); // 使わないなら Zero でもOK
+    const float   s      = meshComp->GetLocalScale();    // or Vector3 if非一様
+
+    AdjustBoundingBox(offset, Vector3(s, s, s));
 }
 
 } // namespace toy
