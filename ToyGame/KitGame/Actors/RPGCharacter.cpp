@@ -7,17 +7,17 @@ RPGCharacter::RPGCharacter(toy::Application* a)
 {
 
     // --- スケルタルメッシュ ---
-    std::string meshPath = "RPGPack/Ranger.gltf";
+    std::string meshPath = "Monsters/Big/glTF/Alien.gltf";
     mMeshComp = CreateComponent<toy::SkeletalMeshComponent>();
     mMeshComp->SetMesh(a->GetAssetManager()->GetMesh(meshPath));
 
-    bool useToon = false;
+    bool useToon = true;
     float contour = 1.0f;
     mMeshComp->SetToonRender(useToon);
     mMeshComp->SetContourFactor(contour);
     mMeshComp->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
     mMeshComp->SetYawOffset(Math::ToRadians(180.0f));
-    mMeshComp->SetLocalScale(1.f);
+    mMeshComp->SetLocalScale(1.01f);
 
 
     // --- Transform設定 ---
@@ -30,7 +30,8 @@ RPGCharacter::RPGCharacter(toy::Application* a)
 
     // --- コライダー ---
     mCollComp = CreateComponent<toy::ColliderComponent>();
-    mCollComp->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh(meshPath)->GetVertexArray());
+    mCollComp->GetBoundingVolume()->ComputeFromMeshComponent(mMeshComp);
+    //mCollComp->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh(meshPath)->GetVertexArray());
     
     //mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
     mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER_TEAM);
@@ -50,7 +51,7 @@ RPGCharacter::RPGCharacter(toy::Application* a)
 
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
+    mGravComp->SetEnableGroundPose(true);
 
     // --- センサーコンポーネント ---
     mSensor= CreateComponent<toy::SensorComponent>();
@@ -81,7 +82,7 @@ void RPGCharacter::ActorInput(const toy::InputState& state)
     bool inputAttack = false;
 
     auto animPlayer = mMeshComp->GetAnimPlayer();
-    animPlayer->SetPlayRate(1.5f);
+    animPlayer->SetPlayRate(1.0f);
 
     // --- 移動可能状態 ---
     if (mMovable)

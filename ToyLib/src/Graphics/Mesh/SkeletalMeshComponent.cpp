@@ -103,7 +103,7 @@ void SkeletalMeshComponent::Draw()
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetWorldTransform();
+        GetOwner()->GetRenderWorldTransform();
     // World
     mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
 
@@ -210,7 +210,7 @@ void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetWorldTransform();
+        GetOwner()->GetRenderWorldTransform();
     mShadowShader->SetMatrixUniform(
         "uWorldTransform",
         worldMatrix

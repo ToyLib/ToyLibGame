@@ -1,0 +1,23 @@
+{
+  "position": [0.0, 30.0, 0.0],
+  "rotation_deg": [0.0, 180.0, 0.0],
+  "scale": 0.1,
+
+  "mesh": {
+    "file": "Hero/hero_m.gltf",
+    "animation_id": 0,
+    "toon_render": true,
+    "contour_factor": 1.01
+  },
+
+  "collider": {
+    "bounding_box_offset": [0.0, 0.0, 0.0],
+    "bounding_box_scale": [0.5, 1.0, 0.4],
+    "visible": true,
+    "type": "C_PLAYER_TEAM"
+  },
+
+  "move_component": {
+    "type": "MoveComponent"
+  }
+}

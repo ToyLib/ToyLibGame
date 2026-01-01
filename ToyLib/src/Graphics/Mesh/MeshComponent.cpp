@@ -115,7 +115,7 @@ void MeshComponent::Draw()
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetWorldTransform();
+        GetOwner()->GetRenderWorldTransform();
 
     mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
 
@@ -215,7 +215,7 @@ void MeshComponent::DrawShadow(int cascadeIndex)
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetWorldTransform();
+        GetOwner()->GetRenderWorldTransform();
     
     mShadowShader->SetMatrixUniform("uWorldTransform", worldMatrix);
     mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);

@@ -11,7 +11,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     , mMovable(true)
 {
     // --- JSON読み込み ---
-    std::ifstream file("ToyGame/Settings/HeroActor.json");
+    std::ifstream file("ToyGame/Settings/KitHero.json");
     nlohmann::json json;
     file >> json;
 
@@ -31,6 +31,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mMeshComp->SetToonRender(useToon);
     mMeshComp->SetContourFactor(contour);
     mMeshComp->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
+    mMeshComp->SetYawOffset(Math::ToRadians(180.0f));
 
     // --- Transform設定 ---
     Vector3 pos;
