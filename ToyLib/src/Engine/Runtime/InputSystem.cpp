@@ -205,6 +205,32 @@ ButtonState ControllerState::GetButtonState(SDL_GamepadButton button) const
     }
 }
 
+// ★ 追加: トリガーをボタン風に扱う
+ButtonState ControllerState::GetTriggerState(bool isLeft) const
+{
+    constexpr float threshold = 0.5f; // 押した扱いにするしきい値（0〜1）
+
+    const float prev = isLeft ? mPrevLeftTrigger  : mPrevRightTrigger;
+    const float curr = isLeft ? mLeftTrigger      : mRightTrigger;
+
+    const bool prevOn = (prev >= threshold);
+    const bool currOn = (curr >= threshold);
+
+    if (!prevOn && !currOn)
+    {
+        return ENone;
+    }
+    if (!prevOn && currOn)
+    {
+        return EPressed;
+    }
+    if (prevOn && !currOn)
+    {
+        return EReleased;
+    }
+    return EHeld;
+}
+
 //=============================================================
 // InputState ラッパ
 //   - ゲーム側からは InputSystem を意識せず GameButton ベースで扱える
@@ -267,10 +293,12 @@ bool InputSystem::Initialize(SDL_Window* window)
     std::memset(mState.Controller.mPrevButtons, 0,
                 sizeof(mState.Controller.mPrevButtons));
 
-    mState.Controller.mLeftStick      = Vector2::Zero;
-    mState.Controller.mRightStick     = Vector2::Zero;
-    mState.Controller.mLeftTrigger    = 0.0f;
-    mState.Controller.mRightTrigger   = 0.0f;
+    mState.Controller.mLeftStick        = Vector2::Zero;
+    mState.Controller.mRightStick       = Vector2::Zero;
+    mState.Controller.mLeftTrigger      = 0.0f;
+    mState.Controller.mRightTrigger     = 0.0f;
+    mState.Controller.mPrevLeftTrigger  = 0.0f;
+    mState.Controller.mPrevRightTrigger = 0.0f;
 
     // InputState から InputSystem に逆参照できるようにセット
     mState.SetOwner(this);
@@ -304,6 +332,10 @@ void InputSystem::PrepareForUpdate()
     std::memcpy(mState.Controller.mPrevButtons,
                 mState.Controller.mCurrButtons,
                 sizeof(mState.Controller.mPrevButtons));
+
+    // ★ 追加: トリガーの前フレーム値を保存
+    mState.Controller.mPrevLeftTrigger  = mState.Controller.mLeftTrigger;
+    mState.Controller.mPrevRightTrigger = mState.Controller.mRightTrigger;
 }
 
 //=============================================================
@@ -467,7 +499,7 @@ bool InputSystem::LoadButtonConfig(const std::string& filePath)
             }
         }
 
-        // ゲームパッド側
+        // ゲームパッド側（トリガーはここでは扱わない）
         std::vector<std::string> padNames;
         if (JsonHelper::GetStringArray(buttonJson, "gamepad", padNames))
         {
@@ -507,10 +539,28 @@ bool InputSystem::IsButtonDown(GameButton button) const
         }
     }
 
-    // パッド
+    // パッドボタン
     for (auto pb : binding.Gamepad)
     {
         ButtonState s = mState.Controller.GetButtonState(pb);
+        if (s == EPressed || s == EHeld)
+        {
+            return true;
+        }
+    }
+
+    // ★ 追加: L2/R2 はアナログトリガーもボタンとして扱う
+    if (button == GameButton::L2)
+    {
+        ButtonState s = mState.Controller.GetTriggerState(true);
+        if (s == EPressed || s == EHeld)
+        {
+            return true;
+        }
+    }
+    else if (button == GameButton::R2)
+    {
+        ButtonState s = mState.Controller.GetTriggerState(false);
         if (s == EPressed || s == EHeld)
         {
             return true;
@@ -567,10 +617,27 @@ bool InputSystem::IsButtonPressed(GameButton button) const
             return true;
         }
     }
-    // パッド
+
+    // パッドボタン
     for (auto pb : binding.Gamepad)
     {
         if (mState.Controller.GetButtonState(pb) == EPressed)
+        {
+            return true;
+        }
+    }
+
+    // ★ 追加: L2/R2 はトリガーの「押された瞬間」も見る
+    if (button == GameButton::L2)
+    {
+        if (mState.Controller.GetTriggerState(true) == EPressed)
+        {
+            return true;
+        }
+    }
+    else if (button == GameButton::R2)
+    {
+        if (mState.Controller.GetTriggerState(false) == EPressed)
         {
             return true;
         }
@@ -592,7 +659,8 @@ bool InputSystem::IsButtonReleased(GameButton button) const
             return true;
         }
     }
-    // パッド
+
+    // パッドボタン
     for (auto pb : binding.Gamepad)
     {
         if (mState.Controller.GetButtonState(pb) == EReleased)
@@ -600,6 +668,23 @@ bool InputSystem::IsButtonReleased(GameButton button) const
             return true;
         }
     }
+
+    // ★ 追加: L2/R2 はトリガーの「離された瞬間」も見る
+    if (button == GameButton::L2)
+    {
+        if (mState.Controller.GetTriggerState(true) == EReleased)
+        {
+            return true;
+        }
+    }
+    else if (button == GameButton::R2)
+    {
+        if (mState.Controller.GetTriggerState(false) == EReleased)
+        {
+            return true;
+        }
+    }
+
     return false;
 }
 

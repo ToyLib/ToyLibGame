@@ -20,6 +20,9 @@
     "L1": { "keyboard": ["Q"], "gamepad": ["LeftShoulder"] },
     "R1": { "keyboard": ["E"], "gamepad": ["RightShoulder"] },
 
+    "L2": { "keyboard": ["LeftShift"] },
+    "R2": { "keyboard": ["RightShift"] },
+    
     "Start":  { "keyboard": ["Enter"],  "gamepad": ["Start"] },
     "Select": { "keyboard": ["Escape"], "gamepad": ["Back"] },
 

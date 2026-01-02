@@ -36,6 +36,7 @@ public:
 private:
     void SearchTarget();
     void SelectTarget(const struct toy::InputState& state);
+    void InputAttack(const struct toy::InputState& state);
     
     std::function<void(const class toy::InputState&)> MoveFunc;
     void FieldMove(const struct toy::InputState& state);
@@ -51,6 +52,8 @@ private:
     //class toy::SpriteComponent* mTargetSprite;
     //class toy::Actor* mTargetActor;
     bool mMovable;
+    bool mInputAttack;
+
     
     std::vector<struct TargetInfo> mCandidates;
     toy::ColliderComponent* mTargetCollider;

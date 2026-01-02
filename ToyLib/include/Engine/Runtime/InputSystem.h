@@ -99,6 +99,9 @@ public:
     float GetLeftTrigger()  const { return mLeftTrigger;  }
     float GetRightTrigger() const { return mRightTrigger; }
 
+    // ★ 追加: トリガーをボタン風に扱うための状態取得
+    ButtonState GetTriggerState(bool isLeft) const;
+
     bool GetIsConnected() const { return mIsConnected; }
 
 private:
@@ -107,8 +110,11 @@ private:
 
     Vector2 mLeftStick  = Vector2::Zero;
     Vector2 mRightStick = Vector2::Zero;
-    float   mLeftTrigger  = 0.0f;
-    float   mRightTrigger = 0.0f;
+    float   mLeftTrigger      = 0.0f;
+    float   mRightTrigger     = 0.0f;
+    // ★ 追加: トリガーの前フレーム値
+    float   mPrevLeftTrigger  = 0.0f;
+    float   mPrevRightTrigger = 0.0f;
 
     bool    mIsConnected  = false;
 };

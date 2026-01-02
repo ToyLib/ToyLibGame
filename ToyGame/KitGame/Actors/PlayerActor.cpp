@@ -7,6 +7,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     : Actor(a)
     , mAnimID(H_Stand)
     , mMovable(true)
+    , mInputAttack(false)
     , mTargetCollider(nullptr)
 {
     // --- JSON読み込み ---
@@ -153,6 +154,11 @@ void PlayerActor::ActorInput(const toy::InputState& state)
 {
     MoveFunc(state);
     SelectTarget(state);
+    
+    if (state.IsButtonDown(toy::GameButton::L2))
+    {
+        InputAttack(state);
+    }
 }
 
 void PlayerActor::SelectTarget(const toy::InputState& state)
@@ -165,17 +171,22 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
     
     if (state.IsButtonPressed(toy::GameButton::L1))
     {
-        if (mSelectedTarget > 0)
-        {
-            --mSelectedTarget;
-        }
         if (mSelectedTarget == -1)
         {
             mSelectedTarget = static_cast<int>(mCandidates.size()) / 2;
         }
+        if (mSelectedTarget > 0)
+        {
+            --mSelectedTarget;
+        }
     }
     if (state.IsButtonPressed(toy::GameButton::R1))
     {
+        if (mSelectedTarget == -1)
+        {
+            mSelectedTarget = static_cast<int>(mCandidates.size()) / 2;
+        }
+
         if (mSelectedTarget < mCandidates.size() - 1)
         {
             ++mSelectedTarget;
@@ -195,14 +206,12 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
     
 
 }
-
-void PlayerActor::FieldMove(const toy::InputState& state)
+void PlayerActor::InputAttack(const toy::InputState& state)
 {
-    bool inputAttack = false;
-
+    //bool inputAttack = false;
+    mInputAttack = false;
     auto animPlayer = mMeshComp->GetAnimPlayer();
     animPlayer->SetPlayRate(1.5f);
-
     // --- 移動可能状態 ---
     if (mMovable)
     {
@@ -210,22 +219,39 @@ void PlayerActor::FieldMove(const toy::InputState& state)
         if (state.IsButtonPressed(toy::GameButton::B))
         {
             animPlayer->PlayOnce(H_Slash, H_Stand);
-            inputAttack = true;
+            mInputAttack = true;
         }
         else if (state.IsButtonPressed(toy::GameButton::X))
         {
             animPlayer->PlayOnce(H_Spin, H_Stand);
-            inputAttack = true;
+            mInputAttack = true;
             //mHeal->Spawn(GetPosition());
         }
         else if (state.IsButtonPressed(toy::GameButton::Y))
         {
             animPlayer->PlayOnce(H_Stab, H_Stand);
-            inputAttack = true;
+            mInputAttack = true;
             //mMagic->Spawn(GetPosition(), GetForward());
         }
+    }
+    if (mInputAttack)
+    {
+        mMovable = false; // 攻撃中はロック
+    }
+}
 
-        if (inputAttack)
+void PlayerActor::FieldMove(const toy::InputState& state)
+{
+    //bool inputAttack = false;
+
+    auto animPlayer = mMeshComp->GetAnimPlayer();
+    animPlayer->SetPlayRate(1.5f);
+
+    // --- 移動可能状態 ---
+    if (mMovable)
+    {
+     
+        if (mInputAttack)
         {
             mMovable = false; // 攻撃中はロック
         }
