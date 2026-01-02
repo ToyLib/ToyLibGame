@@ -1117,9 +1117,14 @@ void PhysWorld::GetCollidersByAnyFlags(uint32_t mask,
 {
     for (auto* col : mColliders)
     {
-        if (!col) continue;
-        if (!col->GetEnabled()) continue;
-
+        if (!col)
+        {
+            continue;
+        }
+        if (!col->GetEnabled())
+        {
+            continue;
+        }
         if ((col->GetFlags() & mask) != 0)
         {
             out.push_back(col);
@@ -1132,9 +1137,14 @@ void PhysWorld::GetCollidersByAllFlags(uint32_t mask,
 {
     for (auto* col : mColliders)
     {
-        if (!col) continue;
-        if (!col->GetEnabled()) continue;
-
+        if (!col)
+        {
+            continue;
+        }
+        if (!col->GetEnabled())
+        {
+            continue;
+        }
         if ((col->GetFlags() & mask) == mask)
         {
             out.push_back(col);
@@ -1234,13 +1244,20 @@ void PhysWorld::Test()
 
         for (auto* c1 : mColliders)
         {
-            if (!HasAll(c1, A)) continue;
-
+            if (!HasAll(c1, A))
+            {
+                continue;
+            }
             for (auto* c2 : mColliders)
             {
-                if (!HasAll(c2, B)) continue;
-                if (c1->GetOwner() == c2->GetOwner()) continue;
-
+                if (!HasAll(c2, B))
+                {
+                    continue;
+                }
+                if (c1->GetOwner() == c2->GetOwner())
+                {
+                    continue;
+                }
                 if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
                 {
                     c1->Collided(c2);
