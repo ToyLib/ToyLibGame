@@ -121,7 +121,6 @@ void PlayerActor::SearchTarget()
         TargetInfo info =
         {
             .collider = c.collider,
-            .actor = c.collider->GetOwner(),
             .screenPos = scInfo.virtualScreen
         };
         auto itr = mCandidates.begin();

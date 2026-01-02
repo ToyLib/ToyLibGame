@@ -19,7 +19,6 @@ enum PlayerMotion
 
 struct TargetInfo
 {
-    toy::Actor* actor                = nullptr;
     toy::ColliderComponent* collider = nullptr;
     Vector2 screenPos                = Vector2::Zero;
     bool selected                    = false;
