@@ -100,6 +100,8 @@ public:
     
     void SetTargetState(TargetState s) { mTargetState = s; }
     TargetState GetTargetState() const { return mTargetState; }
+    
+    Vector3 GetCenterPosition() const;
 
 private:
     // 少なくとも 1 つ以上のコライダーと当たっているか

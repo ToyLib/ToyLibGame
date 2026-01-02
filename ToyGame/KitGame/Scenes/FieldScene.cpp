@@ -34,9 +34,12 @@ void FieldScene::InitScene()
     CreateActor<PlayerActor>();
     //CreateActor<RPGCharacter>();
     
-    
-    auto enemy = CreateActor<EnemyActor>();
-    enemy->SetPosition(Vector3(10.0f, 3.0f, 10.0f));
+
+    for (int i = 0; i < 10; ++i)
+    {
+        auto enemy = CreateActor<EnemyActor>();
+        enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
+    }
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)

@@ -3,8 +3,6 @@
 #include "ToyLib.h"
 #include <functional>
 
-#ifndef __PLAYERMOTION
-#define __PLAYERMOTION
 enum PlayerMotion
 {
     H_Run   = 11,
@@ -18,7 +16,15 @@ enum PlayerMotion
     H_Stab  = 15
 
 };
-#endif
+
+struct TargetInfo
+{
+    toy::Actor* actor                = nullptr;
+    toy::ColliderComponent* collider = nullptr;
+    Vector2 screenPos                = Vector2::Zero;
+    bool selected                    = false;
+    bool locked                      = false;
+};
 
 
 class PlayerActor : public toy::Actor
@@ -30,9 +36,10 @@ public:
     void ActorInput(const struct toy::InputState& state) override;
 private:
     void SearchTarget();
+    void SelectTarget(const struct toy::InputState& state);
     
     std::function<void(const class toy::InputState&)> MoveFunc;
-    void FieldMove(const class toy::InputState& state);
+    void FieldMove(const struct toy::InputState& state);
 private:
     enum PlayerMotion mAnimID;
     class toy::MoveComponent* mMoveComp;
@@ -42,12 +49,12 @@ private:
     class toy::GravityComponent* mGravComp;
     class toy::SoundComponent* mSound;
     class toy::SensorComponent* mSensor;
-    class toy::SpriteComponent* mTarget;
+    //class toy::SpriteComponent* mTargetSprite;
     //class toy::Actor* mTargetActor;
     bool mMovable;
     
-    std::vector<toy::Actor*> mCandidateActors;
-    toy::Actor* mTargetedActor;
+    std::vector<struct TargetInfo> mCandidates;
+    toy::ColliderComponent* mTargetCollider;
 
     
     int mSelectedTarget;

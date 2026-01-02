@@ -7,7 +7,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     : Actor(a)
     , mAnimID(H_Stand)
     , mMovable(true)
-    , mTargetedActor(nullptr)
+    , mTargetCollider(nullptr)
 {
     // --- JSON読み込み ---
     std::ifstream file("ToyGame/Settings/KitHero.json");
@@ -71,7 +71,13 @@ PlayerActor::PlayerActor(toy::Application* a)
     mGravComp->SetEnableGroundPose(false);
     
     // --- センサーコンポーネント ---
-    mSensor= CreateComponent<toy::SensorComponent>();
+    toy::SensorComponent::Desc sensorDesc =
+    {
+        .fovRad = Math::ToRadians(360.0f),
+        .maxDist = 30.0f
+        
+    };
+    mSensor= CreateComponent<toy::SensorComponent>(sensorDesc);
     
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Hero/Walk.wav");
@@ -82,8 +88,9 @@ PlayerActor::PlayerActor(toy::Application* a)
     //mMagic = GetApp()->CreateActor<MagicActor>();
     //mHeal = GetApp()->CreateActor<HealMagicActor>();
     
-    
     MoveFunc = [this](const toy::InputState& state) { FieldMove(state); };
+    
+
     
 }
 
@@ -94,24 +101,100 @@ PlayerActor::~PlayerActor()
 
 void PlayerActor::UpdateActor(float deltaTime)
 {
-
-        
+    SearchTarget();
 }
 
 void PlayerActor::SearchTarget()
 {
     auto candidate = mSensor->GetHits();
 
-    mCandidateActors.clear();
+    mCandidates.clear();
     for (auto c : candidate)
     {
-        mCandidateActors.emplace_back(c.collider->GetOwner());
+        Vector3 pos = c.collider->GetCenterPosition();
+        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(pos);
+        if (scInfo.visible == false)
+        {
+            continue;
+        }
+
+        TargetInfo info =
+        {
+            .collider = c.collider,
+            .actor = c.collider->GetOwner(),
+            .screenPos = scInfo.virtualScreen
+        };
+        auto itr = mCandidates.begin();
+        for (; itr != mCandidates.end(); ++itr)
+        {
+            if (info.screenPos.x < (*itr).screenPos.x)
+            {
+                break;
+            }
+        }
+        mCandidates.insert(itr, info);
     }
+    
+    mSelectedTarget = -1;
+    for (int i = 0; i < mCandidates.size(); ++i)
+    {
+        if (mCandidates[i].collider == mTargetCollider)
+        {
+            mTargetCollider->SetTargetState(toy::TargetState::Locked);
+            mSelectedTarget = i;
+            break;
+        }
+    }
+    
+    
+    std::cerr << "[PLAYER]:Search " << mCandidates.size() << std::endl;
 }
 
 void PlayerActor::ActorInput(const toy::InputState& state)
 {
     MoveFunc(state);
+    SelectTarget(state);
+}
+
+void PlayerActor::SelectTarget(const toy::InputState& state)
+{
+    if (mCandidates.size() == 0)
+    {
+        return;
+    }
+
+    
+    if (state.IsButtonPressed(toy::GameButton::L1))
+    {
+        if (mSelectedTarget > 0)
+        {
+            --mSelectedTarget;
+        }
+        if (mSelectedTarget == -1)
+        {
+            mSelectedTarget = static_cast<int>(mCandidates.size()) / 2;
+        }
+    }
+    if (state.IsButtonPressed(toy::GameButton::R1))
+    {
+        if (mSelectedTarget < mCandidates.size() - 1)
+        {
+            ++mSelectedTarget;
+        }
+    }
+    
+    
+    if (mSelectedTarget >= 0)
+    {
+        if (mTargetCollider)
+        {
+            mTargetCollider->SetTargetState(toy::TargetState::Candidate);
+        }
+        mTargetCollider = mCandidates[mSelectedTarget].collider;
+        mTargetCollider->SetTargetState(toy::TargetState::Locked);
+    }
+    
+
 }
 
 void PlayerActor::FieldMove(const toy::InputState& state)

@@ -27,10 +27,15 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     
     mTargetActor = GetApp()->CreateActor<toy::Actor>();
-    mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
-    mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
-    mTarget->SetBlendAdd(false);
-    mTarget->SetIsTopLeft(false);
+    mCandidateSigne = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
+    mCandidateSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate_signe.png"));
+    mCandidateSigne->SetBlendAdd(false);
+    mCandidateSigne->SetIsTopLeft(false);
+    mLockOnSigne = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
+    mLockOnSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
+    mLockOnSigne->SetBlendAdd(false);
+    mLockOnSigne->SetIsTopLeft(false);
+    
     
     mEnemyName = "Ninja";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
@@ -56,19 +61,34 @@ void EnemyActor::UpdateActor(float deltaTime)
     mLifeTime += deltaTime;
     EnemyAction(deltaTime);
     
-    mTarget->SetVisible(false);
+    mCandidateSigne->SetVisible(false);
+    mLockOnSigne->SetVisible(false);
     if (mCollider->GetTargetState() == toy::TargetState::Candidate)
     {
-        auto bb = mCollider->GetBoundingVolume()->GetWorldAABB();
-        auto v = (bb.max + bb.min) * 0.5f;
+        auto v = mCollider->GetCenterPosition();
 
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
         if (scInfo.visible)
         {
             mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            mTarget->SetVisible(true);
+            mCandidateSigne->SetVisible(true);
         }
     }
+    if (mCollider->GetTargetState() == toy::TargetState::Locked)
+    {
+        auto v = mCollider->GetCenterPosition();
+
+        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
+        if (scInfo.visible)
+        {
+            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
+            mCandidateSigne->SetVisible(true);
+            mLockOnSigne->SetVisible(true);
+        }
+    }
+
+    
+    
     Vector3 pos = GetPosition();
     mNameActor->SetPosition(Vector3(pos.x, pos.y+4.0f, pos.z));
 }

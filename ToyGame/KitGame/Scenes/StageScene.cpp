@@ -32,22 +32,14 @@ void StageScene::InitScene()
 
     std::string story = StringUtil::ReadTextFileNormalized("ToyGame/Assets/KitGame/Text/Story.txt");
   
-    mMsgActor->Open(story
-    );
- 
-    
-    // テスト用メッセージ
-/*    mMsgActor->Open(
-        "むかしむかし、あるところに、おじいさんとおばあさんが住んでいました。\n おじいさんは山へしばかりに、おばあさんは川へせんたくに行きました。\n　おばあさんが川でせんたくをしていると、ドンブラコ、ドンブラコと、大きな桃が流れてきました。\n「おや、これは良いおみやげになるわ」\n　おばあさんは大きな桃をひろいあげて、家に持ち帰りました。　そして、おじいさんとおばあさんが桃を食べようと桃を切ってみると、なんと中から元気の良い男の赤ちゃんが飛び出してきました。「これはきっと、神さまがくださったにちがいない」\n　子どものいなかったおじいさんとおばあさんは、大喜びです。\n　桃から生まれた男の子を、おじいさんとおばあさんは桃太郎と名付けました。\n　桃太郎はスクスク育って、やがて強い男の子になりました。\n　そしてある日、桃太郎が言いました。",
+    mMsgActor->Open(story,
         []()
         {
             // 閉じたときのコールバック（とりあえずログ）
             SDL_Log("MessageBox closed.");
 
         }
-    );
-  */
-    
+    );    
 }
 
 void StageScene::Update(float delatTime)

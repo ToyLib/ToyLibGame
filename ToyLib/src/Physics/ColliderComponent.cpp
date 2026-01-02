@@ -66,6 +66,18 @@ void ColliderComponent::Collided(ColliderComponent* c)
     }
 }
 
+Vector3 ColliderComponent::GetCenterPosition() const
+{
+    Vector3 ret;
+    if (!mBoundingVolume)
+    {
+        ret = Vector3::Zero;
+        return ret;
+    }
+    auto bb = mBoundingVolume->GetWorldAABB();
+    ret =  (bb.max + bb.min) * 0.5f;
+    return ret;
+}
 
 } // namespace toy
 
