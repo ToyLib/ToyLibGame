@@ -10,7 +10,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     };
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/glTF/Ninja.gltf"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
     meshComp->SetYawOffset(Math::ToRadians(180.0f));
     
 
