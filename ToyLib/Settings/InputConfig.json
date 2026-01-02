@@ -17,8 +17,8 @@
       "gamepad": ["Y"]
     },
 
-    "L1": { "gamepad": ["LeftShoulder"] },
-    "R1": { "gamepad": ["RightShoulder"] },
+    "L1": { "keyboard": ["Q"], "gamepad": ["LeftShoulder"] },
+    "R1": { "keyboard": ["E"], "gamepad": ["RightShoulder"] },
 
     "Start":  { "keyboard": ["Enter"],  "gamepad": ["Start"] },
     "Select": { "keyboard": ["Escape"], "gamepad": ["Back"] },

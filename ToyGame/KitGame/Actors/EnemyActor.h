@@ -4,6 +4,7 @@
 #include "ToyLib.h"
 
 #include <functional>
+#include <string>
 
 class EnemyActor : public toy::Actor
 {
@@ -19,8 +20,12 @@ private:
     toy::Actor* mTargetActor;
     toy::ColliderComponent* mCollider;
     
+    toy::Actor* mNameActor;
+    
     float mLifeTime;
     
+    
+    std::string mEnemyName;
 
     EnemyActionFn EnemyAction;
     

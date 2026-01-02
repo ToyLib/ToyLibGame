@@ -1,6 +1,4 @@
 #include "PlayerActor.h"
-//#include "MagicActor.h"
-//#include "HealMagicActor.h"
 #include "ToyLib.h"
 #include <iostream>
 
@@ -9,6 +7,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     : Actor(a)
     , mAnimID(H_Stand)
     , mMovable(true)
+    , mTargetedActor(nullptr)
 {
     // --- JSON読み込み ---
     std::ifstream file("ToyGame/Settings/KitHero.json");
@@ -84,6 +83,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     //mHeal = GetApp()->CreateActor<HealMagicActor>();
     
     
+    MoveFunc = [this](const toy::InputState& state) { FieldMove(state); };
     
 }
 
@@ -95,11 +95,26 @@ PlayerActor::~PlayerActor()
 void PlayerActor::UpdateActor(float deltaTime)
 {
 
-
         
 }
 
+void PlayerActor::SearchTarget()
+{
+    auto candidate = mSensor->GetHits();
+
+    mCandidateActors.clear();
+    for (auto c : candidate)
+    {
+        mCandidateActors.emplace_back(c.collider->GetOwner());
+    }
+}
+
 void PlayerActor::ActorInput(const toy::InputState& state)
+{
+    MoveFunc(state);
+}
+
+void PlayerActor::FieldMove(const toy::InputState& state)
 {
     bool inputAttack = false;
 

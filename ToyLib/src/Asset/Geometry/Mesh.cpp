@@ -572,12 +572,12 @@ void Mesh::LoadMeshData()
         if (m->HasBones())
         {
             CreateMeshBone(m);
-            std::cout << "aaaa " << i << std::endl;
+            std::cerr << "[Mesh] Boned Mesh Loaded : " << i << std::endl;
         }
         else
         {
             CreateMesh(m);
-            std::cout << "bbbb " << i << std::endl;
+            std::cerr << "[Mesh] NoBone Mesh Loaded : " << i << std::endl;
         }
     }
 }

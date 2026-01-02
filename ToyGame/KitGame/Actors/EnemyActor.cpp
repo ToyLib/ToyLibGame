@@ -3,6 +3,7 @@
 EnemyActor::EnemyActor(toy::Application* a)
     : toy::Actor(a)
     , mLifeTime(0.0f)
+    , mEnemyName("Unnamed")
 {
     EnemyAction = [this](float deltaTime)
     {
@@ -12,6 +13,9 @@ EnemyActor::EnemyActor(toy::Application* a)
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
     meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
     meshComp->SetYawOffset(Math::ToRadians(180.0f));
+    meshComp->SetToonRender(true);
+    meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
+    meshComp->SetContourFactor(1.01f);
     
 
     
@@ -28,13 +32,23 @@ EnemyActor::EnemyActor(toy::Application* a)
     mTarget->SetBlendAdd(false);
     mTarget->SetIsTopLeft(false);
     
+    mEnemyName = "Ninja";
+    mNameActor = GetApp()->CreateActor<toy::Actor>();
+    auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>();
+    auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 40);
+    nameBoard->SetFont(font);
+    nameBoard->SetFormat(mEnemyName);
+    nameBoard->SetScale(0.01f);
+    nameBoard->SetColor(Vector3(0.7f, 0.0f, 0.0f));
+    
     
     
 }
 
 EnemyActor::~EnemyActor()
 {
-    
+    mTargetActor->SetState(toy::Actor::State::Dead);
+    mNameActor->SetState(toy::Actor::State::Dead);
 }
 
 void EnemyActor::UpdateActor(float deltaTime)
@@ -55,6 +69,8 @@ void EnemyActor::UpdateActor(float deltaTime)
             mTarget->SetVisible(true);
         }
     }
+    Vector3 pos = GetPosition();
+    mNameActor->SetPosition(Vector3(pos.x, pos.y+4.0f, pos.z));
 }
 
 
