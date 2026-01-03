@@ -145,9 +145,6 @@ void PlayerActor::SearchTarget()
             break;
         }
     }
-    
-    
-    std::cerr << "[PLAYER]:Search " << mCandidates.size() << std::endl;
 }
 
 void PlayerActor::ActorInput(const toy::InputState& state)

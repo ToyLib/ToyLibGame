@@ -11,7 +11,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     };
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/BlueDemon.gltf"));
     meshComp->SetYawOffset(Math::ToRadians(180.0f));
     meshComp->SetToonRender(true);
     meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
