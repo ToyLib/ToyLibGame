@@ -7,88 +7,88 @@
 
 namespace toy {
 
-//------------------------------------------------------------------------------
-// コンストラクタ
-//------------------------------------------------------------------------------
 OrbitMoveComponent::OrbitMoveComponent(class Actor* owner, int updateOrder)
-    : MoveComponent(owner, updateOrder)
-    , mCenterActor(nullptr)
-    , mOrbitRadius(5.0f)
-    , mOrbitLinearSpeed(5.0f)   // 公転時の「歩く速さ」
-    , mZoomSpeed(4.0f)          // 近づく/離れる速度
-    , mMinRadius(1.0f)
-    , mMaxRadius(30.0f)
-    , mOrbitInput(0.0f)
-    , mZoomInput(0.0f)
-    , mCurrentAngle(0.0f)
+: MoveComponent(owner, updateOrder)
+, mCenterActor(nullptr)
+, mOrbitRadius(5.0f)
+, mMinRadius(1.0f)
+, mMaxRadius(30.0f)
+, mMaxOrbitSpeed(5.0f)    // 公転の最大速度 [unit/sec]
+, mMaxRadialSpeed(6.0f)   // 近づく/離れるの最大速度
+, mCurrentAngle(0.0f)
 {
 }
 
-//------------------------------------------------------------------------------
+//----------------------------------------
 // ProcessInput
-// ・上下：ターゲットへ近づく/離れる
-// ・左右：カメラから見た左右方向に公転
-//------------------------------------------------------------------------------
+//  ・上下：中心へ近づく/離れる → mForwardSpeed に半径方向速度をセット
+//  ・左右：カメラ左右基準の公転 → mRightSpeed に円周方向速度をセット
+//----------------------------------------
 void OrbitMoveComponent::ProcessInput(const struct InputState& state)
 {
     if (!mIsMovable) return;
-
-    mOrbitInput = 0.0f;
-    mZoomInput  = 0.0f;
-
-    // 左スティック入力（-1〜+1）
-    const float stickX = state.Controller.GetLeftStick().x; // 左右
-    const float stickY = state.Controller.GetLeftStick().y; // 上下
-
+    
+    // ここでは「速度を決めるだけ」。Update では一切書き換えない。
+    mForwardSpeed = 0.0f;
+    mRightSpeed   = 0.0f;
+    mAngularSpeed = 0.0f; // このコンポーネントでは使わない（常に中心を向く）
+    
+    // 左スティック
+    const float sx = -state.Controller.GetLeftStick().x; // 左右
+    const float sy = -state.Controller.GetLeftStick().y; // 上下
     constexpr float deadZone = 0.2f;
-
-    if (Math::Abs(stickX) > deadZone)
+    
+    if (Math::Abs(sx) > deadZone)
     {
-        mOrbitInput = stickX;      // 右: +1, 左: -1
+        // 右入力で +mMaxOrbitSpeed、左で -mMaxOrbitSpeed
+        mRightSpeed = mMaxOrbitSpeed * sx;
     }
-    if (Math::Abs(stickY) > deadZone)
+    if (Math::Abs(sy) > deadZone)
     {
-        // 上（+y）で「近づく」ように符号を反転
-        mZoomInput = -stickY;      // 上: +1(近づく), 下: -1(離れる)
+        // 上(+y)で中心に近づく（+）、下で離れる（-）
+        mForwardSpeed = mMaxRadialSpeed * sy;
     }
-
-    // DPad（キーボード矢印にマップされている想定）
-    if (state.IsButtonDown(GameButton::DPadRight))
+    
+    // DPad（キーボード矢印想定）
+    if (state.IsButtonDown(GameButton::DPadLeft))
     {
-        mOrbitInput = -1.0f;
+        mRightSpeed = mMaxOrbitSpeed;
     }
-    else if (state.IsButtonDown(GameButton::DPadLeft))
+    else if (state.IsButtonDown(GameButton::DPadRight))
     {
-        mOrbitInput = 1.0f;
+        mRightSpeed =  -mMaxOrbitSpeed;
     }
-
-    if (state.IsButtonDown(GameButton::DPadDown))
+    
+    if (state.IsButtonDown(GameButton::DPadUp))
     {
-        mZoomInput = 1.0f;     // 近づく
+        mForwardSpeed =  -mMaxRadialSpeed;   // 近づく
     }
-    else if (state.IsButtonDown(GameButton::DPadUp))
+    else if (state.IsButtonDown(GameButton::DPadDown))
     {
-        mZoomInput = -1.0f;    // 離れる
+        mForwardSpeed = mMaxRadialSpeed;   // 離れる
     }
 }
 
-//------------------------------------------------------------------------------
+//----------------------------------------
 // Update
-// ・センター周りの円上を「歩く速さ一定」で公転
-// ・上下入力で距離を変更
-// ・左右入力の向きはカメラから見た左右に合わせる
-// ・常にセンターの方向を向く
-//------------------------------------------------------------------------------
+//  ・mForwardSpeed : 半径方向の速度 → 距離 r を増減
+//  ・mRightSpeed   : 円周方向の速度 → 公転の角度を変化
+//  ・左右向きは「カメラから見た左右」に合わせる
+//  ・常にセンターを向く（ロックオン）
+//----------------------------------------
 void OrbitMoveComponent::Update(float deltaTime)
 {
+    
+    if (!mIsMovable) return;
     if (!mCenterActor)
     {
-        MoveComponent::Update(deltaTime);
+        // 中心がいないときは何もしない or MoveComponent::Update を呼ぶかは好み
         return;
     }
 
-    // カメラ情報（左右方向だけ使う）
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // 画面右方向（XZ平面）
     Vector3 camRight = renderer->GetInvViewMatrix().GetXAxis();
     camRight.y = 0.0f;
     if (camRight.LengthSq() > Math::NearZeroEpsilon)
@@ -104,27 +104,31 @@ void OrbitMoveComponent::Update(float deltaTime)
     radial.y = 0.0f;
 
     float radius = radial.Length();
-    if (radius < 0.001f)
+    if (radius < Math::NearZeroEpsilon)
     {
-        // ほぼ同じ位置にいるときは適当な向き＆最小半径
+        // ほぼ同位置にいるときは適当な初期向き＆最小半径
         radial = Vector3::UnitZ;
-        radius = mOrbitRadius > 0.0f ? mOrbitRadius : mMinRadius;
+        radius = (mOrbitRadius > 0.0f) ? mOrbitRadius : mMinRadius;
     }
     else
     {
-        if (radius > Math::NearZeroEpsilon)
-        {
-            radial.Normalize();
-        }
+        radial.Normalize();   // ★ /= ではなく Normalize()
     }
 
-    // 現在の半径を更新しておく
+    // いまの半径を基準に
     mOrbitRadius = Math::Clamp(radius, mMinRadius, mMaxRadius);
 
-    // 近づく/離れる（半径方向の移動）
-    mOrbitRadius += mZoomSpeed * mZoomInput * deltaTime;
+    //==============================
+    // 1) 半径方向の移動（近づく / 離れる）
+    //    mForwardSpeed をそのまま「半径の速度」として使う
+    //==============================
+    mOrbitRadius += mForwardSpeed * deltaTime;
     mOrbitRadius = Math::Clamp(mOrbitRadius, mMinRadius, mMaxRadius);
 
+    //==============================
+    // 2) 円周方向の移動（公転）
+    //    mRightSpeed を「円周方向の線速度」として使う
+    //==============================
     // 接線方向（XZ平面で radial に直交）
     Vector3 tangent = Vector3::Cross(Vector3::UnitY, radial);
     if (tangent.LengthSq() > Math::NearZeroEpsilon)
@@ -132,26 +136,28 @@ void OrbitMoveComponent::Update(float deltaTime)
         tangent.Normalize();
     }
 
-    // 「右入力で画面右に動く」ように
-    // tangent の向きとカメラの right を比較して符号を合わせる
-    float dirSign = 1.0f;
+    // 「右入力（mRightSpeed > 0）で画面右に動く」ように向きを揃える
+    float camAlignSign = 1.0f;
     if (Vector3::Dot(tangent, camRight) < 0.0f)
     {
-        dirSign = -1.0f;
+        camAlignSign = -1.0f;
     }
 
-    // 線速度一定 → 角速度 = v / r
-    float angularSpeed = 0.0f;
-    if (mOrbitRadius > 0.001f)
+    const float orbitSpeed = mRightSpeed;        // [unit/sec]（符号付き）
+    const float speedAbs   = Math::Abs(orbitSpeed);
+
+    float deltaAngle = 0.0f;
+    if (mOrbitRadius > 0.001f && speedAbs > Math::NearZeroEpsilon)
     {
-        angularSpeed = (mOrbitLinearSpeed / mOrbitRadius); // rad/sec
+        // 線速度一定 → 角速度 = v / r
+        float angularSpeed = speedAbs / mOrbitRadius; // [rad/sec]
+
+        // 正の速度 → 画面右方向に回るように符号を決める
+        float sign = (orbitSpeed >= 0.0f) ? 1.0f : -1.0f;
+        deltaAngle = angularSpeed * deltaTime * sign * camAlignSign;
     }
 
-    // 実際の角度変化（左右入力＆カメラ向きに応じて）
-    const float deltaAngle = angularSpeed * (mOrbitInput * dirSign) * deltaTime;
-    mCurrentAngle += deltaAngle;
-
-    // radial を Y軸まわりに deltaAngle 回転させる（XZ平面回転）
+    // Y軸回りに radial を回転
     const float c = Math::Cos(deltaAngle);
     const float s = Math::Sin(deltaAngle);
 
@@ -162,12 +168,14 @@ void OrbitMoveComponent::Update(float deltaTime)
 
     // 最終位置 = center + newRadial * radius
     Vector3 newPos = centerPos + newRadial * mOrbitRadius;
-    // Y は現状維持（地面追従は別コンポーネントに任せる）
-    newPos.y = selfPos.y;
 
+    // Yはそのまま（地面追従は別コンポーネント）
+    newPos.y = selfPos.y;
     GetOwner()->SetPosition(newPos);
 
-    // 常にセンターの方向を向く（全身後進・横移動っぽい挙動用）
+    //==============================
+    // 3) 常にセンターの方向を向く（ロックオン）
+    //==============================
     Vector3 toCenter = centerPos - newPos;
     toCenter.y = 0.0f;
 
@@ -179,13 +187,12 @@ void OrbitMoveComponent::Update(float deltaTime)
         Quaternion targetRot  = Quaternion(Vector3::UnitY, yaw);
         Quaternion currentRot = GetOwner()->GetRotation();
 
-        // 少しだけスムーズに寄せる
         Quaternion smoothRot = Quaternion::Slerp(currentRot, targetRot, 0.2f);
         GetOwner()->SetRotation(smoothRot);
     }
 
-    // MoveComponent 側の処理（必要なら）
-    MoveComponent::Update(deltaTime);
+    // ※ MoveComponent::Update(deltaTime) は呼ばない。
+    //   （呼ぶと mForwardSpeed/mRightSpeed による「通常移動」と二重で動いてしまう）
 }
 
 } // namespace toy

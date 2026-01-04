@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ToyLib.h"
-#include <functional>
 
 enum PlayerMotion
 {
@@ -13,8 +12,15 @@ enum PlayerMotion
     H_Walk  = 18,
     H_Slash = 13,
     H_Spin  = 14,
-    H_Stab  = 15
+    H_Stab  = 15,
+    H_WalkSS = 19
 
+};
+
+enum class PlayMode
+{
+    Field,
+    Battle
 };
 
 struct TargetInfo
@@ -38,8 +44,8 @@ private:
     void SelectTarget(const struct toy::InputState& state);
     void InputAttack(const struct toy::InputState& state);
     
-    std::function<void(const class toy::InputState&)> MoveFunc;
     void FieldMove(const struct toy::InputState& state);
+    void BattleMove(const struct toy::InputState& state);
 private:
     const int NO_TARGET = -1;
     
@@ -66,6 +72,8 @@ private:
 
     
     int mSelectedTarget;
+    
+    PlayMode mPlayMode;
     
     //class MagicActor* mMagic;
     //class HealMagicActor* mHeal;

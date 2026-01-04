@@ -9,6 +9,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     , mMovable(true)
     , mInputAttack(false)
     , mTargetCollider(nullptr)
+    , mPlayMode(PlayMode::Field)
 {
     // --- JSON読み込み ---
     std::ifstream file("ToyGame/Settings/KitHero.json");
@@ -61,14 +62,11 @@ PlayerActor::PlayerActor(toy::Application* a)
     // --- 移動コンポーネント ---
     mDirMove = CreateComponent<toy::DirMoveComponent>();
     mOrbitMove = CreateComponent<toy::OrbitMoveComponent>();
-
     mMoveComp = mDirMove;
+
     mOrbitMove->SetIsMovable(false);
-/*
-    mMoveComp->SetIsMovable(false);
-    mMoveComp = mFPSMove;
-    mMoveComp->SetIsMovable(true);
-*/
+    mDirMove->SetIsMovable(true);
+
     // --- カメラコンポーネント ---
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
     mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
@@ -95,10 +93,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     //mMagic = GetApp()->CreateActor<MagicActor>();
     //mHeal = GetApp()->CreateActor<HealMagicActor>();
     
-    MoveFunc = [this](const toy::InputState& state) { FieldMove(state); };
-    
 
-    
 }
 
 PlayerActor::~PlayerActor()
@@ -110,18 +105,16 @@ void PlayerActor::UpdateActor(float deltaTime)
 {
     SearchTarget();
 
-    if (mTargetCollider != nullptr)
+    if (mPlayMode == PlayMode::Battle)
     {
         mDirMove->SetIsMovable(false);
         mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
-        mMoveComp = mOrbitMove;
-        mMoveComp->SetIsMovable(true);
+        mOrbitMove->SetIsMovable(true);
     }
     else
     {
         mOrbitMove->SetIsMovable(false);
-        mMoveComp = mDirMove;
-        mMoveComp->SetIsMovable(true);
+        mDirMove->SetIsMovable(true);
     }
 }
 
@@ -171,13 +164,23 @@ void PlayerActor::SearchTarget()
         {
             mTargetCollider->SetTargetState(toy::TargetState::None);
             mTargetCollider = nullptr;
+            mPlayMode = PlayMode::Field;
         }
     }
 }
 
 void PlayerActor::ActorInput(const toy::InputState& state)
 {
-    MoveFunc(state);
+    if (mPlayMode == PlayMode::Field)
+    {
+        FieldMove(state);
+    }
+    else
+    {
+        BattleMove(state);
+    }
+    
+    
     SelectTarget(state);
     
     if (state.IsButtonDown(toy::GameButton::L2))
@@ -219,7 +222,7 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
     }
     
     
-    if (mSelectedTarget >= 0)
+    if (mSelectedTarget != NO_TARGET)
     {
         if (mTargetCollider)
         {
@@ -227,16 +230,24 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
         }
         mTargetCollider = mCandidates[mSelectedTarget].collider;
         mTargetCollider->SetTargetState(toy::TargetState::Locked);
+        mPlayMode = PlayMode::Battle;
     }
     
 
 }
 void PlayerActor::InputAttack(const toy::InputState& state)
 {
+    if (mPlayMode != PlayMode::Battle)
+    {
+        return;
+    }
+    
     //bool inputAttack = false;
     mInputAttack = false;
     auto animPlayer = mMeshComp->GetAnimPlayer();
     animPlayer->SetPlayRate(1.5f);
+    
+    
     // --- 移動可能状態 ---
     if (mMovable)
     {
@@ -305,6 +316,69 @@ void PlayerActor::FieldMove(const toy::InputState& state)
             else
             {
                 animPlayer->Play(H_Run);
+                if (!mSound->IsPlaying())
+                {
+                    mSound->Play();
+                }
+            }
+        }
+        if (mGravComp->GetVelocityY() != 0.0f)
+        {
+            mSound->Stop();
+        }
+    }
+    else
+    {
+        // 攻撃終了したら解除（ループアニメ中も解除）
+        if (animPlayer->IsLooping() || animPlayer->IsFinished())
+        {
+            mMovable = true;
+        }
+    }
+
+    // 最後にMoveComponentへ反映
+    mMoveComp->SetIsMovable(mMovable);
+}
+
+void PlayerActor::BattleMove(const toy::InputState& state)
+{
+    //bool inputAttack = false;
+
+    auto animPlayer = mMeshComp->GetAnimPlayer();
+    animPlayer->SetPlayRate(1.5f);
+
+    // --- 移動可能状態 ---
+    if (mMovable)
+    {
+     
+        if (mInputAttack)
+        {
+            mMovable = false; // 攻撃中はロック
+        }
+        else
+        {
+            // ジャンプ（移動ロックしない）
+            if (state.IsButtonPressed(toy::GameButton::A))
+            {
+                mGravComp->Jump();
+                animPlayer->PlayOnce(H_Jump, H_Stand);
+            }
+
+            // --- 状態に応じた通常アニメ切り替え ---
+            if (mGravComp->GetVelocityY() != 0.0f)
+            {
+                animPlayer->Play(H_Jump); // ジャンプ中も移動OK
+            }
+            else if (mOrbitMove->GetForwardSpeed() == 0.0f &&
+                     mOrbitMove->GetRightSpeed() == 0.0f)
+            {
+                animPlayer->Play(H_Stand);
+                mSound->Stop();
+
+            }
+            else
+            {
+                animPlayer->Play(H_WalkSS);
                 if (!mSound->IsPlaying())
                 {
                     mSound->Play();

@@ -14,11 +14,9 @@ public:
 
     void SetCenterActor(class Actor* center) { mCenterActor = center; }
 
-    // 歩く（公転）スピード [m/s]
-    void SetOrbitLinearSpeed(float s) { mOrbitLinearSpeed = s; }
-
-    // 近づく/離れる速度 [m/s]
-    void SetZoomSpeed(float s) { mZoomSpeed = s; }
+    // 入力からセットされる速度の最大値（[unit/sec]）
+    void SetMaxOrbitSpeed(float s)  { mMaxOrbitSpeed  = s; } // 公転（円周方向）
+    void SetMaxRadialSpeed(float s) { mMaxRadialSpeed = s; } // 近づく/離れる（半径方向）
 
     void SetRadiusRange(float minR, float maxR)
     {
@@ -30,17 +28,14 @@ private:
     class Actor* mCenterActor;
 
     float mOrbitRadius;        // 現在の距離
-    float mOrbitLinearSpeed;   // 公転の線速度（「歩く速さ」）
-    float mZoomSpeed;          // 半径方向の変化速度（近づく/離れる）
-
     float mMinRadius;
     float mMaxRadius;
 
-    // 入力値（-1.0f 〜 +1.0f）
-    float mOrbitInput;         // 左右（公転）
-    float mZoomInput;          // 上下（近づく/離れる）
+    // ProcessInput で mForwardSpeed / mRightSpeed に入れるときの上限値
+    float mMaxOrbitSpeed;      // 円周方向の最大速度
+    float mMaxRadialSpeed;     // 半径方向の最大速度
 
-    float mCurrentAngle;       // 参考用・デバッグ用（必須ではない）
+    float mCurrentAngle;       // デバッグ用（なくてもOK）
 };
 
 } // namespace toy
