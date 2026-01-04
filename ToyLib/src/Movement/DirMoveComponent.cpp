@@ -74,8 +74,10 @@ void DirMoveComponent::ProcessInput(const struct InputState& state)
     if (!mIsMovable) return;
 
     // 左スティック入力（-1〜+1）
-    mForwardSpeed = mSpeed * state.Controller.GetLeftStick().y;
-    mRightSpeed   = mSpeed * state.Controller.GetLeftStick().x;
+    //mForwardSpeed = mSpeed * state.Controller.GetLeftStick().y;
+    //mRightSpeed   = mSpeed * state.Controller.GetLeftStick().x;
+    mForwardSpeed = 0.0f;
+    mRightSpeed   = 0.0f;
 
     // DPad補正（キーボード的操作）
     if (state.IsButtonDown(GameButton::DPadLeft))

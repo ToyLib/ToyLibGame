@@ -41,10 +41,13 @@ private:
     std::function<void(const class toy::InputState&)> MoveFunc;
     void FieldMove(const struct toy::InputState& state);
 private:
+    const int NO_TARGET = -1;
+    
     enum PlayerMotion mAnimID;
     class toy::MoveComponent* mMoveComp;
     class toy::DirMoveComponent* mDirMove;
     class toy::FPSMoveComponent* mFPSMove;
+    class toy::OrbitMoveComponent* mOrbitMove;
     
     class toy::SkeletalMeshComponent* mMeshComp;
     class toy::ColliderComponent* mCollComp;

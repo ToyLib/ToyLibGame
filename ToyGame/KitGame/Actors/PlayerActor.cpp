@@ -59,10 +59,16 @@ PlayerActor::PlayerActor(toy::Application* a)
     
 
     // --- 移動コンポーネント ---
-    mFPSMove = CreateComponent<toy::FPSMoveComponent>();
     mDirMove = CreateComponent<toy::DirMoveComponent>();
+    mOrbitMove = CreateComponent<toy::OrbitMoveComponent>();
+
     mMoveComp = mDirMove;
-    
+    mOrbitMove->SetIsMovable(false);
+/*
+    mMoveComp->SetIsMovable(false);
+    mMoveComp = mFPSMove;
+    mMoveComp->SetIsMovable(true);
+*/
     // --- カメラコンポーネント ---
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
     mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
@@ -103,6 +109,20 @@ PlayerActor::~PlayerActor()
 void PlayerActor::UpdateActor(float deltaTime)
 {
     SearchTarget();
+
+    if (mTargetCollider != nullptr)
+    {
+        mDirMove->SetIsMovable(false);
+        mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
+        mMoveComp = mOrbitMove;
+        mMoveComp->SetIsMovable(true);
+    }
+    else
+    {
+        mOrbitMove->SetIsMovable(false);
+        mMoveComp = mDirMove;
+        mMoveComp->SetIsMovable(true);
+    }
 }
 
 void PlayerActor::SearchTarget()
@@ -135,7 +155,7 @@ void PlayerActor::SearchTarget()
         mCandidates.insert(itr, info);
     }
     
-    mSelectedTarget = -1;
+    mSelectedTarget = NO_TARGET;
     for (int i = 0; i < mCandidates.size(); ++i)
     {
         if (mCandidates[i].collider == mTargetCollider)
@@ -145,7 +165,7 @@ void PlayerActor::SearchTarget()
             break;
         }
     }
-    if (mSelectedTarget == -1)
+    if (mSelectedTarget == NO_TARGET)
     {
         if (mTargetCollider)
         {
