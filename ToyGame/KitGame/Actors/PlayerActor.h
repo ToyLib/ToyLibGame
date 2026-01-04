@@ -4,17 +4,16 @@
 
 enum PlayerMotion
 {
-    H_Run   = 11,
-    H_Dead  = 0,
-    H_Guard = 1,
-    H_Jump  = 5,
-    H_Stand = 17,
-    H_Walk  = 18,
-    H_Slash = 13,
-    H_Spin  = 14,
-    H_Stab  = 15,
+    H_Run    = 11,
+    H_Dead   = 0,
+    H_Guard  = 1,
+    H_Jump   = 5,
+    H_Stand  = 17,
+    H_Walk   = 18,
+    H_Slash  = 13,
+    H_Spin   = 14,
+    H_Stab   = 15,
     H_WalkSS = 19
-
 };
 
 enum class PlayMode
@@ -26,55 +25,71 @@ enum class PlayMode
 struct TargetInfo
 {
     toy::ColliderComponent* collider = nullptr;
-    Vector2 screenPos                = Vector2::Zero;
-    bool selected                    = false;
-    bool locked                      = false;
+    Vector2                 screenPos = Vector2::Zero;
+    bool                    selected  = false;
+    bool                    locked    = false;
 };
-
 
 class PlayerActor : public toy::Actor
 {
 public:
     PlayerActor(class toy::Application* a);
     virtual ~PlayerActor();
+
     void UpdateActor(float deltaTime) override;
     void ActorInput(const struct toy::InputState& state) override;
+
 private:
+    //========================================
+    // 内部ヘルパ
+    //========================================
     void SearchTarget();
     void SelectTarget(const struct toy::InputState& state);
     void InputAttack(const struct toy::InputState& state);
-    
+
     void FieldMove(const struct toy::InputState& state);
     void BattleMove(const struct toy::InputState& state);
+
+    // フィールド／バトル共通の地上移動＆アニメ処理
+    //   moveMotion: 動いているときに再生するモーションID
+    void ApplyGroundMoveAndAnim(const struct toy::InputState& state,
+                                PlayerMotion moveMotion);
+
+    // 現在アクティブな MoveComponent を取得
+    toy::MoveComponent* GetActiveMove() const { return mMoveComp; }
+
 private:
-    const int NO_TARGET = -1;
-    
-    enum PlayerMotion mAnimID;
-    class toy::MoveComponent* mMoveComp;
-    class toy::DirMoveComponent* mDirMove;
-    class toy::FPSMoveComponent* mFPSMove;
-    class toy::OrbitMoveComponent* mOrbitMove;
-    
-    class toy::SkeletalMeshComponent* mMeshComp;
-    class toy::ColliderComponent* mCollComp;
-    class toy::CameraComponent* mCameraComp;
-    class toy::GravityComponent* mGravComp;
-    class toy::SoundComponent* mSound;
-    class toy::SensorComponent* mSensor;
-    //class toy::SpriteComponent* mTargetSprite;
-    //class toy::Actor* mTargetActor;
+    static constexpr int NO_TARGET = -1;
+
+    //========================================
+    // 状態
+    //========================================
+    PlayerMotion mAnimID;
+    PlayMode     mPlayMode;
+
     bool mMovable;
     bool mInputAttack;
 
-    
-    std::vector<struct TargetInfo> mCandidates;
+    int  mSelectedTarget;
     toy::ColliderComponent* mTargetCollider;
 
-    
-    int mSelectedTarget;
-    
-    PlayMode mPlayMode;
-    
-    //class MagicActor* mMagic;
-    //class HealMagicActor* mHeal;
+    std::vector<TargetInfo> mCandidates;
+
+    //========================================
+    // コンポーネント類
+    //========================================
+    class toy::MoveComponent*        mMoveComp;   // 現在アクティブな MoveComponent
+    class toy::DirMoveComponent*     mDirMove;
+    class toy::FPSMoveComponent*     mFPSMove;
+    class toy::OrbitMoveComponent*   mOrbitMove;
+
+    class toy::SkeletalMeshComponent* mMeshComp;
+    class toy::ColliderComponent*     mCollComp;
+    class toy::CameraComponent*       mCameraComp;
+    class toy::GravityComponent*      mGravComp;
+    class toy::SoundComponent*        mSound;
+    class toy::SensorComponent*       mSensor;
+
+    //class MagicActor*      mMagic;
+    //class HealMagicActor*  mHeal;
 };
