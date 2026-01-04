@@ -59,9 +59,9 @@ PlayerActor::PlayerActor(toy::Application* a)
     
 
     // --- 移動コンポーネント ---
-    //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
-    mMoveComp = CreateComponent<toy::DirMoveComponent>();
-    
+    mFPSMove = CreateComponent<toy::FPSMoveComponent>();
+    mDirMove = CreateComponent<toy::DirMoveComponent>();
+    mMoveComp = mDirMove;
     
     // --- カメラコンポーネント ---
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
@@ -143,6 +143,14 @@ void PlayerActor::SearchTarget()
             mTargetCollider->SetTargetState(toy::TargetState::Locked);
             mSelectedTarget = i;
             break;
+        }
+    }
+    if (mSelectedTarget == -1)
+    {
+        if (mTargetCollider)
+        {
+            mTargetCollider->SetTargetState(toy::TargetState::None);
+            mTargetCollider = nullptr;
         }
     }
 }

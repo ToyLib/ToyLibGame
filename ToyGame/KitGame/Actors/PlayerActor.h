@@ -43,6 +43,9 @@ private:
 private:
     enum PlayerMotion mAnimID;
     class toy::MoveComponent* mMoveComp;
+    class toy::DirMoveComponent* mDirMove;
+    class toy::FPSMoveComponent* mFPSMove;
+    
     class toy::SkeletalMeshComponent* mMeshComp;
     class toy::ColliderComponent* mCollComp;
     class toy::CameraComponent* mCameraComp;
