@@ -58,13 +58,11 @@ PlayerActor::PlayerActor(toy::Application* a)
 
     float scale = 1.0f;
     JsonHelper::GetFloat(json, "scale", scale);
-    SetScale(scale);
+    mMeshComp->SetLocalScale(scale);
 
     // --- コライダー ---
     mCollComp = CreateComponent<toy::ColliderComponent>();
-    mCollComp->GetBoundingVolume()->ComputeBoundingVolume(
-        GetApp()->GetAssetManager()->GetMesh(meshPath)->GetVertexArray()
-    );
+    mCollComp->GetBoundingVolume()->ComputeFromMeshComponent(mMeshComp);
     Vector3 vOffset;
     JsonHelper::GetVector3(json["collider"], "bounding_box_offset", vOffset);
     Vector3 vScale;
