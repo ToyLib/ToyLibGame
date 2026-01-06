@@ -4,15 +4,24 @@
 
 enum PlayerMotion
 {
-    H_Run    = 11,
     H_Dead   = 0,
     H_Guard  = 1,
-    H_Jump   = 5,
-    H_Stand  = 17,
-    H_Walk   = 18,
+    H_Hit1   = 2,
+    H_Hit2   = 3,
+    H_Jump   = 4,
+    H_JumpSS = 5,
+    H_Kick   = 6,
+    H_KickSS = 7,
+    H_Pump   = 9,
+    H_PumpSS = 10,
+    H_Run    = 11,
+    H_RunSS  = 12,
     H_Slash  = 13,
     H_Spin   = 14,
     H_Stab   = 15,
+    H_Standing = 16,
+    H_Stand  = 17,
+    H_Walk   = 18,
     H_WalkSS = 19
 };
 
