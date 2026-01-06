@@ -61,7 +61,7 @@ public:
     FollowCameraComponent(Actor* owner);
 
     // deltaTime でスプリング追従し、ビュー行列を設定
-    void Update(float deltaTime) override;
+    void UpdateCamera(float deltaTime) override;
 
     // 一瞬で理想位置にワープ（テレポート後などに使用）
     void SnapToIdeal();
@@ -70,7 +70,7 @@ public:
     void SetDistance(float horz, float vert) { mHorzDist = horz; mVertDist = vert; }
     void SetTargetDistance(float dist)       { mTargetDist = dist; }
     void SetSpringSettings(const SpringSettings& s) { mSpring = s; }
-
+    
 private:
     // 所有アクターから見た「理想のカメラ位置」を計算
     Vector3 ComputeCameraPos() const;

@@ -21,11 +21,12 @@ public:
     void ProcessInput(const struct InputState& state) override;
     
     // 毎フレーム更新（位置更新 & View 行列適用）
-    void Update(float deltaTime) override;
+    void UpdateCamera(float deltaTime) override;
     
     // 設定用
     float GetYawSpeed() const                { return mYawSpeed; }
     void  SetYawSpeed(float speed)           { mYawSpeed = speed; }
+    
     
 private:
     //==============================

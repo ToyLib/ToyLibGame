@@ -56,6 +56,9 @@ private:
     void SelectTarget(const struct toy::InputState& state);
     void InputAttack(const struct toy::InputState& state);
 
+    void EnterBattleMode();
+    void EnterFieldMode();
+    
     void FieldMove(const struct toy::InputState& state);
     void BattleMove(const struct toy::InputState& state);
 
@@ -95,6 +98,8 @@ private:
     class toy::SkeletalMeshComponent* mMeshComp;
     class toy::ColliderComponent*     mCollComp;
     class toy::CameraComponent*       mCameraComp;
+    class toy::OrbitCameraComponent*  mOrbitCamera;
+    class toy::FollowCameraComponent* mFollowCamera;
     class toy::GravityComponent*      mGravComp;
     class toy::SoundComponent*        mSound;
     class toy::SensorComponent*       mSensor;

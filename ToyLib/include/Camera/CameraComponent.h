@@ -17,6 +17,10 @@ class CameraComponent : public Component
 public:
     CameraComponent(class Actor* owner, int updateOrder = 200);
     void Update(float deltaTime) override;
+    virtual void UpdateCamera(float deltaTime) {}
+    
+    bool GetIsEnbale() const { return mIsInable; }
+    void SetIsEnable(bool enable) { mIsInable = enable; }
 
 protected:
     //----------------------------------------------------------------------
@@ -36,6 +40,8 @@ protected:
     //   - メインアクターとは独立している
     //----------------------------------------------------------------------
     std::unique_ptr<class Actor> mCameraActor;
+    
+    bool mIsInable;
 };
 
 } // namespace toy

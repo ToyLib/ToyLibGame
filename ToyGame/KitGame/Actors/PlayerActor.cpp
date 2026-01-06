@@ -83,8 +83,9 @@ PlayerActor::PlayerActor(toy::Application* a)
     mOrbitMove->SetIsMovable(false);
 
     // --- カメラコンポーネント ---
-    //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
-    mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
+    mFollowCamera = CreateComponent<toy::FollowCameraComponent>();
+    mOrbitCamera = CreateComponent<toy::OrbitCameraComponent>();
+    mOrbitCamera->SetIsEnable(false);
 
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
@@ -129,6 +130,8 @@ void PlayerActor::UpdateActor(float deltaTime)
         mOrbitMove->SetIsMovable(true);
 
         mMoveComp = mOrbitMove;
+        mOrbitCamera->SetIsEnable(false);
+        mFollowCamera->SetIsEnable(true);
     }
     else
     {
@@ -140,6 +143,12 @@ void PlayerActor::UpdateActor(float deltaTime)
         mPlayMode  = PlayMode::Field;
         mTargetCollider = nullptr;
         mSelectedTarget = NO_TARGET;
+
+        mOrbitCamera->SetIsEnable(true);
+        mFollowCamera->SetIsEnable(false);
+        
+
+
     }
 
     // ここで Actor 基底の UpdateActor 内処理を呼ぶかどうかは
@@ -195,10 +204,31 @@ void PlayerActor::SearchTarget()
     {
         if (mTargetCollider)
         {
-            mTargetCollider->SetTargetState(toy::TargetState::None);
-            mTargetCollider = nullptr;
-            mPlayMode       = PlayMode::Field;
+            EnterFieldMode();
         }
+    }
+}
+
+void PlayerActor::EnterBattleMode()
+{
+    if (mPlayMode == PlayMode::Field)
+    {
+        mTargetCollider = mCandidates[mSelectedTarget].collider;
+ 
+        
+        mTargetCollider->SetTargetState(toy::TargetState::None);
+        mTargetCollider = nullptr;
+        mPlayMode       = PlayMode::Field;
+    }
+}
+
+void PlayerActor::EnterFieldMode()
+{
+    if (mPlayMode == PlayMode::Battle && mTargetCollider)
+    {
+        mTargetCollider->SetTargetState(toy::TargetState::None);
+        mTargetCollider = nullptr;
+        mPlayMode       = PlayMode::Field;
     }
 }
 
@@ -222,6 +252,12 @@ void PlayerActor::ActorInput(const toy::InputState& state)
     {
         InputAttack(state);
     }
+    
+    if (state.IsButtonPressed(toy::GameButton::B))
+    {
+        EnterFieldMode();
+    }
+
 }
 
 void PlayerActor::SelectTarget(const toy::InputState& state)
@@ -302,6 +338,7 @@ void PlayerActor::InputAttack(const toy::InputState& state)
             mInputAttack = true;
             // mMagic->Spawn(GetPosition(), GetForward());
         }
+        
     }
 
     if (mInputAttack)

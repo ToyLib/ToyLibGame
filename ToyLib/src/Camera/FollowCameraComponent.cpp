@@ -16,10 +16,8 @@ FollowCameraComponent::FollowCameraComponent(Actor* owner)
     
 }
 
-void FollowCameraComponent::Update(float deltaTime)
+void FollowCameraComponent::UpdateCamera(float deltaTime)
 {
-    // ベースクラス更新（カメラ座標キャッシュ更新など）
-    CameraComponent::Update(deltaTime);
     
     //------------------------------------------------------------
     // 初回だけ理想位置にワープ（スプリング追従でのガクつきを防ぐ）

@@ -82,9 +82,8 @@ void OrbitCameraComponent::ProcessInput(const InputState& state)
     mHeightInput = heightInput;
 }
 
-void OrbitCameraComponent::Update(float deltaTime)
+void OrbitCameraComponent::UpdateCamera(float deltaTime)
 {
-    CameraComponent::Update(deltaTime);
     
     //--------------------------------
     // 1. ヨー回転（水平公転）
