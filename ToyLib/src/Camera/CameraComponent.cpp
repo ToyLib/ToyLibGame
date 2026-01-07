@@ -3,7 +3,6 @@
 #include "Engine/Core/Actor.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Core/Application.h"
-#include "Physics/ColliderComponent.h"
 
 namespace toy {
 
@@ -13,10 +12,12 @@ CameraComponent::CameraComponent(Actor* owner, int updateOrder)
     , mCameraTarget(Vector3::Zero)
     , mIsEnabled(true)
 {
-    // カメラ Actor 生成などがあればここで
-    //mCameraActor = std::make_unique<Actor>(owner->GetApp());
-    //mCameraActor->SetPosition(owner->GetPosition());
-
+    //------------------------------------------------------------------
+    // CameraManager へ登録
+    //
+    //  ・各 CameraComponent は自動的に Manager に登録される
+    //  ・登録解除はデストラクタで行う
+    //------------------------------------------------------------------
     if (auto* app = owner->GetApp())
     {
         if (auto* mgr = app->GetCameraManager())
@@ -28,6 +29,9 @@ CameraComponent::CameraComponent(Actor* owner, int updateOrder)
 
 CameraComponent::~CameraComponent()
 {
+    //------------------------------------------------------------------
+    // CameraManager から登録解除
+    //------------------------------------------------------------------
     if (auto* app = GetOwner()->GetApp())
     {
         if (auto* mgr = app->GetCameraManager())
@@ -37,20 +41,20 @@ CameraComponent::~CameraComponent()
     }
 }
 
-//----------------------------------------------------------------------
-// カメラ位置を Renderer に渡す
-//   ※現状では Renderer で保持していないため未使用
-//----------------------------------------------------------------------
-//void CameraComponent::SetCameraPosition(const Vector3& pos)
-//{
-    // GetOwner()->GetApp()->GetRenderer()->SetCameraPosition(pos);
-//}
 
-//----------------------------------------------------------------------
-// カメラの現在位置を Renderer から取得し、内部変数に反映
-//   - FollowCamera / OrbitCamera などの派生クラスが View を更新
-//   - この基底クラスは「現在の View 行列からカメラ位置だけ抜き出す」
-//----------------------------------------------------------------------
+
+//======================================================================
+// Update
+//
+//  ・カメラの共通 Update エントリポイント
+//  ・挙動の本体は UpdateCamera()（派生クラス側）
+//
+//  ・処理条件：
+//      - Enabled である
+//      - CameraManager の ActiveCamera が自分である
+//
+//  ・条件を満たしたときのみ UpdateCamera() を呼ぶ
+//======================================================================
 void CameraComponent::Update(float deltaTime)
 {
     if (!mIsEnabled)
@@ -58,24 +62,39 @@ void CameraComponent::Update(float deltaTime)
         return;
     }
 
-    // Application → CameraManager → ActiveCamera を問い合わせて、
-    // 自分がアクティブでなければ何もしない
-    auto* app = GetOwner()->GetApp();
-    if (app)
+    // Application → CameraManager へ問い合わせ
+    if (auto* app = GetOwner()->GetApp())
     {
-        auto* mgr = app->GetCameraManager(); // ※このアクセサを後で追加
-        if (mgr && mgr->GetActiveCamera() != this)
+        if (auto* mgr = app->GetCameraManager())
         {
-            return;
+            // 自分がアクティブでなければ何もしない
+            if (mgr->GetActiveCamera() != this)
+            {
+                return;
+            }
         }
     }
 
+    // 実際のカメラ処理（派生クラス）
     UpdateCamera(deltaTime);
 }
 
+
+//======================================================================
+// SetViewMatrix
+//
+//  ・Renderer へ View 行列を登録する共通ヘルパ
+//  ・派生カメラは、UpdateCamera() の最後でこれを呼ぶ想定
+//======================================================================
 void CameraComponent::SetViewMatrix(const Matrix4 &view)
 {
-    GetOwner()->GetApp()->GetRenderer()->SetViewMatrix(view);
+    if (auto* app = GetOwner()->GetApp())
+    {
+        if (auto* renderer = app->GetRenderer())
+        {
+            renderer->SetViewMatrix(view);
+        }
+    }
 }
 
 } // namespace toy
