@@ -16,6 +16,27 @@ FollowCameraComponent::FollowCameraComponent(Actor* owner)
     
 }
 
+//------------------------------------------------------------
+// カメラが「アクティブになった瞬間」に呼ばれる
+//   - prevPos: 直前のカメラの現在位置
+//   - prevTarget: 直前のカメラの注視点
+//------------------------------------------------------------
+void FollowCameraComponent::OnActivated(const Vector3& prevPos,
+                                        const Vector3& prevTarget)
+{
+    // スプリング開始位置を「前カメラの位置」に合わせる
+    mActualPos = prevPos;
+    mVelocity  = Vector3::Zero;
+
+    // 基底が持つ「現在位置/ターゲット」も同期
+    mCameraPosition = prevPos;
+    mCameraTarget   = prevTarget;
+
+    // Manager 経由で切り替わった場合は、
+    // 「初回だけ SnapToIdeal」は不要なので false にしておく
+    mFirstUpdate = false;
+}
+
 void FollowCameraComponent::UpdateCamera(float deltaTime)
 {
     
@@ -47,6 +68,9 @@ void FollowCameraComponent::UpdateCamera(float deltaTime)
     Matrix4 view = Matrix4::CreateLookAt(mActualPos, target, Vector3::UnitY);
     SetViewMatrix(view);
     SetCameraPosition(mActualPos);
+    
+    // ★ これ追加
+    mCameraTarget = target;
 }
 
 void FollowCameraComponent::SnapToIdeal()

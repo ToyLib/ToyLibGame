@@ -27,6 +27,9 @@ public:
     float GetYawSpeed() const                { return mYawSpeed; }
     void  SetYawSpeed(float speed)           { mYawSpeed = speed; }
     
+    void OnActivated(const Vector3& prevPos,
+                     const Vector3& prevTarget) override;
+
     
 private:
     //==============================
@@ -78,6 +81,13 @@ private:
     //   ・+1 = 上へ
     //   ・-1 = 下へ
     float mHeightInput;
+    
+    // ★ 追加：スムーズな位置補間用
+    Vector3 mCurrentPos;
+    bool    mFirstInterp;
+    float   mPosLerpSpeed; // 大きいほどキビキビ
+    
+    bool    mHasCurrentPos;   // 初期化済みかどうか
 };
 
 } // namespace toy

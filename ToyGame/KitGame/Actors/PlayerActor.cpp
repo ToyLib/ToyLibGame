@@ -83,9 +83,10 @@ PlayerActor::PlayerActor(toy::Application* a)
     mOrbitMove->SetIsMovable(false);
 
     // --- カメラコンポーネント ---
-    mFollowCamera = CreateComponent<toy::FollowCameraComponent>();
+    //mFollowCamera = CreateComponent<toy::FollowCameraComponent>();
     mOrbitCamera = CreateComponent<toy::OrbitCameraComponent>();
-    mOrbitCamera->SetIsEnable(false);
+    
+    GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
 
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
@@ -130,8 +131,9 @@ void PlayerActor::UpdateActor(float deltaTime)
         mOrbitMove->SetIsMovable(true);
 
         mMoveComp = mOrbitMove;
-        mOrbitCamera->SetIsEnable(false);
-        mFollowCamera->SetIsEnable(true);
+        //GetApp()->GetCameraManager()->SetActiveCamera(mFollowCamera);
+        //mOrbitCamera->SetIsEnabled(false);
+        //mFollowCamera->SetIsEnabled(true);
     }
     else
     {
@@ -143,9 +145,10 @@ void PlayerActor::UpdateActor(float deltaTime)
         mPlayMode  = PlayMode::Field;
         mTargetCollider = nullptr;
         mSelectedTarget = NO_TARGET;
+        //GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
 
-        mOrbitCamera->SetIsEnable(true);
-        mFollowCamera->SetIsEnable(false);
+        //mOrbitCamera->SetIsEnabled(true);
+        //mFollowCamera->SetIsEnabled(false);
         
 
 

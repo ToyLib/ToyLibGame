@@ -195,9 +195,18 @@ public:
 
     void Normalize()
     {
-        float length = Length();
-        x /= length;
-        y /= length;
+        float lenSq = LengthSq();
+        if (lenSq > 0.0f)
+        {
+            float invLen = 1.0f / Math::Sqrt(lenSq);
+            x *= invLen;
+            y *= invLen;
+        }
+        else
+        {
+            x = 0.0f;
+            y = 0.0f;
+        }
     }
 
     static Vector2 Normalize(const Vector2& vec)
@@ -223,6 +232,12 @@ public:
     }
 
     static Vector2 Transform(const Vector2& vec, const class Matrix3& mat, float w = 1.0f);
+    
+    bool IsZero() const
+    {
+        const float epsSq = 1e-12f; // (1e-6)^2
+        return LengthSq() < epsSq;
+    }
 
     static const Vector2 Zero;
     static const Vector2 UnitX;
@@ -332,10 +347,18 @@ public:
 
     void Normalize()
     {
-        float length = Length();
-        x /= length;
-        y /= length;
-        z /= length;
+        float lenSq = LengthSq();
+        if (lenSq > 0.0f)
+        {
+            float invLen = 1.0f / Math::Sqrt(lenSq);
+            x *= invLen;
+            y *= invLen;
+            z *= invLen;
+        }
+        else
+        {
+            x = y = z = 0.0f;
+        }
     }
 
     static Vector3 Normalize(const Vector3& vec)
@@ -367,6 +390,12 @@ public:
     static Vector3 Reflect(const Vector3& v, const Vector3& n)
     {
         return v - 2.0f * Vector3::Dot(v, n) * n;
+    }
+    
+    bool IsZero() const
+    {
+        const float epsSq = 1e-12f; // (1e-6)^2
+        return LengthSq() < epsSq;
     }
 
     static Vector3 Transform(const Vector3& vec, const class Matrix4& mat, float w = 1.0f);

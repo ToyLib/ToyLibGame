@@ -65,6 +65,10 @@ public:
 
     // 一瞬で理想位置にワープ（テレポート後などに使用）
     void SnapToIdeal();
+    
+    // カメラ切り替え時に呼ばれる
+    void OnActivated(const Vector3& prevPos,
+                     const Vector3& prevTarget) override;
 
     // パラメータ設定
     void SetDistance(float horz, float vert) { mHorzDist = horz; mVertDist = vert; }
