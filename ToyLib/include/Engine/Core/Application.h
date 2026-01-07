@@ -50,6 +50,7 @@ public:
     class SoundMixer*      GetSoundMixer()      const { return mSoundMixer.get(); }
     class InputSystem*     GetInputSystem()     const { return mInputSys.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }
+    class CameraManager*   GetCameraManager()   const { return mCameraManager.get(); }
     
     float GetTimeSconds() const { return SDL_GetTicks() * 0.001f; }
     
@@ -125,6 +126,7 @@ private:
     std::unique_ptr<class AssetManager>    mAssetManager;
     std::unique_ptr<class SoundMixer>      mSoundMixer;
     std::unique_ptr<class TimeOfDaySystem> mTimeOfDaySys;
+    std::unique_ptr<class CameraManager>   mCameraManager;
 
     std::unique_ptr<class AssetManager>    mSystemAssetManager; // システム用:非公開
     friend class DebugOverlayActor;

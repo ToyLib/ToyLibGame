@@ -6,6 +6,7 @@
 #include "Asset/AssetManager.h"
 #include "Audio/SoundMixer.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
+#include "Camera/CameraManager.h"
 #include "Engine/Debug/DebugOverlayActor.h"
 
 #include <SDL3/SDL.h>
@@ -43,6 +44,7 @@ Application::Application()
     mAssetManager  = std::make_unique<AssetManager>();
     mSoundMixer    = std::make_unique<SoundMixer>(mAssetManager.get());
     mTimeOfDaySys  = std::make_unique<TimeOfDaySystem>();
+    mCameraManager = std::make_unique<CameraManager>();
     
     mSystemAssetManager = std::make_unique<AssetManager>();
     mSystemAssetManager->SetAssetsPath(SYSTEM_ASSET_PATH);

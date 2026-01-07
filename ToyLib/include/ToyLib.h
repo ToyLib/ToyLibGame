@@ -63,6 +63,7 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/FollowCameraComponent.h"
 #include "Camera/OrbitCameraComponent.h"
+#include "Camera/CameraManager.h"
 
 //======================================
 // Graphics (Visual Components)
