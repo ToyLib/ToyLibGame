@@ -2,10 +2,10 @@
 #include "KitCore/GameFlow.h"
 #include "TitleScene.h"
 
-class MyGameApp : public toy::Application
+class GameApp : public toy::Application
 {
 public:
-    MyGameApp();
+    GameApp();
     void InitGame() override;
     void ProcessInput(const toy::InputState& input) override;
     void UpdateGame(float deltaTime) override;

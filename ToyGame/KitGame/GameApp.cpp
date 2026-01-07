@@ -1,17 +1,17 @@
-#include "MyGameApp.h"
+#include "GameApp.h"
 #include "Engine/Core/ApplicationEntry.h"
 #include "ToyLib.h"
 #include "Scenes/FieldScene.h"
 
 
-MyGameApp::MyGameApp()
+GameApp::GameApp()
     : toy::Application()
 {
     GetAssetManager()->SetAssetsPath("ToyGame/Assets/KitGame/");
 
 }
 
-void MyGameApp::InitGame()
+void GameApp::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
     mGameFlow->Init();
@@ -19,7 +19,7 @@ void MyGameApp::InitGame()
     mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
 }
 
-void MyGameApp::ProcessInput(const toy::InputState& input)
+void GameApp::ProcessInput(const toy::InputState& input)
 {
     if (mGameFlow)
     {
@@ -27,7 +27,7 @@ void MyGameApp::ProcessInput(const toy::InputState& input)
     }
 }
 
-void MyGameApp::UpdateGame(float deltaTime)
+void GameApp::UpdateGame(float deltaTime)
 {
     if (mGameFlow)
     {
