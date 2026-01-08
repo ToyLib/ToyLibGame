@@ -5,14 +5,20 @@ namespace toy {
 
 void CameraManager::RegisterCamera(CameraComponent *cam)
 {
-    if (!cam) return;
+    if (!cam)
+    {
+        return;
+    }
     mCameras.push_back(cam);
 }
 
 void CameraManager::UnregisterCamera(CameraComponent* cam)
 {
-    if (!cam) return;
-
+    if (!cam)
+    {
+        return;
+    }
+    
     auto it = std::find(mCameras.begin(), mCameras.end(), cam);
     if (it != mCameras.end())
     {
