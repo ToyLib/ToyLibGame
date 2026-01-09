@@ -67,6 +67,7 @@ HeroActor::HeroActor(toy::Application* a)
     // --- カメラコンポーネント ---
     //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
     mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
+    GetApp()->GetCameraManager()->SetActiveCamera(mCameraComp);
     
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
