@@ -190,7 +190,7 @@ void PlayerActor::UpdateActor(float deltaTime)
 // SearchTarget
 //
 //  ・SensorComponent から検出されたヒットを取得
-//  ・画面内に映っているコライダのみを候補として保持し、X 座標でソート
+//  ・候補コライダーをX 座標でソート
 //  ・既にロック中のターゲットが候補内に残っているかを確認
 //  ・ロック中ターゲットが画面外に出たら自動で Field モードへ戻す
 //======================================================================
@@ -204,10 +204,6 @@ void PlayerActor::SearchTarget()
     {
         Vector3 pos    = c.collider->GetCenterPosition();
         auto    scInfo = GetApp()->GetRenderer()->WorldToScreen(pos);
-        if (!scInfo.visible)
-        {
-            continue;
-        }
 
         TargetInfo info;
         info.collider  = c.collider;
