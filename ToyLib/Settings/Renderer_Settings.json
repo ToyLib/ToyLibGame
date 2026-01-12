@@ -2,7 +2,7 @@
   "shader_path": "ToyLib/Shaders/",
   "screen": {
     "virtual_with": 1280.0,
-    "virtual_height": 768.0
+    "virtual_height": 720.0
   },
   "perspectiveFOV": 45.0,
   "camera": {

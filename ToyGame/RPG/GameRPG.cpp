@@ -30,7 +30,7 @@ void GameRPG::InitGame()
     // スプライト
     auto spActor = CreateActor<toy::Actor>();
     //spActor->SetPosition(Vector3(-500.0f, -360.0f, 0.0f));
-    spActor->SetPosition(Vector3(0.0f, 700.0f, 0.0f));
+    spActor->SetPosition(Vector3(0.0f,680.0f, 0.0f));
     spActor->SetScale(1);
     auto spSprite = spActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::UI);
     spSprite->SetTexture(GetAssetManager()->GetTexture("HealthBar.png"));
