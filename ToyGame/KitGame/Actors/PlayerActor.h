@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ToyLib.h"
+#include <vector>
 
 enum PlayerMotion
 {
@@ -58,16 +59,13 @@ private:
 
     void EnterBattleMode();
     void EnterFieldMode();
-    
+
     void FieldMove(const struct toy::InputState& state);
     void BattleMove(const struct toy::InputState& state);
 
-    // フィールド／バトル共通の地上移動＆アニメ処理
-    //   moveMotion: 動いているときに再生するモーションID
     void ApplyGroundMoveAndAnim(const struct toy::InputState& state,
                                 PlayerMotion moveMotion);
 
-    // 現在アクティブな MoveComponent を取得
     toy::MoveComponent* GetActiveMove() const { return mMoveComp; }
 
 private:
@@ -78,6 +76,9 @@ private:
     //========================================
     PlayerMotion mAnimID;
     PlayMode     mPlayMode;
+
+    // ★追加：前フレームのモード（モード遷移を検出するため）
+    PlayMode     mPrevPlayMode;
 
     bool mMovable;
     bool mInputAttack;
@@ -90,20 +91,18 @@ private:
     //========================================
     // コンポーネント類
     //========================================
-    class toy::MoveComponent*        mMoveComp;   // 現在アクティブな MoveComponent
-    class toy::DirMoveComponent*     mDirMove;
-    class toy::FPSMoveComponent*     mFPSMove;
-    class toy::OrbitMoveComponent*   mOrbitMove;
+    toy::MoveComponent*         mMoveComp;
+    toy::DirMoveComponent*      mDirMove;
+    toy::FPSMoveComponent*      mFPSMove;
+    toy::OrbitMoveComponent*    mOrbitMove;
 
-    class toy::SkeletalMeshComponent* mMeshComp;
-    class toy::ColliderComponent*     mCollComp;
-    class toy::CameraComponent*       mCameraComp;
-    class toy::OrbitCameraComponent*  mOrbitCamera;
-    class toy::FollowCameraComponent* mFollowCamera;
-    class toy::GravityComponent*      mGravComp;
-    class toy::SoundComponent*        mSound;
-    class toy::SensorComponent*       mSensor;
+    toy::SkeletalMeshComponent* mMeshComp;
+    toy::ColliderComponent*     mCollComp;
 
-    //class MagicActor*      mMagic;
-    //class HealMagicActor*  mHeal;
+    toy::OrbitCameraComponent*  mOrbitCamera;
+    toy::FollowCameraComponent* mFollowCamera;
+
+    toy::GravityComponent*      mGravComp;
+    toy::SoundComponent*        mSound;
+    toy::SensorComponent*       mSensor;
 };

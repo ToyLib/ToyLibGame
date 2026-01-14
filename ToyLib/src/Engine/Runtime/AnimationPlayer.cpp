@@ -1,220 +1,398 @@
-#include "Asset/Geometry/Mesh.h"
 #include "Engine/Runtime/AnimationPlayer.h"
-#include <assimp/scene.h>
+#include "Asset/Geometry/Mesh.h"
+
+#include <algorithm> // std::clamp
+#include <cmath>     // std::fmod
 #include <iostream>
 
 namespace toy {
 
-//=============================================================
-// AnimationPlayer
-//  - Mesh に紐づくスケルトンアニメーションの再生制御
-//  - ループ再生 / 一回再生 / クリップ間ブレンド などを担当
-//=============================================================
+namespace
+{
+    inline float Clamp01(float x)
+    {
+        if (x < 0.0f) return 0.0f;
+        if (x > 1.0f) return 1.0f;
+        return x;
+    }
+}
 
 AnimationPlayer::AnimationPlayer(std::shared_ptr<Mesh> mesh)
-    : mMesh(mesh)
-    , mAnimID(0)
-    , mPlayTime(0.0f)
-    , mPlayRate(1.0f)
-    , mIsLooping(true)
-    , mIsPaused(false)
-    , mNextAnimID(-1)
-    , mIsFinished(false)
+    : mMesh(std::move(mesh))
 {
 }
 
 //-------------------------------------------------------------
-// アニメ再生開始
-//  - animID: 再生するクリップ番号
-//  - loop  : ループするかどうか
-//  - 同じアニメ & 設定で再生中の場合は何もしない
+// ID 妥当性
+//-------------------------------------------------------------
+bool AnimationPlayer::IsValidAnimID(int animID) const
+{
+    if (!mMesh) return false;
+    const auto& clips = mMesh->GetAnimationClips();
+    return (animID >= 0 && animID < static_cast<int>(clips.size()) && clips[animID].mAnimation);
+}
+
+//-------------------------------------------------------------
+// ticksPerSecond が 0 のケースを必ず救済する
+//-------------------------------------------------------------
+float AnimationPlayer::GetSafeTicksPerSecond(int animID) const
+{
+    // Assimp は mTicksPerSecond == 0 を返すことが普通にあるのでフォールバックする
+    constexpr float kDefaultTps = 25.0f;
+
+    if (!IsValidAnimID(animID))
+    {
+        return kDefaultTps;
+    }
+
+    const auto& clips = mMesh->GetAnimationClips();
+    const auto* anim  = clips[animID].mAnimation;
+
+    // 1) clip 側を優先
+    if (clips[animID].mTicksPerSecond > 1e-4f)
+    {
+        return clips[animID].mTicksPerSecond;
+    }
+
+    // 2) aiAnimation 側
+    if (anim && anim->mTicksPerSecond > 1e-4)
+    {
+        return static_cast<float>(anim->mTicksPerSecond);
+    }
+
+    // 3) どっちも無いならデフォルト
+    return kDefaultTps;
+}
+
+//-------------------------------------------------------------
+// Play
+//  - 同じアニメ＋同じループ状態で、停止中でなければ何もしない
+//  - ここを「状態の正規化ポイント」にする（PlayOnce/Blend の残骸を消す）
 //-------------------------------------------------------------
 void AnimationPlayer::Play(int animID, bool loop)
 {
-    // 同じ内容なら再生しなおさない
-    if (mAnimID == animID && mIsLooping == loop && !mIsPaused)
+    if (!IsValidAnimID(animID))
     {
         return;
     }
-    
-    mAnimID     = animID;
-    mPlayTime   = 0.0f;
-    mIsLooping  = loop;
-    mIsPaused   = false;
-    mIsFinished = false;
-    mNextAnimID = -1;
+
+    if (mAnimID == animID && mIsLooping == loop && !mIsPaused && !mBlend.isBlending && mNextAnimID < 0)
+    {
+        return;
+    }
+
+    mAnimID      = animID;
+    mPlayTime    = 0.0f;
+    mIsLooping   = loop;
+    mIsPaused    = false;
+
+    // PlayOnce 状態を必ずクリア
+    mNextAnimID  = -1;
+    mIsFinished  = false;
+
+    // ブレンドも停止
+    mBlend.Reset();
 }
 
 //-------------------------------------------------------------
-// 毎フレーム更新
-//  - deltaTime: 経過秒
-//  - ブレンド中ならブレンド用の姿勢計算
-//  - 通常時は現在クリップの姿勢を計算
+// PlayOnce
+//  - 非ループで animID を再生し、終わったら nextAnimID へ遷移
 //-------------------------------------------------------------
+void AnimationPlayer::PlayOnce(int animID, int nextAnimID)
+{
+    if (!IsValidAnimID(animID))
+    {
+        return;
+    }
+    // nextAnimID は -1 なら「遷移なし」扱いでも良い
+    if (nextAnimID >= 0 && !IsValidAnimID(nextAnimID))
+    {
+        // 遷移先が不正なら「遷移なし」に丸める
+        nextAnimID = -1;
+    }
+
+    mAnimID      = animID;
+    mPlayTime    = 0.0f;
+    mIsLooping   = false;
+    mIsPaused    = false;
+
+    mNextAnimID  = nextAnimID;
+    mIsFinished  = false;
+
+    // ブレンド中なら解除（PlayOnce が優先）
+    mBlend.Reset();
+}
+
+//-------------------------------------------------------------
+// PlayBlend
+//  - from → to へ duration 秒でブレンド
+//  - ブレンド中は「見た目上」は補間結果を出力する
+//-------------------------------------------------------------
+void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
+{
+    if (!IsValidAnimID(fromAnimID) || !IsValidAnimID(toAnimID))
+    {
+        return;
+    }
+
+    if (duration < 1e-4f)
+    {
+        // ほぼ瞬時なら普通に切り替え
+        Play(toAnimID, true);
+        return;
+    }
+
+    // ブレンド開始
+    mBlend.fromAnimID    = fromAnimID;
+    mBlend.toAnimID      = toAnimID;
+    mBlend.blendDuration = duration;
+    mBlend.blendTime     = 0.0f;
+    mBlend.isBlending    = true;
+
+    // 見た目上の「現在アニメ」は from にしておく（デバッグ用）
+    mAnimID     = fromAnimID;
+    mPlayTime   = 0.0f;      // ここは好み：遷移直前の時刻から繋ぎたいなら維持でもOK
+    mIsPaused   = false;
+    mIsFinished = false;
+
+    // PlayOnce 状態を必ずクリア（状態が混ざるのを防ぐ）
+    mNextAnimID = -1;
+
+    // ブレンド後は基本ループで回す想定（必要なら外から Play() し直す）
+    mIsLooping  = true;
+}
+
+//-------------------------------------------------------------
+// Update
+//-------------------------------------------------------------
+static float SafeTPS(float tps)
+{
+    // Assimpで0のことがあるので保険
+    return (tps > 1e-4f) ? tps : 30.0f;
+}
+
 void AnimationPlayer::Update(float deltaTime)
 {
-    if (!mMesh || mIsPaused)
-    {
-        return;
-    }
-    
-    //=========================================================
-    // ① クリップ間ブレンド中
-    //=========================================================
-    if (mBlend.isBlending)
-    {
-        // ブレンド係数 t (0〜1) を進める
-        float t = mBlend.blendTime / mBlend.blendDuration;
-        t = std::clamp(t, 0.0f, 1.0f);
-        
-        std::vector<Matrix4> poseA;
-        std::vector<Matrix4> poseB;
-        
-        // from/to それぞれで「現在の再生時間」をティックに変換
-        float timeA = mPlayTime * mBlend.fromAnim->mTicksPerSecond;
-        float timeB = mPlayTime * mBlend.toAnim->mTicksPerSecond;
-        
-        // アニメーション周期で wrap してポーズを取得
-        mMesh->ComputePoseAtTime(
-            fmod(timeA, mBlend.fromAnim->mDuration),
-            mBlend.fromAnim,
-            poseA
-        );
-        mMesh->ComputePoseAtTime(
-            fmod(timeB, mBlend.toAnim->mDuration),
-            mBlend.toAnim,
-            poseB
-        );
-        
-        // 2 つのポーズを行列補間して最終ボーン行列を生成
-        mFinalMatrices.resize(poseA.size());
-        for (size_t i = 0; i < poseA.size(); ++i)
-        {
-            mFinalMatrices[i] = LerpMatrix(poseA[i], poseB[i], t);
-        }
-        
-        // ブレンド時間と全体の再生時間を進める
-        mBlend.blendTime += deltaTime;
-        mPlayTime        += deltaTime;
-        
-        // ブレンド完了したら、toAnim 側のクリップへ通常再生で切り替え
-        if (mBlend.blendTime >= mBlend.blendDuration)
-        {
-            mBlend.isBlending = false;
-            Play(FindClipIndex(mBlend.toAnim));  // 次の通常再生へ
-        }
-        
-        // ブレンド中はここで処理終了
-        return;
-    }
-    
-    //=========================================================
-    // ② 通常のアニメ再生
-    //=========================================================
+    if (!mMesh || mIsPaused) return;
+
     const auto& clips = mMesh->GetAnimationClips();
-    if (mAnimID < 0 || mAnimID >= static_cast<int>(clips.size()))
-    {
-        return;
-    }
-    
+    if (mAnimID < 0 || mAnimID >= (int)clips.size()) return;
+
     const aiAnimation* anim = clips[mAnimID].mAnimation;
-    float ticksPerSecond    = clips[mAnimID].mTicksPerSecond;
-    
-    // 経過秒 → ティック に変換
-    float timeInTicks = mPlayTime * mPlayRate * ticksPerSecond;
-    float animTime    = fmod(timeInTicks, anim->mDuration);
-    
-    // 非ループアニメで最後まで再生しきった場合
-    if (!mIsLooping && timeInTicks >= anim->mDuration)
+    const float tps = SafeTPS(clips[mAnimID].mTicksPerSecond);
+
+    const float durationTicks = (float)anim->mDuration;
+    const float durationSec   = (durationTicks > 0.0f) ? (durationTicks / tps) : 0.0f;
+
+    //===========================
+    // ★非ループ(PlayOnce) 終了判定：秒で判定（最強）
+    //===========================
+    if (!mIsLooping && durationSec > 0.0f)
     {
-        mIsFinished = true;
-        
-        // 次に再生するアニメが指定されていれば切り替え
-        if (mNextAnimID >= 0)
+        const float curSec  = mPlayTime * mPlayRate;
+        const float nextSec = (mPlayTime + deltaTime) * mPlayRate;
+
+        // デバッグログ（必要なら）
+        std::cout
+            << "[Anim] id=" << mAnimID
+            << " curSec=" << curSec
+            << " nextSec=" << nextSec
+            << " durationSec=" << durationSec
+            << " rate=" << mPlayRate
+            << " next=" << mNextAnimID
+            << std::endl;
+
+        if (nextSec >= durationSec)
         {
-            Play(mNextAnimID);
+            std::cout << "[Anim] FINISHED id=" << mAnimID << std::endl;
+
+            mIsFinished = true;
+
+            if (mNextAnimID >= 0)
+            {
+                std::cout << "[Anim] -> Next id=" << mNextAnimID << std::endl;
+                Play(mNextAnimID, true);      // Play()の中で mIsFinished=false にするのはOK
+            }
+            else
+            {
+                // nextが無いなら停止状態にしておくのもアリ
+                // mIsPaused = true;
+            }
+            return;
         }
-        return;
     }
-    
-    // 現在時間のポーズを計算して最終ボーン行列として保持
+
+    //===========================
+    // 通常のポーズ計算
+    //===========================
+    const float timeInTicks = (mPlayTime * mPlayRate) * tps;
+    const float animTime    = (durationTicks > 0.0f) ? std::fmod(timeInTicks, durationTicks) : 0.0f;
+
     mMesh->ComputePoseAtTime(animTime, anim, mFinalMatrices);
-    
-    // 経過時間更新
+
     mPlayTime += deltaTime;
 }
 
 //-------------------------------------------------------------
-// 1 回再生用
-//  - animID    : 1 回だけ再生するクリップ
-//  - nextAnimID: 再生終了後に遷移するクリップ（-1 でなし）
+// ブレンド更新
 //-------------------------------------------------------------
-void AnimationPlayer::PlayOnce(int animID, int nextAnimID)
+void AnimationPlayer::UpdateBlend(float deltaTime)
 {
-    mAnimID     = animID;
-    mPlayTime   = 0.0f;
-    mIsLooping  = false;
-    mIsPaused   = false;
-    mIsFinished = false;
-    mNextAnimID = nextAnimID;
-}
+    // ブレンド係数（0→1）
+    float t = (mBlend.blendDuration > 1e-6f) ? (mBlend.blendTime / mBlend.blendDuration) : 1.0f;
+    t = Clamp01(t);
 
-//-------------------------------------------------------------
-// クリップ間ブレンド開始
-//  - fromAnimID: ブレンド元クリップ
-//  - toAnimID  : ブレンド先クリップ
-//  - duration  : ブレンドにかける時間（秒）
-//-------------------------------------------------------------
-void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
-{
+    const int fromID = mBlend.fromAnimID;
+    const int toID   = mBlend.toAnimID;
+
+    if (!IsValidAnimID(fromID) || !IsValidAnimID(toID))
+    {
+        // 不正になったらブレンド解除して安全側へ
+        mBlend.Reset();
+        return;
+    }
+
     const auto& clips = mMesh->GetAnimationClips();
-    if (fromAnimID < 0 || fromAnimID >= static_cast<int>(clips.size()))
+    const aiAnimation* fromAnim = clips[fromID].mAnimation;
+    const aiAnimation* toAnim   = clips[toID].mAnimation;
+
+    // tps は 0 があり得るので安全化
+    const float tpsA = GetSafeTicksPerSecond(fromID);
+    const float tpsB = GetSafeTicksPerSecond(toID);
+
+    // ブレンド中も PlayRate を反映したい
+    const float playSec = mPlayTime * mPlayRate;
+
+    // 秒→tick
+    float timeA = playSec * tpsA;
+    float timeB = playSec * tpsB;
+
+    // wrap
+    float animTimeA = (fromAnim->mDuration > 0.0) ? std::fmod(timeA, static_cast<float>(fromAnim->mDuration)) : 0.0f;
+    float animTimeB = (toAnim->mDuration   > 0.0) ? std::fmod(timeB, static_cast<float>(toAnim->mDuration))   : 0.0f;
+
+    std::vector<Matrix4> poseA;
+    std::vector<Matrix4> poseB;
+
+    mMesh->ComputePoseAtTime(animTimeA, fromAnim, poseA);
+    mMesh->ComputePoseAtTime(animTimeB, toAnim,   poseB);
+
+    // サイズ不一致の保険（基本は一致する想定）
+    const size_t count = std::min(poseA.size(), poseB.size());
+    mFinalMatrices.resize(count);
+
+    for (size_t i = 0; i < count; ++i)
     {
-        return;
+        mFinalMatrices[i] = LerpMatrix(poseA[i], poseB[i], t);
     }
-    if (toAnimID < 0 || toAnimID >= static_cast<int>(clips.size()))
+
+    // 時間更新
+    mBlend.blendTime += deltaTime;
+    mPlayTime        += deltaTime;
+
+    // 完了判定
+    if (mBlend.blendTime >= mBlend.blendDuration)
     {
-        return;
+        const int next = mBlend.toAnimID;
+        mBlend.Reset();
+
+        // ブレンド完了後は to を通常再生へ
+        Play(next, true);
     }
-    mBlend.fromAnim      = clips[fromAnimID].mAnimation;
-    mBlend.toAnim        = clips[toAnimID].mAnimation;
-    mBlend.blendDuration = duration;
-    mBlend.blendTime     = 0.0f;
-    mBlend.isBlending    = true;
 }
 
 //-------------------------------------------------------------
-// 行列の線形補間（要素ごと）
-//  - ※本来は平行移動/回転/スケールを分解して補間した方が綺麗だが
-//    ここでは簡易に 4x4 行列の要素を直接 Lerp している
+// 通常更新（ループ/非ループ/PlayOnce）
+//-------------------------------------------------------------
+void AnimationPlayer::UpdateNormal(float deltaTime)
+{
+    if (!IsValidAnimID(mAnimID))
+    {
+        return;
+    }
+
+    const auto& clips = mMesh->GetAnimationClips();
+    const aiAnimation* anim = clips[mAnimID].mAnimation;
+
+    const float tps = GetSafeTicksPerSecond(mAnimID);
+
+    // 秒→tick（次フレームを含めた終了判定が欲しいので next を作る）
+    const float curTicks  = (mPlayTime) * mPlayRate * tps;
+    const float nextTicks = (mPlayTime + deltaTime) * mPlayRate * tps;
+
+    const float duration = (anim->mDuration > 0.0) ? static_cast<float>(anim->mDuration) : 0.0f;
+
+    // ★★★ ここでログ ★★★
+    if (!mIsLooping)
+    {
+        std::cout
+            << "[Anim] id=" << mAnimID
+            << " curTicks=" << curTicks
+            << " nextTicks=" << nextTicks
+            << " duration=" << duration
+            << " playRate=" << mPlayRate
+            << " finished=" << mIsFinished
+            << " nextAnim=" << mNextAnimID
+            << std::endl;
+    }
+    
+    // 非ループ（PlayOnce含む）が終了したか
+    if (!mIsLooping && duration > 0.0f && nextTicks >= duration)
+    {
+        mIsFinished = true;
+
+        // 次が指定されていれば遷移（遷移した瞬間に finished は Play() 内で false に戻る）
+        if (mNextAnimID >= 0)
+        {
+            Play(mNextAnimID, true);
+        }
+        else
+        {
+            // 「遷移なし」なら最後の姿勢を出して止める（好み）
+            // duration - tiny で評価して最終フレーム近辺を作る
+            float endTime = duration - 1e-3f;
+            if (endTime < 0.0f) endTime = 0.0f;
+            mMesh->ComputePoseAtTime(endTime, anim, mFinalMatrices);
+        }
+        return;
+    }
+
+    // ループ/再生中：wrap して姿勢計算
+    float animTime = 0.0f;
+    if (duration > 0.0f)
+    {
+        animTime = std::fmod(curTicks, duration);
+        if (animTime < 0.0f) animTime = 0.0f;
+    }
+
+    mMesh->ComputePoseAtTime(animTime, anim, mFinalMatrices);
+
+    // 時間更新
+    mPlayTime += deltaTime;
+
+    // ループの時は finished を立てない
+    if (mIsLooping)
+    {
+        mIsFinished = false;
+    }
+}
+
+//-------------------------------------------------------------
+// 行列の線形補間（簡易）
 //-------------------------------------------------------------
 Matrix4 AnimationPlayer::LerpMatrix(const Matrix4& a, const Matrix4& b, float t)
 {
-    Matrix4 result;
+    t = Clamp01(t);
+
+    Matrix4 r;
     for (int i = 0; i < 4; ++i)
     {
         for (int j = 0; j < 4; ++j)
         {
-            result.mat[i][j] = a.mat[i][j] * (1.0f - t) + b.mat[i][j] * t;
+            r.mat[i][j] = a.mat[i][j] * (1.0f - t) + b.mat[i][j] * t;
         }
     }
-    return result;
-}
-
-//-------------------------------------------------------------
-// aiAnimation* から対応するクリップ番号を探す
-//-------------------------------------------------------------
-int AnimationPlayer::FindClipIndex(const aiAnimation* anim) const
-{
-    const auto& clips = mMesh->GetAnimationClips();
-    for (size_t i = 0; i < clips.size(); ++i)
-    {
-        if (clips[i].mAnimation == anim)
-        {
-            return static_cast<int>(i);
-        }
-    }
-    return -1; // 見つからない場合
+    return r;
 }
 
 } // namespace toy
