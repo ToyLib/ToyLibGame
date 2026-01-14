@@ -117,7 +117,8 @@ PlayerActor::PlayerActor(toy::Application* a)
     toy::SensorComponent::Desc sensorDesc =
     {
         .fovRad  = Math::ToRadians(360.0f),
-        .maxDist = 30.0f
+        .maxDist = 30.0f,
+		.requireLOS = false
     };
     mSensor = CreateComponent<toy::SensorComponent>(sensorDesc);
 
@@ -271,7 +272,7 @@ void PlayerActor::EnterFieldMode()
 {
     if (mPlayMode == PlayMode::Battle && mTargetCollider)
     {
-        mTargetCollider->SetTargetState(toy::TargetState::None);
+        mTargetCollider->SetTargetState(toy::TargetState::Candidate);
         mTargetCollider  = nullptr;
         mSelectedTarget  = NO_TARGET;
         mPlayMode        = PlayMode::Field;
