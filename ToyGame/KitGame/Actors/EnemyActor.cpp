@@ -39,14 +39,18 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     mEnemyName = "Ninja";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
-    auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>();
+    auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 40);
     nameBoard->SetFont(font);
     nameBoard->SetFormat(mEnemyName);
     nameBoard->SetScale(0.01f);
-    nameBoard->SetColor(Vector3(0.7f, 0.0f, 0.0f));
+    nameBoard->SetColor(Vector3(1.0f, 0.0f, 0.0f));
     
-    
+    auto nameBoardBG = mNameActor->CreateComponent<toy::TextBillboardComponent>(100);
+    nameBoardBG->SetFont(font);
+    nameBoardBG->SetFormat(mEnemyName);
+    nameBoardBG->SetScale(0.0105f);
+    nameBoardBG->SetColor(Vector3(1.0f, 1.0f, 1.0f));
     
 }
 

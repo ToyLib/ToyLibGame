@@ -210,8 +210,10 @@ void PlayerActor::SearchTarget(float deltaTime)
     for (const auto& h : hits)
     {
         auto* col = h.collider;
-        if (!col) continue;
-
+        if (!col)
+        {
+            continue;
+        }
         const Vector3 pos = col->GetCenterPosition();
         const auto scInfo = GetApp()->GetRenderer()->WorldToScreen(pos);
 

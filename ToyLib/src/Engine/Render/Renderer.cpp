@@ -87,8 +87,7 @@ Renderer::Renderer()
     , mWindow(nullptr)
     , mGLContext(nullptr)
     , mShaderPath("ToyLib/Shaders/")
-//    , mDrawObjectCount(0)
-//    , mDrawCallCount(0)
+
     , mSkyDomeComp(nullptr)
     , mLightSpaceMatrix(Matrix4::Identity)
     , mWindowDisplayScale(1.0f)
@@ -1110,16 +1109,6 @@ bool Renderer::LoadShaders()
     Matrix4 viewProj = Matrix4::CreateSimpleViewProj(mScreenWidth, mScreenHeight);
     mShaders["Sprite"]->SetMatrixUniform("uViewProj", viewProj);
 
-    //---------------------------------------------------------
-    // ビルボード
-    //---------------------------------------------------------
-    vShaderName = mShaderPath + "Billboard.vert";
-    fShaderName = mShaderPath + "Billboard.frag";
-    mShaders["Billboard"] = std::make_shared<Shader>();
-    if (!mShaders["Billboard"]->Load(vShaderName.c_str(), fShaderName.c_str()))
-    {
-        return false;
-    }
 
     //---------------------------------------------------------
     // パーティクル
@@ -1462,18 +1451,13 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
     }
 
     // ★ここだけでクリップ判定を完結させる
-    /*if (ndcX < -1.0f || ndcX >  1.0f ||
+    if (ndcX < -1.0f || ndcX >  1.0f ||
         ndcY < -1.0f || ndcY >  1.0f ||
         ndcZ <  0.0f || ndcZ >  1.0f)
     {
         return result;
     }
-     */
-    if (ndcX < -1.0f || ndcX >  1.0f ||
-        ndcY < -1.0f || ndcY >  1.0f)
-    {
-        return result;
-    }
+
     
     
     float screenX = (ndcX * 0.5f + 0.5f) * GetScreenWidth();

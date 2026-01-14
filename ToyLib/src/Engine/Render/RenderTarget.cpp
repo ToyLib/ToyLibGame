@@ -15,18 +15,24 @@ RenderTarget::RenderTarget()
 RenderTarget::~RenderTarget()
 {
     /*
-    if (mDepthRBO) glDeleteRenderbuffers(1, &mDepthRBO);
-    if (mFBO)      glDeleteFramebuffers(1, &mFBO);
-    mDepthRBO = 0;
-    mFBO = 0;
-    mColorTex.reset();
-    */
+     if (mDepthRBO) glDeleteRenderbuffers(1, &mDepthRBO);
+     if (mFBO)      glDeleteFramebuffers(1, &mFBO);
+     mDepthRBO = 0;
+     mFBO = 0;
+     mColorTex.reset();
+     */
 }
 
 void RenderTarget::Unload()
 {
-    if (mDepthRBO) glDeleteRenderbuffers(1, &mDepthRBO);
-    if (mFBO)      glDeleteFramebuffers(1, &mFBO);
+    if (mDepthRBO)
+    {
+        glDeleteRenderbuffers(1, &mDepthRBO);
+    }
+    if (mFBO)
+    {
+        glDeleteFramebuffers(1, &mFBO);
+    }
     mDepthRBO = 0;
     mFBO = 0;
     mColorTex.reset();
