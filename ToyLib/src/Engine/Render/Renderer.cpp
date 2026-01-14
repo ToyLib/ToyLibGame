@@ -1462,13 +1462,20 @@ ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
     }
 
     // ★ここだけでクリップ判定を完結させる
-    if (ndcX < -1.0f || ndcX >  1.0f ||
+    /*if (ndcX < -1.0f || ndcX >  1.0f ||
         ndcY < -1.0f || ndcY >  1.0f ||
         ndcZ <  0.0f || ndcZ >  1.0f)
     {
         return result;
     }
-
+     */
+    if (ndcX < -1.0f || ndcX >  1.0f ||
+        ndcY < -1.0f || ndcY >  1.0f)
+    {
+        return result;
+    }
+    
+    
     float screenX = (ndcX * 0.5f + 0.5f) * GetScreenWidth();
     float screenY = (1.0f - (ndcY * 0.5f + 0.5f)) * GetScreenHeight();
     
