@@ -45,13 +45,13 @@ EnemyActor::EnemyActor(toy::Application* a)
     nameBoard->SetFormat(mEnemyName);
     nameBoard->SetScale(0.01f);
     nameBoard->SetColor(Vector3(1.0f, 0.0f, 0.0f));
-    
+    /*
     auto nameBoardBG = mNameActor->CreateComponent<toy::TextBillboardComponent>(100);
     nameBoardBG->SetFont(font);
     nameBoardBG->SetFormat(mEnemyName);
     nameBoardBG->SetScale(0.0105f);
     nameBoardBG->SetColor(Vector3(1.0f, 1.0f, 1.0f));
-    
+    */
 }
 
 EnemyActor::~EnemyActor()

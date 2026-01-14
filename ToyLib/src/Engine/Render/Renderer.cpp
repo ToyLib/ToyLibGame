@@ -1092,6 +1092,18 @@ bool Renderer::LoadShaders()
     {
         return false;
     }
+    
+    //---------------------------------------------------------
+    // Unlit （ビルボード:ライティングなし）
+    //---------------------------------------------------------
+    vShaderName = mShaderPath + "Unlit.vert";
+    fShaderName = mShaderPath + "Unlit.frag";
+    mShaders["Unlit"] = std::make_shared<Shader>();
+    if (!mShaders["Unlit"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    {
+        return false;
+    }
+
 
     //---------------------------------------------------------
     // スプライト用

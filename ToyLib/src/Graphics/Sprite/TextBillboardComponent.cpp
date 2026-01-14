@@ -26,7 +26,7 @@ TextBillboardComponent::TextBillboardComponent(Actor* owner,
     // 必要ならここでスケールも初期値を変えておける
     // 例: ピクセル→ワールドスケール
     // SetScale(0.01f);
-    SetScale(0.01f);
+    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Unlit");
 }
 
 TextBillboardComponent::~TextBillboardComponent()
