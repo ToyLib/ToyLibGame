@@ -8,7 +8,7 @@ FollowCameraComponent::FollowCameraComponent(Actor* owner)
     , mHorzDist(10.0f)          // 所有 Actor から見た後方距離
     , mVertDist(4.0f)           // 高さオフセット
     , mTargetDist(10.0f)        // LookAt の前方オフセット
-    , mSpring{ 2000.0f, 1.0f }  // デフォルト：臨界減衰（振動なしで最速追従）
+    , mSpring{ 200.0f, 1.0f }  // デフォルト：臨界減衰（振動なしで最速追従）
     , mActualPos(Vector3::Zero) // スプリングで補間される実際のカメラ位置
     , mVelocity(Vector3::Zero)  // スプリング内部用の速度
     , mFirstUpdate(true)        // 初回だけ理想位置にスナップするためのフラグ
