@@ -39,9 +39,6 @@ public:
     ALuint GetBuffer() const { return mBuffer; }
 
 private:
-    ALuint      mBuffer;          // OpenAL バッファ
-    std::string mFilePath;        // デバッグ・再読み込み用
-
     //----------------------------------------------------------------------
     // LoadWav16()
     //   - WAV 解析（ヘッダチェック・チャンク解析・16bit PCM 取得）
@@ -55,6 +52,11 @@ private:
         ALenum& outFormat,
         ALsizei& outFreq
     );
+    
+private:
+    ALuint      mBuffer;          // OpenAL バッファ
+    std::string mFilePath;        // デバッグ・再読み込み用
+
 };
 
 } // namespace toy

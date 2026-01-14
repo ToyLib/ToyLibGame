@@ -22,7 +22,7 @@ class Music
 public:
     Music();
     ~Music();
-
+    
     //----------------------------------------------------------------------
     // Load()
     //   - AssetManager が呼ぶ
@@ -31,13 +31,13 @@ public:
     bool Load(const std::string& fileName, class AssetManager* manager);
     
     void Unload();
-
+    
     //----------------------------------------------------------------------
     // Rewind()
     //   - 再生位置を先頭に戻す（ループ再生時に使用）
     //----------------------------------------------------------------------
     void Rewind();
-
+    
     //----------------------------------------------------------------------
     // ReadChunk()
     //   - デコード済みPCMを一部だけ out に書き込む
@@ -46,21 +46,14 @@ public:
     //   - SoundMixer がストリーミング再生用として利用
     //----------------------------------------------------------------------
     size_t ReadChunk(unsigned char* out, size_t chunkSize);
-
+    
     // 情報取得系
     long GetRate() const     { return mRate; }      // 例：44100
     int  GetChannels() const { return mChannels; }  // 例：2 (stereo)
-
+    
     const std::string& GetFilePath() const { return mFilePath; }
-
+    
 private:
-    std::string    mFilePath;
-    mpg123_handle* mHandle   = nullptr;
-
-    long           mRate     = 0;   // サンプルレート
-    int            mChannels = 0;   // モノラル or ステレオ
-    int            mEncoding = 0;   // mpg123 の内部エンコード（PCM 形式）
-
     //----------------------------------------------------------------------
     // mpg123 のグローバル初期化は一度だけ必要。
     // ToyLib 全体で複数の Music オブジェクトが使われることを考え、
@@ -69,6 +62,15 @@ private:
     static int  sRefCount;
     static void InitLib();
     static void ShutdownLib();
+    
+private:
+    std::string    mFilePath;
+    mpg123_handle* mHandle   = nullptr;
+    
+    long           mRate     = 0;   // サンプルレート
+    int            mChannels = 0;   // モノラル or ステレオ
+    int            mEncoding = 0;   // mpg123 の内部エンコード（PCM 形式）
+    
 };
 
 } // namespace toy
