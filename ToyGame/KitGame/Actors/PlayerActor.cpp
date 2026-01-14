@@ -308,7 +308,7 @@ void PlayerActor::ActorInput(const toy::InputState& state)
     }
 
     // 4) B でフィールドモードに戻る
-    if (state.IsButtonPressed(toy::GameButton::B))
+    if (state.IsButtonPressed(toy::GameButton::B) && ! state.IsButtonDown(toy::GameButton::L2))
     {
         EnterFieldMode();
     }
