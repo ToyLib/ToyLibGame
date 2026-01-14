@@ -118,7 +118,7 @@ if(WIN32)
         "${VCPKG_BIN_DIR}/libpng16.dll"
         "${VCPKG_BIN_DIR}/zlib1.dll"
         "${VCPKG_BIN_DIR}/SDL3_ttf.dll"
-        "${VCPKG_BIN_DIR}/assimp-vc143-mt.dll"
+        "${VCPKG_BIN_DIR}/assimp-vc145-mt.dll"
         "${VCPKG_BIN_DIR}/fmt.dll"
         "${VCPKG_BIN_DIR}/freetype.dll"
         "${VCPKG_BIN_DIR}/bz2.dll"
