@@ -3,30 +3,10 @@
 
 #include <fstream>
 #include <iostream>
-
-// JsonHelper / nlohmann::json を使ってる想定
-// #include "JsonHelper.h"
+#include <cmath> // fmod, sqrt
 
 PlayerActor::PlayerActor(toy::Application* a)
     : Actor(a)
-    , mAnimID(H_Stand)
-    , mPlayMode(PlayMode::Field)
-    , mPrevPlayMode(PlayMode::Field)   // ★追加
-    , mMovable(true)
-    , mInputAttack(false)
-    , mSelectedTarget(NO_TARGET)
-    , mTargetCollider(nullptr)
-    , mMoveComp(nullptr)
-    , mDirMove(nullptr)
-    , mFPSMove(nullptr)
-    , mOrbitMove(nullptr)
-    , mMeshComp(nullptr)
-    , mCollComp(nullptr)
-    , mOrbitCamera(nullptr)
-    , mFollowCamera(nullptr)
-    , mGravComp(nullptr)
-    , mSound(nullptr)
-    , mSensor(nullptr)
 {
     //==================================================================
     // 1) JSON 設定読み込み
@@ -94,6 +74,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mOrbitMove = CreateComponent<toy::OrbitMoveComponent>();
     // mFPSMove = CreateComponent<toy::FPSMoveComponent>(); // 将来用
 
+    // 初期はフィールド移動
     mMoveComp = mDirMove;
     mDirMove->SetIsMovable(true);
     mOrbitMove->SetIsMovable(false);
@@ -104,7 +85,6 @@ PlayerActor::PlayerActor(toy::Application* a)
     mFollowCamera = CreateComponent<toy::FollowCameraComponent>();
     mOrbitCamera  = CreateComponent<toy::OrbitCameraComponent>();
 
-    // 初期状態はフィールド想定
     GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
     mOrbitCamera->SetIsEnabled(true);
     mFollowCamera->SetIsEnabled(false);
@@ -116,7 +96,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mGravComp->SetEnableGroundPose(false);
 
     //==================================================================
-    // 8) センサーコンポーネント（ターゲット候補検出）
+    // 8) センサーコンポーネント
     //==================================================================
     toy::SensorComponent::Desc sensorDesc =
     {
@@ -127,7 +107,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mSensor = CreateComponent<toy::SensorComponent>(sensorDesc);
 
     //==================================================================
-    // 9) サウンドコンポーネント（足音など）
+    // 9) サウンド
     //==================================================================
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Hero/Walk.wav");
@@ -138,165 +118,178 @@ PlayerActor::PlayerActor(toy::Application* a)
 PlayerActor::~PlayerActor() = default;
 
 //======================================================================
-// UpdateActor（状態遷移を安定化）
-//  - SearchTarget は毎フレームOK
-//  - カメラ/Move 切替は「モードが変わった瞬間だけ」
-//  - Battle中は orbitMove の中心更新だけ毎フレームやる
+// UpdateActor（元ロジック）
+//  - SearchTargetは毎フレーム
+//  - PlayMode と Target有無で Move/Camera を決める
 //======================================================================
 void PlayerActor::UpdateActor(float deltaTime)
 {
-    // 1) 毎フレーム候補更新
-    SearchTarget();
+    // 1) 候補更新
+    SearchTarget(deltaTime);
 
-    // 2) “望ましいモード” を決定（ターゲット有無）
-    PlayMode desired = (mTargetCollider != nullptr) ? PlayMode::Battle : PlayMode::Field;
-
-    // 3) モードが変わった瞬間だけ副作用を実行
-    if (desired != mPlayMode)
-    {
-        if (desired == PlayMode::Battle)  EnterBattleMode();
-        else                              EnterFieldMode();
-    }
-
-    // 4) Battle維持処理（中心は更新してOK）
+    // 2) モードに応じた Move / Camera 切替（元コードの分岐に戻す）
     if (mPlayMode == PlayMode::Battle && mTargetCollider)
     {
-        mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
-    }
+        // Battle中 & ターゲットあり
+        mDirMove->SetIsMovable(false);
 
-    mPrevPlayMode = mPlayMode;
+        mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
+        mOrbitMove->SetIsMovable(true);
+        mMoveComp = mOrbitMove;
+
+        GetApp()->GetCameraManager()->SetActiveCamera(mFollowCamera);
+        mOrbitCamera->SetIsEnabled(false);
+        mFollowCamera->SetIsEnabled(true);
+    }
+    else
+    {
+        // ターゲットなし or Battleじゃない → Fieldへ戻す
+        // ※ここで「強制的にFieldへ戻す」のが元ロジック
+        mOrbitMove->SetIsMovable(false);
+        mDirMove->SetIsMovable(true);
+
+        mMoveComp       = mDirMove;
+        mPlayMode       = PlayMode::Field;
+        mTargetCollider = nullptr;
+        mSelectedTarget = NO_TARGET;
+        mLockLostTime   = 0.0f;
+
+        GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
+        mOrbitCamera->SetIsEnabled(true);
+        mFollowCamera->SetIsEnabled(false);
+    }
 }
 
 //======================================================================
-// SearchTarget（状態遷移の暴れを抑える）
-//  - visibleチェックを復活（候補が暴れない）
-//  - ロック中ターゲットを見失っても「攻撃中は解除しない」
+// SearchTarget（元ロジック）
+//  - センサーHits → mCandidates作成
+//  - X挿入ソート（元方式）
+//  - ロック中が候補に残っているかを見る
+//  - RPG寄り：見失い猶予 + 距離解除（ここだけ追加）
 //======================================================================
-void PlayerActor::SearchTarget()
+void PlayerActor::SearchTarget(float deltaTime)
 {
     auto hits = mSensor->GetHits();
     mCandidates.clear();
 
+    // 1) 候補作成（元：挿入でX昇順にする）
     for (auto& h : hits)
     {
-        Vector3 pos    = h.collider->GetCenterPosition();
+        auto* col = h.collider;
+        if (!col) continue;
+
+        Vector3 pos    = col->GetCenterPosition();
         auto    scInfo = GetApp()->GetRenderer()->WorldToScreen(pos);
 
-        // ★ visible を復活（これがないと候補が増減してロックが揺れやすい）
-        if (!scInfo.visible)
-        {
-            continue;
-        }
-
         TargetInfo info;
-        info.collider  = h.collider;
+        info.collider  = col;
         info.screenPos = scInfo.virtualScreen;
 
         // X昇順で挿入
         auto itr = mCandidates.begin();
         for (; itr != mCandidates.end(); ++itr)
         {
-            if (info.screenPos.x < itr->screenPos.x) break;
+            if (info.screenPos.x < itr->screenPos.x)
+            {
+                break;
+            }
         }
         mCandidates.insert(itr, info);
     }
 
-    // ロック中ターゲットが候補内にあるか
-    int foundIndex = NO_TARGET;
+    // 2) ロック中が候補内に残っているか（元ロジック：mSelectedTarget を探し直す）
+    mSelectedTarget = NO_TARGET;
+
     for (int i = 0; i < (int)mCandidates.size(); ++i)
     {
         if (mCandidates[i].collider == mTargetCollider)
         {
-            foundIndex = i;
+            mTargetCollider->SetTargetState(toy::TargetState::Locked);
+            mSelectedTarget = i;
             break;
         }
     }
 
-    if (foundIndex != NO_TARGET)
+    // 3) ロックが無いなら猶予タイマはリセット（元ロジックの自然な追加）
+    if (!mTargetCollider)
     {
-        mSelectedTarget = foundIndex;
+        mLockLostTime = 0.0f;
+        return;
+    }
+
+    // 4) RPG寄り：解除条件（猶予 + 距離）
+    const bool inAttackLock = !mMovable;
+
+    // 距離解除（sqrt回避）
+    const Vector3 d = (mTargetCollider->GetOwner()->GetPosition() - GetPosition());
+    const float distSq = d.x*d.x + d.y*d.y + d.z*d.z;
+    const float breakSq = mLockBreakDist * mLockBreakDist;
+    const bool tooFar = (distSq > breakSq);
+
+    const bool stillInCandidates = (mSelectedTarget != NO_TARGET);
+
+    if (stillInCandidates)
+    {
+        mLockLostTime = 0.0f;
+    }
+    else
+    {
+        if (!inAttackLock)
+        {
+            mLockLostTime += deltaTime;
+        }
+    }
+
+    // 解除：遠すぎ OR（攻撃中じゃなくて）猶予超え
+    if (tooFar || (!inAttackLock && mLockLostTime > mLockLostGraceSec))
+    {
+        EnterFieldMode();
+        mLockLostTime = 0.0f;
+    }
+}
+
+//======================================================================
+// EnterBattleMode（元ロジック）
+//  - 選択中インデックスからターゲット確定してBattleへ
+//======================================================================
+void PlayerActor::EnterBattleMode()
+{
+    if (mPlayMode == PlayMode::Field &&
+        mSelectedTarget != NO_TARGET &&
+        mSelectedTarget < (int)mCandidates.size())
+    {
+        mTargetCollider = mCandidates[mSelectedTarget].collider;
         if (mTargetCollider)
         {
             mTargetCollider->SetTargetState(toy::TargetState::Locked);
         }
-        return;
-    }
-
-    // ロック中ターゲットを見失った
-    if (mTargetCollider)
-    {
-        // ★攻撃中（mMovable==false）の間は勝手に Field に戻さない
-        if (mMovable)
-        {
-            EnterFieldMode();
-        }
-        else
-        {
-            // 何もしない：攻撃終了後に状況が戻る可能性がある
-        }
+        mPlayMode = PlayMode::Battle;
     }
 }
 
 //======================================================================
-// EnterBattleMode（Battleに入る瞬間だけ呼ばれる）
-//======================================================================
-void PlayerActor::EnterBattleMode()
-{
-    if (!mTargetCollider)
-    {
-        return;
-    }
-
-    mPlayMode = PlayMode::Battle;
-
-    // Move 切替（1回だけ）
-    mDirMove->SetIsMovable(false);
-
-    mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
-    mOrbitMove->SetIsMovable(true);
-    mMoveComp = mOrbitMove;
-
-    // Camera 切替（1回だけ）
-    GetApp()->GetCameraManager()->SetActiveCamera(mFollowCamera);
-    mOrbitCamera->SetIsEnabled(false);
-    mFollowCamera->SetIsEnabled(true);
-
-    // Target state
-    mTargetCollider->SetTargetState(toy::TargetState::Locked);
-}
-
-//======================================================================
-// EnterFieldMode（Fieldに戻る瞬間だけ呼ばれる）
+// EnterFieldMode（元ロジック）
+//  - ロック解除してFieldへ
+//  - ★Move/Cameraの復帰は UpdateActor の else 側がやる（元方式）
 //======================================================================
 void PlayerActor::EnterFieldMode()
 {
-    // Target state を確実に解除
-    if (mTargetCollider)
+    if (mPlayMode == PlayMode::Battle && mTargetCollider)
     {
         mTargetCollider->SetTargetState(toy::TargetState::Candidate);
+        mTargetCollider = nullptr;
+        mSelectedTarget = NO_TARGET;
+        mPlayMode       = PlayMode::Field;
+        mLockLostTime   = 0.0f;
     }
-
-    mTargetCollider  = nullptr;
-    mSelectedTarget  = NO_TARGET;
-    mPlayMode        = PlayMode::Field;
-
-    // Move 切替（1回だけ）
-    mOrbitMove->SetIsMovable(false);
-    mDirMove->SetIsMovable(true);
-    mMoveComp = mDirMove;
-
-    // Camera 切替（1回だけ）
-    GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
-    mOrbitCamera->SetIsEnabled(true);
-    mFollowCamera->SetIsEnabled(false);
 }
 
 //======================================================================
-// ActorInput（状態そのものは基本触らない：ターゲット差し替え/攻撃開始だけ）
+// ActorInput（元ロジック）
 //======================================================================
 void PlayerActor::ActorInput(const toy::InputState& state)
 {
-    // 1) モードに応じた移動入力処理（内容はそのまま）
+    // 移動
     if (mPlayMode == PlayMode::Field)
     {
         FieldMove(state);
@@ -306,16 +299,16 @@ void PlayerActor::ActorInput(const toy::InputState& state)
         BattleMove(state);
     }
 
-    // 2) ターゲット切り替え（L1/R1）
+    // ターゲット選択（L1/R1）
     SelectTarget(state);
 
-    // 3) 攻撃入力（L2を押してる間だけ）
+    // 攻撃入力（L2押下中）
     if (state.IsButtonDown(toy::GameButton::L2))
     {
         InputAttack(state);
     }
 
-    // 4) B でフィールドモードに戻る（攻撃キーと競合しないようガード）
+    // Bでロック解除（L2と競合しない）
     if (state.IsButtonPressed(toy::GameButton::B) && !state.IsButtonDown(toy::GameButton::L2))
     {
         EnterFieldMode();
@@ -323,7 +316,10 @@ void PlayerActor::ActorInput(const toy::InputState& state)
 }
 
 //======================================================================
-// SelectTarget（ターゲット差し替えに集中：mPlayModeはここで触らない）
+// SelectTarget（元ロジック）
+//  - mSelectedTarget を L1/R1で動かす
+//  - mTargetCollider を差し替え
+//  - Battleへ移行
 //======================================================================
 void PlayerActor::SelectTarget(const toy::InputState& state)
 {
@@ -332,6 +328,7 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
         return;
     }
 
+    // L1：左
     if (state.IsButtonPressed(toy::GameButton::L1))
     {
         if (mSelectedTarget == NO_TARGET)
@@ -344,6 +341,7 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
         }
     }
 
+    // R1：右
     if (state.IsButtonPressed(toy::GameButton::R1))
     {
         if (mSelectedTarget == NO_TARGET)
@@ -354,6 +352,7 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
         {
             ++mSelectedTarget;
         }
+
     }
 
     if (mSelectedTarget == NO_TARGET)
@@ -374,12 +373,13 @@ void PlayerActor::SelectTarget(const toy::InputState& state)
         mTargetCollider->SetTargetState(toy::TargetState::Locked);
     }
 
-    // ★ここでは mPlayMode を触らない
-    //   UpdateActor が desired を見て Battle に切り替える
+    // Battleへ（切替副作用は UpdateActor が担当）
+    mPlayMode     = PlayMode::Battle;
+    mLockLostTime = 0.0f;
 }
 
 //======================================================================
-// InputAttack（中身は基本そのまま）
+// InputAttack（元ロジック）
 //======================================================================
 void PlayerActor::InputAttack(const toy::InputState& state)
 {
@@ -414,12 +414,12 @@ void PlayerActor::InputAttack(const toy::InputState& state)
 
     if (mInputAttack)
     {
-        mMovable = false; // 攻撃中ロック
+        mMovable = false;
     }
 }
 
 //----------------------------------------
-// フィールド移動（既存のまま）
+// フィールド移動
 //----------------------------------------
 void PlayerActor::FieldMove(const toy::InputState& state)
 {
@@ -427,7 +427,7 @@ void PlayerActor::FieldMove(const toy::InputState& state)
 }
 
 //----------------------------------------
-// バトル移動（既存のまま）
+// バトル移動
 //----------------------------------------
 void PlayerActor::BattleMove(const toy::InputState& state)
 {
@@ -435,7 +435,7 @@ void PlayerActor::BattleMove(const toy::InputState& state)
 }
 
 //======================================================================
-// ApplyGroundMoveAndAnim（既存のまま）
+// ApplyGroundMoveAndAnim（元ロジック）
 //======================================================================
 void PlayerActor::ApplyGroundMoveAndAnim(const toy::InputState& state,
                                          PlayerMotion moveMotion)

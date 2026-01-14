@@ -51,9 +51,9 @@ public:
 
 private:
     //========================================
-    // 内部ヘルパ
+    // 内部ヘルパ（元ロジック）
     //========================================
-    void SearchTarget();
+    void SearchTarget(float deltaTime);
     void SelectTarget(const struct toy::InputState& state);
     void InputAttack(const struct toy::InputState& state);
 
@@ -72,37 +72,40 @@ private:
     static constexpr int NO_TARGET = -1;
 
     //========================================
-    // 状態
+    // 状態（元ロジック）
     //========================================
-    PlayerMotion mAnimID;
-    PlayMode     mPlayMode;
+    PlayerMotion mAnimID { H_Stand };
+    PlayMode     mPlayMode { PlayMode::Field };
 
-    // ★追加：前フレームのモード（モード遷移を検出するため）
-    PlayMode     mPrevPlayMode;
+    bool mMovable { true };
+    bool mInputAttack { false };
 
-    bool mMovable;
-    bool mInputAttack;
+    int  mSelectedTarget { NO_TARGET };                 // ★ index
+    toy::ColliderComponent* mTargetCollider { nullptr };// ★ lock pointer
+    std::vector<TargetInfo> mCandidates;                // ★ sorted list
 
-    int  mSelectedTarget;
-    toy::ColliderComponent* mTargetCollider;
-
-    std::vector<TargetInfo> mCandidates;
+    //========================================
+    // RPG寄り：ロック解除をシビアにしない（元ロジックに自然に追加）
+    //========================================
+    float mLockLostTime     { 0.0f };   // 見失い累積
+    float mLockLostGraceSec { 0.7f };   // 猶予秒
+    float mLockBreakDist    { 35.0f };  // 遠すぎ解除
 
     //========================================
     // コンポーネント類
     //========================================
-    toy::MoveComponent*         mMoveComp;
-    toy::DirMoveComponent*      mDirMove;
-    toy::FPSMoveComponent*      mFPSMove;
-    toy::OrbitMoveComponent*    mOrbitMove;
+    toy::MoveComponent*         mMoveComp { nullptr };
+    toy::DirMoveComponent*      mDirMove  { nullptr };
+    toy::FPSMoveComponent*      mFPSMove  { nullptr };
+    toy::OrbitMoveComponent*    mOrbitMove{ nullptr };
 
-    toy::SkeletalMeshComponent* mMeshComp;
-    toy::ColliderComponent*     mCollComp;
+    toy::SkeletalMeshComponent* mMeshComp { nullptr };
+    toy::ColliderComponent*     mCollComp { nullptr };
 
-    toy::OrbitCameraComponent*  mOrbitCamera;
-    toy::FollowCameraComponent* mFollowCamera;
+    toy::OrbitCameraComponent*  mOrbitCamera { nullptr };
+    toy::FollowCameraComponent* mFollowCamera{ nullptr };
 
-    toy::GravityComponent*      mGravComp;
-    toy::SoundComponent*        mSound;
-    toy::SensorComponent*       mSensor;
+    toy::GravityComponent*      mGravComp { nullptr };
+    toy::SoundComponent*        mSound { nullptr };
+    toy::SensorComponent*       mSensor { nullptr };
 };
