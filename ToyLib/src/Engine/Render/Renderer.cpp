@@ -824,7 +824,7 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         mWindowDisplayScale = 1.0f;
     }
 
-    // ここは Matrix4::CreatePerspectiveFOV のシグネチャに合わせて
+    // FOV生成
     mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
         Math::ToRadians(mPerspectiveFOV),
         mScreenWidth,

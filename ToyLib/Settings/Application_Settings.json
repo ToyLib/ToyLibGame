@@ -1,7 +1,7 @@
 {
   "title": "ToyGame App",
   "screen": {
-    "screen_width": 1280,
-    "screen_height": 720
+    "screen_width": 1600,
+    "screen_height": 900
   }
 }

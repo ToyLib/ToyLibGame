@@ -516,8 +516,10 @@ void Application::InitAssetManager(const std::string& path, float dpi)
 
 void Application::HandleWindowResized()
 {
-    if (!mWindow) return;
-
+    if (!mWindow)
+    {
+        return;
+    }
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
