@@ -189,7 +189,6 @@ void AnimationPlayer::Update(float deltaTime)
     //===========================
     if (!mIsLooping && durationSec > 0.0f)
     {
-        const float curSec  = mPlayTime * mPlayRate;
         const float nextSec = (mPlayTime + deltaTime) * mPlayRate;
 
 
