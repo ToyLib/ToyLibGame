@@ -1,4 +1,4 @@
-#include "Graphics/Effect/ShadowSpriteComponent.h"
+#include "Graphics/Sprite/ShadowSpriteComponent.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"

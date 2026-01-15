@@ -81,10 +81,12 @@
 #include "Graphics/Billboard/BillboardComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "Graphics/Billboard/TextBillboardComponent.h"
+#include "Graphics/Sprite/ShadowSpriteComponent.h"
+#include "Graphics/Sprite/FootSpriteComponent.h"
+
 
 // --- Effect 系 ---
 #include "Graphics/Effect/ParticleComponent.h"
-#include "Graphics/Effect/ShadowSpriteComponent.h"
 #include "Graphics/Effect/WireframeComponent.h"
 #include "Graphics/Effect/GPUParticleComponent.h"
 #include "Graphics/Effect/RenderSurfaceComponent.h"
