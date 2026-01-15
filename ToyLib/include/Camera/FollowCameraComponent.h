@@ -1,39 +1,21 @@
 #pragma once
 
 #include "Camera/CameraComponent.h"
+#include "Engine/Runtime/InputSystem.h" // InputState, GameButton
 
 namespace toy {
 
 //======================================================================
 // SpringSettings
-//
-//  ・カメラ追従に使うバネ挙動のパラメータ
-//      - Stiffness    : バネ定数 k（大きいほどキビキビ追従）
-//      - DampingRatio : 減衰比 ζ
-//           ζ = 1.0 で「臨界減衰」
-//           → 振動せず、できるだけ速く目標値に収束
 //======================================================================
 struct SpringSettings
 {
-    float Stiffness    = 2000.0f;  // バネ定数 k
-    float DampingRatio = 1.0f;     // 減衰比 ζ（目安：1.0）
+    float Stiffness    = 200.0f;   // バネ定数 k
+    float DampingRatio = 1.0f;     // 減衰比 ζ
 };
 
 //======================================================================
 // UpdateSpring
-//
-//  ・位置/速度に対して 2 次系バネ挙動を 1 ステップ分適用する
-//  ・質量 m = 1 として、運動方程式：
-//
-//        a = -k x - c v
-//        c = 2 ζ √k
-//
-//    を用いた標準的な 2nd Order Dynamics
-//
-//  引数：
-//      position : 現在位置（更新される）
-//      velocity : 現在速度（更新される）
-//      target   : 目標位置
 //======================================================================
 inline void UpdateSpring(
     Vector3& position,
@@ -61,50 +43,26 @@ inline void UpdateSpring(
 //======================================================================
 // FollowCameraComponent
 //
-//  ・所有 Actor の背後かつ上空に配置される 3rd Person カメラ
-//  ・「理想位置」を基準にスプリングで追従することで、
-//      - ふわっとした追従感
-//      - ガクつきやビクビクを抑えた自然な挙動
-//    を実現する
-//
-//  ・LookAt のターゲット：
-//      - 所有 Actor の位置＋前方方向へ少しオフセット
+//  OrbitCamera と同じ方針：
+//   - ProcessInput() で入力を蓄積
+//   - UpdateCamera() で適用して 1フレームで消費
+//   - 高さ操作は Y オフセット（mVertDist）だけ変更
+//   - キー割当も Orbit と同じ（S:上 / W:下）
 //======================================================================
 class FollowCameraComponent : public CameraComponent
 {
 public:
     explicit FollowCameraComponent(Actor* owner);
 
-    //------------------------------------------------------------------
-    // カメラ更新
-    //
-    //  ・所有 Actor から「理想カメラ位置」を算出
-    //  ・スプリングで mActualPos を理想位置へ追従させる
-    //  ・最終的な位置／注視点から View 行列を設定
-    //------------------------------------------------------------------
+    void ProcessInput(const InputState& state) override;
     void UpdateCamera(float deltaTime) override;
 
-    //------------------------------------------------------------------
-    // SnapToIdeal
-    //
-    //  ・スプリングを使わず、一瞬で理想位置へ移動させる
-    //  ・テレポート直後や、初期配置などに利用
-    //------------------------------------------------------------------
     void SnapToIdeal();
-    
-    //------------------------------------------------------------------
-    // OnActivated
-    //
-    //  ・他のカメラからこのカメラに切り替わった瞬間に呼ばれる
-    //  ・prevPos / prevTarget には「直前のカメラ」の情報が渡される
-    //  ・Follow カメラでは、スプリングの開始位置を prevPos に合わせる
-    //------------------------------------------------------------------
+
     void OnActivated(const Vector3& prevPos,
                      const Vector3& prevTarget) override;
 
-    //------------------------------------------------------------------
     // パラメータ設定
-    //------------------------------------------------------------------
     void SetDistance(float horz, float vert)
     {
         mHorzDist = horz;
@@ -120,20 +78,26 @@ public:
     {
         mSpring = s;
     }
-    
+
+    // 高さ制御（Orbitと合わせて調整しやすいように）
+    void SetHeightRange(float minVert, float maxVert)
+    {
+        mMinVertDist = minVert;
+        mMaxVertDist = maxVert;
+    }
+
+    void SetHeightSpeed(float speed)
+    {
+        mHeightSpeed = speed;
+    }
+
 private:
-    //------------------------------------------------------------------
-    // 所有 Actor から見た「理想のカメラ位置」を計算
-    //
-    //  ・位置から前方へ mHorzDist だけ後ろに下がり、
-    //    mVertDist だけ上に持ち上げた位置
-    //------------------------------------------------------------------
     Vector3 ComputeCameraPos() const;
 
 private:
     // カメラの相対配置
     float mHorzDist;   // 所有 Actor から見た後方距離
-    float mVertDist;   // 高さオフセット
+    float mVertDist;   // 高さオフセット（これだけ W/S で変える）
     float mTargetDist; // LookAt の前方オフセット
 
     // スプリング設定
@@ -145,6 +109,14 @@ private:
 
     // 初回のみ SnapToIdeal() するためのフラグ
     bool mFirstUpdate;
+
+    //============================================================
+    // Orbitと合わせる：入力は ProcessInput で蓄積 → Updateで消費
+    //============================================================
+    float mHeightInput;   // 1フレーム分の高さ入力（-1/0/+1）
+    float mHeightSpeed;   // 高さ変化スピード（m/s）
+    float mMinVertDist;   // 最低高さ
+    float mMaxVertDist;   // 最高高さ
 };
 
 } // namespace toy
