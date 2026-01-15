@@ -185,32 +185,21 @@ void AnimationPlayer::Update(float deltaTime)
     const float durationSec   = (durationTicks > 0.0f) ? (durationTicks / tps) : 0.0f;
 
     //===========================
-    // ★非ループ(PlayOnce) 終了判定：秒で判定（最強）
+    // ★非ループ(PlayOnce) 終了判定：秒で判定
     //===========================
     if (!mIsLooping && durationSec > 0.0f)
     {
         const float curSec  = mPlayTime * mPlayRate;
         const float nextSec = (mPlayTime + deltaTime) * mPlayRate;
 
-        // デバッグログ（必要なら）
-        std::cout
-            << "[Anim] id=" << mAnimID
-            << " curSec=" << curSec
-            << " nextSec=" << nextSec
-            << " durationSec=" << durationSec
-            << " rate=" << mPlayRate
-            << " next=" << mNextAnimID
-            << std::endl;
 
         if (nextSec >= durationSec)
         {
-            std::cout << "[Anim] FINISHED id=" << mAnimID << std::endl;
 
             mIsFinished = true;
 
             if (mNextAnimID >= 0)
             {
-                std::cout << "[Anim] -> Next id=" << mNextAnimID << std::endl;
                 Play(mNextAnimID, true);      // Play()の中で mIsFinished=false にするのはOK
             }
             else
@@ -322,20 +311,7 @@ void AnimationPlayer::UpdateNormal(float deltaTime)
 
     const float duration = (anim->mDuration > 0.0) ? static_cast<float>(anim->mDuration) : 0.0f;
 
-    // ★★★ ここでログ ★★★
-    if (!mIsLooping)
-    {
-        std::cout
-            << "[Anim] id=" << mAnimID
-            << " curTicks=" << curTicks
-            << " nextTicks=" << nextTicks
-            << " duration=" << duration
-            << " playRate=" << mPlayRate
-            << " finished=" << mIsFinished
-            << " nextAnim=" << mNextAnimID
-            << std::endl;
-    }
-    
+
     // 非ループ（PlayOnce含む）が終了したか
     if (!mIsLooping && duration > 0.0f && nextTicks >= duration)
     {
