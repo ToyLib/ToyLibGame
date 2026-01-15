@@ -78,9 +78,9 @@
 
 // --- Sprite / Billboard 系 ---
 #include "Graphics/Sprite/SpriteComponent.h"
-#include "Graphics/Sprite/BillboardComponent.h"
+#include "Graphics/Billboard/BillboardComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
-#include "Graphics/Sprite/TextBillboardComponent.h"
+#include "Graphics/Billboard/TextBillboardComponent.h"
 
 // --- Effect 系 ---
 #include "Graphics/Effect/ParticleComponent.h"

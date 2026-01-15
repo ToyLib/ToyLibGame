@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Sprite/BillboardComponent.h"
+#include "Graphics/Billboard/BillboardComponent.h"
 #include "Utils/StringUtil.h"
 #include "Utils/MathUtil.h"
 

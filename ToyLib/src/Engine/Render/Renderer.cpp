@@ -27,7 +27,7 @@
 #include "Graphics/Effect/RenderSurfaceComponent.h"
 #include "Graphics/Mesh/MeshComponent.h"
 #include "Graphics/Mesh/SkeletalMeshComponent.h"
-#include "Graphics/Sprite/BillboardComponent.h"
+#include "Graphics/Billboard/BillboardComponent.h"
 #include "Graphics/Sprite/SpriteComponent.h"
 
 //==============================================================================

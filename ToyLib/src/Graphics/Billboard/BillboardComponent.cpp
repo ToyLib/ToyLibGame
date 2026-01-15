@@ -1,4 +1,4 @@
-#include "Graphics/Sprite/BillboardComponent.h"
+#include "Graphics/Billboard/BillboardComponent.h"
 #include "Asset/Material/Texture.h"
 #include "Engine/Render/Shader.h"
 #include "Engine/Render/LightingManager.h"
