@@ -38,8 +38,11 @@ public:
     //--------------------------------------------------------
     void SetColor(const Vector3& color) { mColor = color; }
     
+    void SetEnableLight(const bool b) { mEnableLight = b; };
+    
 private:
     Vector3 mColor;   // ワイヤーフレームの線の色
+    bool mEnableLight;
 };
 
 } // namespace toy

@@ -31,6 +31,7 @@ out vec4 outColor;
 //-----------------------------------------------------------------------
 uniform vec3 uAmbientLight; // 環境光（全体のベース明るさ）
 uniform vec3 uSolColor;     // 固定色（R,G,B）※アルファは常に1.0
+uniform bool uUseLight;
 
 
 //======================================================================
@@ -38,8 +39,16 @@ uniform vec3 uSolColor;     // 固定色（R,G,B）※アルファは常に1.0
 //======================================================================
 void main()
 {
-    // 環境光のみの簡易ライティング
-    vec3 lit = uSolColor * uAmbientLight;
+    vec3 col;
+    if (uUseLight)
+    {
+        // 環境光のみの簡易ライティング
+        col = uSolColor * uAmbientLight;
+    }
+    else
+    {
+        col = uSolColor;
+    }
 
-    outColor = vec4(lit, 1.0);
+    outColor = vec4(col, 1.0);
 }

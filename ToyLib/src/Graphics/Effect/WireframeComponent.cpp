@@ -16,6 +16,7 @@ namespace toy {
 WireframeComponent::WireframeComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : VisualComponent(owner, drawOrder, layer)
     , mColor(Vector3(1.0f, 1.0f, 1.0f))
+    , mEnableLight(false)
 {
     // 単色描画シェーダ（Solid）を使用
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Solid");
@@ -51,6 +52,9 @@ void WireframeComponent::Draw()
     
     // ワールド変換
     mShader->SetMatrixUniform("uWorldTransform", GetOwner()->GetWorldTransform());
+    
+    // ライティング無効
+    mShader->SetBooleanUniform("uUseLight", mEnableLight);
     
     // メッシュ描画
     if (mVertexArray)
