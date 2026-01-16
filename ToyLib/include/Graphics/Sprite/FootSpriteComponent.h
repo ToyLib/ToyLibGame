@@ -50,8 +50,8 @@ public:
     void SetBlendMode(FootBlendMode m) { mBlendMode = m; }
 
     // Shader選択（"Unlit" / "Mesh" など）
-    void SetShaderName(const std::string& name) { mShaderName = name; }
-    const std::string& GetShaderName() const { return mShaderName; }
+    //void SetShaderName(const std::string& name) { mShaderName = name; }
+    //const std::string& GetShaderName() const { return mShaderName; }
 
 protected:
     // 派生側が “ワールド行列の組み立てだけ” 触れるようにする
@@ -77,8 +77,6 @@ protected:
     float   mAlpha = 1.0f;
 
     FootBlendMode mBlendMode = FootBlendMode::Alpha;
-
-    std::string mShaderName = "Unlit";
 };
 
 } // namespace toy

@@ -42,4 +42,5 @@ VisualComponent::~VisualComponent()
     renderer->RemoveVisualComp(this);
 }
 
+
 } // namespace toy

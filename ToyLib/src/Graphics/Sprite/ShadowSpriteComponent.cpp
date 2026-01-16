@@ -12,7 +12,7 @@ ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
     : FootSpriteComponent(owner, drawOrder, VisualLayer::Effect3D)
 {
     // 基本はUnlitでOK（影はライティングしない）
-    SetShaderName("Sprite");
+    mShader =  GetOwner()->GetApp()->GetRenderer()->GetShader("Sprite");
 
     // 影用のテクスチャを自前生成（現状再現）
     auto tex = std::make_shared<Texture>();

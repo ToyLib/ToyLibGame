@@ -15,8 +15,9 @@ namespace toy {
 FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : VisualComponent(owner, drawOrder)
 {
-    mLayer = layer;               // 基本 Effect3D 推奨
+    mLayer = layer;
     mIsVisible = true;
+    mShader = owner->GetApp()->GetRenderer()->GetShader("Unlit");
 }
 
 void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
@@ -54,12 +55,17 @@ void FootSpriteComponent::Draw()
 
     auto* app = GetOwner()->GetApp();
     auto renderer = app->GetRenderer();
-    if (!renderer) return;
+    if (!renderer)
+    {
+        return;
+    }
 
     // Shader
-    auto sh = renderer->GetShader(mShaderName);
-    if (!sh) return;
-
+    if (!mShader)
+    {
+        return;
+    }
+    
     // VAO（Rendererが持つSpriteVertsを流用）
     auto vao = renderer->GetSpriteVerts();
     if (!vao) return;
@@ -77,13 +83,13 @@ void FootSpriteComponent::Draw()
 
     PreDraw();
 
-    sh->SetActive();
+    mShader->SetActive();
 
     // 共通：ViewProj / World
     Matrix4 view = renderer->GetViewMatrix();
     Matrix4 proj = renderer->GetProjectionMatrix();
-    sh->SetMatrixUniform("uViewProj", view * proj);
-    sh->SetMatrixUniform("uWorldTransform", BuildWorldMatrix());
+    mShader->SetMatrixUniform("uViewProj", view * proj);
+    mShader->SetMatrixUniform("uWorldTransform", BuildWorldMatrix());
 
     // 互換のため（使わなくてもOK）
     // Unlit.vertが宣言しているなら、最低限ゼロでも渡しておくと安心
@@ -95,13 +101,13 @@ void FootSpriteComponent::Draw()
     if (useTex)
     {
         mTexture->SetActive(0);
-        sh->SetTextureUniform("uTexture", 0);
+        mShader->SetTextureUniform("uTexture", 0);
     }
 
     // Unlit用（Meshシェーダなら存在しない可能性があるので、SetXXXが安全に無視できる前提）
-    sh->SetIntUniform("uUseTexture", useTex ? 1 : 0);
-    sh->SetVectorUniform("uTint", mTint);
-    sh->SetFloatUniform("uAlpha", mAlpha);
+    mShader->SetIntUniform("uUseTexture", useTex ? 1 : 0);
+    mShader->SetVectorUniform("uTint", mTint);
+    mShader->SetFloatUniform("uAlpha", mAlpha);
 
     vao->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
