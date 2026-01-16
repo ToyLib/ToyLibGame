@@ -36,6 +36,13 @@ EnemyActor::EnemyActor(toy::Application* a)
     mLockOnSigne->SetBlendAdd(false);
     mLockOnSigne->SetIsTopLeft(false);
     
+    // 足元スプライト
+    mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate_signe.png"));
+    mTargetSigne->SetSize(5, 5);
+    mTargetSigne->SetOffsetPosition(Vector3(0.0f, 0.1f, 0.0f));
+    
+    
     
     mEnemyName = "Ninja";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
