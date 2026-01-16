@@ -30,8 +30,8 @@ Application::Application()
     , mScreenWidth(1600)    // 初期の想定物理解像度（あくまで暫定）
     , mScreenHeight(900)
     , mWindowedWidth(1280)  // 起動時の論理ウィンドウサイズ
-    , mWindowedHeight(768)
-    , mIsFullScreen(true)
+    , mWindowedHeight(720)
+    , mIsFullScreen(false)
     , mWindow(nullptr)
     , mTicksCount(0)
     , mTargetAspect(16.0f / 9.0f)
