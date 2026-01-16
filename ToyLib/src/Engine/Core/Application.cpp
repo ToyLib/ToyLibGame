@@ -31,7 +31,7 @@ Application::Application()
     , mScreenHeight(900)
     , mWindowedWidth(1280)  // 起動時の論理ウィンドウサイズ
     , mWindowedHeight(768)
-    , mIsFullScreen(false)
+    , mIsFullScreen(true)
     , mWindow(nullptr)
     , mTicksCount(0)
     , mTargetAspect(16.0f / 9.0f)
