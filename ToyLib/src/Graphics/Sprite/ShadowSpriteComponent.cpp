@@ -27,7 +27,7 @@ ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
     // 地面への埋まり防止（必要なら）
     // SetOffsetPosition(Vector3(0.0f, 0.02f, 0.0f));
 
-    SetBlendMode(FootBlendMode::Alpha);
+    SetBlendAdd(false);
     SetTint(Vector3(1.0f, 1.0f, 1.0f));
     SetAlpha(1.0f);
 }

@@ -6,12 +6,6 @@
 
 namespace toy {
 
-enum class FootBlendMode
-{
-    Alpha,
-    Additive
-};
-
 class FootSpriteComponent : public VisualComponent
 {
 public:
@@ -46,12 +40,6 @@ public:
     void SetTint(const Vector3& c) { mTint = c; }
     void SetAlpha(float a) { mAlpha = a; }
 
-    // ブレンド
-    void SetBlendMode(FootBlendMode m) { mBlendMode = m; }
-
-    // Shader選択（"Unlit" / "Mesh" など）
-    //void SetShaderName(const std::string& name) { mShaderName = name; }
-    //const std::string& GetShaderName() const { return mShaderName; }
 
 protected:
     // 派生側が “ワールド行列の組み立てだけ” 触れるようにする
@@ -75,8 +63,6 @@ protected:
     // Unlit向けパラメータ
     Vector3 mTint  = Vector3(1.0f, 1.0f, 1.0f);
     float   mAlpha = 1.0f;
-
-    FootBlendMode mBlendMode = FootBlendMode::Alpha;
 };
 
 } // namespace toy

@@ -14,6 +14,14 @@ namespace toy {
 
 FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : VisualComponent(owner, drawOrder)
+    , mWidth(1.0f)
+    , mDepth(1.0f)
+    , mOffsetPosition(Vector3::Zero)
+    , mOffsetScale(1.0f)
+    , mYaw(0.0f)
+    , mTint(Vector3(1.0f, 1.0f, 1.0f))
+    , mAlpha(1.0f)
+    
 {
     mLayer = layer;
     mIsVisible = true;
@@ -72,13 +80,13 @@ void FootSpriteComponent::Draw()
 
     // Blend
     glEnable(GL_BLEND);
-    if (mBlendMode == FootBlendMode::Alpha)
+    if (mIsBlendAdd)
     {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     }
     else
     {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     PreDraw();
