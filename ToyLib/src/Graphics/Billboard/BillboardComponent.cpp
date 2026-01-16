@@ -111,6 +111,7 @@ void BillboardComponent::Draw()
 
     // テクスチャ
     mTexture->SetActive(0);
+    mShader->SetIntUniform("uUseTexture", 1);
     mShader->SetTextureUniform("uTexture", 0);
 
     // ============================
