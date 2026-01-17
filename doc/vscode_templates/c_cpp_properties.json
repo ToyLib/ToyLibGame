@@ -35,12 +35,15 @@
         "${workspaceFolder}/ToyKit/include/**",
         "${workspaceFolder}/ToyLib/External/**",
         "${workspaceFolder}/ToyGame/**",
-        "/usr/include"
+        "/usr/include/**",
+        "/usr/local/include/**"
       ],
+      "defines": [],
       "compilerPath": "/usr/bin/g++",
       "cStandard": "c17",
       "cppStandard": "c++20",
-      "intelliSenseMode": "linux-gcc-x64"
+      "intelliSenseMode": "linux-gcc-x64",
+      "configurationProvider": "ms-vscode.cmake-tools"
     }
   ],
   "version": 4
