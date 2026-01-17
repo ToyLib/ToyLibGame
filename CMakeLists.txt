@@ -136,68 +136,85 @@ if(WIN32)
     endforeach()
 
 elseif(UNIX AND NOT APPLE)
-    message(STATUS "Configuring for Linux build")
+    message(STATUS "Configuring for Linux build (APT/system packages)")
+
+    # Ubuntu/Debian なら基本これで入る想定:
+    #   sudo apt install libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
+    #                    libassimp-dev libopenal-dev libfmt-dev libmpg123-dev
 
     find_package(OpenGL REQUIRED)
 
-    find_package(SDL3        REQUIRED)
-    find_package(SDL3_image  REQUIRED)
-    find_package(SDL3_ttf    REQUIRED)
-    find_package(assimp     REQUIRED)
-    find_package(OpenAL     REQUIRED)
-    find_package(fmt CONFIG REQUIRED)
+    # APT 由来の config / cmake パッケージを使う（SDL3 は SDL3Config.cmake を提供）
+    find_package(SDL3       REQUIRED)
+    find_package(SDL3_image REQUIRED)
+    find_package(SDL3_ttf   REQUIRED)
 
-    # vcpkg（必要なら）
-    set(VCPKG_ROOT "$ENV{HOME}/Repos/vcpkg")
-    set(VCPKG_TRIPLET "x64-linux")
+    # Assimp / OpenAL / fmt は distro により提供形が違うので、ターゲットが無い場合も吸収
+    find_package(assimp REQUIRED)
+    find_package(OpenAL REQUIRED)
+    find_package(fmt REQUIRED)
 
-    set(VCPKG_INC_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include")
-    set(VCPKG_LIB_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib")
-    set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
-
-    # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        PATHS
-            /usr/include
-            /usr/local/include
-            /usr/include/mpg123
-            /usr/local/include/mpg123
-    )
-
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        PATHS
-            /usr/lib
-            /usr/local/lib
-            /usr/lib/x86_64-linux-gnu
-            /usr/lib64
-    )
-
-    if (NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Install libmpg123-dev (Debian/Ubuntu) or mpg123-devel / mpg123 for your distro.")
+    # mpg123 は pkg-config が一番確実（Ubuntu では libmpg123-dev + pkg-config）
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(MPG123 QUIET IMPORTED_TARGET mpg123)
     endif()
 
-    target_include_directories(${PROJECT_NAME} PRIVATE
-        ${SDL3_INCLUDE_DIRS}
-        ${SDL3_IMAGE_INCLUDE_DIRS}
-        ${SDL3_TTF_INCLUDE_DIRS}
-        ${ASSIMP_INCLUDE_DIRS}
-        ${OPENAL_INCLUDE_DIR}
-        ${MPG123_INCLUDE_DIR}
-    )
+    if(TARGET PkgConfig::MPG123)
+        set(MPG123_TARGET PkgConfig::MPG123)
+    else()
+        # fallback: 従来どおり手動探索
+        find_path(MPG123_INCLUDE_DIR
+            NAMES mpg123.h
+            PATHS
+                /usr/include
+                /usr/local/include
+                /usr/include/mpg123
+                /usr/local/include/mpg123
+        )
+
+        find_library(MPG123_LIBRARY
+            NAMES mpg123
+            PATHS
+                /usr/lib
+                /usr/local/lib
+                /usr/lib/x86_64-linux-gnu
+                /usr/lib64
+        )
+
+        if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
+            message(FATAL_ERROR
+                "mpg123 not found. Install: sudo apt install libmpg123-dev"
+            )
+        endif()
+
+        add_library(mpg123::mpg123 UNKNOWN IMPORTED)
+        set_target_properties(mpg123::mpg123 PROPERTIES
+            IMPORTED_LOCATION "${MPG123_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${MPG123_INCLUDE_DIR}"
+        )
+        set(MPG123_TARGET mpg123::mpg123)
+    endif()
+
+    # Linux はターゲット伝播に任せる（SDL3::SDL3 等が include/lib を持つ）
+    # OpenAL の include なども target が持つので基本は不要
 
     target_link_libraries(${PROJECT_NAME}
-        OpenGL::GL
-        SDL3::SDL3
-        SDL3_image::SDL3_image
-        SDL3_ttf::SDL3_ttf
-        assimp::assimp
-        OpenAL::OpenAL
-        fmt::fmt
-        glad
-        ${MPG123_LIBRARY}
+        PRIVATE
+            OpenGL::GL
+            SDL3::SDL3
+            SDL3_image::SDL3_image
+            SDL3_ttf::SDL3_ttf
+            assimp::assimp
+            OpenAL::OpenAL
+            fmt::fmt
+            glad
+            ${MPG123_TARGET}
     )
+
+    # SDL3 は SDL_main を使わない設計ならこれを付けておくのが安全（ToyLib は Application で main 管理なので）
+    target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
+
 
 elseif(APPLE)
     message(STATUS "Configuring for macOS build")
