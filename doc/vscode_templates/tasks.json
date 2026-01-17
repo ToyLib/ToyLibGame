@@ -44,7 +44,7 @@
         {
       "label": "CMake Configure (Unix)",
       "type": "shell",
-      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=$HOME/Repos/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
       "problemMatcher": [],
       "group": {
         "kind": "build",
