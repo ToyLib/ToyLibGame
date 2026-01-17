@@ -62,6 +62,7 @@ Application::~Application()
 
 bool Application::Initialize()
 {
+    SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
     {
         std::cerr << "[Application] SDL_Init failed: "
