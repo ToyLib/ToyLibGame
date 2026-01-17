@@ -215,8 +215,11 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
 void GravityComponent::ApplyCeilingClamp(Actor* owner)
 {
-    if (!owner) return;
-
+    if (!owner)
+    {
+        return;
+    }
+    
     // 上昇中のみ
     if (mVelocityY <= 0.0f)
     {
@@ -244,8 +247,11 @@ void GravityComponent::UpdateGroundPoseCache(Actor* owner,
                                              bool groundedNow,
                                              bool wasGrounded)
 {
-    if (!owner) return;
-
+    if (!owner)
+    {
+        return;
+    }
+    
     mGroundPose.valid    = true;
     mGroundPose.grounded = groundedNow;
     mGroundPose.y        = hit.y;
@@ -309,18 +315,24 @@ void GravityComponent::UpdateGroundPoseCache(Actor* owner,
 
 void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot)
 {
-    if (!owner || !foot) return;
-
+    if (!owner || !foot)
+    {
+        return;
+    }
+    
     PhysWorld* phys = owner->GetApp()->GetPhysWorld();
-    if (!phys) return;
-
+    if (!phys)
+    {
+        return;
+    }
+    
     GroundHit hit;
     if (!phys->GetNearestGroundHit(owner, hit))
     {
         return;
     }
 
-    const Cube box   = foot->GetBoundingVolume()->GetWorldAABB();
+    const Cube box = foot->GetBoundingVolume()->GetWorldAABB();
     const float footY = box.min.y;
 
     const float yGap = footY - hit.y;
