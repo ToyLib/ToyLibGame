@@ -12,7 +12,7 @@
         "${workspaceFolder}/GameApp/**",
         "C:/Repos/vcpkg/installed/x64-windows/include",
       ],
-      "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.3x.xxxxx/bin/Hostx64/x64/cl.exe",
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.3x.xxxxx/bin/Hostx64/x64/cl.exe",
       "cStandard": "c17",
       "cppStandard": "c++20",
       "intelliSenseMode": "windows-msvc-x64"
