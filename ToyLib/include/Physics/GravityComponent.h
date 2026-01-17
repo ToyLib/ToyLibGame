@@ -104,6 +104,10 @@ public:
 
     const GroundPose& GetGroundPose() const { return mGroundPose; }
     bool HasGroundPose() const { return mGroundPose.valid; }
+    
+
+    float GetGroundY() const { return mGroundPose.y; }
+    Vector3 GetGroundNormal() const { return mGroundPose.normal; }
 
 private:
     // サブステップ1回分の重力・接地処理

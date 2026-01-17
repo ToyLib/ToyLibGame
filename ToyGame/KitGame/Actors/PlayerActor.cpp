@@ -153,7 +153,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     //mTargetSigne->SetSnapToGround(true);
     //mTargetSigne->SetAlignToGround(true);
     //mTargetSigne->SetUseSmoothGroundPose(true);
-    mTargetSigne->SetGroundLift(0.5f);
+    mTargetSigne->SetGroundLift(0.02f);
     mTargetSigne->SetGridDiv(4);              // まずは4で十分
     //mTargetSigne->SetGroundLift(0.02f);       // めり込み防止
     mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制

@@ -6,13 +6,15 @@
 #include "Engine/Render/Shader.h"
 #include "Asset/Material/Texture.h"
 #include "Physics/PhysWorld.h"
+#include "Physics/GravityComponent.h"
+#include "Physics/ColliderComponent.h"
+#include "Physics/BoundingVolumeComponent.h"
 #include "Asset/Geometry/VertexArray.h"
 
 #include "glad/glad.h"
 
 #include <vector>
 #include <cmath>
-
 
 
 namespace toy {
@@ -39,16 +41,69 @@ Matrix4 GroundConformSpriteComponent::BuildWorldMatrix() const
     return Matrix4::Identity;
 }
 
-bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& worldXZ, GroundHit& outHit) const
-{
-    auto* app = GetOwner()->GetApp();
-    if (!app) return false;
 
-    auto* phys = app->GetPhysWorld();
+bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHit& outHit) const
+{
+    outHit = GroundHit{};
+
+    auto* owner = GetOwner();
+    auto* phys  = owner->GetApp()->GetPhysWorld();
     if (!phys) return false;
 
-    // ★追加したAPIを使う：FootCollider不要
-    return phys->GetNearestGroundHitAtXZ(worldXZ, outHit);
+    // 基準（地面優先/上限用）
+    float refY = mBaseY;
+    const ColliderComponent* refCol = nullptr;
+
+    if (auto* grav = owner->GetComponent<GravityComponent>())
+    {
+        if (grav->HasGroundPose())
+        {
+            refY = grav->GetGroundY();
+        }
+        refCol = grav->GetGroundCollider(); // “乗ってる床”だけ
+    }
+
+    //========================================
+    // (A) 乗ってる床 collider を優先
+    //========================================
+    if (refCol)
+    {
+        const Cube aabb = refCol->GetBoundingVolume()->GetWorldAABB();
+
+        const float kEdgeEps = 0.02f;
+        const bool insideXZ =
+            (pos.x >= aabb.min.x + kEdgeEps) && (pos.x <= aabb.max.x - kEdgeEps) &&
+            (pos.z >= aabb.min.z + kEdgeEps) && (pos.z <= aabb.max.z - kEdgeEps);
+
+        if (insideXZ)
+        {
+            outHit.hit    = true;
+            outHit.y      = aabb.max.y;
+            outHit.pos    = Vector3(pos.x, outHit.y, pos.z);
+            outHit.normal = Vector3::UnitY;
+            outHit.source = GroundSource::Collider;
+            outHit.collider = refCol;
+            return true;
+        }
+        // outside ならフォールバックへ
+    }
+
+    //========================================
+    // (B) refCol が無い or 外に出た → 従来
+    // まず terrain 優先にしたいなら GetGroundHitAt
+    //========================================
+    GroundHit terrainHit;
+    if (phys->GetGroundHitAt(pos, terrainHit))
+    {
+        outHit = terrainHit;
+        return true;
+    }
+
+    // collider フォールバック（任意：ここは今は入れなくてもOK）
+    // GroundHit anyHit;
+    // if (phys->GetNearestGroundHitAtXZ(pos, anyHit)) { outHit = anyHit; return true; }
+
+    return false;
 }
 
 void GroundConformSpriteComponent::RebuildGridIfNeeded()
@@ -251,6 +306,8 @@ void GroundConformSpriteComponent::Draw()
     {
         return;
     }
+    
+    
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, mIsBlendAdd ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
@@ -288,6 +345,7 @@ void GroundConformSpriteComponent::Draw()
     renderer->AddDrawObject();
 
     PostDraw();
+
 }
 
 } // namespace toy
