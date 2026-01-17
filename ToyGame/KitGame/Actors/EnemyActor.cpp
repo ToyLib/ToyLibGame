@@ -38,11 +38,12 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     // 足元スプライト
     mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
-    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
     mTargetSigne->SetSize(5, 5);
-    mTargetSigne->SetBlendAdd(true);
+    mTargetSigne->SetBlendAdd(false);
+	mTargetSigne->SetAlpha(0.8f);
     mTargetSigne->SetVisible(true);
-    mTargetSigne->SetGroundLift(0.04f);
+    mTargetSigne->SetGroundLift(0.2f);
     mTargetSigne->SetGridDiv(4);              // まずは4で十分
     mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
     
