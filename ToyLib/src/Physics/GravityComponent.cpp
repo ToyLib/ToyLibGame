@@ -47,6 +47,9 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     PhysWorld* phys = owner->GetApp()->GetPhysWorld();
     Vector3 pos     = owner->GetPosition();
 
+    // ★接地開始の判定に使う（pose smooth の跳ね対策）
+    const bool wasGrounded = mIsGrounded;
+
     // 1) 加速度 → 速度（終端速度でクランプ）
     mVelocityY += mGravityAccel * deltaTime;
     if (mVelocityY < mMaxFallSpeed)
@@ -85,6 +88,23 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
     // 予測足位置
     const float nextFootY = footY + mVelocityY * deltaTime;
+
+    //============================================================
+    // ★真下に地面があるなら、まず ground pose cache を更新
+    //  - 接地/空中に関係なく更新する（リングや影が “地面に張り付く” ため）
+    //  - groundedNow は現時点の mIsGrounded を入れておき、スナップ成立時に確定更新する
+    //============================================================
+    if (hasGround)
+    {
+        UpdateGroundPoseCache(owner, hit, deltaTime, /*groundedNow*/ mIsGrounded, wasGrounded);
+    }
+    else
+    {
+        // 地面がそもそも取れないなら無効
+        mGroundPose.valid    = false;
+        mGroundPose.grounded = false;
+        mGroundPose.collider = nullptr;
+    }
 
     //============================================================
     // 接地（スナップ）判定
@@ -150,12 +170,12 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             mIsGrounded = true;
 
             //--------------------------------------------------------
-            // ★ 地面姿勢は「常に」計算してキャッシュ
+            // ★接地成立：ground pose cache を grounded=true で確定更新
             //--------------------------------------------------------
-            UpdateGroundPoseCache(owner, hit, deltaTime);
+            UpdateGroundPoseCache(owner, hit, deltaTime, /*groundedNow*/ true, wasGrounded);
 
             //--------------------------------------------------------
-            // ★ Actorへの反映は必要時だけ
+            // ★Actorへの反映は必要時だけ
             //--------------------------------------------------------
             if (mEnableGroundPose)
             {
@@ -167,15 +187,25 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //============================================================
-    // 接地しなかった（空中）
+    // 空中
     //============================================================
-    mIsGrounded = false;
+    mIsGrounded     = false;
     mGroundCollider = nullptr;
 
-    // ground pose は無効化（誤使用防止）
-    mGroundPose.valid    = false;
-    mGroundPose.grounded = false;
-    mGroundPose.collider = nullptr;
+    // ★重要：hasGround が取れている間は valid を維持する（地面貼り付け用途）
+    // grounded だけ false にする
+    if (hasGround)
+    {
+        mGroundPose.valid    = true;
+        mGroundPose.grounded = false;
+        // y/normal/raw/smooth/collider は UpdateGroundPoseCache で更新済み
+    }
+    else
+    {
+        mGroundPose.valid    = false;
+        mGroundPose.grounded = false;
+        mGroundPose.collider = nullptr;
+    }
 
     // 自由落下（Yのみ）
     pos = owner->GetPosition();
@@ -208,18 +238,22 @@ void GravityComponent::ApplyCeilingClamp(Actor* owner)
     }
 }
 
-void GravityComponent::UpdateGroundPoseCache(Actor* owner, const GroundHit& hit, float deltaTime)
+void GravityComponent::UpdateGroundPoseCache(Actor* owner,
+                                             const GroundHit& hit,
+                                             float deltaTime,
+                                             bool groundedNow,
+                                             bool wasGrounded)
 {
     if (!owner) return;
 
     mGroundPose.valid    = true;
-    mGroundPose.grounded = true;
+    mGroundPose.grounded = groundedNow;
     mGroundPose.y        = hit.y;
     mGroundPose.normal   = hit.normal;
-    mGroundPose.collider = hit.collider; // Collider床じゃなければ nullptr でもOK
+    mGroundPose.collider = hit.collider; // Collider床以外なら nullptr でもOK
 
     // -----------------------------
-    // ApplyGroundPose の「計算部分」を移植
+    // ApplyGroundPose の「計算部分」
     // -----------------------------
 
     // 1) ワールド normal → ローカル normal（Actor回転基準）
@@ -230,7 +264,7 @@ void GravityComponent::UpdateGroundPoseCache(Actor* owner, const GroundHit& hit,
     if (localNormal.LengthSq() < Math::NearZeroEpsilon)
     {
         mGroundPose.raw = Quaternion::Identity;
-        // smooth は据え置き（急にIdentityに戻すと見た目が跳ねる）
+        // smooth は維持（急にIdentityに戻すと見た目が跳ねる）
         return;
     }
     localNormal.Normalize();
@@ -262,8 +296,8 @@ void GravityComponent::UpdateGroundPoseCache(Actor* owner, const GroundHit& hit,
     const float poseLerpSpeed = 12.0f;
     const float t = Math::Clamp(deltaTime * poseLerpSpeed, 0.0f, 1.0f);
 
-    // 初回接地時：smooth を raw に同期して跳ねを減らす
-    if (!mIsGrounded)
+    // ★接地開始の瞬間は raw に同期して跳ねを減らす
+    if (!wasGrounded && groundedNow)
     {
         mGroundPose.smooth = target;
     }
@@ -306,9 +340,9 @@ void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent*
 
         mIsGrounded = true;
 
-        // ここで ground pose を更新したいなら dt が必要なので、
-        // Update() から呼ぶ版にするか、固定dtで更新する
-        // UpdateGroundPoseCache(owner, hit, 1.0f/60.0f);
+        // ここで姿勢まで更新したいなら dt が必要なので、
+        // Update() から呼ぶ版にするか固定dtで更新する
+        // UpdateGroundPoseCache(owner, hit, 1.0f/60.0f, /*groundedNow*/ true, /*wasGrounded*/ false);
         // if (mEnableGroundPose) owner->SetPoseRotation(mGroundPose.smooth);
     }
 }
@@ -320,10 +354,9 @@ void GravityComponent::Jump()
         mVelocityY  = mJumpSpeed;
         mIsGrounded = false;
 
-        // ジャンプした瞬間は ground pose は無効化しておくと誤参照を防げる
-        mGroundPose.valid    = false;
+        // ★ ground pose は “真下地面が取れれば” 引き続き更新される
+        // grounded だけ false にしておく（演出分岐用）
         mGroundPose.grounded = false;
-        mGroundPose.collider = nullptr;
     }
 }
 

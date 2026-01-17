@@ -13,7 +13,8 @@ class Actor;
 class ColliderComponent;
 struct GroundHit;
 
-enum class GroundSource; // GroundHit 側にある前提（無ければ削除OK）
+// GroundHit 側に source がある前提（無ければ、この enum / 判定を削除してOK）
+enum class GroundSource;
 
 //------------------------------------------------------------------------------
 // GravityComponent
@@ -72,7 +73,7 @@ public:
     //--------------------------------------------------------------------------
     // 状態参照
     //--------------------------------------------------------------------------
-    bool  IsGrounded()  const { return mIsGrounded; }
+    bool  IsGrounded()   const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
 
     const ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
@@ -82,19 +83,23 @@ public:
     //--------------------------------------------------------------------------
     struct GroundPose
     {
-        bool valid    = false;               // 情報が有効か（接地成立時のみ true）
-        bool grounded = false;               // 接地中か
+        // ★重要：
+        // valid は「真下に地面情報が取れたか」を表す。
+        // ジャンプ中など空中でも、真下に地面が取れているなら true になり得る。
+        bool valid    = false;
+        bool grounded = false;               // 接地中か（スナップ成立）
+
         float   y      = 0.0f;               // ground height
         Vector3 normal = Vector3::UnitY;     // world normal
 
         // “地面に沿う姿勢”
-        // raw    : 即応（遅れ無し。影/ロックオンリング向け）
+        // raw    : 即応（遅れ無し。影/リング向け）
         // smooth : 補間済み（車/4本足など見た目用）
         Quaternion raw    = Quaternion::Identity;
         Quaternion smooth = Quaternion::Identity;
 
         const ColliderComponent* collider = nullptr; // Collider床のときだけ
-        //GroundSource source = GroundSource::None; // 必要なら使う（未使用でもOK）
+        // GroundSource source = GroundSource::None; // 必要なら
     };
 
     const GroundPose& GetGroundPose() const { return mGroundPose; }
@@ -108,7 +113,12 @@ private:
     void ApplyCeilingClamp(Actor* owner);
 
     // 地面法線に合わせた姿勢を計算してキャッシュを更新（※Actorへは反映しない）
-    void UpdateGroundPoseCache(Actor* owner, const GroundHit& hit, float deltaTime);
+    // groundedNow / wasGrounded を明示し、接地開始時の跳ねを抑える
+    void UpdateGroundPoseCache(Actor* owner,
+                              const GroundHit& hit,
+                              float deltaTime,
+                              bool groundedNow,
+                              bool wasGrounded);
 
     // C_FOOT を持つ ColliderComponent を探す
     ColliderComponent* FindFootCollider();
