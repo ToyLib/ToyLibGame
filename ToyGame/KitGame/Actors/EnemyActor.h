@@ -17,6 +17,7 @@ public:
 private:
     toy::SkeletalMeshComponent* meshComp;
     toy::SpriteComponent* mCandidateSigne;
+    toy::FootSpriteComponent* mTargetSigne;
     toy::SpriteComponent* mLockOnSigne;
     toy::Actor* mTargetActor;
     toy::ColliderComponent* mCollider;
