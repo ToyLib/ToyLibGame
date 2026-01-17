@@ -6,8 +6,6 @@
 
 namespace toy {
 
-class GravityComponent;
-
 //==============================================================================
 // FootSpriteComponent
 //  - Actor の足元に「地面に貼り付く板ポリ（スプライト）」を描く

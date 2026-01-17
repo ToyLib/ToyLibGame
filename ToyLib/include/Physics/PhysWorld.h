@@ -12,8 +12,6 @@
 
 namespace toy {
 
-class Actor;
-class ColliderComponent;
 
 //=============================================================================
 // Ground hit
@@ -33,7 +31,7 @@ struct GroundHit
     Vector3 pos = Vector3::Zero;
     Vector3 normal = Vector3::UnitY;
     GroundSource source = GroundSource::None;
-    const ColliderComponent* collider = nullptr;
+    const class ColliderComponent* collider = nullptr;
 };
 
 //=============================================================================
@@ -65,7 +63,7 @@ struct RaycastHit
     bool hit = false;
     Vector3 point = Vector3::Zero;
     float distance = 0.0f;
-    Actor* actor = nullptr;
+    class Actor* actor = nullptr;
 };
 
 // Ray vs triangle (Möller–Trumbore)
@@ -90,9 +88,9 @@ struct ViewQueryDesc
     uint32_t  flagMask     = 0;
 
     // LOS
-    bool      requireLOS   = true;
-    uint32_t  losBlockMask = 0;      // 壁など
-    Actor*    ignoreActor  = nullptr; // 自分など
+    bool         requireLOS   = true;
+    uint32_t     losBlockMask = 0;      // 壁など
+    class Actor* ignoreActor  = nullptr; // 自分など
     
     float    nearOverrideDist = 2.0f;
     bool     nearOverrideRequireLOS = false; // 近接でも遮蔽を見たいなら true
@@ -100,10 +98,10 @@ struct ViewQueryDesc
 
 struct ViewQueryHit
 {
-    Actor*            actor     = nullptr;
-    ColliderComponent* collider = nullptr;
-    float             dist      = 0.0f;
-    float             cosAngle  = -1.0f;
+    class Actor*             actor     = nullptr;
+    class ColliderComponent* collider  = nullptr;
+    float                    dist      = 0.0f;
+    float                    cosAngle  = -1.0f;
 };
 
 //=============================================================================

@@ -9,13 +9,6 @@
 
 namespace toy {
 
-class Actor;
-class ColliderComponent;
-struct GroundHit;
-
-// GroundHit 側に source がある前提（無ければ、この enum / 判定を削除してOK）
-enum class GroundSource;
-
 //------------------------------------------------------------------------------
 // GravityComponent
 //------------------------------------------------------------------------------
@@ -76,7 +69,7 @@ public:
     bool  IsGrounded()   const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
 
-    const ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
+    const class ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
 
     //--------------------------------------------------------------------------
     // Ground pose cache（外部参照用）
@@ -98,7 +91,7 @@ public:
         Quaternion raw    = Quaternion::Identity;
         Quaternion smooth = Quaternion::Identity;
 
-        const ColliderComponent* collider = nullptr; // Collider床のときだけ
+        const class ColliderComponent* collider = nullptr; // Collider床のときだけ
         // GroundSource source = GroundSource::None; // 必要なら
     };
 
@@ -111,7 +104,7 @@ public:
 
 private:
     // サブステップ1回分の重力・接地処理
-    void StepGravityOnce(float deltaTime, ColliderComponent* footCollider);
+    void StepGravityOnce(float deltaTime, class ColliderComponent* footCollider);
 
     // 上昇中の天井押し戻し
     void ApplyCeilingClamp(Actor* owner);
@@ -119,7 +112,7 @@ private:
     // 地面法線に合わせた姿勢を計算してキャッシュを更新（※Actorへは反映しない）
     // groundedNow / wasGrounded を明示し、接地開始時の跳ねを抑える
     void UpdateGroundPoseCache(Actor* owner,
-                              const GroundHit& hit,
+                              const struct GroundHit& hit,
                               float deltaTime,
                               bool groundedNow,
                               bool wasGrounded);

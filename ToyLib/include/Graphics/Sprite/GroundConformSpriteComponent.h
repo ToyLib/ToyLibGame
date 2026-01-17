@@ -5,8 +5,6 @@
 
 namespace toy {
 
-class VertexArray;
-
 //------------------------------------------------------------------------------
 // GroundConformSpriteComponent
 //  - FootSprite を “地面の起伏に沿う” メッシュに差し替えて描画する派生
