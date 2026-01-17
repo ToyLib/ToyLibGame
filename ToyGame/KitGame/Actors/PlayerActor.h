@@ -128,4 +128,5 @@ private:
     toy::GravityComponent*      mGravComp { nullptr };
     toy::SoundComponent*        mSound    { nullptr };
     toy::SensorComponent*       mSensor   { nullptr };
+    toy::GroundConformSpriteComponent* mTargetSigne { nullptr };
 };

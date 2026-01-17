@@ -17,10 +17,12 @@ public:
 private:
     toy::SkeletalMeshComponent* meshComp;
     toy::SpriteComponent* mCandidateSigne;
-    toy::FootSpriteComponent* mTargetSigne;
+    toy::GroundConformSpriteComponent* mTargetSigne;
     toy::SpriteComponent* mLockOnSigne;
     toy::Actor* mTargetActor;
     toy::ColliderComponent* mCollider;
+    toy::PointLightComponent* mLight;
+    toy::Actor* mLightActor;
     
     toy::Actor* mNameActor;
     

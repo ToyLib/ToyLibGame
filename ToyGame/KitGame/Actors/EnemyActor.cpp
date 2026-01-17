@@ -37,16 +37,20 @@ EnemyActor::EnemyActor(toy::Application* a)
     mLockOnSigne->SetIsTopLeft(false);
     
     // 足元スプライト
-    mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
+    mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
     mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
     mTargetSigne->SetSize(5, 5);
     mTargetSigne->SetBlendAdd(true);
-    mTargetSigne->SetVisible(false);
-    mTargetSigne->SetSnapToGround(true);
-    mTargetSigne->SetAlignToGround(true);
-    mTargetSigne->SetUseSmoothGroundPose(true);
-    mTargetSigne->SetGroundLift(0.08f);
+    mTargetSigne->SetVisible(true);
+    mTargetSigne->SetGroundLift(0.04f);
+    mTargetSigne->SetGridDiv(4);              // まずは4で十分
+    mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
     
+    mLightActor = GetApp()->CreateActor<Actor>();
+    // ライト
+    mLight = mLightActor->CreateComponent<toy::PointLightComponent>();
+    mLight->SetColor(Vector3(1.0f, 0.5f, 1.0f));
+    mLight->SetEnabled(false);
     
     
     mEnemyName = "Ninja";
@@ -80,6 +84,11 @@ void EnemyActor::UpdateActor(float deltaTime)
     mCandidateSigne->SetVisible(false);
     mTargetSigne->SetVisible(false);
     mLockOnSigne->SetVisible(false);
+    mLight->SetEnabled(false);
+    auto pos = GetPosition();
+    mLightActor->SetPosition(Vector3(pos.x, pos.y+5, pos.z));
+    
+    
     if (mCollider->GetTargetState() == toy::TargetState::Candidate)
     {
         auto v = mCollider->GetCenterPosition();
@@ -103,12 +112,13 @@ void EnemyActor::UpdateActor(float deltaTime)
             //mCandidateSigne->SetVisible(true);
             mTargetSigne->SetVisible(true);
             mLockOnSigne->SetVisible(true);
+            mLight->SetEnabled(true);
+
         }
     }
 
     
     
-    Vector3 pos = GetPosition();
     mNameActor->SetPosition(Vector3(pos.x, pos.y+4.0f, pos.z));
 }
 

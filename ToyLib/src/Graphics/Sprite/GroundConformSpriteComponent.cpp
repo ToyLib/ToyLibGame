@@ -60,7 +60,7 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
         {
             refY = grav->GetGroundY();
         }
-        refCol = grav->GetGroundCollider(); // “乗ってる床”だけ
+        refCol = grav->GetGroundCollider(); // ★ここは grav がいる時だけ
     }
 
     //========================================
@@ -70,6 +70,7 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     {
         const Cube aabb = refCol->GetBoundingVolume()->GetWorldAABB();
 
+        // ★床の端のチラつきがあるなら 0.03〜0.06 に上げるのが効く
         const float kEdgeEps = 0.02f;
         const bool insideXZ =
             (pos.x >= aabb.min.x + kEdgeEps) && (pos.x <= aabb.max.x - kEdgeEps) &&
@@ -77,11 +78,11 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
 
         if (insideXZ)
         {
-            outHit.hit    = true;
-            outHit.y      = aabb.max.y;
-            outHit.pos    = Vector3(pos.x, outHit.y, pos.z);
-            outHit.normal = Vector3::UnitY;
-            outHit.source = GroundSource::Collider;
+            outHit.hit      = true;
+            outHit.y        = aabb.max.y;
+            outHit.pos      = Vector3(pos.x, outHit.y, pos.z);
+            outHit.normal   = Vector3::UnitY;
+            outHit.source   = GroundSource::Collider;
             outHit.collider = refCol;
             return true;
         }
@@ -89,8 +90,7 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     }
 
     //========================================
-    // (B) refCol が無い or 外に出た → 従来
-    // まず terrain 優先にしたいなら GetGroundHitAt
+    // (B) refCol が無い or 外に出た → terrain 優先
     //========================================
     GroundHit terrainHit;
     if (phys->GetGroundHitAt(pos, terrainHit))
@@ -99,9 +99,20 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
         return true;
     }
 
-    // collider フォールバック（任意：ここは今は入れなくてもOK）
-    // GroundHit anyHit;
-    // if (phys->GetNearestGroundHitAtXZ(pos, anyHit)) { outHit = anyHit; return true; }
+    //========================================
+    // (C) collider フォールバック（必要になったら）
+    //     ここを入れるなら “refYより上は捨てる” を追加するのが肝
+    //========================================
+    GroundHit anyHit;
+    if (phys->GetNearestGroundHitAtXZ(pos, anyHit))
+    {
+        const float kMaxAbove = 0.20f; // 0.1〜0.3 で調整
+        if (anyHit.y <= refY + kMaxAbove)
+        {
+            outHit = anyHit;
+            return true;
+        }
+    }
 
     return false;
 }
