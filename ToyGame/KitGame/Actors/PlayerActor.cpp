@@ -146,7 +146,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     
     
     mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
-    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
     mTargetSigne->SetSize(5, 5);
     mTargetSigne->SetBlendAdd(true);
     mTargetSigne->SetVisible(true);
