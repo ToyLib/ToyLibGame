@@ -21,7 +21,6 @@
         "${workspaceFolder}/ToyKit/include/**",
         "${workspaceFolder}/ToyLib/External/**",
         "${workspaceFolder}/ToyGame/**",
-        "/usr/local/include",
         "/opt/homebrew/include"
       ],
       "compilerPath": "/usr/bin/clang++",
