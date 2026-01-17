@@ -1,19 +1,3 @@
-//==============================================================================
-// FootSpriteComponent
-//  - Actor の足元に「地面に貼り付く板ポリ（スプライト）」を描く
-//  - 影（簡易シャドウ） / ロックオンリング / 範囲表示 / 足元エフェクト等の基底
-//
-// 描画の特徴
-//  - 3D空間上の板ポリ（Effect3D想定）
-//  - Sprite用のQuad（XY平面）を使い、X回転で地面（XZ）に寝かせる
-//  - Unlit シェーダ（Phong互換uniformあり）で描く前提
-//
-// 重要なポイント（Unlit互換）
-//  - uUseTint を FootSprite 側で必ず 1 にする：
-//      TextBillboard 等、同じ Unlit を使う別コンポーネントの「互換モード」を壊さないため。
-//  - uDiffuseColor は「テクスチャ無し運用」用の保険（将来用）
-//==============================================================================
-
 #pragma once
 #include "Graphics/VisualComponent.h"
 #include "Utils/MathUtil.h"
@@ -22,6 +6,21 @@
 
 namespace toy {
 
+class GravityComponent;
+
+//==============================================================================
+// FootSpriteComponent
+//  - Actor の足元に「地面に貼り付く板ポリ（スプライト）」を描く
+//  - 影（簡易シャドウ） / ロックオンリング / 範囲表示 / 足元エフェクト等の基底
+//
+// 両対応（ここが今回の追加）
+//  - SnapToGround  : 地面高さにスナップ（めり込み防止）
+//  - AlignToGround : 地面法線に沿って傾ける（斜面追従）
+//
+// 前提
+//  - GravityComponent がある Actor のみ「地面情報」を取得して追従する
+//  - Gravity が無い Actor は従来どおり “Ownerの位置” を使って描画
+//==============================================================================
 class FootSpriteComponent : public VisualComponent
 {
 public:
@@ -68,23 +67,40 @@ public:
 
     //--------------------------------------------------------------------------
     // Unlit parameters
-    //  - Tint/Alpha : ロックオンリングや影の濃さ調整などに使う
-    //  - DiffuseColor : テクスチャ無し運用用（色だけ出したい時）
     //--------------------------------------------------------------------------
     void SetTint(const Vector3& c) { mTint = c; }
     void SetAlpha(float a) { mAlpha = a; }
     void SetDiffuseColor(const Vector3& c) { mDiffuseColor = c; }
 
+    //--------------------------------------------------------------------------
+    // Ground follow options（★今回追加）
+    //--------------------------------------------------------------------------
+    // 地面高さにスナップ（めり込み防止）
+    void SetSnapToGround(bool on) { mSnapToGround = on; }
+    bool GetSnapToGround() const  { return mSnapToGround; }
+
+    // 地面法線に沿って傾ける（斜面追従）
+    void SetAlignToGround(bool on) { mAlignToGround = on; }
+    bool GetAlignToGround() const  { return mAlignToGround; }
+
+    // 少し浮かせる（Z-fighting/めり込み対策）
+    void SetGroundLift(float y) { mGroundLift = y; }
+    float GetGroundLift() const { return mGroundLift; }
+
+    // raw / smooth のどちらを使うか（GravityのGroundPoseキャッシュを使用）
+    //  - raw    : 即応（影向け）
+    //  - smooth : 見た目が滑らか（車/4本足向け）
+    void SetUseSmoothGroundPose(bool on) { mUseSmoothGroundPose = on; }
+    bool GetUseSmoothGroundPose() const  { return mUseSmoothGroundPose; }
+
 protected:
     //--------------------------------------------------------------------------
     // World matrix builder
-    //  - 派生クラスが「変形の仕方だけ」変えたい場合に override する
     //--------------------------------------------------------------------------
     virtual Matrix4 BuildWorldMatrix() const;
 
     //--------------------------------------------------------------------------
     // Pre/Post draw hooks
-    //  - 派生側で uYaw を計算する、アニメ的に OffsetScale を揺らす等
     //--------------------------------------------------------------------------
     virtual void PreDraw()  {}
     virtual void PostDraw() {}
@@ -101,6 +117,14 @@ protected:
     Vector3 mOffsetPosition = Vector3::Zero;
     float   mOffsetScale    = 1.0f;
     float   mYaw            = 0.0f;
+
+    //--------------------------------------------------------------------------
+    // Ground follow params（★今回追加）
+    //--------------------------------------------------------------------------
+    bool  mSnapToGround        = true;   // default: ON（めり込み対策）
+    bool  mAlignToGround       = false;  // default: OFF（リングは水平の方が見やすい）
+    bool  mUseSmoothGroundPose = false;  // default: raw（影はrawが自然）
+    float mGroundLift          = 0.02f;  // default: 少し浮かせる
 
     //--------------------------------------------------------------------------
     // Unlit parameters

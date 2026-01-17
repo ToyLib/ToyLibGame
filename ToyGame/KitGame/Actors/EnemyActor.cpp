@@ -40,9 +40,12 @@ EnemyActor::EnemyActor(toy::Application* a)
     mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
     mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
     mTargetSigne->SetSize(5, 5);
-    mTargetSigne->SetOffsetPosition(Vector3(0.0f, 0.1f, 0.0f));
     mTargetSigne->SetBlendAdd(true);
     mTargetSigne->SetVisible(false);
+    mTargetSigne->SetSnapToGround(true);
+    mTargetSigne->SetAlignToGround(true);
+    mTargetSigne->SetUseSmoothGroundPose(true);
+    mTargetSigne->SetGroundLift(0.08f);
     
     
     

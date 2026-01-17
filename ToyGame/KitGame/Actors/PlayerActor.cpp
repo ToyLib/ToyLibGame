@@ -142,6 +142,19 @@ PlayerActor::PlayerActor(toy::Application* a)
     mSound->SetSound("Hero/Walk.wav");
     mSound->SetVolume(0.5f);
     mSound->Enable3DSound(true);
+    
+    
+    
+    auto mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
+    mTargetSigne->SetSize(5, 5);
+    mTargetSigne->SetBlendAdd(true);
+    mTargetSigne->SetVisible(true);
+    mTargetSigne->SetSnapToGround(true);
+    mTargetSigne->SetAlignToGround(true);
+    mTargetSigne->SetUseSmoothGroundPose(true);
+    mTargetSigne->SetGroundLift(0.1f);
+    
 }
 
 PlayerActor::~PlayerActor() = default;
