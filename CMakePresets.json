@@ -10,9 +10,9 @@
     {
       "name": "windows-debug",
       "displayName": "Windows x64 Debug (vcpkg)",
-      "description": "Build with MSVC + Ninja, Debug, using vcpkg toolchain.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/windows-debug",
+      "description": "Build with MSVC + Visual Studio, Debug, using vcpkg toolchain.",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "C:/Repos/vcpkg/scripts/buildsystems/vcpkg.cmake",
@@ -28,9 +28,9 @@
     {
       "name": "windows-release",
       "displayName": "Windows x64 Release (vcpkg)",
-      "description": "Build with MSVC + Ninja, Release, using vcpkg toolchain.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/windows-release",
+      "description": "Build with MSVC + Visual Studio, Release, using vcpkg toolchain.",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "C:/Repos/vcpkg/scripts/buildsystems/vcpkg.cmake",
