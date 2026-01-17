@@ -83,6 +83,7 @@
 #include "Graphics/Billboard/TextBillboardComponent.h"
 #include "Graphics/Sprite/ShadowSpriteComponent.h"
 #include "Graphics/Sprite/FootSpriteComponent.h"
+#include "Graphics/Sprite/GroundConformSpriteComponent.h"
 
 
 // --- Effect 系 ---

@@ -56,6 +56,11 @@ public:
     // シャドウ描画を行うかどうか
     bool GetEnableShadow() const { return mEnableShadow; }
     void SetEnableShadow(const bool b) { mEnableShadow = b; }
+    
+    // 視錐台カリングを無効
+    void SetDisableFrustumCulling(bool b) { mDisableFrustumCulling = b; }
+    bool GetDisableFrustumCulling() const { return mDisableFrustumCulling; }
+
 
 protected:
     // メインテクスチャ
@@ -84,6 +89,9 @@ protected:
 
     // 描画に使う頂点配列（フルスクリーンクアッドなど）
     std::shared_ptr<class VertexArray> mVertexArray;
+    
+    // 視錐台カリングを無効
+    bool mDisableFrustumCulling = false;
 };
 
 } // namespace toy

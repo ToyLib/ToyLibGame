@@ -145,15 +145,21 @@ PlayerActor::PlayerActor(toy::Application* a)
     
     
     
-    auto mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
+    auto mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
     mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
     mTargetSigne->SetSize(5, 5);
     mTargetSigne->SetBlendAdd(true);
     mTargetSigne->SetVisible(true);
-    mTargetSigne->SetSnapToGround(true);
-    mTargetSigne->SetAlignToGround(true);
-    mTargetSigne->SetUseSmoothGroundPose(true);
-    mTargetSigne->SetGroundLift(0.1f);
+    //mTargetSigne->SetSnapToGround(true);
+    //mTargetSigne->SetAlignToGround(true);
+    //mTargetSigne->SetUseSmoothGroundPose(true);
+    mTargetSigne->SetGroundLift(0.5f);
+    mTargetSigne->SetGridDiv(4);              // まずは4で十分
+    //mTargetSigne->SetGroundLift(0.02f);       // めり込み防止
+    mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
+    //mTargetSigne->SetAlpha(0.9f);
+    
+
     
 }
 

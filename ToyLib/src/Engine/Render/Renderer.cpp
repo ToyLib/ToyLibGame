@@ -626,7 +626,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
         }
 
         // 3Dレイヤーのみフラスタムカリング（既存のまま）
-        if (is3DLayer)
+        if (!comp->GetDisableFrustumCulling() && is3DLayer)
         {
             Actor* owner = comp->GetOwner();
             if (owner)

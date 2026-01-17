@@ -75,6 +75,7 @@ PhysWorld::~PhysWorld() {}
 //=============================================================================
 bool PhysWorld::IsInPolygon(const Polygon* pl, const Vector3& p) const
 {
+    
     if (((pl->b.x - pl->a.x) * (p.z - pl->a.z) -
          (pl->b.z - pl->a.z) * (p.x - pl->a.x)) < 0.0f)
     {
@@ -92,6 +93,7 @@ bool PhysWorld::IsInPolygon(const Polygon* pl, const Vector3& p) const
     }
     return true;
 }
+
 
 float PhysWorld::PolygonHeight(const Polygon* pl, const Vector3& p) const
 {
@@ -476,6 +478,94 @@ bool PhysWorld::GetNearestGroundHit(const Actor* a, GroundHit& outHit) const
     outHit.source   = bestSource;
     outHit.collider = bestCol;
     outHit.yGap     = footY - highest;
+
+    return true;
+}
+
+bool PhysWorld::GetNearestGroundHitAtXZ(const Vector3& pos, GroundHit& outHit) const
+{
+    outHit = GroundHit{};
+
+    float highest = -std::numeric_limits<float>::max();
+    bool found = false;
+
+    GroundSource bestSource = GroundSource::None;
+    const ColliderComponent* bestCol = nullptr;
+    Vector3 bestPos = Vector3::Zero;
+    Vector3 bestNormal = Vector3::UnitY;
+
+    //==========================================
+    // 1) C_GROUND colliders（XZ点がAABB内なら候補）
+    //==========================================
+    for (auto* c : mColliders)
+    {
+        if (!c || !c->GetEnabled())
+        {
+            continue;
+        }
+        if (!c->HasAnyFlag(C_GROUND))
+        {
+            continue;
+        }
+
+        const Cube other = c->GetBoundingVolume()->GetWorldAABB();
+
+        // XZ 内点判定（端でのチラつき防止に少し内側）
+        const float kEdgeEps = 0.02f;
+        const bool insideXZ =
+            (pos.x >= other.min.x + kEdgeEps) && (pos.x <= other.max.x - kEdgeEps) &&
+            (pos.z >= other.min.z + kEdgeEps) && (pos.z <= other.max.z - kEdgeEps);
+
+        if (!insideXZ)
+        {
+            continue;
+        }
+
+        // “床”は上面
+        const float y = other.max.y;
+
+        if (y > highest)
+        {
+            highest = y;
+            found = true;
+
+            bestSource = GroundSource::Collider;
+            bestCol = c;
+            bestPos = Vector3(pos.x, y, pos.z);
+            bestNormal = Vector3::UnitY;
+        }
+    }
+
+    //==========================================
+    // 2) Terrain polygons（既存GetGroundHitAtを利用）
+    //==========================================
+    GroundHit terrainHit;
+    if (GetGroundHitAt(pos, terrainHit))
+    {
+        if (terrainHit.y > highest)
+        {
+            highest = terrainHit.y;
+            found = true;
+
+            bestSource = GroundSource::Terrain;
+            bestCol = nullptr;
+            bestPos = terrainHit.pos;     // (pos.x, y, pos.z)
+            bestNormal = terrainHit.normal;
+        }
+    }
+
+    if (!found)
+    {
+        return false;
+    }
+
+    outHit.hit      = true;
+    outHit.y        = highest;
+    outHit.pos      = bestPos;
+    outHit.normal   = bestNormal;
+    outHit.source   = bestSource;
+    outHit.collider = bestCol;
+    outHit.yGap     = 0.0f; // “足”基準ではない
 
     return true;
 }

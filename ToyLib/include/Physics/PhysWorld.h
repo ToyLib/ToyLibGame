@@ -159,6 +159,11 @@ public:
     bool GetNearestGroundY(const Actor* a, float& outY) const;
     bool GetNearestGroundHit(const Actor* a, GroundHit& outHit) const;
 
+    // 任意の XZ で、Collider床 + Terrain の「最も高い地面」を返す
+    // - outHit.pos は (pos.x, y, pos.z)
+    // - footCollider不要（Spriteなどにも使える）
+    bool GetNearestGroundHitAtXZ(const Vector3& pos, GroundHit& outHit) const;
+    
     // Ray
     bool RayHitWall(const Vector3& start, const Vector3& end, Vector3& hitPos) const;
 
