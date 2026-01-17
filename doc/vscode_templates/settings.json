@@ -1,0 +1,9 @@
+{
+  "[cpp]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+  },
+  "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.configurationProvider": "ms-vscode.cmake-tools",
+  "cmake.sourceDirectory": "${workspaceFolder}",
+  "cmake.buildDirectory": "${workspaceFolder}/build"
+}
