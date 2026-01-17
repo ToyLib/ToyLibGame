@@ -43,7 +43,7 @@ Rather than hiding everything behind heavy frameworks, ToyLib encourages you to
 - Input handling (keyboard, mouse, gamepad)
 - Math utilities (vectors, matrices, transforms)
 - Camera and scene utilities
-- OpenGL + SDL2 based
+- OpenGL + SDL3 based
 - Lightweight and easy to integrate into small projects
 
 ---
