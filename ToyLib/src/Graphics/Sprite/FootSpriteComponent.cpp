@@ -8,103 +8,101 @@
 #include "Asset/Geometry/VertexArray.h"
 
 #include "glad/glad.h"
-#include <algorithm>
 
 namespace toy {
 
 FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : VisualComponent(owner, drawOrder)
-    , mWidth(1.0f)
-    , mDepth(1.0f)
-    , mOffsetPosition(Vector3::Zero)
-    , mOffsetScale(1.0f)
-    , mYaw(0.0f)
-    , mTint(Vector3(1.0f, 1.0f, 1.0f))
-    , mAlpha(1.0f)
-    
 {
+    // 描画レイヤー（Effect3D想定：depth on & depth mask off）
     mLayer = layer;
+
+    // 表示ON
     mIsVisible = true;
+
+    // Unlit（Phong互換uniform名がある前提）
+    // TextBillboard 等も Unlit を使うので、FootSprite 側は “拡張モード” を明示して運用する
     mShader = owner->GetApp()->GetRenderer()->GetShader("Unlit");
 }
 
 void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
 {
-    mTexture = tex;
+    mTexture = std::move(tex);
 }
 
 Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 {
-    // ワールド単位サイズ
+    //--------------------------------------------------------------------------
+    // Scale
+    //  - Renderer::GetSpriteVerts() は「XY 平面の Quad」なので、
+    //    X回転で地面に寝かせると “Yスケールが奥行(Z)相当” になる。
+    //--------------------------------------------------------------------------
     Matrix4 scale = Matrix4::CreateScale(
-        mWidth  * mOffsetScale,
-        mDepth  * mOffsetScale,
+        mWidth * mOffsetScale,   // X = 幅
+        mDepth * mOffsetScale,   // Y = 奥行（寝かせた後 Z 相当）
         1.0f
     );
 
-    // 地面に寝かせる
+    // 地面に寝かせる（XY → XZ）
     Matrix4 rotX = Matrix4::CreateRotationX(Math::ToRadians(90.0f));
 
-    // Yaw
+    // 地面上の回転（Yaw）
     Matrix4 rotY = Matrix4::CreateRotationY(mYaw);
 
-    // 位置
+    // 位置（足元に貼る想定）
     Matrix4 trans = Matrix4::CreateTranslation(
         GetOwner()->GetPosition() + mOffsetPosition
     );
 
-    // ToyLib流（君の現状に合わせる）：scale * rotX * rotY * trans
+    // ToyLib 流（row-vector / SRT）：scale * rotX * rotY * trans
     return scale * rotX * rotY * trans;
 }
 
 void FootSpriteComponent::Draw()
 {
-    if (!mIsVisible) return;
-
-    auto* app = GetOwner()->GetApp();
-    auto renderer = app->GetRenderer();
-    if (!renderer)
+    if (!mIsVisible)
     {
         return;
     }
 
-    // Shader
-    if (!mShader)
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer || !mShader)
     {
         return;
     }
-    
-    // VAO（Rendererが持つSpriteVertsを流用）
+
+    // Quad（Sprite用）を流用
     auto vao = renderer->GetSpriteVerts();
-    if (!vao) return;
+    if (!vao)
+    {
+        return;
+    }
 
+    //--------------------------------------------------------------------------
     // Blend
+    //--------------------------------------------------------------------------
     glEnable(GL_BLEND);
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    }
-    else
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
+    glBlendFunc(
+        GL_SRC_ALPHA,
+        mIsBlendAdd ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA
+    );
 
     PreDraw();
 
+    //--------------------------------------------------------------------------
+    // Shader setup
+    //--------------------------------------------------------------------------
     mShader->SetActive();
 
-    // 共通：ViewProj / World
+    // 共通：World / ViewProj（ToyLib：view * proj）
     Matrix4 view = renderer->GetViewMatrix();
     Matrix4 proj = renderer->GetProjectionMatrix();
     mShader->SetMatrixUniform("uViewProj", view * proj);
     mShader->SetMatrixUniform("uWorldTransform", BuildWorldMatrix());
 
-    // 互換のため（使わなくてもOK）
-    // Unlit.vertが宣言しているなら、最低限ゼロでも渡しておくと安心
-    // ※無ければSetMatrixUniform側が無視する実装なら不要
-    // sh->SetMatrixUniform("uLightSpaceMatrix", Matrix4::Identity);
-
+    //--------------------------------------------------------------------------
     // Texture
+    //--------------------------------------------------------------------------
     const bool useTex = (mTexture != nullptr);
     if (useTex)
     {
@@ -112,11 +110,24 @@ void FootSpriteComponent::Draw()
         mShader->SetTextureUniform("uTexture", 0);
     }
 
-    // Unlit用（Meshシェーダなら存在しない可能性があるので、SetXXXが安全に無視できる前提）
+    //--------------------------------------------------------------------------
+    // Unlit uniforms
+    //
+    // 重要：uUseTint=1 を FootSprite 側で必ず入れる
+    //  - 同じ Unlit を使う TextBillboard 等は “互換モード（uUseTint=0）” で動かしたい
+    //  - FootSprite は tint/alpha を使う前提なので、ここで明示して事故を防ぐ
+    //--------------------------------------------------------------------------
+    mShader->SetIntUniform("uUseTint", 1);                // FootSpriteは常に拡張モード
     mShader->SetIntUniform("uUseTexture", useTex ? 1 : 0);
     mShader->SetVectorUniform("uTint", mTint);
     mShader->SetFloatUniform("uAlpha", mAlpha);
 
+    // テクスチャ無し運用（色だけ）に備えて常に渡しておく（Unlit側が未使用でもOK）
+    mShader->SetVectorUniform("uDiffuseColor", mDiffuseColor);
+
+    //--------------------------------------------------------------------------
+    // Draw
+    //--------------------------------------------------------------------------
     vao->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 

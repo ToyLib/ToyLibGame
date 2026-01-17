@@ -38,9 +38,11 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     // 足元スプライト
     mTargetSigne = CreateComponent<toy::FootSpriteComponent>();
-    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate_signe.png"));
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_signe.png"));
     mTargetSigne->SetSize(5, 5);
     mTargetSigne->SetOffsetPosition(Vector3(0.0f, 0.1f, 0.0f));
+    mTargetSigne->SetBlendAdd(true);
+    mTargetSigne->SetVisible(false);
     
     
     
@@ -73,6 +75,7 @@ void EnemyActor::UpdateActor(float deltaTime)
     EnemyAction(deltaTime);
     
     mCandidateSigne->SetVisible(false);
+    mTargetSigne->SetVisible(false);
     mLockOnSigne->SetVisible(false);
     if (mCollider->GetTargetState() == toy::TargetState::Candidate)
     {
@@ -82,7 +85,8 @@ void EnemyActor::UpdateActor(float deltaTime)
         if (scInfo.visible)
         {
             mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            mCandidateSigne->SetVisible(true);
+            //mCandidateSigne->SetVisible(true);
+            mTargetSigne->SetVisible(true);
         }
     }
     if (mCollider->GetTargetState() == toy::TargetState::Locked)
@@ -93,7 +97,8 @@ void EnemyActor::UpdateActor(float deltaTime)
         if (scInfo.visible)
         {
             mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            mCandidateSigne->SetVisible(true);
+            //mCandidateSigne->SetVisible(true);
+            mTargetSigne->SetVisible(true);
             mLockOnSigne->SetVisible(true);
         }
     }
