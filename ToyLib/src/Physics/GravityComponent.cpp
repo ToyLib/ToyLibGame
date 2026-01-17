@@ -1,44 +1,22 @@
+//======================================================================
+// GravityComponent.cpp
+//======================================================================
 #include "Physics/GravityComponent.h"
+
 #include "Engine/Core/Actor.h"
+#include "Engine/Core/Application.h"
 #include "Physics/ColliderComponent.h"
 #include "Physics/BoundingVolumeComponent.h"
 #include "Physics/PhysWorld.h"
-#include "Engine/Core/Application.h"
-
-#include <limits>
 
 namespace toy {
 
-//------------------------------------------------------------------------------
-// GravityComponent
-//------------------------------------------------------------------------------
-// ・Y方向の速度(mVelocityY)を積算し、足元(C_FOOT)基準で地面へスナップする。
-// ・重力は「ユニット/秒^2」、速度は「ユニット/秒」。
-// ・deltaTime が大きい環境でも破綻しにくいよう、内部でサブステップ更新する。
-//------------------------------------------------------------------------------
 GravityComponent::GravityComponent(Actor* a)
     : Component(a)
-    , mVelocityY(0.0f)
-    , mGravityAccel(-80.0f)
-    , mJumpSpeed(35.0f)
-    , mMaxFallSpeed(-40.0f)
-    , mMaxStepUp(0.35f)
-    , mMaxStepDown(0.75f)
-    , mPenetrationEps(0.05f)
-    , mEnableGroundPose(false)
-    , mIsGrounded(false)
-    , mSelfFlag(C_PLAYER_TEAM)
-    , mGroundCollider(nullptr)
-    , mPrevGroundPos(Vector3::Zero)
 {
+    // 既定値はヘッダ側のメンバ初期化に任せる
 }
 
-//------------------------------------------------------------------------------
-// Update
-//------------------------------------------------------------------------------
-// ・最大 120fps 相当の小ステップに分割し、重力/接地を安定させる。
-// ・最後に「上昇中の天井押し戻し」を行う（天井抜け防止）。
-//------------------------------------------------------------------------------
 void GravityComponent::Update(float deltaTime)
 {
     ColliderComponent* foot = FindFootCollider();
@@ -46,7 +24,7 @@ void GravityComponent::Update(float deltaTime)
     {
         return;
     }
-    
+
     float remaining = deltaTime;
     const float kMaxStep = 1.0f / 120.0f;
 
@@ -59,16 +37,10 @@ void GravityComponent::Update(float deltaTime)
 
     ApplyCeilingClamp(GetOwner());
 
-
+    // 保険（必要なら有効化）
+    // ApplyGroundDepenetration(GetOwner(), foot);
 }
 
-//------------------------------------------------------------------------------
-// StepGravityOnce
-//------------------------------------------------------------------------------
-// ・dt 分だけ重力を進める（サブステップ 1 回分）。
-// ・下向き速度のときのみ、地面(hit.y)へスナップを試みる。
-// ・スナップできなければ通常の自由落下として pos.y を更新。
-//------------------------------------------------------------------------------
 void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 {
     Actor* owner    = GetOwner();
@@ -86,13 +58,11 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     GroundHit hit;
     const bool hasGround = phys->GetNearestGroundHit(owner, hit);
 
-    // 足元（C_FOOT の AABB.min.y）で地面との距離を見る
+    // 足元（C_FOOT の AABB.min.y）
     float footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
 
     //============================================================
-    // ★ 床追従（同じ床に乗っている間は、床の移動Δに追従）
-    //   - 上昇床（エレベータ）対策：Yも含めて追従してOK
-    //   - 追従後は footY を取り直す
+    // 床追従（同じ床に乗っている間は、床の移動Δに追従）
     //============================================================
     if (hasGround &&
         mIsGrounded &&
@@ -101,7 +71,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         hit.collider->HasFlag(C_GROUND) &&
         hit.collider == mGroundCollider)
     {
-        // ※親子があるなら GetWorldPosition() 相当に置き換え推奨
         const Vector3 groundPos = hit.collider->GetOwner()->GetPosition();
         const Vector3 deltaG    = groundPos - mPrevGroundPos;
 
@@ -114,13 +83,11 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
     }
 
-    // 予測足位置（自分のY速度による次フレーム）
+    // 予測足位置
     const float nextFootY = footY + mVelocityY * deltaTime;
 
     //============================================================
-    // ★ 接地（スナップ）判定
-    //   - 通常：落下中(mVelocityY<=0)だけ
-    //   - 例外：同じ床に“乗り続けている”間は上昇中でも許可（上昇床対策）
+    // 接地（スナップ）判定
     //============================================================
     const bool allowSnap =
         (mVelocityY <= 0.0f) ||
@@ -134,9 +101,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     {
         const float groundY = hit.y;
 
-        // nextFootY に対して groundY がどれだけ上下にあるか
-        //  yGapNext > 0 : 地面が高い（段差/坂を拾う）
-        //  yGapNext < 0 : 地面が低い（落下して着地する）
         const float yGapNext = groundY - nextFootY;
 
         const float upLimit   = mMaxStepUp   + mPenetrationEps;
@@ -149,7 +113,7 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         if (canSnap)
         {
             //--------------------------------------------------------
-            // 床の“乗り換え”検出（初回だけ prev を同期）
+            // 床の“乗り換え”検出
             //--------------------------------------------------------
             if (hit.source == GroundSource::Collider &&
                 hit.collider &&
@@ -164,8 +128,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
                 }
                 else
                 {
-                    // 同じ床なら prev は床追従部で更新済みのはずだが、
-                    // 念のため同期しておく（差分ゼロになってもOK）
                     mPrevGroundPos = groundPos;
                 }
             }
@@ -175,9 +137,8 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             }
 
             //--------------------------------------------------------
-            // ★ Yだけスナップ（XZは保持して歩行を潰さない）
+            // Yだけスナップ（XZは保持）
             //--------------------------------------------------------
-            // 追従や他処理で足位置が変わっている可能性があるので再取得
             footY = foot->GetBoundingVolume()->GetWorldAABB().min.y;
 
             Vector3 cur = owner->GetPosition();
@@ -188,10 +149,19 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             mVelocityY  = 0.0f;
             mIsGrounded = true;
 
+            //--------------------------------------------------------
+            // ★ 地面姿勢は「常に」計算してキャッシュ
+            //--------------------------------------------------------
+            UpdateGroundPoseCache(owner, hit, deltaTime);
+
+            //--------------------------------------------------------
+            // ★ Actorへの反映は必要時だけ
+            //--------------------------------------------------------
             if (mEnableGroundPose)
             {
-                ApplyGroundPose(owner, hit, deltaTime);
+                owner->SetPoseRotation(mGroundPose.smooth);
             }
+
             return;
         }
     }
@@ -202,16 +172,17 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     mIsGrounded = false;
     mGroundCollider = nullptr;
 
+    // ground pose は無効化（誤使用防止）
+    mGroundPose.valid    = false;
+    mGroundPose.grounded = false;
+    mGroundPose.collider = nullptr;
+
     // 自由落下（Yのみ）
     pos = owner->GetPosition();
     pos.y += mVelocityY * deltaTime;
     owner->SetPosition(pos);
 }
-//------------------------------------------------------------------------------
-// ApplyCeilingClamp
-//------------------------------------------------------------------------------
-// ・上昇中のみ、天井(C_CEILING)にめり込んだら押し戻して上向き速度を止める。
-//------------------------------------------------------------------------------
+
 void GravityComponent::ApplyCeilingClamp(Actor* owner)
 {
     if (!owner) return;
@@ -237,21 +208,29 @@ void GravityComponent::ApplyCeilingClamp(Actor* owner)
     }
 }
 
-//------------------------------------------------------------------------------
-// ApplyGroundPose
-//------------------------------------------------------------------------------
-// ・地面法線(hit.normal)に合わせた「ポーズ回転」を作り、Slerp で滑らかに補間。
-// ・ワールドの normal を、Actor のローカル基準へ落としてから Up と比較する。
-//------------------------------------------------------------------------------
-void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float deltaTime)
+void GravityComponent::UpdateGroundPoseCache(Actor* owner, const GroundHit& hit, float deltaTime)
 {
-    // 1) ワールド normal → ローカル normal
+    if (!owner) return;
+
+    mGroundPose.valid    = true;
+    mGroundPose.grounded = true;
+    mGroundPose.y        = hit.y;
+    mGroundPose.normal   = hit.normal;
+    mGroundPose.collider = hit.collider; // Collider床じゃなければ nullptr でもOK
+
+    // -----------------------------
+    // ApplyGroundPose の「計算部分」を移植
+    // -----------------------------
+
+    // 1) ワールド normal → ローカル normal（Actor回転基準）
     Quaternion inv = owner->GetRotation();
     inv.Conjugate();
 
     Vector3 localNormal = Vector3::Transform(hit.normal, inv);
     if (localNormal.LengthSq() < Math::NearZeroEpsilon)
     {
+        mGroundPose.raw = Quaternion::Identity;
+        // smooth は据え置き（急にIdentityに戻すと見た目が跳ねる）
         return;
     }
     localNormal.Normalize();
@@ -264,8 +243,8 @@ void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float
 
     const float angle = Math::Acos(dot);
 
-    // 3) 目標ポーズ
-    Quaternion targetPose = Quaternion::Identity;
+    // 3) 目標ポーズ（raw）
+    Quaternion target = Quaternion::Identity;
 
     if (angle >= 0.001f)
     {
@@ -273,36 +252,33 @@ void GravityComponent::ApplyGroundPose(Actor* owner, const GroundHit& hit, float
         if (axis.LengthSq() > Math::NearZeroEpsilon)
         {
             axis.Normalize();
-            targetPose = Quaternion(axis, angle); // angle は rad 前提
+            target = Quaternion(axis, angle);
         }
     }
 
-    // 4) 補間（速度は好みで調整）
+    mGroundPose.raw = target;
+
+    // 4) 補間（smooth）
     const float poseLerpSpeed = 12.0f;
     const float t = Math::Clamp(deltaTime * poseLerpSpeed, 0.0f, 1.0f);
 
-    const Quaternion currentPose = owner->GetPoseRotation();
-    const Quaternion smoothPose  = Quaternion::Slerp(currentPose, targetPose, t);
-
-    owner->SetPoseRotation(smoothPose);
+    // 初回接地時：smooth を raw に同期して跳ねを減らす
+    if (!mIsGrounded)
+    {
+        mGroundPose.smooth = target;
+    }
+    else
+    {
+        mGroundPose.smooth = Quaternion::Slerp(mGroundPose.smooth, target, t);
+    }
 }
 
 void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot)
 {
-    if (!owner)
-    {
-        return;
-    }
-    if (!foot)
-    {
-        return;
-    }
+    if (!owner || !foot) return;
 
     PhysWorld* phys = owner->GetApp()->GetPhysWorld();
-    if (!phys)
-    {
-        return;
-    }
+    if (!phys) return;
 
     GroundHit hit;
     if (!phys->GetNearestGroundHit(owner, hit))
@@ -310,25 +286,19 @@ void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent*
         return;
     }
 
-    // 足元のAABB min.y が「足の高さ基準」
     const Cube box   = foot->GetBoundingVolume()->GetWorldAABB();
     const float footY = box.min.y;
 
-    // yGap = footY - groundY
     const float yGap = footY - hit.y;
 
-    // 足が地面より下（潜っている）なら引き上げる
-    // ここは “保険” なので、過剰に動かさず eps を超えたらだけ直す
     if (yGap < -mPenetrationEps)
     {
         Vector3 pos = owner->GetPosition();
 
-        // Actor原点→足元のオフセットを維持したまま、足を groundY に乗せる
         const float offset = pos.y - footY;
         pos.y = hit.y + offset + 0.001f;
         owner->SetPosition(pos);
 
-        // 下向き速度は止めておく（落下中の潜り救済）
         if (mVelocityY < 0.0f)
         {
             mVelocityY = 0.0f;
@@ -336,34 +306,27 @@ void GravityComponent::ApplyGroundDepenetration(Actor* owner, ColliderComponent*
 
         mIsGrounded = true;
 
-        if (mEnableGroundPose)
-        {
-            // dt が無いので “軽く追従” させたい場合は固定値でもOK
-            // ここでは Update() 側から dt を渡す版にしてもいい
-            // ApplyGroundPose(owner, hit, /*dt=*/0.016f);
-        }
+        // ここで ground pose を更新したいなら dt が必要なので、
+        // Update() から呼ぶ版にするか、固定dtで更新する
+        // UpdateGroundPoseCache(owner, hit, 1.0f/60.0f);
+        // if (mEnableGroundPose) owner->SetPoseRotation(mGroundPose.smooth);
     }
 }
 
-//------------------------------------------------------------------------------
-// Jump
-//------------------------------------------------------------------------------
-// ・接地中のみジャンプ可能。
-//------------------------------------------------------------------------------
 void GravityComponent::Jump()
 {
     if (mIsGrounded)
     {
         mVelocityY  = mJumpSpeed;
         mIsGrounded = false;
+
+        // ジャンプした瞬間は ground pose は無効化しておくと誤参照を防げる
+        mGroundPose.valid    = false;
+        mGroundPose.grounded = false;
+        mGroundPose.collider = nullptr;
     }
 }
 
-//------------------------------------------------------------------------------
-// FindFootCollider
-//------------------------------------------------------------------------------
-// ・Owner が持つ ColliderComponent のうち、C_FOOT を持つものを返す。
-//------------------------------------------------------------------------------
 ColliderComponent* GravityComponent::FindFootCollider()
 {
     for (auto* comp : GetOwner()->GetAllComponents<ColliderComponent>())

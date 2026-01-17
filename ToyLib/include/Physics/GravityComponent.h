@@ -1,6 +1,10 @@
+//======================================================================
+// GravityComponent.h
+//======================================================================
 #pragma once
 
 #include "Engine/Core/Component.h"
+#include "Utils/MathUtil.h"
 #include <cstdint>
 
 namespace toy {
@@ -9,6 +13,8 @@ class Actor;
 class ColliderComponent;
 struct GroundHit;
 
+enum class GroundSource; // GroundHit 側にある前提（無ければ削除OK）
+
 //------------------------------------------------------------------------------
 // GravityComponent
 //------------------------------------------------------------------------------
@@ -16,7 +22,8 @@ struct GroundHit;
 // ・足元（C_FOOT Collider）の AABB(min.y) を基準に、PhysWorld の地面判定から
 //   「次の足元位置」と「地面の高さ」の差を見て、スナップ接地／落下を処理する。
 // ・deltaTime は内部で小ステップに分割して処理し、低FPSでも判定が破綻しにくい。
-// ・必要なら地面法線に合わせてポーズ（PoseRotation）を滑らかに補正する。
+// ・地面情報（高さ/法線/姿勢Quaternion）は常にキャッシュし、外部から参照できる。
+// ・Actor の PoseRotation 反映は必要なときだけ（mEnableGroundPose=true）。
 // ・上昇中は天井（C_CEILING）を検出して押し戻し、上向き速度をクランプする。
 //------------------------------------------------------------------------------
 class GravityComponent : public Component
@@ -58,16 +65,40 @@ public:
     void  SetPenetrationEps(float v) { mPenetrationEps = v; }
     float GetPenetrationEps() const  { return mPenetrationEps; }
 
+    // Actor の PoseRotation を地面に合わせるか（見た目用）
     void SetEnableGroundPose(bool b) { mEnableGroundPose = b; }
     bool GetEnableGroundPose() const { return mEnableGroundPose; }
 
     //--------------------------------------------------------------------------
     // 状態参照
     //--------------------------------------------------------------------------
-    bool  IsGrounded() const { return mIsGrounded; }
+    bool  IsGrounded()  const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
-    
+
     const ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
+
+    //--------------------------------------------------------------------------
+    // Ground pose cache（外部参照用）
+    //--------------------------------------------------------------------------
+    struct GroundPose
+    {
+        bool valid    = false;               // 情報が有効か（接地成立時のみ true）
+        bool grounded = false;               // 接地中か
+        float   y      = 0.0f;               // ground height
+        Vector3 normal = Vector3::UnitY;     // world normal
+
+        // “地面に沿う姿勢”
+        // raw    : 即応（遅れ無し。影/ロックオンリング向け）
+        // smooth : 補間済み（車/4本足など見た目用）
+        Quaternion raw    = Quaternion::Identity;
+        Quaternion smooth = Quaternion::Identity;
+
+        const ColliderComponent* collider = nullptr; // Collider床のときだけ
+        //GroundSource source = GroundSource::None; // 必要なら使う（未使用でもOK）
+    };
+
+    const GroundPose& GetGroundPose() const { return mGroundPose; }
+    bool HasGroundPose() const { return mGroundPose.valid; }
 
 private:
     // サブステップ1回分の重力・接地処理
@@ -76,12 +107,12 @@ private:
     // 上昇中の天井押し戻し
     void ApplyCeilingClamp(Actor* owner);
 
-    // 地面法線に合わせたポーズ補正
-    void ApplyGroundPose(Actor* owner, const GroundHit& hit, float deltaTime);
+    // 地面法線に合わせた姿勢を計算してキャッシュを更新（※Actorへは反映しない）
+    void UpdateGroundPoseCache(Actor* owner, const GroundHit& hit, float deltaTime);
 
     // C_FOOT を持つ ColliderComponent を探す
     ColliderComponent* FindFootCollider();
-    
+
     // フレーム終端の保険：
     // 「地面に潜っていたら」最小限だけ引き上げて整合を取る
     void ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot);
@@ -109,9 +140,13 @@ private:
     float mMaxStepUp      = 0.35f;
     float mMaxStepDown    = 0.75f;
     float mPenetrationEps = 0.05f;
-    
-    const ColliderComponent* mGroundCollider = nullptr;  // 今乗ってる C_GROUND
-    Vector3 mPrevGroundPos = Vector3::Zero;        // 前回の床位置（ワールド）
+
+    // 今乗ってる床（Collider床）
+    const ColliderComponent* mGroundCollider = nullptr;
+    Vector3 mPrevGroundPos = Vector3::Zero;
+
+    // 地面情報キャッシュ
+    GroundPose mGroundPose;
 };
 
 } // namespace toy

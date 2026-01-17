@@ -119,7 +119,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     //   - GroundPose は無効（アニメは自前で制御）
     //==================================================================
     mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
+    mGravComp->SetEnableGroundPose(true);
 
     //==================================================================
     // 8) SensorComponent
