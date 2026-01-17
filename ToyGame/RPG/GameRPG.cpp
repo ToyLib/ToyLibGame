@@ -18,7 +18,7 @@ GameRPG::GameRPG()
 
 GameRPG::~GameRPG()
 {
-    
+
 }
 
 void GameRPG::InitGame()
