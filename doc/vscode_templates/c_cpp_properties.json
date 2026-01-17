@@ -16,18 +16,21 @@
       "configurationProvider": "ms-vscode.cmake-tools"
     },
     {
-      "name": "macOS",
+      "name": "macos",
       "includePath": [
         "${workspaceFolder}/ToyLib/include/**",
         "${workspaceFolder}/ToyKit/include/**",
         "${workspaceFolder}/ToyLib/External/**",
         "${workspaceFolder}/ToyGame/**",
-        "/opt/homebrew/include"
+        "/opt/homebrew/include/**",
+        "/opt/homebrew/opt/openal-soft/include",
+        "/opt/homebrew/opt/SDL3/include"
       ],
       "compilerPath": "/usr/bin/clang++",
       "cStandard": "c17",
       "cppStandard": "c++20",
-      "intelliSenseMode": "macos-clang-x64"
+      "intelliSenseMode": "macos-clang-x64",
+      "configurationProvider": "ms-vscode.cmake-tools"
     },
     {
       "name": "Linux",
