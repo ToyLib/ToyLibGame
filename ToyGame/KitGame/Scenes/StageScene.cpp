@@ -36,7 +36,7 @@ void StageScene::InitScene()
         []()
         {
             // 閉じたときのコールバック（とりあえずログ）
-            SDL_Log("MessageBox closed.");
+            std::cerr << "MessageBox closed." << std::endl;
 
         }
     );    
