@@ -146,7 +146,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     
     
     mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
-    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
+    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate.png"));
     mTargetSigne->SetSize(5, 5);
     mTargetSigne->SetBlendAdd(false);
     mTargetSigne->SetAlpha(0.8f);

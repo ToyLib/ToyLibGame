@@ -26,32 +26,28 @@ EnemyActor::EnemyActor(toy::Application* a)
     CreateComponent<toy::GravityComponent>();
     
     
-    mTargetActor = GetApp()->CreateActor<toy::Actor>();
-    mCandidateSigne = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
-    mCandidateSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate_signe.png"));
-    mCandidateSigne->SetBlendAdd(false);
-    mCandidateSigne->SetIsTopLeft(false);
-    mLockOnSigne = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
-    mLockOnSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
-    mLockOnSigne->SetBlendAdd(false);
-    mLockOnSigne->SetIsTopLeft(false);
-    
     // 足元スプライト
-    mTargetSigne = CreateComponent<toy::GroundConformSpriteComponent>();
-    mTargetSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target_scope.png"));
-    mTargetSigne->SetSize(5, 5);
-    mTargetSigne->SetBlendAdd(false);
-	mTargetSigne->SetAlpha(0.8f);
-    mTargetSigne->SetVisible(true);
-    mTargetSigne->SetGroundLift(0.2f);
-    mTargetSigne->SetGridDiv(4);              // まずは4で十分
-    mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
+    mLockOnSigne = CreateComponent<toy::GroundConformSpriteComponent>();
+    mLockOnSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/lockon.png"));
+    mLockOnSigne->SetSize(5, 5);
+    mLockOnSigne->SetAlpha(1.0f);
+    mLockOnSigne->SetVisible(true);
+    mLockOnSigne->SetGroundLift(0.2f);
+    mLockOnSigne->SetGridDiv(4);              // まずは4で十分
+    mLockOnSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
+    mLockOnSigne->SetBlendAdd(false);
+
+    // 足元スプライト
+    mCandidateSigne = CreateComponent<toy::GroundConformSpriteComponent>();
+    mCandidateSigne->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/candidate.png"));
+    mCandidateSigne->SetSize(5, 5);
+    mCandidateSigne->SetBlendAdd(false);
+    mCandidateSigne->SetAlpha(0.8f);
+    mCandidateSigne->SetVisible(true);
+    mCandidateSigne->SetGroundLift(0.2f);
+    mCandidateSigne->SetGridDiv(4);              // まずは4で十分
+    mCandidateSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
     
-    mLightActor = GetApp()->CreateActor<Actor>();
-    // ライト
-    mLight = mLightActor->CreateComponent<toy::PointLightComponent>();
-    mLight->SetColor(Vector3(1.0f, 0.5f, 1.0f));
-    mLight->SetEnabled(false);
     
     
     mEnemyName = "Ninja";
@@ -73,7 +69,6 @@ EnemyActor::EnemyActor(toy::Application* a)
 
 EnemyActor::~EnemyActor()
 {
-    mTargetActor->SetState(toy::Actor::State::Dead);
     mNameActor->SetState(toy::Actor::State::Dead);
 }
 
@@ -83,11 +78,8 @@ void EnemyActor::UpdateActor(float deltaTime)
     EnemyAction(deltaTime);
     
     mCandidateSigne->SetVisible(false);
-    mTargetSigne->SetVisible(false);
     mLockOnSigne->SetVisible(false);
-    mLight->SetEnabled(false);
     auto pos = GetPosition();
-    mLightActor->SetPosition(Vector3(pos.x, pos.y+5, pos.z));
     
     
     if (mCollider->GetTargetState() == toy::TargetState::Candidate)
@@ -97,9 +89,7 @@ void EnemyActor::UpdateActor(float deltaTime)
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
         if (scInfo.visible)
         {
-            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            //mCandidateSigne->SetVisible(true);
-            mTargetSigne->SetVisible(true);
+            mCandidateSigne->SetVisible(true);
         }
     }
     if (mCollider->GetTargetState() == toy::TargetState::Locked)
@@ -109,12 +99,7 @@ void EnemyActor::UpdateActor(float deltaTime)
         auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
         if (scInfo.visible)
         {
-            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            //mCandidateSigne->SetVisible(true);
-            mTargetSigne->SetVisible(true);
             mLockOnSigne->SetVisible(true);
-            mLight->SetEnabled(true);
-
         }
     }
 

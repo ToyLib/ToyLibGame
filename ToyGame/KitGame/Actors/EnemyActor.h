@@ -16,13 +16,9 @@ public:
     using EnemyActionFn = std::function<void(float)>;
 private:
     toy::SkeletalMeshComponent* meshComp;
-    toy::SpriteComponent* mCandidateSigne;
-    toy::GroundConformSpriteComponent* mTargetSigne;
-    toy::SpriteComponent* mLockOnSigne;
-    toy::Actor* mTargetActor;
+    toy::GroundConformSpriteComponent* mCandidateSigne;
+    toy::GroundConformSpriteComponent* mLockOnSigne;
     toy::ColliderComponent* mCollider;
-    toy::PointLightComponent* mLight;
-    toy::Actor* mLightActor;
     
     toy::Actor* mNameActor;
     
