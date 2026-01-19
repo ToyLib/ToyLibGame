@@ -53,7 +53,7 @@ HeroActor::HeroActor(toy::Application* a)
     Vector3 vScale;
     JsonHelper::GetVector3(json["collider"], "bounding_box_scale", vScale);
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
-    mCollComp->SetFlags(toy::C_FOOT | toy::C_PLAYER_TEAM);
+    mCollComp->SetFlags(toy::C_FOOT | toy::C_BODY | toy::C_PLAYER_TEAM);
     mCollComp->SetEnabled(true);
 
     

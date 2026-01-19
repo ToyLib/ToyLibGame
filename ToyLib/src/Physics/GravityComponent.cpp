@@ -13,7 +13,7 @@ namespace toy {
 
 GravityComponent::GravityComponent(Actor* a)
     : Component(a)
-    , mSelfFlag(0)
+    , mSelfFlag(C_BODY)
     , mVelocityY(0.0f)
     , mGravityAccel(-80.0f)
     , mJumpSpeed(35.0f)
@@ -29,28 +29,27 @@ GravityComponent::GravityComponent(Actor* a)
 
 }
 
-void GravityComponent::Update(float deltaTime)
+void GravityComponent::Update(float dt)
 {
     ColliderComponent* foot = FindFootCollider();
-    if (!foot)
-    {
-        return;
-    }
+    if (!foot) return;
 
-    float remaining = deltaTime;
+    // ★暫定：最低限、足で moverFlag を成立させる（まず動く状態にする）
+    if (mSelfFlag == 0)
+        mSelfFlag = C_FOOT; // もしくは C_PLAYER / C_BODY 推奨
+
+    float remaining = dt;
     const float kMaxStep = 1.0f / 120.0f;
-
+    
     while (remaining > 0.0f)
     {
-        float step = (remaining > kMaxStep) ? kMaxStep : remaining;
+        float step = std::min(remaining, kMaxStep);
+
         StepGravityOnce(step, foot);
+        ApplyCeilingClamp(GetOwner()); // ★ここ
+
         remaining -= step;
     }
-
-    ApplyCeilingClamp(GetOwner());
-
-    // 保険（必要なら有効化）
-    // ApplyGroundDepenetration(GetOwner(), foot);
 }
 
 void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
@@ -227,32 +226,18 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
 void GravityComponent::ApplyCeilingClamp(Actor* owner)
 {
-    if (!owner)
-    {
+    if (!owner || mVelocityY <= 0.0f)
         return;
-    }
-    
-    // 上昇中のみ
-    if (mVelocityY <= 0.0f)
-    {
-        return;
-    }
 
     auto* phys = owner->GetApp()->GetPhysWorld();
 
     Vector3 push = Vector3::Zero;
-    if (phys->ResolveCeiling(owner, mSelfFlag, C_CEILING, push))
+    if (phys->ResolveCeiling(owner, C_BODY, C_CEILING, push))
     {
         owner->SetPosition(owner->GetPosition() + push);
-
-        // 下向きに押された = 天井ヒット
-        if (push.y < -0.0001f)
-        {
-            mVelocityY = 0.0f;
-        }
+        mVelocityY = 0.0f; // 天井ヒット確定
     }
 }
-
 void GravityComponent::UpdateGroundPoseCache(Actor* owner,
                                              const GroundHit& hit,
                                              float deltaTime,
