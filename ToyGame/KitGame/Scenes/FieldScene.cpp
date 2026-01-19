@@ -18,10 +18,12 @@ void FieldScene::InitScene()
     //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
     
+    
     // 時間の設定
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(0.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
-    
+    GetApp()->GetTimeOfDaySystem()->SetTime(8.0f, 30.0f);
+
+   
     
     // BGM
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.mp3");
@@ -123,7 +125,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::RAIN);
 }
 
 
