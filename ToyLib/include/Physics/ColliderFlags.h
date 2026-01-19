@@ -45,7 +45,7 @@ enum ColliderFlags : uint32_t
     // Sensor
     C_SENSOR      = 1u << 8,
 
-    // Physics body（★追加）
+    // Physics body
     C_BODY        = 1u << 9
 };
 
