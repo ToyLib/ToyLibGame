@@ -133,24 +133,24 @@ private:
     //--------------------------------------------------------------------------
     // 速度・状態
     //--------------------------------------------------------------------------
-    float mVelocityY    = 0.0f;
-    float mGravityAccel = -80.0f;
-    float mJumpSpeed    = 35.0f;
-    float mMaxFallSpeed = -40.0f;
+    float mVelocityY;
+    float mGravityAccel;
+    float mJumpSpeed;
+    float mMaxFallSpeed;
 
-    bool  mIsGrounded       = false;
-    bool  mEnableGroundPose = false;
+    bool  mIsGrounded;
+    bool  mEnableGroundPose;
 
     //--------------------------------------------------------------------------
     // スナップ許容パラメータ
     //--------------------------------------------------------------------------
-    float mMaxStepUp      = 0.35f;
-    float mMaxStepDown    = 0.75f;
-    float mPenetrationEps = 0.05f;
+    float mMaxStepUp;
+    float mMaxStepDown;
+    float mPenetrationEps;
 
     // 今乗ってる床（Collider床）
-    const ColliderComponent* mGroundCollider = nullptr;
-    Vector3 mPrevGroundPos = Vector3::Zero;
+    const ColliderComponent* mGroundCollider;
+    Vector3 mPrevGroundPos;
 
     // 地面情報キャッシュ
     GroundPose mGroundPose;

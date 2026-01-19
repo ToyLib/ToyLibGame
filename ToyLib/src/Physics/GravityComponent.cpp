@@ -13,8 +13,20 @@ namespace toy {
 
 GravityComponent::GravityComponent(Actor* a)
     : Component(a)
+    , mSelfFlag(0)
+    , mVelocityY(0.0f)
+    , mGravityAccel(-80.0f)
+    , mJumpSpeed(35.0f)
+    , mMaxFallSpeed(-40.0f)
+    , mIsGrounded(false)
+    , mEnableGroundPose(false)
+    , mMaxStepUp(0.35f)
+    , mMaxStepDown(0.75f)
+    , mPenetrationEps(0.05f)
+    , mGroundCollider(nullptr)
+    , mPrevGroundPos(Vector3::Zero)
 {
-    // 既定値はヘッダ側のメンバ初期化に任せる
+
 }
 
 void GravityComponent::Update(float deltaTime)
