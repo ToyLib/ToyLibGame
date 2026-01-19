@@ -57,6 +57,13 @@ bool Application::LoadSettings(const std::string& filePath)
         JsonHelper::GetInt(data["screen"], "screen_height", mScreenHeight);
     }
     
+    //---------------------------------------------------------
+    // デバッグ
+    //   "debug": true/false
+    //---------------------------------------------------------
+    JsonHelper::GetBool(data["debug"], "enabled", mEnableDebug);
+
+    
     std::cerr << "Loaded Application settings from "
               << filePath.c_str() << std::endl;
     return true;

@@ -37,6 +37,8 @@ Application::Application()
     , mTargetAspect(16.0f / 9.0f)
     , mLockAspect(true)
     , mIsAdjustingSize(false)
+    , mEnableDebug(false)
+    , mEnableDebugWire(false)
 {
     mRenderer      = std::make_unique<Renderer>();
     mInputSys      = std::make_unique<InputSystem>();
@@ -160,8 +162,10 @@ bool Application::Initialize()
     mTicksCount = SDL_GetTicksNS(); // ★ NS で統一
     
     
-    CreateActor<toy::DebugOverlayActor>();
-
+    if (mEnableDebug)
+    {
+        CreateActor<toy::DebugOverlayActor>();
+    }
     return true;
 }
 

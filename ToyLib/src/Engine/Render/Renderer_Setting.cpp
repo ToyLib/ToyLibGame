@@ -62,16 +62,7 @@ bool Renderer::LoadSettings(const std::string& filePath)
     //   "perspectiveFOV": 45.0
     //---------------------------------------------------------
     JsonHelper::GetFloat(data, "perspectiveFOV", mPerspectiveFOV);
-    
-    //---------------------------------------------------------
-    // デバッグモード
-    //   "debug": { "enabled": true }
-    //---------------------------------------------------------
-    if (data.contains("debug"))
-    {
-        JsonHelper::GetBool(data["debug"], "enabled", mIsDebugMode);
-    }
-    
+        
     //---------------------------------------------------------
     // クリアカラー（背景色）
     //   "clearColor": [0.2, 0.5, 0.8]

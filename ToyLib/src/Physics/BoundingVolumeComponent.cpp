@@ -29,7 +29,7 @@ BoundingVolumeComponent::BoundingVolumeComponent(Actor* a)
     mBoundingBox = std::make_shared<Cube>();
     mObb         = std::make_shared<OBB>();    
     // デバッグ時のみワイヤーフレームを生成して可視化
-    if (GetOwner()->GetApp()->GetRenderer()->GetDebugMode())
+    if (GetOwner()->GetApp()->GetEnableDebug())
     {
         mWireframe = std::make_unique<DebugWireframeComponent>(GetOwner(), 1000);
         Vector3 color = GetOwner()->GetApp()->GetRenderer()->GetWireColor();

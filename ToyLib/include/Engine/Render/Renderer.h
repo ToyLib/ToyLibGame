@@ -117,12 +117,6 @@ public:
     void SetWireColor(const Vector3& color) { mWireColor = color; }
     const Vector3& GetWireColor() const { return mWireColor; }
 
-    void SetDebugMode(bool b) { mIsDebugMode = b; }
-    bool GetDebugMode() const { return mIsDebugMode; }
-
-    void SetDebugWireVisible(bool b) { mIsDebugWireVisible = b; }
-    bool GetDebugWireVisible() const { return mIsDebugWireVisible; }
-
     void AddDrawCall() { ++mDebugActiveScreen->drawCallCount; }
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
@@ -317,11 +311,6 @@ private:
     Vector3 mClearColor;
     Vector3 mWireColor;
 
-    bool mIsDebugWireVisible = false;
-    bool mIsDebugMode        = false;
-
-    //unsigned int mDrawObjectCount = 0;
-    //unsigned int mDrawCallCount   = 0;
     DebugInfo mDebugOnScreen;
     DebugInfo mDebugRTT;
     DebugInfo* mDebugActiveScreen = &mDebugOnScreen;

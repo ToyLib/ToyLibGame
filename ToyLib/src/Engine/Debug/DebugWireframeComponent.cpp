@@ -42,7 +42,7 @@ void DebugWireframeComponent::Draw()
     }
 
     // Renderer 側のデバッグ表示フラグを確認
-    if (!app->GetRenderer()->GetDebugWireVisible())
+    if (!app->GetEnableDebugWire())
     {
         return;
     }

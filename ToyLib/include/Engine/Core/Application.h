@@ -66,6 +66,10 @@ public:
     //-----------------------------------------
     DebugStats&       GetDebugStats()       { return mDebugStats; }
     const DebugStats& GetDebugStats() const { return mDebugStats; }
+    bool GetEnableDebug()             const { return mEnableDebug; }
+    void SetEnableDebug(const bool b)       { mEnableDebug = b; }
+    bool GetEnableDebugWire()         const { return mEnableDebugWire; }
+    void SetEnableDebuWire(const bool b)    { mEnableDebugWire = b; }
 
     
 protected:
@@ -142,6 +146,8 @@ private:
     // デバッグ情報
     //-----------------------------------------
     DebugStats mDebugStats;
+    bool mEnableDebug;
+    bool mEnableDebugWire;
     
     //-----------------------------------------
     // 設定読み込み

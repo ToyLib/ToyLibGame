@@ -56,7 +56,7 @@ void DebugOverlayActor::SetEnabled(bool enabled)
 void DebugOverlayActor::SetWireVisible(bool visible)
 {
     mWireVisible = visible;
-    GetApp()->GetRenderer()->SetDebugWireVisible(visible);
+    GetApp()->SetEnableDebuWire(mWireVisible);
 }
 
 
@@ -67,10 +67,10 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     auto* app   = GetApp();
     auto& stats = app->GetDebugStats();
 
-
-
-    if (!mEnabled || !mTextComp || !mBgSprite) return;
-
+    if (!mEnabled || !mTextComp || !mBgSprite)
+    {
+        return;
+    }
 
     // 表示文字列を組み立て（\n で改行）
     std::string text;
@@ -90,8 +90,11 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     
     
     auto tex = mTextComp->GetTexture();
-    if (!tex) return;
-
+    if (!tex)
+    {
+        return;
+    }
+    
     const float pad = 6.0f;
     float w = static_cast<float>(tex->GetWidth());
     float h = static_cast<float>(tex->GetHeight());
