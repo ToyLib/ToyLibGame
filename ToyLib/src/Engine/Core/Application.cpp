@@ -536,6 +536,7 @@ void Application::HandleWindowResized()
     {
         mRenderer->OnWindowResized(pixelW, pixelH);
     }
+    std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
 }
 
 void Application::SetFullscreen(bool enable)
