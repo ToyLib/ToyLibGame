@@ -97,6 +97,7 @@ private:
     // ウィンドウ／アプリ設定
     //-----------------------------------------
     std::string mApplicationTitle; // ウィンドウタイトル
+    std::string mSystemAssetPath;
     bool  mIsFullScreen;           // フルスクリーン状態
 
     // 現在のウィンドウの「物理解像度」（描画用）

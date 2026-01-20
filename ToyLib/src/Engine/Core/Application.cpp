@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <string>
 
-const std::string SYSTEM_ASSET_PATH = "ToyLib/Assets/";
+//const std::string SYSTEM_ASSET_PATH = "ToyLib/Assets/";
 
 namespace toy {
 
@@ -39,6 +39,7 @@ Application::Application()
     , mIsAdjustingSize(false)
     , mEnableDebug(false)
     , mEnableDebugWire(false)
+    , mSystemAssetPath("ToyLib/Assets/")
 {
     mRenderer      = std::make_unique<Renderer>();
     mInputSys      = std::make_unique<InputSystem>();
@@ -49,7 +50,6 @@ Application::Application()
     mCameraManager = std::make_unique<CameraManager>();
     
     mSystemAssetManager = std::make_unique<AssetManager>();
-    mSystemAssetManager->SetAssetsPath(SYSTEM_ASSET_PATH);
 }
 
 Application::~Application()
@@ -154,6 +154,9 @@ bool Application::Initialize()
         SetFullscreen(mIsFullScreen);
     }
 
+    // システム用アセットマネージャ
+    mSystemAssetManager->SetAssetsPath(mSystemAssetPath);
+    
     LoadData();
     InitGame();
 
@@ -500,6 +503,8 @@ void Application::UpdateFrame()
     stats.DrawObjectCount    = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
     stats.OffDrawCallCount   = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;
     stats.OffDrawObjectCount = mRenderer  ? mRenderer->GetDrawRTTObjectCount() : 0;
+    stats.ScreenW            = mScreenWidth;
+    stats.ScreenH            = mScreenHeight;
 
 }
 

@@ -43,6 +43,11 @@ bool Application::LoadSettings(const std::string& filePath)
     //---------------------------------------------------------
     JsonHelper::GetString(data, "title", mApplicationTitle);
     
+    //---------------------------------------------------------
+    // アセットパス
+    //   "title": "ToyLib App"
+    //---------------------------------------------------------
+    JsonHelper::GetString(data, "asset_path", mSystemAssetPath);
     
     //---------------------------------------------------------
     // ウィンドウサイズ、

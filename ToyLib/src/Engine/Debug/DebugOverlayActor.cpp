@@ -84,7 +84,8 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     text += StringUtil::Format("RTTObjects : <<\n",     stats.OffDrawObjectCount);
     text += StringUtil::Format("RTTCalls   : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("PhysTime   : << ms\n",  stats.PhysicsTimeMs);
-    text += StringUtil::Format("RenderTime : << ms",    stats.RenderTimeMs);
+    text += StringUtil::Format("RenderTime : << ms\n",  stats.RenderTimeMs);
+    text += StringUtil::Format("Resolution : << x <<",  stats.ScreenW, stats.ScreenH);
 
     mTextComp->SetText(text);
     
