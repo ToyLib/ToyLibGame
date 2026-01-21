@@ -15,8 +15,8 @@ constexpr unsigned int NUM_BONES_PER_VERTEX = 4;
 //==============================================================
 struct VertexBoneData
 {
-    unsigned int IDs[NUM_BONES_PER_VERTEX];   // ボーンID
-    float        Weights[NUM_BONES_PER_VERTEX]; // 各ボーンのウェイト
+    unsigned int IDs[NUM_BONES_PER_VERTEX]{};   // ボーンID
+    float        Weights[NUM_BONES_PER_VERTEX]{}; // 各ボーンのウェイト
 
     VertexBoneData()
     {
@@ -46,8 +46,8 @@ struct VertexBoneData
 //==============================================================
 struct BoneInfo
 {
-    Matrix4 BoneOffset;          // オフセット行列（BindPoseで埋める）
-    Matrix4 FinalTransformation; // アニメ後の最終行列（GPUに送る）
+    Matrix4 BoneOffset{};          // オフセット行列（BindPoseで埋める）
+    Matrix4 FinalTransformation{}; // アニメ後の最終行列（GPUに送る）
 
     BoneInfo()
         : BoneOffset(Matrix4::Identity)

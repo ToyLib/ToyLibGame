@@ -19,46 +19,46 @@ class SoundComponent : public Component
 public:
     SoundComponent(class Actor* owner, int updateOrder = 100);
     ~SoundComponent();
-
+    
     // 再生する効果音ファイル（AssetManager 経由でロード）
     void SetSound(const std::string& fileName);
-
+    
     // 再生 / 停止 / 状態チェック
     void Play();
     void Stop();
     bool IsPlaying() const;
-
+    
     // 基本設定
     void SetVolume(float volume) { mVolume = volume; }
     void SetLoop(bool loop) { mIsLoop = loop; }
     void SetAutoPlay(bool autoPlay) { mAutoPlay = autoPlay; }
-
+    
     // 3D 音響設定
     //  - useAttenuation = true の場合、Actor のワールド位置から距離減衰を行う
     void Enable3DSound(bool use3DSound) { mUse3DSound = use3DSound; }
-
+    
     // 排他モード
     //  - true の場合、他の SoundComponent が同じ音を再生中なら再生しない
     void SetExclusive(bool isExclusive) { mIsExclusive = isExclusive; }
-
+    
     // 毎フレーム呼ばれる（Actor の位置を反映し、減衰計算など）
     void Update(float deltaTime) override;
-
+    
 private:
     // 再生するサウンド名（AssetManager のキーになる）
-    std::string mSoundName;
-
+    std::string mSoundName{};
+    
     // ボリューム（0.0〜1.0）
-    float mVolume = 1.0f;
+    float mVolume{1.0f};
 
-    bool  mIsLoop;                   // ループ再生するか
-    bool  mAutoPlay;                 // 生成直後に自動再生するか
-    bool  mUse3DSound;               // 3Dサウンド（距離減衰を使うか)
-    bool  mIsExclusive;              // 排他モード
+    bool  mIsLoop{false};                   // ループ再生するか
+    bool  mAutoPlay{false};                 // 生成直後に自動再生するか
+    bool  mUse3DSound{false};               // 3Dサウンド（距離減衰を使うか)
+    bool  mIsExclusive{false};              // 排他モード
 
-    bool  mHasPlayed;                // AutoPlay 用フラグ
+    bool  mHasPlayed{false};                // AutoPlay 用フラグ
 
-    ALuint mSource;                  // OpenAL ソース（このコンポ用）
+    ALuint mSource{};                       // OpenAL ソース（このコンポ用）
 };
 
 } // namespace toy

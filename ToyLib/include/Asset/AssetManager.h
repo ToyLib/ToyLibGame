@@ -84,10 +84,10 @@ private:
     std::unordered_map<std::string, std::shared_ptr<class TextFont>>    mTextFonts;
 
     // アセットの基準パス（GameApp 側で設定）
-    std::string mAssetsPath;
+    std::string mAssetsPath{};
 
     // DPI スケール（UI 調整用）
-    float mWindowDisplayScale;
+    float mWindowDisplayScale{1.0f};
 };
 
 } // namespace toy

@@ -103,8 +103,8 @@ private:
     
 
     // 頂点数・インデックス数
-    unsigned int mNumVerts   = 0;
-    unsigned int mNumIndices = 0;
+    unsigned int mNumVerts{};
+    unsigned int mNumIndices{};
 
     //-----------------------------------------------
     // VBO 配列（最大 5 本：pos, normal, uv, boneID, weight）
@@ -114,13 +114,13 @@ private:
     //-----------------------------------------------
     // 頂点バッファ / インデックスバッファ
     //-----------------------------------------------
-    unsigned int mVertexBufferID = 0;
-    unsigned int mIndexBufferID  = 0;
+    unsigned int mVertexBufferID{};
+    unsigned int mIndexBufferID{};
 
     //-----------------------------------------------
     // マテリアルインデックスとして使う TextureID
     //-----------------------------------------------
-    unsigned int mTextureID = 0;
+    unsigned int mTextureID{};
 
     //-----------------------------------------------
     // 物理判定用の三角形リスト

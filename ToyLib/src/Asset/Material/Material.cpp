@@ -10,7 +10,7 @@ namespace toy {
 //   ・テクスチャなし状態で初期化
 //--------------------------------------------------------------
 Material::Material()
-: mAmbientColor(0.2f, 0.2f, 0.2f)
+: mAmbientColor(0.5f, 0.5f, 0.5f)
 , mDiffuseColor(0.8f, 0.8f, 0.8f)
 , mSpecularColor(1.0f, 1.0f, 1.0f)
 , mShininess(32.0f)

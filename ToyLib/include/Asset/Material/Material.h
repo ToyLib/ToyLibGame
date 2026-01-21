@@ -43,12 +43,12 @@ private:
     std::shared_ptr<class Texture> mDiffuseMap;
 
     //--- 光沢値（Phong/Blinn 用） ----------------------------
-    float mShininess = 32.0f;
+    float mShininess{32.0f};
 
     //--- マテリアルカラーセット -----------------------------
-    Vector3 mAmbientColor;
-    Vector3 mDiffuseColor;
-    Vector3 mSpecularColor;
+    Vector3 mAmbientColor{0.5f, 0.5f, 0.5f};
+    Vector3 mDiffuseColor{0.5f, 0.5f, 0.5f};
+    Vector3 mSpecularColor{0.5f, 0.5f, 0.5f};
 
     //--- 完全に単色化する場合の制御 -------------------------
     bool    mOverrideColor = false;
