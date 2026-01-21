@@ -15,8 +15,6 @@
 #include <algorithm>
 #include <string>
 
-//const std::string SYSTEM_ASSET_PATH = "ToyLib/Assets/";
-
 namespace toy {
 
 //=============================================================
