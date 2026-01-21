@@ -6,10 +6,6 @@ namespace toy {
 int Music::sRefCount = 0;
 
 Music::Music()
-    : mHandle(nullptr)
-    , mRate(0)
-    , mChannels(0)
-    , mEncoding(0)
 {
 }
 

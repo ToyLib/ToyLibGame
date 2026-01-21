@@ -64,12 +64,12 @@ private:
     static void ShutdownLib();
     
 private:
-    std::string    mFilePath;
-    mpg123_handle* mHandle   = nullptr;
+    std::string    mFilePath{""};
+    mpg123_handle* mHandle{nullptr};
     
-    long           mRate     = 0;   // サンプルレート
-    int            mChannels = 0;   // モノラル or ステレオ
-    int            mEncoding = 0;   // mpg123 の内部エンコード（PCM 形式）
+    long           mRate{};       // サンプルレート
+    int            mChannels{};   // モノラル or ステレオ
+    int            mEncoding{};   // mpg123 の内部エンコード（PCM 形式）
     
 };
 

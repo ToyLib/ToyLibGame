@@ -19,15 +19,15 @@ struct AnimationClip
 
     // Assimp のアニメーションデータ（所有権は Assimp/Mesh 側）
     //  - AnimationPlayer などがこのポインタを使ってサンプリングする
-    const aiAnimation* mAnimation = nullptr;
+    const aiAnimation* mAnimation{nullptr};
 
     // アニメーションの長さ（Assimp の Tick 単位）
     //  - 実際の再生時間(sec) = mDuration / mTicksPerSecond
-    float             mDuration        = 0.0f;
+    float             mDuration{};
 
     // 1秒あたりの Tick 数
     //  - Assimp の mTicksPerSecond をキャッシュ
-    float             mTicksPerSecond  = 0.0f;
+    float             mTicksPerSecond{};
 };
 
 } // namespace toy
