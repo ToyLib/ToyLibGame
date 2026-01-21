@@ -22,7 +22,6 @@ public:
     Mesh();
     ~Mesh();
 
-  
     // メッシュファイルを読み込む
     // isRightHanded = true のとき右手系 → 左手系などの変換を行う想定
     virtual bool Load(const std::string& fileName,
@@ -122,13 +121,13 @@ private:
 private:
     // Assimp シーンデータ
     Assimp::Importer mImporter;
-    const aiScene*   mScene;
+    const aiScene*   mScene{nullptr};
 
     // ボーン名 → ボーンインデックス
     std::map<std::string, unsigned int> mBoneMapping;
 
     // ボーン数
-    unsigned int mNumBones;
+    unsigned int mNumBones{0};
 
     // ボーンごとのオフセット行列・最終変換行列
     std::vector<struct BoneInfo> mBoneInfo;
@@ -149,7 +148,7 @@ private:
     std::string mShaderName;
 
     // スペキュラー係数
-    float mSpecPower;
+    float mSpecPower{1.0f};
 };
 
 } // namespace toy

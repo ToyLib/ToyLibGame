@@ -53,16 +53,14 @@ static void MatrixAi2Gl(Matrix4& mat, const aiMatrix4x4 aim)
 namespace toy {
 
 Mesh::Mesh()
-    : mScene(nullptr)
-    , mNumBones(0)
-    , mSpecPower(1.0f)
 {
+    
 }
 
 Mesh::~Mesh()
 {
     // shared_ptr がクリアされれば VAO は自動解放
-    //mVertexArray.clear();
+    mVertexArray.clear();
 }
 
 //==============================================================

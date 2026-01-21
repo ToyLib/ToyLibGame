@@ -54,7 +54,7 @@ private:
     );
     
 private:
-    ALuint      mBuffer;          // OpenAL バッファ
+    ALuint      mBuffer = 0;      // OpenAL バッファ
     std::string mFilePath;        // デバッグ・再読み込み用
 
 };
