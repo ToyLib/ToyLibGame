@@ -96,27 +96,27 @@ private:
 
 private:
     // カメラの相対配置
-    float mHorzDist;   // 所有 Actor から見た後方距離
-    float mVertDist;   // 高さオフセット（これだけ W/S で変える）
-    float mTargetDist; // LookAt の前方オフセット
+    float mHorzDist{10.0f};   // 所有 Actor から見た後方距離
+    float mVertDist{4.0f};   // 高さオフセット（これだけ W/S で変える）
+    float mTargetDist{10.0f}; // LookAt の前方オフセット
 
     // スプリング設定
-    SpringSettings mSpring;
+    SpringSettings mSpring{200.0f, 1.0f};
 
     // スプリングによって補間される実際のカメラ位置／速度
-    Vector3 mActualPos;
-    Vector3 mVelocity;
+    Vector3 mActualPos{};
+    Vector3 mVelocity{};
 
     // 初回のみ SnapToIdeal() するためのフラグ
-    bool mFirstUpdate;
+    bool mFirstUpdate{true};
 
     //============================================================
     // Orbitと合わせる：入力は ProcessInput で蓄積 → Updateで消費
     //============================================================
-    float mHeightInput;   // 1フレーム分の高さ入力（-1/0/+1）
-    float mHeightSpeed;   // 高さ変化スピード（m/s）
-    float mMinVertDist;   // 最低高さ
-    float mMaxVertDist;   // 最高高さ
+    float mHeightInput{0.0f};   // 1フレーム分の高さ入力（-1/0/+1）
+    float mHeightSpeed{7.0f};   // 高さ変化スピード（m/s）
+    float mMinVertDist{1.0f};   // 最低高さ
+    float mMaxVertDist{10.0f};   // 最高高さ
 };
 
 } // namespace toy

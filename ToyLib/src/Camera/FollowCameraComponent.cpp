@@ -28,13 +28,13 @@ FollowCameraComponent::FollowCameraComponent(Actor* owner)
 void FollowCameraComponent::OnActivated(const Vector3& prevPos,
                                         const Vector3& prevTarget)
 {
-    mActualPos = prevPos;
-    mVelocity  = Vector3::Zero;
+    mActualPos      = prevPos;
+    mVelocity       = Vector3::Zero;
 
     mCameraPosition = prevPos;
     mCameraTarget   = prevTarget;
 
-    mFirstUpdate = false;
+    mFirstUpdate    = false;
 }
 
 //======================================================================

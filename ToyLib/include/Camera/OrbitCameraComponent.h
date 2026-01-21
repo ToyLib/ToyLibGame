@@ -72,10 +72,10 @@ private:
     //  ・最終的なカメラ位置は
     //      cameraPos = target + mOffset
     //  ・Y 成分が高さ、XZ 成分が水平距離・方向を表す
-    Vector3 mOffset;
+    Vector3 mOffset{0.0f, 4.0f, -5.0f};
     
     // Up ベクトル（基本は World の +Y 軸）
-    Vector3 mUpVector;
+    Vector3 mUpVector{Vector3::UnitY};
 
     //==============================
     // 公転（水平回転）
@@ -84,29 +84,29 @@ private:
     // ヨー角速度（ラジアン/秒）
     //   + … 左回り（反時計回り）
     //   - … 右回り
-    float mYawSpeed;
+    float mYawSpeed{};
 
     //==============================
     // ズーム（距離）
     //==============================
 
     // 現在の実距離
-    float mDistance;
+    float mDistance{};
 
     // スムーズに追従させるための「目標距離」
-    float mTargetDistance;
+    float mTargetDistance{};
 
     // 距離の下限 / 上限
-    float mMinDistance;
-    float mMaxDistance;
+    float mMinDistance{5.0f};
+    float mMaxDistance{20.0f};
 
     //==============================
     // 高さ（オフセット Y）
     //==============================
     
     // カメラの最低 / 最高 Y 位置（target から見た相対高さ）
-    float mMinOffsetY;
-    float mMaxOffsetY;
+    float mMinOffsetY{-2.0f};
+    float mMaxOffsetY{8.0f};
 
     //==============================
     // 入力蓄積（ProcessInput → UpdateCamera）
@@ -115,25 +115,25 @@ private:
     // 高さ操作（-1 ～ +1）
     //   ・+1 = 上へ
     //   ・-1 = 下へ
-    float mHeightInput;
+    float mHeightInput{};
     
     //==============================
     // 位置補間（スムーズなカメラ移動用）
     //==============================
 
     // 実際のカメラ位置（理想位置へ補間していく）
-    Vector3 mCurrentPos;
+    Vector3 mCurrentPos{};
 
     // 最初の補間フレームかどうか
     //  （必要に応じて「初回はスナップ」などに使用）
-    bool    mFirstInterp;
+    bool    mFirstInterp{true};
 
     // 位置補間の速さ（大きいほど素早く理想位置に寄る）
-    float   mPosLerpSpeed;
+    float   mPosLerpSpeed{8.0f};
 
     // mCurrentPos が初期化済みかどうか
     //  （OnActivated などで初期位置をセット済みかの判定に使用）
-    bool    mHasCurrentPos;
+    bool    mHasCurrentPos{false};
 };
 
 } // namespace toy

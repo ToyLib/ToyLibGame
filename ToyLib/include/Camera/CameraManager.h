@@ -67,7 +67,7 @@ public:
     const std::vector<CameraComponent*>& GetAllCameras() const { return mCameras; }
 
 private:
-    std::vector<CameraComponent*> mCameras;
+    std::vector<CameraComponent*> mCameras{};
     CameraComponent* mActiveCamera{ nullptr };
 };
 
