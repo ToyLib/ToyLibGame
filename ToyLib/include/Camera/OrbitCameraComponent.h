@@ -8,132 +8,150 @@ namespace toy {
 //======================================================================
 // OrbitCameraComponent
 //
-//  ・ターゲット Actor 周囲を“公転”する 3rd Person カメラ
+//  ・ターゲット Actor の周囲を公転する 3rd Person カメラ
 //  ・左手座標系（+Z が奥）前提
-//  ・フィールドアクション / 見下ろし寄りのゲームに向いた汎用カメラ
+//  ・フィールドアクション / 見下ろし寄りのゲーム向け
 //
-//  特徴：
-//    - 左右入力で水平回転（ヨー）
-//    - 上下入力で高さ変更（結果として距離も自動で変化）
-//    - （将来）ホイール等でズーム
-//    - FollowCamera などから切り替え時、前カメラ位置から
-//      スムーズに理想軌道へ寄せていく想定
+//  主な特徴
+//  ------------------------------------------------------------
+//  - 左右入力で水平回転（Yaw）
+//  - 上下入力で高さ変更（高さに応じて距離も自動調整）
+//  - 空中時の Y 追従制御
+//      * 上昇中   : 視点固定（ブレ防止）
+//      * 落下中   : 見失いそうな時のみ追従
+//      * 着地直後 : 自然に復帰（target 早め / camera 遅め）
 //======================================================================
 class OrbitCameraComponent : public CameraComponent
 {
 public:
     explicit OrbitCameraComponent(class Actor* owner);
-    
+
     //------------------------------------------------------------------
-    // 入力処理
-    //
-    //  ・左右入力：公転（ヨー回転）の入力値を設定
-    //  ・上下入力：高さ変更の入力値を設定
-    //  ・実際の適用は UpdateCamera() 側で行う
+    // CameraComponent overrides
     //------------------------------------------------------------------
     void ProcessInput(const struct InputState& state) override;
-    
-    //------------------------------------------------------------------
-    // 毎フレーム更新
-    //
-    //  ・ヨー回転 / 高さ変更 / 距離（ズーム）を更新
-    //  ・理想オフセット mOffset から理想位置を計算
-    //  ・mCurrentPos → 理想位置 へ補間してカメラ位置とする
-    //  ・最後に View 行列を Renderer に適用
-    //------------------------------------------------------------------
     void UpdateCamera(float deltaTime) override;
-    
-    //------------------------------------------------------------------
-    // 設定用（ヨー回転速度）
-    //------------------------------------------------------------------
-    float GetYawSpeed() const          { return mYawSpeed; }
-    void  SetYawSpeed(float speed)     { mYawSpeed = speed; }
-    
-    //------------------------------------------------------------------
-    // OnActivated
-    //
-    //  ・他のカメラから Orbit カメラに切り替わった瞬間に呼ばれる
-    //  ・prevPos / prevTarget には「直前のカメラ」の情報が渡される
-    //  ・典型的な実装では：
-    //      - mCurrentPos を prevPos からスタートさせて
-    //      - そこから orbit の理想オフセットへスムーズに遷移させる
-    //------------------------------------------------------------------
+
     void OnActivated(const Vector3& prevPos,
                      const Vector3& prevTarget) override;
 
-    
+    //------------------------------------------------------------------
+    // Orbit tuning
+    //------------------------------------------------------------------
+    float GetYawSpeed() const
+    {
+        return mYawSpeed;
+    }
+
+    void SetYawSpeed(float speed)
+    {
+        mYawSpeed = speed;
+    }
+
+    //------------------------------------------------------------------
+    // Air Y behavior control
+    //------------------------------------------------------------------
+    void SetFreezeYInAir(bool enable)
+    {
+        mFreezeYInAir = enable;
+    }
+
+    bool GetFreezeYInAir() const
+    {
+        return mFreezeYInAir;
+    }
+
+    // 着地後の復帰速度（95% 到達秒）
+    // 例: target=0.15, camera=0.30
+    void SetRecoverSeconds(float targetSec, float cameraSec);
+
+    // 落下中の救済追従速度（95% 到達秒）
+    void SetFallAssistSeconds(float targetSec, float cameraSec);
+
+    // 落下時の「見失い判定」閾値（ワールド Y 差）
+    void SetFallOutOfViewThreshold(float thresholdY,
+                                   float hysteresisY);
+
 private:
-    //==============================
-    // カメラの基礎プロパティ
-    //==============================
-    
-    // ターゲット位置からのオフセット
-    //
-    //  ・最終的なカメラ位置は
-    //      cameraPos = target + mOffset
-    //  ・Y 成分が高さ、XZ 成分が水平距離・方向を表す
+    //==================================================================
+    // Internal helpers
+    //==================================================================
+    void UpdateOrbit(float dt);
+    void UpdateHeightAndDistance(float dt);
+
+    Vector3 ComputeTarget() const;
+    Vector3 ComputeIdealPos(const Vector3& target) const;
+
+    void EnsureInitialPos(const Vector3& idealPos);
+    void ApplyPositionLerp(const Vector3& idealPos, float dt);
+
+    void ApplyAirYControl(float dt,
+                          Vector3& ioCameraPos,
+                          Vector3& ioTarget);
+
+    void ResolveGroundCollision(Vector3& ioCameraPos) const;
+    void ApplyView(const Vector3& cameraPos,
+                   const Vector3& target);
+
+private:
+    //==================================================================
+    // Orbit base parameters
+    //==================================================================
     Vector3 mOffset{0.0f, 4.0f, -5.0f};
-    
-    // Up ベクトル（基本は World の +Y 軸）
     Vector3 mUpVector{Vector3::UnitY};
 
-    //==============================
-    // 公転（水平回転）
-    //==============================
-    
-    // ヨー角速度（ラジアン/秒）
-    //   + … 左回り（反時計回り）
-    //   - … 右回り
-    float mYawSpeed{};
+    float mYawSpeed{0.0f};
 
-    //==============================
-    // ズーム（距離）
-    //==============================
-
-    // 現在の実距離
-    float mDistance{};
-
-    // スムーズに追従させるための「目標距離」
-    float mTargetDistance{};
-
-    // 距離の下限 / 上限
+    // Distance (zoom)
+    float mDistance{0.0f};
+    float mTargetDistance{0.0f};
     float mMinDistance{5.0f};
     float mMaxDistance{20.0f};
 
-    //==============================
-    // 高さ（オフセット Y）
-    //==============================
-    
-    // カメラの最低 / 最高 Y 位置（target から見た相対高さ）
+    // Height (offset Y)
     float mMinOffsetY{-2.0f};
     float mMaxOffsetY{8.0f};
 
-    //==============================
-    // 入力蓄積（ProcessInput → UpdateCamera）
-    //==============================
+    // Input accumulation
+    float mHeightInput{0.0f};
 
-    // 高さ操作（-1 ～ +1）
-    //   ・+1 = 上へ
-    //   ・-1 = 下へ
-    float mHeightInput{};
-    
-    //==============================
-    // 位置補間（スムーズなカメラ移動用）
-    //==============================
-
-    // 実際のカメラ位置（理想位置へ補間していく）
-    Vector3 mCurrentPos{};
-
-    // 最初の補間フレームかどうか
-    //  （必要に応じて「初回はスナップ」などに使用）
-    bool    mFirstInterp{true};
-
-    // 位置補間の速さ（大きいほど素早く理想位置に寄る）
+    // Smooth movement
+    Vector3 mCurrentPos{Vector3::Zero};
+    bool    mHasCurrentPos{false};
     float   mPosLerpSpeed{8.0f};
 
-    // mCurrentPos が初期化済みかどうか
-    //  （OnActivated などで初期位置をセット済みかの判定に使用）
-    bool    mHasCurrentPos{false};
+    //==================================================================
+    // Air Y control (organized)
+    //==================================================================
+    enum class AirYMode
+    {
+        None,       // 通常追従
+        Hold,       // 上昇中：Y 固定
+        FallAssist, // 落下中：見失いそうな時のみ追従
+        Recover     // 着地後：滑らかに復帰
+    };
+
+    bool     mFreezeYInAir{false};
+    AirYMode mAirYMode{AirYMode::None};
+
+    // Hold / Recover 用
+    float mHoldCamY{0.0f};
+    float mHoldTargetY{0.0f};
+
+    // 接地状態トラッキング
+    bool mPrevGrounded{true};
+
+    // 落下時の見失い判定
+    float mFallOutOfViewThresholdY{1.8f};
+    float mFallOutOfViewHysteresisY{0.4f};
+    bool  mFallAssistActive{false};
+
+    // 追従速度（95% 到達秒）
+    float mFallAssistTargetSeconds{0.18f};
+    float mFallAssistCameraSeconds{0.45f};
+
+    float mRecoverTargetSeconds{0.15f};
+    float mRecoverCameraSeconds{0.30f};
 };
 
 } // namespace toy

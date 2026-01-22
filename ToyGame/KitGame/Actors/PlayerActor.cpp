@@ -112,6 +112,7 @@ PlayerActor::PlayerActor(toy::Application* a)
 
     GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
     mOrbitCamera->SetIsEnabled(true);
+    mOrbitCamera->SetFreezeYInAir(true);
     mFollowCamera->SetIsEnabled(false);
 
     //==================================================================
