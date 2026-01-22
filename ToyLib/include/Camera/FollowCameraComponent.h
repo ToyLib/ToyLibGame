@@ -10,19 +10,18 @@ namespace toy {
 //======================================================================
 struct SpringSettings
 {
-    float Stiffness    = 200.0f;   // バネ定数 k
-    float DampingRatio = 1.0f;     // 減衰比 ζ
+    float Stiffness    = 200.0f; // バネ定数 k
+    float DampingRatio = 1.0f;   // 減衰比 ζ（1.0 = 臨界減衰）
 };
 
 //======================================================================
 // UpdateSpring
 //======================================================================
-inline void UpdateSpring(
-    Vector3& position,
-    Vector3& velocity,
-    const Vector3& target,
-    const SpringSettings& settings,
-    float deltaTime)
+inline void UpdateSpring(Vector3& position,
+                         Vector3& velocity,
+                         const Vector3& target,
+                         const SpringSettings& settings,
+                         float deltaTime)
 {
     const float k = settings.Stiffness;
     const float z = settings.DampingRatio;
@@ -43,11 +42,12 @@ inline void UpdateSpring(
 //======================================================================
 // FollowCameraComponent
 //
-//  OrbitCamera と同じ方針：
-//   - ProcessInput() で入力を蓄積
-//   - UpdateCamera() で適用して 1フレームで消費
-//   - 高さ操作は Y オフセット（mVertDist）だけ変更
-//   - キー割当も Orbit と同じ（S:上 / W:下）
+//  ・所有 Actor を後方から追従する 3rd Person カメラ
+//  ・高さ入力（W/S）は Orbit と同じ運用（ProcessInputで蓄積→Updateで消費）
+//  ・空中Y制御（Orbitと同じ方針）
+//      - 上昇中   : camera.y / target.y を固定
+//      - 落下中   : 見失いそうな時のみ追従
+//      - 着地後   : target 早め / camera 遅めで自然復帰
 //======================================================================
 class FollowCameraComponent : public CameraComponent
 {
@@ -62,7 +62,9 @@ public:
     void OnActivated(const Vector3& prevPos,
                      const Vector3& prevTarget) override;
 
-    // パラメータ設定
+    // ------------------------------------------------------------
+    // Parameters
+    // ------------------------------------------------------------
     void SetDistance(float horz, float vert)
     {
         mHorzDist = horz;
@@ -79,7 +81,6 @@ public:
         mSpring = s;
     }
 
-    // 高さ制御（Orbitと合わせて調整しやすいように）
     void SetHeightRange(float minVert, float maxVert)
     {
         mMinVertDist = minVert;
@@ -91,32 +92,86 @@ public:
         mHeightSpeed = speed;
     }
 
+    // ------------------------------------------------------------
+    // Air-Y behavior
+    // ------------------------------------------------------------
+    void SetFreezeYInAir(bool enable)
+    {
+        mFreezeYInAir = enable;
+    }
+
+    bool GetFreezeYInAir() const
+    {
+        return mFreezeYInAir;
+    }
+
+    void SetRecoverSeconds(float targetSec, float cameraSec);
+    void SetFallAssistSeconds(float targetSec, float cameraSec);
+    void SetFallOutOfViewThreshold(float thresholdY,
+                                   float hysteresisY);
+
 private:
     Vector3 ComputeCameraPos() const;
+    Vector3 ComputeTarget() const;
+
+    void ApplyAirYControl(float dt,
+                          Vector3& ioCameraPos,
+                          Vector3& ioTarget);
 
 private:
-    // カメラの相対配置
-    float mHorzDist{10.0f};   // 所有 Actor から見た後方距離
-    float mVertDist{4.0f};   // 高さオフセット（これだけ W/S で変える）
-    float mTargetDist{10.0f}; // LookAt の前方オフセット
+    // ------------------------------------------------------------
+    // Camera layout
+    // ------------------------------------------------------------
+    float mHorzDist{10.0f};
+    float mVertDist{4.0f};
+    float mTargetDist{10.0f};
 
-    // スプリング設定
+    // ------------------------------------------------------------
+    // Spring follow
+    // ------------------------------------------------------------
     SpringSettings mSpring{200.0f, 1.0f};
 
-    // スプリングによって補間される実際のカメラ位置／速度
-    Vector3 mActualPos{};
-    Vector3 mVelocity{};
+    Vector3 mActualPos{Vector3::Zero};
+    Vector3 mVelocity{Vector3::Zero};
 
-    // 初回のみ SnapToIdeal() するためのフラグ
     bool mFirstUpdate{true};
 
-    //============================================================
-    // Orbitと合わせる：入力は ProcessInput で蓄積 → Updateで消費
-    //============================================================
-    float mHeightInput{0.0f};   // 1フレーム分の高さ入力（-1/0/+1）
-    float mHeightSpeed{7.0f};   // 高さ変化スピード（m/s）
-    float mMinVertDist{1.0f};   // 最低高さ
-    float mMaxVertDist{10.0f};   // 最高高さ
+    // ------------------------------------------------------------
+    // Input accumulation (Orbit style)
+    // ------------------------------------------------------------
+    float mHeightInput{0.0f};
+    float mHeightSpeed{7.0f};
+    float mMinVertDist{1.0f};
+    float mMaxVertDist{10.0f};
+
+    // ------------------------------------------------------------
+    // Air Y control (Orbit-compatible)
+    // ------------------------------------------------------------
+    enum class AirYMode
+    {
+        None,
+        Hold,
+        FallAssist,
+        Recover
+    };
+
+    bool     mFreezeYInAir{false};
+    AirYMode mAirYMode{AirYMode::None};
+
+    float mHoldCamY{0.0f};
+    float mHoldTargetY{0.0f};
+
+    bool  mPrevGrounded{true};
+
+    float mFallOutOfViewThresholdY{1.8f};
+    float mFallOutOfViewHysteresisY{0.4f};
+    bool  mFallAssistActive{false};
+
+    float mFallAssistTargetSeconds{0.18f};
+    float mFallAssistCameraSeconds{0.45f};
+
+    float mRecoverTargetSeconds{0.15f};
+    float mRecoverCameraSeconds{0.30f};
 };
 
 } // namespace toy

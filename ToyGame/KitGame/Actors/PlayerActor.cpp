@@ -114,6 +114,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mOrbitCamera->SetIsEnabled(true);
     mOrbitCamera->SetFreezeYInAir(true);
     mFollowCamera->SetIsEnabled(false);
+    mFollowCamera->SetFreezeYInAir(true);
 
     //==================================================================
     // 7) GravityComponent
