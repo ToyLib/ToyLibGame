@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Camera/CameraComponent.h"
+#include "Camera/CameraAirYController.h"
 #include "Engine/Runtime/InputSystem.h" // InputState, GameButton
 
 namespace toy {
@@ -16,6 +17,9 @@ struct SpringSettings
 
 //======================================================================
 // UpdateSpring
+//
+//  ・position を target に向けてスプリング追従させる
+//  ・DampingRatio=1.0 のとき、臨界減衰（原理上オーバーシュートしにくい）
 //======================================================================
 inline void UpdateSpring(Vector3& position,
                          Vector3& velocity,
@@ -43,8 +47,11 @@ inline void UpdateSpring(Vector3& position,
 // FollowCameraComponent
 //
 //  ・所有 Actor を後方から追従する 3rd Person カメラ
-//  ・高さ入力（W/S）は Orbit と同じ運用（ProcessInputで蓄積→Updateで消費）
-//  ・空中Y制御（Orbitと同じ方針）
+//  ・高さ入力（W/S）は Orbit と同じ運用
+//      - ProcessInput で蓄積
+//      - UpdateCamera で適用して 1フレームで消費
+//
+//  ・空中Y制御（CameraAirYController）
 //      - 上昇中   : camera.y / target.y を固定
 //      - 落下中   : 見失いそうな時のみ追従
 //      - 着地後   : target 早め / camera 遅めで自然復帰
@@ -54,17 +61,23 @@ class FollowCameraComponent : public CameraComponent
 public:
     explicit FollowCameraComponent(Actor* owner);
 
+    //------------------------------------------------------------------
+    // CameraComponent overrides
+    //------------------------------------------------------------------
     void ProcessInput(const InputState& state) override;
     void UpdateCamera(float deltaTime) override;
-
-    void SnapToIdeal();
 
     void OnActivated(const Vector3& prevPos,
                      const Vector3& prevTarget) override;
 
-    // ------------------------------------------------------------
+    //------------------------------------------------------------------
+    // Helpers
+    //------------------------------------------------------------------
+    void SnapToIdeal();
+
+    //------------------------------------------------------------------
     // Parameters
-    // ------------------------------------------------------------
+    //------------------------------------------------------------------
     void SetDistance(float horz, float vert)
     {
         mHorzDist = horz;
@@ -92,17 +105,17 @@ public:
         mHeightSpeed = speed;
     }
 
-    // ------------------------------------------------------------
-    // Air-Y behavior
-    // ------------------------------------------------------------
+    //------------------------------------------------------------------
+    // Air-Y behavior (delegates)
+    //------------------------------------------------------------------
     void SetFreezeYInAir(bool enable)
     {
-        mFreezeYInAir = enable;
+        mAirY.SetEnabled(enable);
     }
 
     bool GetFreezeYInAir() const
     {
-        return mFreezeYInAir;
+        return mAirY.IsEnabled();
     }
 
     void SetRecoverSeconds(float targetSec, float cameraSec);
@@ -111,12 +124,8 @@ public:
                                    float hysteresisY);
 
 private:
-    Vector3 ComputeCameraPos() const;
+    Vector3 ComputeIdealPos() const;
     Vector3 ComputeTarget() const;
-
-    void ApplyAirYControl(float dt,
-                          Vector3& ioCameraPos,
-                          Vector3& ioTarget);
 
 private:
     // ------------------------------------------------------------
@@ -145,33 +154,9 @@ private:
     float mMaxVertDist{10.0f};
 
     // ------------------------------------------------------------
-    // Air Y control (Orbit-compatible)
+    // Air Y controller (composed)
     // ------------------------------------------------------------
-    enum class AirYMode
-    {
-        None,
-        Hold,
-        FallAssist,
-        Recover
-    };
-
-    bool     mFreezeYInAir{false};
-    AirYMode mAirYMode{AirYMode::None};
-
-    float mHoldCamY{0.0f};
-    float mHoldTargetY{0.0f};
-
-    bool  mPrevGrounded{true};
-
-    float mFallOutOfViewThresholdY{1.8f};
-    float mFallOutOfViewHysteresisY{0.4f};
-    bool  mFallAssistActive{false};
-
-    float mFallAssistTargetSeconds{0.18f};
-    float mFallAssistCameraSeconds{0.45f};
-
-    float mRecoverTargetSeconds{0.15f};
-    float mRecoverCameraSeconds{0.30f};
+    CameraAirYController mAirY{};
 };
 
 } // namespace toy

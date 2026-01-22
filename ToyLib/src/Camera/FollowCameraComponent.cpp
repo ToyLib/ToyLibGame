@@ -1,35 +1,14 @@
 #include "Camera/FollowCameraComponent.h"
 
 #include "Engine/Core/Actor.h"
-#include "Physics/GravityComponent.h"
-
-#include <cmath>
-
-namespace {
-
-//----------------------------------------------------------------------
-// ExpApproach95
-//  - seconds95 秒で 95% に近づく指数補間（バネらない）
-//----------------------------------------------------------------------
-static float ExpApproach95(float current,
-                           float target,
-                           float dt,
-                           float seconds95)
-{
-    const float T = (seconds95 < 0.001f) ? 0.001f : seconds95;
-    const float k = 2.99573227355f / T; // ln(20)
-    const float a = 1.0f - std::exp(-k * dt);
-
-    return current + (target - current) * a;
-}
-
-} // anonymous namespace
 
 namespace toy {
 
 FollowCameraComponent::FollowCameraComponent(Actor* owner)
     : CameraComponent(owner)
 {
+    // デフォルトは無効（必要なカメラだけONにする運用が安全）
+    mAirY.SetEnabled(false);
 }
 
 //======================================================================
@@ -38,54 +17,49 @@ FollowCameraComponent::FollowCameraComponent(Actor* owner)
 void FollowCameraComponent::OnActivated(const Vector3& prevPos,
                                         const Vector3& prevTarget)
 {
-    mActualPos      = prevPos;
-    mVelocity       = Vector3::Zero;
+    mActualPos = prevPos;
+    mVelocity  = Vector3::Zero;
 
     mCameraPosition = prevPos;
     mCameraTarget   = prevTarget;
 
-    mFirstUpdate    = false;
+    mFirstUpdate = false;
 
-    // 空中Y制御の基準も同期
-    mHoldCamY        = prevPos.y;
-    mHoldTargetY     = prevTarget.y;
-    mPrevGrounded    = true;
-    mAirYMode        = AirYMode::None;
-    mFallAssistActive = false;
+    // AirY の基準も同期（切替直後の急変を防ぐ）
+    mAirY.Reset(GetOwner(), prevPos, prevTarget);
 }
 
 //======================================================================
-// Setters (Air-Y)
+// Air-Y setters (delegates)
 //======================================================================
 void FollowCameraComponent::SetRecoverSeconds(float targetSec,
                                               float cameraSec)
 {
-    mRecoverTargetSeconds = (targetSec < 0.001f) ? 0.001f : targetSec;
-    mRecoverCameraSeconds = (cameraSec < 0.001f) ? 0.001f : cameraSec;
+    mAirY.SetRecoverSeconds(targetSec, cameraSec);
 }
 
 void FollowCameraComponent::SetFallAssistSeconds(float targetSec,
                                                  float cameraSec)
 {
-    mFallAssistTargetSeconds = (targetSec < 0.001f) ? 0.001f : targetSec;
-    mFallAssistCameraSeconds = (cameraSec < 0.001f) ? 0.001f : cameraSec;
+    mAirY.SetFallAssistSeconds(targetSec, cameraSec);
 }
 
 void FollowCameraComponent::SetFallOutOfViewThreshold(float thresholdY,
                                                       float hysteresisY)
 {
-    mFallOutOfViewThresholdY  = (thresholdY < 0.0f) ? 0.0f : thresholdY;
-    mFallOutOfViewHysteresisY = (hysteresisY < 0.0f) ? 0.0f : hysteresisY;
+    mAirY.SetFallOutOfViewThreshold(thresholdY, hysteresisY);
 }
 
 //======================================================================
 // ProcessInput
+//
+//  ・Orbit と同じ割当（S:上 / W:下）
+//  ・ここでは蓄積だけして、UpdateCamera で 1フレーム消費する
 //======================================================================
 void FollowCameraComponent::ProcessInput(const InputState& state)
 {
     float heightInput = 0.0f;
 
-    // Orbit と同じ割当（S:上 / W:下）
     if (state.IsButtonDown(GameButton::KeyS))
     {
         heightInput += 1.0f;
@@ -104,17 +78,19 @@ void FollowCameraComponent::ProcessInput(const InputState& state)
 void FollowCameraComponent::UpdateCamera(float dt)
 {
     //--------------------------------------------------------------
-    // 0) 高さ入力（Orbitと同じ：蓄積→Updateで消費）
+    // 0) 高さ入力を反映（Yオフセットのみ変更）
     //--------------------------------------------------------------
-    if (std::fabs(mHeightInput) > 1e-4f)
+    if (Math::Abs(mHeightInput) > 1e-4f)
     {
         mVertDist += mHeightInput * mHeightSpeed * dt;
         mVertDist  = Math::Clamp(mVertDist, mMinVertDist, mMaxVertDist);
     }
+
+    // 入力は 1 フレームで消費
     mHeightInput = 0.0f;
 
     //--------------------------------------------------------------
-    // 1) 初回スナップ
+    // 1) 初回のみ理想位置にスナップ
     //--------------------------------------------------------------
     if (mFirstUpdate)
     {
@@ -123,21 +99,21 @@ void FollowCameraComponent::UpdateCamera(float dt)
     }
 
     //--------------------------------------------------------------
-    // 2) 理想位置 → スプリング追従
+    // 2) スプリング追従（理想位置へ）
     //--------------------------------------------------------------
-    const Vector3 idealPos = ComputeCameraPos();
+    const Vector3 idealPos = ComputeIdealPos();
     UpdateSpring(mActualPos, mVelocity, idealPos, mSpring, dt);
 
     //--------------------------------------------------------------
-    // 3) 注視点（Owner 前方）
+    // 3) 注視点
     //--------------------------------------------------------------
     Vector3 cameraPos = mActualPos;
     Vector3 target    = ComputeTarget();
 
     //--------------------------------------------------------------
-    // 4) 空中Y制御（camera/target を上書き）
+    // 4) 空中Y制御（camera / target の y を上書き）
     //--------------------------------------------------------------
-    ApplyAirYControl(dt, cameraPos, target);
+    mAirY.Apply(GetOwner(), dt, cameraPos, target);
 
     //--------------------------------------------------------------
     // 5) View 行列反映
@@ -148,7 +124,12 @@ void FollowCameraComponent::UpdateCamera(float dt)
 
     mCameraTarget = target;
 
-    // 次フレームに反映（スプリングの “結果” を保持）
+    //--------------------------------------------------------------
+    // 6) スプリング状態へ反映
+    //
+    //  ・AirY によって cameraPos.y が変わるので、次フレームのスプリングが
+    //    いきなり元のyへ戻ろうとしないよう、結果を保持する
+    //--------------------------------------------------------------
     mActualPos = cameraPos;
 }
 
@@ -157,7 +138,7 @@ void FollowCameraComponent::UpdateCamera(float dt)
 //======================================================================
 void FollowCameraComponent::SnapToIdeal()
 {
-    mActualPos = ComputeCameraPos();
+    mActualPos = ComputeIdealPos();
     mVelocity  = Vector3::Zero;
 
     Vector3 target = ComputeTarget();
@@ -168,27 +149,30 @@ void FollowCameraComponent::SnapToIdeal()
 
     mCameraTarget = target;
 
-    // 空中Y制御も同期
-    mHoldCamY        = mActualPos.y;
-    mHoldTargetY     = target.y;
-    mPrevGrounded    = true;
-    mAirYMode        = AirYMode::None;
-    mFallAssistActive = false;
+    // AirY の基準も同期
+    mAirY.Reset(GetOwner(), mActualPos, target);
 }
 
 //======================================================================
-// ComputeCameraPos
+// ComputeIdealPos
+//
+//  ・Owner の後方へ mHorzDist
+//  ・高さは mVertDist（W/S で変わる）
 //======================================================================
-Vector3 FollowCameraComponent::ComputeCameraPos() const
+Vector3 FollowCameraComponent::ComputeIdealPos() const
 {
     Vector3 cameraPos = GetOwner()->GetPosition();
+
     cameraPos -= GetOwner()->GetForward() * mHorzDist;
     cameraPos += Vector3::UnitY * mVertDist;
+
     return cameraPos;
 }
 
 //======================================================================
 // ComputeTarget
+//
+//  ・Owner の前方 mTargetDist を注視点とする
 //======================================================================
 Vector3 FollowCameraComponent::ComputeTarget() const
 {
@@ -197,155 +181,6 @@ Vector3 FollowCameraComponent::ComputeTarget() const
         GetOwner()->GetForward() * mTargetDist;
 
     return target;
-}
-
-//======================================================================
-// ApplyAirYControl
-//======================================================================
-void FollowCameraComponent::ApplyAirYControl(float dt,
-                                             Vector3& ioCameraPos,
-                                             Vector3& ioTarget)
-{
-    if (!mFreezeYInAir)
-    {
-        return;
-    }
-
-    auto* grav = GetOwner()->GetComponent<GravityComponent>();
-    if (!grav)
-    {
-        return;
-    }
-
-    const bool grounded = grav->IsGrounded();
-    const float velY    = grav->GetVelocityY();
-
-    const bool inAir     = !grounded;
-    const bool ascending = (velY > 0.0f);
-    const bool falling   = (velY < 0.0f);
-
-    const float desiredCamY    = ioCameraPos.y;
-    const float desiredTargetY = ioTarget.y;
-
-    // ------------------------------------------------------------
-    // Ground <-> Air transitions
-    // ------------------------------------------------------------
-    if (mPrevGrounded && inAir)
-    {
-        mHoldCamY    = ioCameraPos.y;
-        mHoldTargetY = ioTarget.y;
-
-        mAirYMode = AirYMode::Hold;
-        mFallAssistActive = false;
-    }
-    else if (!mPrevGrounded && grounded)
-    {
-        mAirYMode = AirYMode::Recover;
-        mFallAssistActive = false;
-    }
-
-    if (inAir)
-    {
-        if (ascending)
-        {
-            mAirYMode = AirYMode::Hold;
-        }
-        else if (falling)
-        {
-            if (mAirYMode == AirYMode::Hold)
-            {
-                mAirYMode = AirYMode::FallAssist;
-            }
-        }
-        else
-        {
-            mAirYMode = AirYMode::Hold;
-        }
-    }
-
-    // ------------------------------------------------------------
-    // Apply mode
-    // ------------------------------------------------------------
-    switch (mAirYMode)
-    {
-    case AirYMode::Hold:
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
-
-    case AirYMode::FallAssist:
-    {
-        const float drop = mHoldTargetY - desiredTargetY;
-
-        if (!mFallAssistActive)
-        {
-            if (drop > mFallOutOfViewThresholdY)
-            {
-                mFallAssistActive = true;
-            }
-        }
-        else
-        {
-            if (drop < (mFallOutOfViewThresholdY - mFallOutOfViewHysteresisY))
-            {
-                mFallAssistActive = false;
-            }
-        }
-
-        if (mFallAssistActive)
-        {
-            mHoldTargetY =
-                ExpApproach95(mHoldTargetY,
-                              desiredTargetY,
-                              dt,
-                              mFallAssistTargetSeconds);
-
-            mHoldCamY =
-                ExpApproach95(mHoldCamY,
-                              desiredCamY,
-                              dt,
-                              mFallAssistCameraSeconds);
-        }
-
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
-    }
-
-    case AirYMode::Recover:
-    {
-        mHoldTargetY =
-            ExpApproach95(mHoldTargetY,
-                          desiredTargetY,
-                          dt,
-                          mRecoverTargetSeconds);
-
-        mHoldCamY =
-            ExpApproach95(mHoldCamY,
-                          desiredCamY,
-                          dt,
-                          mRecoverCameraSeconds);
-
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-
-        const bool doneTarget =
-            (std::fabs(mHoldTargetY - desiredTargetY) < 0.01f);
-        const bool doneCam =
-            (std::fabs(mHoldCamY - desiredCamY) < 0.01f);
-
-        if (doneTarget && doneCam)
-        {
-            mAirYMode = AirYMode::None;
-        }
-        break;
-    }
-
-    default:
-        break;
-    }
-
-    mPrevGrounded = grounded;
 }
 
 } // namespace toy

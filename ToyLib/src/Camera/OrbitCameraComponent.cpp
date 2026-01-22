@@ -4,32 +4,9 @@
 #include "Engine/Runtime/InputSystem.h"
 #include "Engine/Core/Application.h"
 #include "Physics/PhysWorld.h"
-#include "Physics/GravityComponent.h"
 
 #include <cmath>
 #include <cfloat>
-
-namespace {
-
-//----------------------------------------------------------------------
-// ExpApproach95
-//
-//  ・seconds95 秒で 95% まで近づく指数補間
-//  ・オーバーシュートやバネ挙動が起きない
-//----------------------------------------------------------------------
-static float ExpApproach95(float current,
-                           float target,
-                           float dt,
-                           float seconds95)
-{
-    const float T = (seconds95 < 0.001f) ? 0.001f : seconds95;
-    const float k = 2.99573227355f / T; // ln(20)
-    const float a = 1.0f - std::exp(-k * dt);
-
-    return current + (target - current) * a;
-}
-
-} // anonymous namespace
 
 namespace toy {
 
@@ -46,34 +23,30 @@ OrbitCameraComponent::OrbitCameraComponent(Actor* owner)
 
     // Y オフセットを制限
     mOffset.y = Math::Clamp(mOffset.y, mMinOffsetY, mMaxOffsetY);
+
+    // デフォルトは無効（必要なカメラだけONにする運用が安全）
+    mAirY.SetEnabled(false);
 }
 
 //======================================================================
-// Parameter setters
+// Parameter setters (delegates)
 //======================================================================
 void OrbitCameraComponent::SetRecoverSeconds(float targetSec,
                                              float cameraSec)
 {
-    mRecoverTargetSeconds = (targetSec < 0.001f) ? 0.001f : targetSec;
-    mRecoverCameraSeconds = (cameraSec < 0.001f) ? 0.001f : cameraSec;
+    mAirY.SetRecoverSeconds(targetSec, cameraSec);
 }
 
 void OrbitCameraComponent::SetFallAssistSeconds(float targetSec,
                                                 float cameraSec)
 {
-    mFallAssistTargetSeconds =
-        (targetSec < 0.001f) ? 0.001f : targetSec;
-    mFallAssistCameraSeconds =
-        (cameraSec < 0.001f) ? 0.001f : cameraSec;
+    mAirY.SetFallAssistSeconds(targetSec, cameraSec);
 }
 
 void OrbitCameraComponent::SetFallOutOfViewThreshold(float thresholdY,
                                                      float hysteresisY)
 {
-    mFallOutOfViewThresholdY =
-        (thresholdY < 0.0f) ? 0.0f : thresholdY;
-    mFallOutOfViewHysteresisY =
-        (hysteresisY < 0.0f) ? 0.0f : hysteresisY;
+    mAirY.SetFallOutOfViewThreshold(thresholdY, hysteresisY);
 }
 
 //======================================================================
@@ -86,15 +59,13 @@ void OrbitCameraComponent::OnActivated(const Vector3& prevPos,
     mCurrentPos    = prevPos;
     mHasCurrentPos = true;
 
-    // 空中Y制御の基準値も同期
-    mHoldCamY        = mCurrentPos.y;
-    mHoldTargetY     = ComputeTarget().y;
-    mPrevGrounded    = true;
-    mAirYMode        = AirYMode::None;
-    mFallAssistActive = false;
+    Vector3 target = ComputeTarget();
+
+    // AirY の基準も同期（切替直後に急変しないように）
+    mAirY.Reset(GetOwner(), prevPos, target);
 
     mCameraPosition = prevPos;
-    mCameraTarget   = ComputeTarget();
+    mCameraTarget   = target;
 }
 
 //======================================================================
@@ -147,7 +118,7 @@ void OrbitCameraComponent::UpdateCamera(float dt)
     Vector3 cameraPos = mCurrentPos;
 
     // 空中Y制御（camera / target を上書き）
-    ApplyAirYControl(dt, cameraPos, target);
+    mAirY.Apply(GetOwner(), dt, cameraPos, target);
 
     // 地面との当たり補正（カメラのみ）
     ResolveGroundCollision(cameraPos);
@@ -178,11 +149,10 @@ void OrbitCameraComponent::UpdateHeightAndDistance(float dt)
     if (std::fabs(mHeightInput) > 1e-4f)
     {
         mOffset.y += mHeightInput * heightSpeed * dt;
-        mOffset.y  = Math::Clamp(mOffset.y,
-                                 mMinOffsetY,
-                                 mMaxOffsetY);
+        mOffset.y  = Math::Clamp(mOffset.y, mMinOffsetY, mMaxOffsetY);
     }
 
+    // 入力は 1 フレームで消費
     mHeightInput = 0.0f;
 
     float t =
@@ -196,13 +166,12 @@ void OrbitCameraComponent::UpdateHeightAndDistance(float dt)
         (mMaxDistance - mMinDistance) * t;
 
     const float zoomLerpSpeed = 10.0f;
+
     mDistance +=
         (mTargetDistance - mDistance) *
         zoomLerpSpeed * dt;
 
-    mDistance = Math::Clamp(mDistance,
-                            mMinDistance,
-                            mMaxDistance);
+    mDistance = Math::Clamp(mDistance, mMinDistance, mMaxDistance);
 
     Vector3 dir = mOffset;
     if (!dir.IsZero())
@@ -235,11 +204,8 @@ void OrbitCameraComponent::EnsureInitialPos(const Vector3& idealPos)
         mCurrentPos    = idealPos;
         mHasCurrentPos = true;
 
-        mHoldCamY     = mCurrentPos.y;
-        mHoldTargetY  = ComputeTarget().y;
-        mPrevGrounded = true;
-        mAirYMode     = AirYMode::None;
-        mFallAssistActive = false;
+        Vector3 target = ComputeTarget();
+        mAirY.Reset(GetOwner(), mCurrentPos, target);
     }
 }
 
@@ -252,157 +218,7 @@ void OrbitCameraComponent::ApplyPositionLerp(const Vector3& idealPos,
     float alpha = mPosLerpSpeed * dt;
     alpha = Math::Clamp(alpha, 0.0f, 1.0f);
 
-    mCurrentPos = Vector3::Lerp(mCurrentPos,
-                                idealPos,
-                                alpha);
-}
-
-//======================================================================
-// Air Y control
-//======================================================================
-void OrbitCameraComponent::ApplyAirYControl(float dt,
-                                            Vector3& ioCameraPos,
-                                            Vector3& ioTarget)
-{
-    if (!mFreezeYInAir)
-    {
-        return;
-    }
-
-    auto* grav =
-        GetOwner()->GetComponent<GravityComponent>();
-    if (!grav)
-    {
-        return;
-    }
-
-    const bool grounded = grav->IsGrounded();
-    const float velY    = grav->GetVelocityY();
-
-    const bool inAir     = !grounded;
-    const bool ascending = (velY > 0.0f);
-    const bool falling   = (velY < 0.0f);
-
-    const float desiredCamY    = ioCameraPos.y;
-    const float desiredTargetY = ioTarget.y;
-
-    // ---- state transitions
-    if (mPrevGrounded && inAir)
-    {
-        mHoldCamY    = ioCameraPos.y;
-        mHoldTargetY = ioTarget.y;
-        mAirYMode    = AirYMode::Hold;
-        mFallAssistActive = false;
-    }
-    else if (!mPrevGrounded && grounded)
-    {
-        mAirYMode = AirYMode::Recover;
-        mFallAssistActive = false;
-    }
-
-    if (inAir)
-    {
-        if (ascending)
-        {
-            mAirYMode = AirYMode::Hold;
-        }
-        else if (falling)
-        {
-            if (mAirYMode == AirYMode::Hold)
-            {
-                mAirYMode = AirYMode::FallAssist;
-            }
-        }
-        else
-        {
-            mAirYMode = AirYMode::Hold;
-        }
-    }
-
-    // ---- apply mode
-    switch (mAirYMode)
-    {
-    case AirYMode::Hold:
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
-
-    case AirYMode::FallAssist:
-    {
-        const float drop =
-            mHoldTargetY - desiredTargetY;
-
-        if (!mFallAssistActive)
-        {
-            if (drop > mFallOutOfViewThresholdY)
-            {
-                mFallAssistActive = true;
-            }
-        }
-        else
-        {
-            if (drop <
-                (mFallOutOfViewThresholdY -
-                 mFallOutOfViewHysteresisY))
-            {
-                mFallAssistActive = false;
-            }
-        }
-
-        if (mFallAssistActive)
-        {
-            mHoldTargetY =
-                ExpApproach95(mHoldTargetY,
-                              desiredTargetY,
-                              dt,
-                              mFallAssistTargetSeconds);
-
-            mHoldCamY =
-                ExpApproach95(mHoldCamY,
-                              desiredCamY,
-                              dt,
-                              mFallAssistCameraSeconds);
-        }
-
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
-    }
-
-    case AirYMode::Recover:
-    {
-        mHoldTargetY =
-            ExpApproach95(mHoldTargetY,
-                          desiredTargetY,
-                          dt,
-                          mRecoverTargetSeconds);
-
-        mHoldCamY =
-            ExpApproach95(mHoldCamY,
-                          desiredCamY,
-                          dt,
-                          mRecoverCameraSeconds);
-
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-
-        const bool doneTarget =
-            (std::fabs(mHoldTargetY - desiredTargetY) < 0.01f);
-        const bool doneCam =
-            (std::fabs(mHoldCamY - desiredCamY) < 0.01f);
-
-        if (doneTarget && doneCam)
-        {
-            mAirYMode = AirYMode::None;
-        }
-        break;
-    }
-
-    default:
-        break;
-    }
-
-    mPrevGrounded = grounded;
+    mCurrentPos = Vector3::Lerp(mCurrentPos, idealPos, alpha);
 }
 
 //======================================================================
@@ -410,24 +226,30 @@ void OrbitCameraComponent::ApplyAirYControl(float dt,
 //======================================================================
 void OrbitCameraComponent::ResolveGroundCollision(Vector3& ioCameraPos) const
 {
-    if (Application* app = GetOwner()->GetApp())
+    Application* app = GetOwner()->GetApp();
+    if (!app)
     {
-        if (PhysWorld* phys = app->GetPhysWorld())
-        {
-            float groundY =
-                phys->GetGroundHeightAt(ioCameraPos);
+        return;
+    }
 
-            if (groundY != -FLT_MAX)
-            {
-                const float margin = 0.1f;
-                const float minY   = groundY + margin;
+    PhysWorld* phys = app->GetPhysWorld();
+    if (!phys)
+    {
+        return;
+    }
 
-                if (ioCameraPos.y < minY)
-                {
-                    ioCameraPos.y = minY;
-                }
-            }
-        }
+    float groundY = phys->GetGroundHeightAt(ioCameraPos);
+    if (groundY == -FLT_MAX)
+    {
+        return;
+    }
+
+    const float margin = 0.1f;
+    const float minY   = groundY + margin;
+
+    if (ioCameraPos.y < minY)
+    {
+        ioCameraPos.y = minY;
     }
 }
 
@@ -457,15 +279,14 @@ void OrbitCameraComponent::ApplyView(const Vector3& cameraPos,
     if (std::fabs(dotFU) > 0.99f)
     {
         up = Vector3::UnitX;
+
         if (std::fabs(Vector3::Dot(forward, up)) > 0.99f)
         {
             up = Vector3::UnitZ;
         }
     }
 
-    Matrix4 view =
-        Matrix4::CreateLookAt(eye, at, up);
-
+    Matrix4 view = Matrix4::CreateLookAt(eye, at, up);
     SetViewMatrix(view);
 }
 

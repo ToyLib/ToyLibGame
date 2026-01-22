@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Camera/CameraComponent.h"
+#include "Camera/CameraAirYController.h"
 #include "Utils/MathUtil.h"
 
 namespace toy {
@@ -16,7 +17,7 @@ namespace toy {
 //  ------------------------------------------------------------
 //  - 左右入力で水平回転（Yaw）
 //  - 上下入力で高さ変更（高さに応じて距離も自動調整）
-//  - 空中時の Y 追従制御
+//  - 空中時の Y 追従制御（CameraAirYController）
 //      * 上昇中   : 視点固定（ブレ防止）
 //      * 落下中   : 見失いそうな時のみ追従
 //      * 着地直後 : 自然に復帰（target 早め / camera 遅め）
@@ -49,16 +50,16 @@ public:
     }
 
     //------------------------------------------------------------------
-    // Air Y behavior control
+    // Air Y behavior control (delegates to CameraAirYController)
     //------------------------------------------------------------------
     void SetFreezeYInAir(bool enable)
     {
-        mFreezeYInAir = enable;
+        mAirY.SetEnabled(enable);
     }
 
     bool GetFreezeYInAir() const
     {
-        return mFreezeYInAir;
+        return mAirY.IsEnabled();
     }
 
     // 着地後の復帰速度（95% 到達秒）
@@ -84,10 +85,6 @@ private:
 
     void EnsureInitialPos(const Vector3& idealPos);
     void ApplyPositionLerp(const Vector3& idealPos, float dt);
-
-    void ApplyAirYControl(float dt,
-                          Vector3& ioCameraPos,
-                          Vector3& ioTarget);
 
     void ResolveGroundCollision(Vector3& ioCameraPos) const;
     void ApplyView(const Vector3& cameraPos,
@@ -121,37 +118,9 @@ private:
     float   mPosLerpSpeed{8.0f};
 
     //==================================================================
-    // Air Y control (organized)
+    // Air Y control (composed)
     //==================================================================
-    enum class AirYMode
-    {
-        None,       // 通常追従
-        Hold,       // 上昇中：Y 固定
-        FallAssist, // 落下中：見失いそうな時のみ追従
-        Recover     // 着地後：滑らかに復帰
-    };
-
-    bool     mFreezeYInAir{false};
-    AirYMode mAirYMode{AirYMode::None};
-
-    // Hold / Recover 用
-    float mHoldCamY{0.0f};
-    float mHoldTargetY{0.0f};
-
-    // 接地状態トラッキング
-    bool mPrevGrounded{true};
-
-    // 落下時の見失い判定
-    float mFallOutOfViewThresholdY{1.8f};
-    float mFallOutOfViewHysteresisY{0.4f};
-    bool  mFallAssistActive{false};
-
-    // 追従速度（95% 到達秒）
-    float mFallAssistTargetSeconds{0.18f};
-    float mFallAssistCameraSeconds{0.45f};
-
-    float mRecoverTargetSeconds{0.15f};
-    float mRecoverCameraSeconds{0.30f};
+    CameraAirYController mAirY{};
 };
 
 } // namespace toy
