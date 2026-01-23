@@ -64,17 +64,17 @@ void FieldScene::InitField()
     DeployFire(Vector3::Zero);
 
     // レンガ
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 20; ++i)
     {
-        for (int j = 0; j < 5; ++j)
+        for (int j = 0; j < 10; ++j)
         {
             DeployBrick(Vector3(-100 + 20*j/2 + 10*i*2, 20, 20 + 5*j*2));
         }
     }
 
-    for (int i = 0; i < 6; ++i)
+    for (int i = 0; i < 15; ++i)
     {
-        DeployBrick(Vector3(0, -1+i*5, -15 + i*5));
+        DeployBrick(Vector3(0, -3+i*2, -15 + i*2));
 
     }
     
@@ -155,7 +155,7 @@ void FieldScene::DeployBrick(Vector3 pos)
 {
     auto actor = CreateActor<toy::Actor>();
     actor->SetPosition(pos);
-    actor->SetScale(5.0f);
+    actor->SetScale(2.0f);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.x"));
