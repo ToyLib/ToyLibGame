@@ -72,9 +72,9 @@ void FieldScene::InitField()
         }
     }
 
-    for (int i = 0; i < 13; ++i)
+    for (int i = 0; i < 12; ++i)
     {
-        DeployBrick(Vector3(0, -3+i*2, -20 + i*3));
+        DeployBrick(Vector3(0, -3+i*2, -20 + i*4));
 
     }
     
