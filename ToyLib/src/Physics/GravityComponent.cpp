@@ -129,6 +129,10 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
     const float footY0   = GetOBBMinY(footObb);
     const float offsetY0 = owner->GetPosition().y - footY0;
+    
+    // 足OBB下面中心（XZ基準点）
+    mFootBottomPos = footObb.pos - footObb.axisY * footObb.radius.y;
+    mHasFootBottom = true;
 
     //==========================================================================
     // 1) 真下の床を取得（5点サンプル）

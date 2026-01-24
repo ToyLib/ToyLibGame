@@ -14,6 +14,43 @@
 
 namespace toy {
 
+static Matrix4 BuildAlignToGround(const Vector3& groundNormal, float yawRad)
+{
+    Vector3 up = groundNormal;
+    if (up.LengthSq() <= Math::NearZeroEpsilon)
+    {
+        up = Vector3::UnitY;
+    }
+    up.Normalize();
+
+    // yaw から “ワールド水平の前” を作る（+Z基準）
+    Vector3 fwd(Math::Sin(yawRad), 0.0f, Math::Cos(yawRad));
+
+    // 前ベクトルを地面平面に射影して直交化
+    fwd = fwd - up * Vector3::Dot(fwd, up);
+    if (fwd.LengthSq() <= Math::NearZeroEpsilon)
+    {
+        // up とほぼ平行になったら別軸で作る
+        fwd = Vector3::Cross(Vector3::UnitX, up);
+    }
+    fwd.Normalize();
+
+    Vector3 right = Vector3::Cross(up, fwd);
+    if (right.LengthSq() <= Math::NearZeroEpsilon)
+    {
+        right = Vector3::UnitX;
+    }
+    right.Normalize();
+
+    // row-vector: 行に軸を詰める
+    Matrix4 m = Matrix4::Identity;
+    m.SetXAxis(right);
+    m.SetYAxis(up);
+    m.SetZAxis(fwd);
+    return m;
+}
+
+
 FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : VisualComponent(owner, drawOrder)
 {
@@ -31,67 +68,60 @@ void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
 
 Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 {
-    //--------------------------------------------------------------------------
-    // 1) base position
-    //  - GravityComponent がある場合だけ groundY に追従する
-    //  - OffsetPosition は最後に加える（利用側で足元補正できる）
-    //--------------------------------------------------------------------------
     Vector3 pos = GetOwner()->GetPosition();
 
     const GravityComponent* grav = GetOwner()->GetComponent<GravityComponent>();
+
+    //========================================
+    // (1) 基準XZを “足OBB下面中心” に寄せる
+    //========================================
+    if (grav && grav->HasFootBottom())
+    {
+        const Vector3 b = grav->GetFootBottomPos();
+        pos.x = b.x;
+        pos.z = b.z;
+    }
+
+    //========================================
+    // (2) Yは groundY にスナップ
+    //========================================
     if (mSnapToGround && grav && grav->HasGroundPose())
     {
         pos.y = grav->GetGroundPose().y;
     }
 
-    // 足元補正 + 浮かせ
+    // offset + lift
     pos += mOffsetPosition;
     pos.y += mGroundLift;
 
-    //--------------------------------------------------------------------------
-    // 2) scale
-    //  - SpriteVerts は XY 平面の Quad
-    //  - X 回転で地面に寝かせると “Yスケールが奥行(Z)相当” になる
-    //--------------------------------------------------------------------------
+    // scale（XY quad）
     Matrix4 scale = Matrix4::CreateScale(
         mWidth * mOffsetScale,
         mDepth * mOffsetScale,
-        1.0f
-    );
+        1.0f);
 
-    // 地面に寝かせる（XY → XZ）
-    Matrix4 rotX = Matrix4::CreateRotationX(Math::ToRadians(90.0f));
+    // XY quad を地面に寝かせる（XY → XZ）
+    Matrix4 rotLay = Matrix4::CreateRotationX(Math::ToRadians(90.0f));
 
-    // 地面上の回転（Yaw）
-    Matrix4 rotY = Matrix4::CreateRotationY(mYaw);
-
-    //--------------------------------------------------------------------------
-    // 3) slope alignment（★今回追加）
-    //  - AlignToGround=true のときだけ、GroundPose から傾きを取得して適用
-    //  - Gravity が無い／GroundPose 無効なら Identity（従来どおり）
-    //--------------------------------------------------------------------------
-    Matrix4 rotSlope = Matrix4::Identity;
+    // slope alignment（yaw込みで作るので rotY は不要）
+    Matrix4 rot = Matrix4::Identity;
 
     if (mAlignToGround && grav && grav->HasGroundPose())
     {
-        const auto& gp = grav->GetGroundPose();
-        const Quaternion q = mUseSmoothGroundPose ? gp.smooth : gp.raw;
-
-        // ※ ToyLib の Quaternion→Matrix 変換APIに合わせて差し替えてOK
-        rotSlope = Matrix4::CreateFromQuaternion(q);
+        rot = BuildAlignToGround(grav->GetGroundPose().normal, mYaw);
+    }
+    else
+    {
+        // 従来どおり水平yawだけ
+        rot = Matrix4::CreateRotationY(mYaw);
     }
 
-    // 位置
     Matrix4 trans = Matrix4::CreateTranslation(pos);
 
-    //--------------------------------------------------------------------------
-    // 4) world (ToyLib 流 row-vector / SRT)
-    //
-    //  - rotX  : 地面に寝かせる
-    //  - rotY  : Yaw（リング・影の向き）
-    //  - rotSlope : 斜面追従（必要時のみ）
-    //--------------------------------------------------------------------------
-    return scale * rotX * rotY * rotSlope * trans;
+    // row-vector: S * R * T
+    //  - rotLay: 板を寝かせる
+    //  - rot   : yaw or slope+ yaw
+    return scale * rotLay * rot * trans;
 }
 
 void FootSpriteComponent::Draw()

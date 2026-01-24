@@ -117,6 +117,9 @@ public:
 
     float   GetGroundY()      const { return mGroundPose.y; }
     Vector3 GetGroundNormal() const { return mGroundPose.normal; }
+    
+    bool HasFootBottom() const { return mHasFootBottom; }
+    const Vector3& GetFootBottomPos() const { return mFootBottomPos; }
 
 private:
     //--------------------------------------------------------------------------
@@ -173,6 +176,9 @@ private:
 
     // 法線反転防止用
     Vector3 mPrevGroundNormal = Vector3::UnitY;
+    
+    bool    mHasFootBottom = false;
+    Vector3 mFootBottomPos = Vector3::Zero;
 };
 
 } // namespace toy

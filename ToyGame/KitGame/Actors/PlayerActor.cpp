@@ -153,10 +153,10 @@ PlayerActor::PlayerActor(toy::Application* a)
     mTargetSigne->SetBlendAdd(false);
     mTargetSigne->SetAlpha(0.8f);
     mTargetSigne->SetVisible(true);
-    mTargetSigne->SetGroundLift(0.1f);
+    mTargetSigne->SetGroundLift(0.15f);
     mTargetSigne->SetGridDiv(4);              // まずは4で十分
     mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
-    mTargetSigne->SetVisible(true);
+    mTargetSigne->SetVisible(false);
    
 }
 

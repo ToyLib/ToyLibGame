@@ -47,8 +47,8 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     outHit = GroundHit{};
 
     auto* owner = GetOwner();
-    auto* phys  = owner->GetApp()->GetPhysWorld();
-    if (!phys) return false;
+    auto* phys  = owner ? owner->GetApp()->GetPhysWorld() : nullptr;
+    if (!owner || !phys) return false;
 
     // 基準（地面優先/上限用）
     float refY = mBaseY;
@@ -58,35 +58,78 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     {
         if (grav->HasGroundPose())
         {
-            refY = grav->GetGroundY();
+            const auto& gp = grav->GetGroundPose();
+            refY   = gp.y;
+            refCol = gp.collider; // GroundPose に統一
         }
-        refCol = grav->GetGroundCollider(); // ★ここは grav がいる時だけ
     }
 
     //========================================
-    // (A) 乗ってる床 collider を優先
+    // (A) 乗ってる床 collider を優先（OBB上面を平面サンプル）
     //========================================
     if (refCol)
     {
-        const Cube aabb = refCol->GetBoundingVolume()->GetWorldAABB();
-
-        // ★床の端のチラつきがあるなら 0.03〜0.06 に上げるのが効く
-        const float kEdgeEps = 0.02f;
-        const bool insideXZ =
-            (pos.x >= aabb.min.x + kEdgeEps) && (pos.x <= aabb.max.x - kEdgeEps) &&
-            (pos.z >= aabb.min.z + kEdgeEps) && (pos.z <= aabb.max.z - kEdgeEps);
-
-        if (insideXZ)
+        const auto* bv = refCol->GetBoundingVolume();
+        if (bv)
         {
-            outHit.hit      = true;
-            outHit.y        = aabb.max.y;
-            outHit.pos      = Vector3(pos.x, outHit.y, pos.z);
-            outHit.normal   = Vector3::UnitY;
-            outHit.source   = GroundSource::Collider;
-            outHit.collider = refCol;
-            return true;
+            auto obbPtr = bv->GetOBB();
+            if (obbPtr)
+            {
+                const OBB& obb = *obbPtr;
+
+                // axis 正規化
+                Vector3 ax = obb.axisX;
+                Vector3 ay = obb.axisY;
+                Vector3 az = obb.axisZ;
+
+                if (ax.LengthSq() > Math::NearZeroEpsilon) ax.Normalize(); else ax = Vector3::UnitX;
+                if (ay.LengthSq() > Math::NearZeroEpsilon) ay.Normalize(); else ay = Vector3::UnitY;
+                if (az.LengthSq() > Math::NearZeroEpsilon) az.Normalize(); else az = Vector3::UnitZ;
+
+                // 上向き法線に統一
+                Vector3 n = ay;
+                if (Vector3::Dot(n, Vector3::UnitY) < 0.0f)
+                {
+                    n *= -1.0f;
+                }
+
+                // 上面平面上の1点
+                const Vector3 p0 = obb.pos + n * obb.radius.y;
+
+                // 垂直線分 (pos.x,*,pos.z) と平面の交点 y
+                const float denom = n.y;
+                if (std::fabs(denom) > 1e-6f)
+                {
+                    const float y =
+                        p0.y - (n.x * (pos.x - p0.x) + n.z * (pos.z - p0.z)) / denom;
+
+                    // 上面矩形内か（OBBローカルX/Z）
+                    const Vector3 hitPos(pos.x, y, pos.z);
+                    const Vector3 d = hitPos - obb.pos;
+
+                    const float lx = Vector3::Dot(d, ax);
+                    const float lz = Vector3::Dot(d, az);
+
+                    // 端のチラつき回避：内側に寄せる
+                    const float kEdgeEps = 0.02f;
+                    const bool inside =
+                        (std::fabs(lx) <= (obb.radius.x - kEdgeEps)) &&
+                        (std::fabs(lz) <= (obb.radius.z - kEdgeEps));
+
+                    if (inside)
+                    {
+                        outHit.hit      = true;
+                        outHit.y        = y;
+                        outHit.pos      = hitPos;
+                        outHit.normal   = n;
+                        outHit.source   = GroundSource::Collider;
+                        outHit.collider = refCol;
+                        return true;
+                    }
+                }
+            }
         }
-        // outside ならフォールバックへ
+        // inside 判定できなかったらフォールバックへ
     }
 
     //========================================
@@ -101,7 +144,6 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
 
     //========================================
     // (C) collider フォールバック（必要になったら）
-    //     ここを入れるなら “refYより上は捨てる” を追加するのが肝
     //========================================
     GroundHit anyHit;
     if (phys->GetNearestGroundHitAtXZ(pos, anyHit))
@@ -120,23 +162,14 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
 void GroundConformSpriteComponent::RebuildGridIfNeeded()
 {
     Actor* owner = GetOwner();
-    if (!owner)
-    {
-        return;
-    }
-    
+    if (!owner) return;
+
     auto* app = owner->GetApp();
-    if (!app)
-    {
-        return;
-    }
-    
+    if (!app) return;
+
     auto* renderer = app->GetRenderer();
-    if (!renderer)
-    {
-        return;
-    }
-    
+    if (!renderer) return;
+
     // 条件が整ってないなら作らない
     if (mWidth <= 0.0f || mDepth <= 0.0f)
     {
@@ -144,7 +177,6 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         return;
     }
 
-    // ownerのXZが動いたら更新（Yは無視してOK）
     const Vector3 ownerPos = owner->GetPosition();
     const Vector3 ownerXZ(ownerPos.x, 0.0f, ownerPos.z);
 
@@ -157,8 +189,36 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         (std::fabs(mDepth  - mPrevDepth)  > 0.001f) ||
         (mGridDiv != mPrevDiv);
 
-    // 初回 or 変更時のみ再構築（慎重運用）
-    if (mGridVAO && !movedXZ && !sizeChanged)
+    //========================================================
+    // NEW: GroundPose の変化でも再構築する（停止中の追従）
+    //========================================================
+    bool groundChanged = false;
+    if (auto* grav = owner->GetComponent<GravityComponent>())
+    {
+        if (grav->HasGroundPose())
+        {
+            const auto& gp = grav->GetGroundPose();
+
+            // y変化（mBaseY は前回中心地面）
+            if (std::fabs(gp.y - mBaseY) > 0.005f)
+            {
+                groundChanged = true;
+            }
+
+            // normal変化：前回 baseHit.normal を保持してないので、簡易に “傾き量” で判定
+            // （より厳密にしたいなら mPrevBaseNormal をメンバ追加）
+            const float tilt = 1.0f - Vector3::Dot(gp.normal, Vector3::UnitY);
+            if (tilt > 0.0005f) // ほんの少しでも傾いていたら更新したい場合
+            {
+                // 「傾いた状態が続く」だけで毎回更新になるのが嫌なら
+                // mPrevBaseNormal をメンバにして Dot で差分判定にしてね
+                groundChanged = true;
+            }
+        }
+    }
+
+    // 初回 or 変更時のみ再構築
+    if (mGridVAO && !movedXZ && !sizeChanged && !groundChanged)
     {
         return;
     }
@@ -191,18 +251,15 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
     const int numTris  = div * div * 2;
     const int numIdx   = numTris * 3;
 
-    // VertexArray(スプライト用)は 1頂点あたり 8 float（pos xyz + normal xyz + uv xy）
     std::vector<float> verts;
     verts.resize(static_cast<size_t>(numVerts) * 8);
 
     std::vector<unsigned int> indices;
     indices.resize(static_cast<size_t>(numIdx));
 
-    // 生成範囲：中心基準で width/depth
     const float halfW = 0.5f * mWidth  * mOffsetScale;
     const float halfD = 0.5f * mDepth  * mOffsetScale;
 
-    // ローカルXZ → ワールドXZ（Yaw + offset）
     const float yaw = mYaw;
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
@@ -211,7 +268,6 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 
     auto LocalToWorldXZ = [&](float lx, float lz) -> Vector3
     {
-        // Yaw回転（Y軸）
         const float rx = lx * c + lz * s;
         const float rz = -lx * s + lz * c;
 
@@ -247,7 +303,6 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
                 gy = h.y;
                 n  = h.normal;
 
-                // ガタつき抑制：中心との差をクランプ
                 float dy = gy - mBaseY;
                 dy = Math::Clamp(dy, -mMaxDeltaFromCenter, mMaxDeltaFromCenter);
                 gy = mBaseY + dy;
@@ -255,23 +310,19 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 
             w.y = gy + mGroundLift;
 
-            // pos
             verts[base + 0] = w.x;
             verts[base + 1] = w.y;
             verts[base + 2] = w.z;
 
-            // normal（Unlitなら使わないけど、フォーマット互換用に入れておく）
             verts[base + 3] = n.x;
             verts[base + 4] = n.y;
             verts[base + 5] = n.z;
 
-            // uv
             verts[base + 6] = tx;
             verts[base + 7] = 1.0f - tz;
         }
     }
 
-    // index生成（通常グリッド）
     int ii = 0;
     for (int iz = 0; iz < div; ++iz)
     {
@@ -282,19 +333,16 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
             const unsigned int i2 = static_cast<unsigned int>((iz + 1) * vxCount + ix);
             const unsigned int i3 = static_cast<unsigned int>((iz + 1) * vxCount + (ix + 1));
 
-            // (i0, i2, i1)
             indices[ii++] = i0;
             indices[ii++] = i1;
             indices[ii++] = i2;
 
-            // (i1, i2, i3)
             indices[ii++] = i1;
             indices[ii++] = i3;
             indices[ii++] = i2;
         }
     }
 
-    // VertexArray 作成（GL_STATIC_DRAW前提なので作り直し）
     mGridVAO = std::make_shared<VertexArray>(
         verts.data(),
         static_cast<unsigned int>(numVerts),
@@ -302,7 +350,6 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         static_cast<unsigned int>(numIdx)
     );
 }
-
 //------------------------------------------------------------------------------
 // Draw override（FootSpriteComponent の Draw を “VAOだけ差し替え”）
 //------------------------------------------------------------------------------

@@ -737,6 +737,20 @@ public:
         retVal.z = Vector3(mat[2][0], mat[2][1], mat[2][2]).Length();
         return retVal;
     }
+    
+    static Matrix4 CreateFromAxes(const Vector3& xAxis,
+                                  const Vector3& yAxis,
+                                  const Vector3& zAxis)
+    {
+        float temp[4][4] =
+        {
+            { xAxis.x, xAxis.y, xAxis.z, 0.0f },
+            { yAxis.x, yAxis.y, yAxis.z, 0.0f },
+            { zAxis.x, zAxis.y, zAxis.z, 0.0f },
+            { 0.0f,    0.0f,    0.0f,    1.0f }
+        };
+        return Matrix4(temp);
+    }
 
     static Matrix4 CreateScale(float xScale, float yScale, float zScale)
     {
