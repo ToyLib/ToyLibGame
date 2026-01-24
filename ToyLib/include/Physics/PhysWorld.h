@@ -332,12 +332,37 @@ private:
                                     float& outT,
                                     Vector3& outNormal) const;
 
+    //=============================================================
+    // Foot ground sampling (NEW)
+    //=============================================================
+    bool GetFootGroundHit_Sampled(const Actor* a,
+                                 uint32_t groundMask,
+                                 GroundHit& outHit) const;
+
+    bool SampleGroundAtPoint(const Vector3& samplePos,   // xz が重要
+                             float startY,               // レイ開始Y
+                             float maxDist,              // 下方向
+                             uint32_t groundMask,
+                             const ColliderComponent* ignore,
+                             GroundHit& outHit) const;
+
+    void BuildFootSamplePoints(const ColliderComponent* foot,
+                               std::vector<Vector3>& outPoints) const;
+    
 private:
     std::vector<Polygon> mTerrainPolygons;
     TerrainGrid          mTerrainGrid;
 
     // Collider は Actor 側が所有。PhysWorld は参照の一覧だけ保持する。
     std::vector<ColliderComponent*> mColliders;
+    
+    //=============================================================
+    // Tunables (NEW)  ※既存IFを変えないため PhysWorld 内部の設定に
+    //=============================================================
+    float mMaxGroundSlopeDeg    = 45.0f; // これ以上の斜面は「床じゃない」扱い
+    int   mMinSupportSamples    = 3;     // 5点中これ未満なら「角で落下」扱い
+    float mFootSampleInset      = 0.03f; // OBB端ギリの不安定回避（内側に寄せる）
+    float mGroundEpsY           = 0.02f; // “床として許す誤差”
 };
 
 } // namespace toy

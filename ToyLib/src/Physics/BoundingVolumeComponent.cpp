@@ -62,23 +62,30 @@ void BoundingVolumeComponent::OnUpdateWorldTransform()
     const Vector3 localCenter = (mBoundingBox->min + mBoundingBox->max) * 0.5f;
     const Vector3 localExtent = (mBoundingBox->max - mBoundingBox->min) * 0.5f;
 
-    // スケール（非一様が無い前提：uniform scale）
+    // uniform scale 前提
     const Vector3 centerScaled = localCenter * sc;
 
-    // ★row-vector: v' = v * R
-    // Matrix4 の取り出しAPIが不明なので、Vector3::Transform が row-vector を実装してる前提で使う。
-    // （もし column-vector 実装ならここは逆になるので要注意）
+    // row-vector: v' = v * R
     const Vector3 centerRot = Vector3::Transform(centerScaled, R);
     mObb->pos = posW + centerRot;
 
-    // ★軸：row-vector なら “行” が基底になりがち
-    // ここも Matrix4 の設計次第なので、GetXAxis/Y/Z が「ワールド軸ベクトル」を返すならOK。
-    // もし挙動が怪しいなら GetRow(0/1/2) 相当を作るのが確実。
-    mObb->axisX = R.GetXAxis();
-    mObb->axisY = R.GetYAxis();
-    mObb->axisZ = R.GetZAxis();
+    //==========================================================
+    // ★軸は「基底を回す」方式に統一（ここが重要）
+    //==========================================================
+    mObb->axisX = Vector3::Transform(Vector3::UnitX, R);
+    mObb->axisY = Vector3::Transform(Vector3::UnitY, R);
+    mObb->axisZ = Vector3::Transform(Vector3::UnitZ, R);
 
-    // extent
+    if (mObb->axisX.LengthSq() > Math::NearZeroEpsilon) mObb->axisX.Normalize();
+    else mObb->axisX = Vector3::UnitX;
+
+    if (mObb->axisY.LengthSq() > Math::NearZeroEpsilon) mObb->axisY.Normalize();
+    else mObb->axisY = Vector3::UnitY;
+
+    if (mObb->axisZ.LengthSq() > Math::NearZeroEpsilon) mObb->axisZ.Normalize();
+    else mObb->axisZ = Vector3::UnitZ;
+
+    // extent (uniform scale)
     mObb->radius = Vector3(
         fabsf(localExtent.x) * sc,
         fabsf(localExtent.y) * sc,

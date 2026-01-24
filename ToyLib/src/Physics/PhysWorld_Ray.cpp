@@ -278,7 +278,6 @@ bool PhysWorld::RayHitWall(const Vector3& start,
 //=============================================================================
 // 汎用 Raycast（normal 対応）
 //=============================================================================
-// 汎用 Raycast（normal 対応）
 bool PhysWorld::Raycast(const Vector3& origin,
                         const Vector3& dir,
                         float maxDist,
@@ -287,45 +286,37 @@ bool PhysWorld::Raycast(const Vector3& origin,
 {
     outHit = RaycastHit{};
 
-    Ray ray;
-    ray.start = origin;
-    ray.dir   = dir;
+    Ray ray(origin, dir);
+    if (ray.dir.LengthSq() < Math::NearZeroEpsilon) return false;
 
-    if (ray.dir.LengthSq() < Math::NearZeroEpsilon)
-    {
-        return false;
-    }
-
-    ray.dir.Normalize();
-
-    const float kTEps = 1e-4f;
-
-    float closestT = maxDist;
-    bool hitAny = false;
+    float   closestT = maxDist;
+    bool    hitAny   = false;
+    Vector3 bestN    = Vector3::UnitY;
 
     for (auto* col : mColliders)
     {
-        if (!col->GetEnabled()) continue;
+        if (!col || !col->GetEnabled()) continue;
         if ((col->GetFlags() & flagMask) == 0) continue;
 
         auto obb = col->GetBoundingVolume()->GetOBB();
         if (!obb) continue;
 
-        float   t = 0.0f;
+        float t = 0.0f;
         Vector3 n = Vector3::UnitY;
 
         if (IntersectRayOBB_WithNormal(ray, obb.get(), t, n))
         {
-            if (t > kTEps && t <= closestT)
+            if (t >= 0.0f && t <= closestT)
             {
-                closestT        = t;
-                hitAny          = true;
+                closestT = t;
+                bestN    = n;
+                hitAny   = true;
 
                 outHit.hit      = true;
                 outHit.actor    = col->GetOwner();
                 outHit.distance = t;
                 outHit.point    = ray.start + ray.dir * t;
-                outHit.normal   = n;
+                outHit.normal   = bestN;
             }
         }
     }
