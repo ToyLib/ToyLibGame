@@ -8,27 +8,37 @@
 #include <cstdint>
 
 namespace toy {
-
-//------------------------------------------------------------------------------
+//======================================================================
 // GravityComponent
-//------------------------------------------------------------------------------
-// ・重力（加速度）を Y 速度に積算し、Actor の上下移動を制御する。
-// ・足元（C_FOOT Collider）の AABB(min.y) を基準に、PhysWorld の地面判定から
-//   「次の足元位置」と「地面の高さ」の差を見て、スナップ接地／落下を処理する。
-// ・deltaTime は内部で小ステップに分割して処理し、低FPSでも判定が破綻しにくい。
-// ・地面情報（高さ/法線/姿勢Quaternion）は常にキャッシュし、外部から参照できる。
-// ・Actor の PoseRotation 反映は必要なときだけ（mEnableGroundPose=true）。
-// ・上昇中は天井（C_CEILING）を検出して押し戻し、上向き速度をクランプする。
-//------------------------------------------------------------------------------
+//======================================================================
+// 役割：
+//  ・重力（Y 方向の加速度）を速度に積算し、Actor の上下移動を制御する
+//  ・足元（C_FOOT Collider）の AABB(min.y) を基準に地面判定を行う
+//  ・PhysWorld から取得した地面高さとの差分を使って
+//      - 接地スナップ
+//      - 落下
+//      - 動く床への追従
+//    を一貫して処理する
+//
+// 設計方針：
+//  ・deltaTime は内部でサブステップに分割して処理
+//    → 低 FPS 時でも床抜け・突き抜けを起こしにくい
+//  ・地面情報（高さ / 法線 / 姿勢）は常にキャッシュ
+//    → 見た目用（姿勢補正・影・エフェクト）に再利用できる
+//  ・姿勢（PoseRotation）の反映はオプション（mEnableGroundPose）
+//  ・上昇中は C_CEILING を検出して天井にめり込まないように制御
+//======================================================================
 class GravityComponent : public Component
 {
 public:
     explicit GravityComponent(Actor* owner);
 
-    // 毎フレーム更新（内部でサブステップ化）
+    // 毎フレーム更新
+    // 内部で deltaTime を小さなサブステップに分割して処理する
     void Update(float deltaTime) override;
 
-    // 接地中のみジャンプ（上向き初速を与えて空中へ）
+    // 接地中のみジャンプ可能
+    // 上向き初速を与えて空中状態に移行する
     void Jump();
 
     //--------------------------------------------------------------------------
@@ -50,16 +60,19 @@ public:
     void  SetMaxFallSpeed(float v) { mMaxFallSpeed = v; }
     float GetMaxFallSpeed() const  { return mMaxFallSpeed; }
 
+    // 段差の上り許容量（接地スナップ時）
     void  SetMaxStepUp(float v) { mMaxStepUp = v; }
     float GetMaxStepUp() const  { return mMaxStepUp; }
 
+    // 段差の下り許容量（落下スナップ時）
     void  SetMaxStepDown(float v) { mMaxStepDown = v; }
     float GetMaxStepDown() const  { return mMaxStepDown; }
 
+    // めり込み許容誤差
     void  SetPenetrationEps(float v) { mPenetrationEps = v; }
     float GetPenetrationEps() const  { return mPenetrationEps; }
 
-    // Actor の PoseRotation を地面に合わせるか（見た目用）
+    // 地面法線に合わせて Actor の姿勢を回転させるか（見た目用）
     void SetEnableGroundPose(bool b) { mEnableGroundPose = b; }
     bool GetEnableGroundPose() const { return mEnableGroundPose; }
 
@@ -69,6 +82,7 @@ public:
     bool  IsGrounded()   const { return mIsGrounded; }
     float GetVelocityY() const { return mVelocityY; }
 
+    // 現在乗っている床（Collider 床のみ）
     const class ColliderComponent* GetGroundCollider() const { return mGroundCollider; }
 
     //--------------------------------------------------------------------------
@@ -76,63 +90,65 @@ public:
     //--------------------------------------------------------------------------
     struct GroundPose
     {
-        // ★重要：
-        // valid は「真下に地面情報が取れたか」を表す。
-        // ジャンプ中など空中でも、真下に地面が取れているなら true になり得る。
+        // valid：
+        //  ・真下に地面情報が取れたかどうか
+        //  ・空中でも「真下に床がある」なら true になり得る
         bool valid    = false;
-        bool grounded = false;               // 接地中か（スナップ成立）
 
-        float   y      = 0.0f;               // ground height
-        Vector3 normal = Vector3::UnitY;     // world normal
+        // grounded：
+        //  ・スナップ接地が成立しているかどうか
+        bool grounded = false;
 
-        // “地面に沿う姿勢”
-        // raw    : 即応（遅れ無し。影/リング向け）
-        // smooth : 補間済み（車/4本足など見た目用）
+        float   y      = 0.0f;               // 地面高さ
+        Vector3 normal = Vector3::UnitY;     // ワールド法線
+
+        // 地面に沿った姿勢
+        //  raw    : 即応（影・UI 向け）
+        //  smooth : 補間済み（キャラ見た目用）
         Quaternion raw    = Quaternion::Identity;
         Quaternion smooth = Quaternion::Identity;
 
-        const class ColliderComponent* collider = nullptr; // Collider床のときだけ
-        // GroundSource source = GroundSource::None; // 必要なら
+        // Collider 床のときのみ有効
+        const class ColliderComponent* collider = nullptr;
     };
 
     const GroundPose& GetGroundPose() const { return mGroundPose; }
     bool HasGroundPose() const { return mGroundPose.valid; }
-    
 
-    float GetGroundY() const { return mGroundPose.y; }
+    float   GetGroundY()      const { return mGroundPose.y; }
     Vector3 GetGroundNormal() const { return mGroundPose.normal; }
 
 private:
-    // サブステップ1回分の重力・接地処理
+    //--------------------------------------------------------------------------
+    // 内部処理
+    //--------------------------------------------------------------------------
+    // サブステップ 1 回分の重力・接地処理
     void StepGravityOnce(float deltaTime, class ColliderComponent* footCollider);
 
     // 上昇中の天井押し戻し
     void ApplyCeilingClamp(Actor* owner);
 
-    // 地面法線に合わせた姿勢を計算してキャッシュを更新（※Actorへは反映しない）
-    // groundedNow / wasGrounded を明示し、接地開始時の跳ねを抑える
+    // 地面法線から姿勢を計算してキャッシュ更新
+    // Actor への反映は行わない（呼び出し側で制御）
     void UpdateGroundPoseCache(Actor* owner,
                               const struct GroundHit& hit,
                               float deltaTime,
                               bool groundedNow,
                               bool wasGrounded);
 
-    // C_FOOT を持つ ColliderComponent を探す
+    // C_FOOT を持つ Collider を取得
     ColliderComponent* FindFootCollider();
 
     // フレーム終端の保険：
-    // 「地面に潜っていたら」最小限だけ引き上げて整合を取る
+    // 地面に深く潜っていた場合の最小補正
     void ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot);
 
 private:
     //--------------------------------------------------------------------------
-    // フラグ
+    // 内部状態
     //--------------------------------------------------------------------------
-    uint32_t mSelfFlag = 0; // 自分の種別（C_PLAYER など）
+    uint32_t mSelfFlag = 0; // 自分の種別（C_PLAYER 等）
 
-    //--------------------------------------------------------------------------
-    // 速度・状態
-    //--------------------------------------------------------------------------
     float mVelocityY;
     float mGravityAccel;
     float mJumpSpeed;
@@ -141,19 +157,20 @@ private:
     bool  mIsGrounded;
     bool  mEnableGroundPose;
 
-    //--------------------------------------------------------------------------
-    // スナップ許容パラメータ
-    //--------------------------------------------------------------------------
+    // スナップ許容値
     float mMaxStepUp;
     float mMaxStepDown;
     float mPenetrationEps;
 
-    // 今乗ってる床（Collider床）
+    // 現在乗っている床
     const ColliderComponent* mGroundCollider;
     Vector3 mPrevGroundPos;
 
     // 地面情報キャッシュ
     GroundPose mGroundPose;
+
+    // 法線反転防止用
+    Vector3 mPrevGroundNormal = Vector3::UnitY;
 };
 
 } // namespace toy

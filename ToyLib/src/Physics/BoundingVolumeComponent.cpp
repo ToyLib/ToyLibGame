@@ -49,69 +49,88 @@ BoundingVolumeComponent::~BoundingVolumeComponent()
 // ・アクターのワールド変換が更新されたタイミングで呼ばれる。
 // ・OBB の中心・軸・半径・バウンディングスフィア半径を再計算。
 //------------------------------------------------------------------------------
+// row-vector (v * M) 前提の版
 void BoundingVolumeComponent::OnUpdateWorldTransform()
 {
-    // OBB の中心（ワールド位置）
-    mObb->pos = GetOwner()->GetPosition();
-    
-    float sc1 = GetOwner()->GetScale();
-    
-    // ローカル AABB をスケールして OBB の min/max として保持
-    mObb->max = mBoundingBox->max * sc1;
-    mObb->min = mBoundingBox->min * sc1;
-    
-    // 回転行列から OBB の軸を取得
-    Quaternion q1 = GetOwner()->GetRotation();
-    Matrix4 mRot1 = Matrix4::CreateFromQuaternion(q1);
-    
-    mObb->axisX = mRot1.GetXAxis();
-    mObb->axisY = mRot1.GetYAxis();
-    mObb->axisZ = mRot1.GetZAxis();
-    
-    // 各軸方向の「半径」（幅/高さ/奥行きの半分相当）を算出
+    const Vector3 posW = GetOwner()->GetPosition();
+    const float   sc   = GetOwner()->GetScale();
+
+    const Quaternion q = GetOwner()->GetRotation();
+    const Matrix4    R = Matrix4::CreateFromQuaternion(q);
+
+    // ローカルAABB center / extent
+    const Vector3 localCenter = (mBoundingBox->min + mBoundingBox->max) * 0.5f;
+    const Vector3 localExtent = (mBoundingBox->max - mBoundingBox->min) * 0.5f;
+
+    // スケール（非一様が無い前提：uniform scale）
+    const Vector3 centerScaled = localCenter * sc;
+
+    // ★row-vector: v' = v * R
+    // Matrix4 の取り出しAPIが不明なので、Vector3::Transform が row-vector を実装してる前提で使う。
+    // （もし column-vector 実装ならここは逆になるので要注意）
+    const Vector3 centerRot = Vector3::Transform(centerScaled, R);
+    mObb->pos = posW + centerRot;
+
+    // ★軸：row-vector なら “行” が基底になりがち
+    // ここも Matrix4 の設計次第なので、GetXAxis/Y/Z が「ワールド軸ベクトル」を返すならOK。
+    // もし挙動が怪しいなら GetRow(0/1/2) 相当を作るのが確実。
+    mObb->axisX = R.GetXAxis();
+    mObb->axisY = R.GetYAxis();
+    mObb->axisZ = R.GetZAxis();
+
+    // extent
     mObb->radius = Vector3(
-        (fabsf(mObb->max.x) + fabsf(mObb->min.x)) / 2,
-        (fabsf(mObb->max.y) + fabsf(mObb->min.y)) / 2,
-        (fabsf(mObb->max.z) + fabsf(mObb->min.z)) / 2
+        fabsf(localExtent.x) * sc,
+        fabsf(localExtent.y) * sc,
+        fabsf(localExtent.z) * sc
     );
-    
-    // 簡易的な回転情報（軸の対角要素）
-    // ※ SAT 判定自体は axisX/Y/Z を使用する想定
-    mObb->rot = Vector3(mObb->axisX.x, mObb->axisY.y, mObb->axisZ.z);
-    
-    // バウンディングスフィア半径を更新
+
     mRadius = mObb->radius.Length();
 }
-
 //------------------------------------------------------------------------------
 // ComputeBoundingVolume（VA から生成）
 // ・複数 VertexArray のポリゴン群からローカル AABB を計算。
 // ・その後、デバッグ用の VAO とポリゴン配列を生成する。
 //------------------------------------------------------------------------------
-void BoundingVolumeComponent::ComputeBoundingVolume(const std::vector<std::shared_ptr<VertexArray>>& va)
+void BoundingVolumeComponent::ComputeBoundingVolume(
+    const std::vector<std::shared_ptr<VertexArray>>& va)
 {
-    // 複数 VertexArray をまとめて min/max を更新
+    // ★ここは「一回だけ」初期化する
+    mBoundingBox->min = Vector3(+Math::Infinity, +Math::Infinity, +Math::Infinity);
+    mBoundingBox->max = Vector3(-Math::Infinity, -Math::Infinity, -Math::Infinity);
+
+    bool any = false;
+
     for (const auto& v : va)
     {
+        if (!v) continue;
+
         const auto& polygons = v->GetPolygons();
         for (const auto& poly : polygons)
         {
+            any = true;
+
             mBoundingBox->min.x = std::min({ mBoundingBox->min.x, poly.a.x, poly.b.x, poly.c.x });
             mBoundingBox->max.x = std::max({ mBoundingBox->max.x, poly.a.x, poly.b.x, poly.c.x });
-            
+
             mBoundingBox->min.y = std::min({ mBoundingBox->min.y, poly.a.y, poly.b.y, poly.c.y });
             mBoundingBox->max.y = std::max({ mBoundingBox->max.y, poly.a.y, poly.b.y, poly.c.y });
-            
+
             mBoundingBox->min.z = std::min({ mBoundingBox->min.z, poly.a.z, poly.b.z, poly.c.z });
             mBoundingBox->max.z = std::max({ mBoundingBox->max.z, poly.a.z, poly.b.z, poly.c.z });
         }
     }
-    
-    // デバッグ用の VAO と、AABB からのポリゴン配列を生成
+
+    // ポリゴンが無い場合の保険
+    if (!any)
+    {
+        mBoundingBox->min = Vector3::Zero;
+        mBoundingBox->max = Vector3::Zero;
+    }
+
     CreateVArray();
     CreatePolygons();
 }
-
 //------------------------------------------------------------------------------
 // CreatePolygons
 // ・AABB（min/max）から 6 面 × 2 三角形 = 12 ポリゴンを生成。
@@ -159,6 +178,10 @@ void BoundingVolumeComponent::CreatePolygons()
 //------------------------------------------------------------------------------
 void BoundingVolumeComponent::ComputeBoundingVolume(const Vector3& min, const Vector3& max)
 {
+    
+    mBoundingBox->min = Vector3(+Math::Infinity, +Math::Infinity, +Math::Infinity);
+    mBoundingBox->max = Vector3(-Math::Infinity, -Math::Infinity, -Math::Infinity);
+    
     mBoundingBox->min = min;
     mBoundingBox->max = max;
     
@@ -246,20 +269,29 @@ void BoundingVolumeComponent::CreateVArray()
 // ・スケールと位置を反映した「ワールド空間の AABB」を返す。
 // ・回転は無視されるので、ざっくりとした広めの当たり判定として利用。
 //------------------------------------------------------------------------------
+static Vector3 AbsVec(const Vector3& v)
+{
+    return Vector3(fabsf(v.x), fabsf(v.y), fabsf(v.z));
+}
+
 Cube BoundingVolumeComponent::GetWorldAABB() const
 {
     Cube worldBox;
-    if (!mBoundingBox) return worldBox;
-    
-    Vector3 pos   = GetOwner()->GetPosition();
-    float   scale = GetOwner()->GetScale();
-    
-    worldBox.min = mBoundingBox->min * scale + pos;
-    worldBox.max = mBoundingBox->max * scale + pos;
-    
+    if (!mObb) return worldBox;
+
+    const Vector3 ex = mObb->axisX * mObb->radius.x;
+    const Vector3 ey = mObb->axisY * mObb->radius.y;
+    const Vector3 ez = mObb->axisZ * mObb->radius.z;
+
+    // ワールド座標軸に対するAABB半径（各成分の絶対値を足す）
+    const Vector3 aabbExt =
+        AbsVec(ex) + AbsVec(ey) + AbsVec(ez);
+
+    worldBox.min = mObb->pos - aabbExt;
+    worldBox.max = mObb->pos + aabbExt;
+
     return worldBox;
 }
-
 void BoundingVolumeComponent::ComputeFromMeshComponent(const MeshComponent* meshComp)
 {
     if (!meshComp) return;
