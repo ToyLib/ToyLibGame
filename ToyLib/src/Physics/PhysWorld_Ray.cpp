@@ -1,10 +1,5 @@
 //=============================================================================
 // PhysWorld_Ray.cpp
-//  レイ関連ユーティリティ
-//  ・Ray vs Triangle
-//  ・Ray vs OBB
-//  ・Wall ヒット
-//  ・汎用 Raycast
 //=============================================================================
 #include "Physics/PhysWorld.h"
 
@@ -33,7 +28,6 @@ bool IntersectRayTriangle(const Ray& ray,
     const Vector3 p = Vector3::Cross(ray.dir, e2);
     const float det = Vector3::Dot(e1, p);
 
-    // レイと三角形が平行
     if (fabsf(det) < EPS)
     {
         return false;
@@ -74,7 +68,6 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray,
 {
     const float epsilon = 1e-6f;
 
-    // OBB中心からレイ開始点へのベクトル
     const Vector3 p = obb->pos - ray.start;
 
     float tMin = 0.0f;
@@ -124,7 +117,6 @@ bool PhysWorld::IntersectRayOBB(const Ray& ray,
         }
         else
         {
-            // レイがスラブに平行で、かつ外側
             if (-e - r > 0.0f || -e + r < 0.0f)
             {
                 return false;
@@ -161,26 +153,27 @@ bool PhysWorld::IntersectRayOBB_WithNormal(const Ray& ray,
 
         if (fabsf(f) > eps)
         {
-            float tA = (e - r) / f;
-            Vector3 nA =  axis;
+            // ★ここを IntersectRayOBB と同じ式にする
+            float t1 = (e + r) / f;
+            Vector3 n1 = axis;          // 進入面の法線候補
 
-            float tB = (e + r) / f;
-            Vector3 nB = axis * -1.0f;
+            float t2 = (e - r) / f;
+            Vector3 n2 = axis * -1.0f;
 
-            if (tA > tB)
+            if (t1 > t2)
             {
-                std::swap(tA, tB);
-                std::swap(nA, nB);
+                std::swap(t1, t2);
+                std::swap(n1, n2);
             }
 
-            if (tA > tMin)
+            // tMin 更新時に「進入面法線」を保持
+            if (t1 > tMin)
             {
-                tMin = tA;
-                hitNormal = nA;
+                tMin = t1;
+                hitNormal = n1;
             }
 
-            tMax = std::min(tMax, tB);
-
+            tMax = std::min(tMax, t2);
             if (tMin > tMax)
             {
                 return false;
@@ -190,6 +183,7 @@ bool PhysWorld::IntersectRayOBB_WithNormal(const Ray& ray,
         }
         else
         {
+            // レイがスラブに平行で、かつ外側
             if (-e - r > 0.0f || -e + r < 0.0f)
             {
                 return false;
@@ -198,15 +192,16 @@ bool PhysWorld::IntersectRayOBB_WithNormal(const Ray& ray,
         }
     };
 
-    if (!TestAxis(obb->axisX, obb->radius.x))
-    {
-        return false;
-    }
-    if (!TestAxis(obb->axisY, obb->radius.y))
-    {
-        return false;
-    }
-    if (!TestAxis(obb->axisZ, obb->radius.z))
+    if (!TestAxis(obb->axisX, obb->radius.x)) return false;
+    if (!TestAxis(obb->axisY, obb->radius.y)) return false;
+    if (!TestAxis(obb->axisZ, obb->radius.z)) return false;
+
+    //==========================================================
+    // ★重要：レイ開始点が OBB 内なら遮蔽として無視
+    //  - target が壁OBBの中にいる等で「即ヒット」扱いになりやすく、
+    //    カメラ補正が暴れて “飛ぶ” 原因になる
+    //==========================================================
+    if (tMin < 0.0f)
     {
         return false;
     }
@@ -225,7 +220,6 @@ bool PhysWorld::IntersectRayOBB_WithNormal(const Ray& ray,
     outNormal = hitNormal;
     return true;
 }
-
 //=============================================================================
 // Wall ヒット（start → end の線分）
 //=============================================================================
@@ -282,8 +276,9 @@ bool PhysWorld::RayHitWall(const Vector3& start,
 }
 
 //=============================================================================
-// 汎用 Raycast
+// 汎用 Raycast（normal 対応）
 //=============================================================================
+// 汎用 Raycast（normal 対応）
 bool PhysWorld::Raycast(const Vector3& origin,
                         const Vector3& dir,
                         float maxDist,
@@ -303,44 +298,39 @@ bool PhysWorld::Raycast(const Vector3& origin,
 
     ray.dir.Normalize();
 
+    const float kTEps = 1e-4f;
+
     float closestT = maxDist;
-    bool hit = false;
+    bool hitAny = false;
 
     for (auto* col : mColliders)
     {
-        if (!col->GetEnabled())
-        {
-            continue;
-        }
-
-        if ((col->GetFlags() & flagMask) == 0)
-        {
-            continue;
-        }
+        if (!col->GetEnabled()) continue;
+        if ((col->GetFlags() & flagMask) == 0) continue;
 
         auto obb = col->GetBoundingVolume()->GetOBB();
-        if (!obb)
-        {
-            continue;
-        }
+        if (!obb) continue;
 
-        float t = 0.0f;
-        if (IntersectRayOBB(ray, obb.get(), t))
+        float   t = 0.0f;
+        Vector3 n = Vector3::UnitY;
+
+        if (IntersectRayOBB_WithNormal(ray, obb.get(), t, n))
         {
-            if (t >= 0.0f && t <= closestT)
+            if (t > kTEps && t <= closestT)
             {
                 closestT        = t;
-                hit             = true;
+                hitAny          = true;
+
                 outHit.hit      = true;
                 outHit.actor    = col->GetOwner();
                 outHit.distance = t;
                 outHit.point    = ray.start + ray.dir * t;
+                outHit.normal   = n;
             }
         }
     }
 
-    return hit;
+    return hitAny;
 }
 
 } // namespace toy
-

@@ -71,7 +71,8 @@ struct RaycastHit
 {
     bool hit = false;
 
-    Vector3 point = Vector3::Zero;
+    Vector3 point   = Vector3::Zero;  // ヒット位置（ワールド）
+    Vector3 normal  = Vector3::UnitY; // ヒット面法線（ワールド・正規化）
     float   distance = 0.0f;
 
     class Actor* actor = nullptr;
