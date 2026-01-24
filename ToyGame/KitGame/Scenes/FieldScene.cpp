@@ -157,7 +157,7 @@ void FieldScene::DeployBrick(Vector3 pos)
     actor->SetPosition(pos);
     actor->SetScale(4.0f);
     
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(20.0f));
+    Quaternion q = Quaternion(Vector3::UnitZ, Math::ToRadians(20.0f));
     actor->SetRotation(q);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();

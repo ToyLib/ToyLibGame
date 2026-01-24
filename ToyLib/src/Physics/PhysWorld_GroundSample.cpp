@@ -13,8 +13,6 @@
 
 namespace toy {
 
-static float DegToRad(float deg) { return deg * 3.1415926535f / 180.0f; }
-
 //-----------------------------------------------------------------------------
 // Foot sample points: OBB姿勢を考慮した「下面5点」（＋型）
 //-----------------------------------------------------------------------------
@@ -24,23 +22,34 @@ void PhysWorld::BuildFootSamplePoints(const ColliderComponent* foot,
     outPoints.clear();
     if (!foot) return;
 
-    auto obb = foot->GetBoundingVolume()->GetOBB();
-    if (!obb) return;
+    auto obbSP = foot->GetBoundingVolume()->GetOBB();
+    if (!obbSP) return;
 
-    // OBB下面中心
-    const Vector3 bottomCenter = obb->pos - obb->axisY * obb->radius.y;
+    const OBB& obb = *obbSP;
 
-    const float rx = std::max(0.0f, obb->radius.x - mFootSampleInset);
-    const float rz = std::max(0.0f, obb->radius.z - mFootSampleInset);
+    // 軸は必ず正規化（入ってないと距離が狂う）
+    Vector3 ax = obb.axisX;
+    Vector3 ay = obb.axisY;
+    Vector3 az = obb.axisZ;
 
-    // + 型：中心、左右、前後（OBB軸で）
-    outPoints.push_back(bottomCenter);
-    outPoints.push_back(bottomCenter + obb->axisX * rx);
-    outPoints.push_back(bottomCenter - obb->axisX * rx);
-    outPoints.push_back(bottomCenter + obb->axisZ * rz);
-    outPoints.push_back(bottomCenter - obb->axisZ * rz);
+    if (ax.LengthSq() > Math::NearZeroEpsilon) ax.Normalize(); else ax = Vector3::UnitX;
+    if (ay.LengthSq() > Math::NearZeroEpsilon) ay.Normalize(); else ay = Vector3::UnitY;
+    if (az.LengthSq() > Math::NearZeroEpsilon) az.Normalize(); else az = Vector3::UnitZ;
+
+    // サンプルの“基準XZ”は bottomCenter じゃなくて OBB中心XZ を使う
+    // Y は Sample 側で startY を与えるので、ここでは 0 でOK
+    const Vector3 base(obb.pos.x, 0.0f, obb.pos.z);
+
+    const float rx = Math::Max(0.0f, obb.radius.x - mFootSampleInset);
+    const float rz = Math::Max(0.0f, obb.radius.z - mFootSampleInset);
+
+    // + 型：中心、左右、前後
+    outPoints.push_back(base);            // center
+    outPoints.push_back(base + ax * rx);  // +X
+    outPoints.push_back(base - ax * rx);  // -X
+    outPoints.push_back(base + az * rz);  // +Z
+    outPoints.push_back(base - az * rz);  // -Z
 }
-
 //-----------------------------------------------------------------------------
 // サンプル点1つで「一番高い地面」を拾う（Collider床 + Terrain）
 //  - startY から maxDist だけ下を見る（垂直）
@@ -55,79 +64,80 @@ bool PhysWorld::SampleGroundAtPoint(const Vector3& samplePos,
 {
     outHit = GroundHit{};
 
-    const float yMin = startY - maxDist;
+    if (maxDist <= 0.0f)
+    {
+        return false;
+    }
 
-    // 候補のうち「最も高い y」を採用
-    float bestY = -std::numeric_limits<float>::max();
+    const float endY = startY - maxDist;
+
+    bool  found = false;
+    float bestY = -FLT_MAX;
     GroundHit bestHit;
 
+    const float cosMaxSlope = cosf(Math::ToRadians(mMaxGroundSlopeDeg));
+
     //==============================
-    // (A) Collider床（C_GROUND）
+    // (A) Collider床：OBB上面サンプル（統一）
     //==============================
-    for (auto* col : mColliders)
+    for (const ColliderComponent* col : mColliders)
     {
         if (!col || !col->GetEnabled()) continue;
         if (col == ignore) continue;
 
-        if ((col->GetFlags() & groundMask) == 0) continue;
-        if (!col->HasAnyFlag(C_GROUND)) continue; // 念のため
+        if (!col->HasFlag(groundMask)) continue; // groundMask 条件
+        if (!col->HasFlag(C_GROUND))   continue; // 念のため（床として扱うもの）
 
-        const Cube aabb = col->GetBoundingVolume()->GetWorldAABB();
-
-        // XZ が AABB 内か？
-        const float eps = 0.001f;
-        if (samplePos.x < aabb.min.x - eps || samplePos.x > aabb.max.x + eps) continue;
-        if (samplePos.z < aabb.min.z - eps || samplePos.z > aabb.max.z + eps) continue;
-
-        const float y = aabb.max.y;
-
-        // startY より上の床は “足元床” としては扱いにくいので除外（天井誤判定対策）
-        if (y > startY + mGroundEpsY) continue;
-
-        // 範囲内（下方向 maxDist）
-        if (y < yMin) continue;
-
-        if (y > bestY)
+        GroundHit h;
+        if (!TryGetColliderTopHitAtXZ(col,
+                                      samplePos.x,
+                                      samplePos.z,
+                                      startY,
+                                      endY,
+                                      cosMaxSlope,
+                                      h))
         {
-            bestY = y;
+            continue;
+        }
 
-            bestHit.hit      = true;
-            bestHit.y        = y;
-            bestHit.distance = std::max(0.0f, startY - y);
-            bestHit.pos      = Vector3(samplePos.x, y, samplePos.z);
-            bestHit.normal   = Vector3::UnitY;
-            bestHit.source   = GroundSource::Collider;
-            bestHit.collider = col;
+        // “最も高い床” を採用（段差で沈まない）
+        if (!found || h.y > bestY)
+        {
+            found   = true;
+            bestY   = h.y;
+            bestHit = h;
         }
     }
 
     //==============================
-    // (B) Terrain（Polygon）
+    // (B) Terrain（既存のまま）
     //==============================
     {
         GroundHit th;
-        Vector3 queryPos(samplePos.x, samplePos.y, samplePos.z);
+        // GetGroundHitAt は XZ のみ見てるはずなので、Y は startY を入れておく
+        Vector3 query(samplePos.x, startY, samplePos.z);
 
-        if (GetGroundHitAt(queryPos, th))
+        if (GetGroundHitAt(query, th))
         {
-            const float y = th.y;
-
-            // startY より上は除外（天井/上空ポリゴン誤判定対策）
-            if (y <= startY + mGroundEpsY && y >= yMin)
+            if (th.y <= startY + mGroundEpsY && th.y >= endY)
             {
-                if (y > bestY)
+                if (!found || th.y > bestY)
                 {
-                    bestY = y;
+                    found   = true;
+                    bestY   = th.y;
                     bestHit = th;
 
-                    bestHit.distance = std::max(0.0f, startY - y);
-                    bestHit.pos = Vector3(samplePos.x, y, samplePos.z);
+                    // 念のため pos を samplePos のXZに揃える
+                    bestHit.pos.x = samplePos.x;
+                    bestHit.pos.z = samplePos.z;
+
+                    bestHit.distance = std::max(0.0f, startY - th.y);
                 }
             }
         }
     }
 
-    if (!bestHit.hit)
+    if (!found)
     {
         return false;
     }
@@ -135,7 +145,6 @@ bool PhysWorld::SampleGroundAtPoint(const Vector3& samplePos,
     outHit = bestHit;
     return true;
 }
-
 //-----------------------------------------------------------------------------
 // Actor の FootCollider を使って “斜面＆角落下” 対応の地面ヒットを返す
 //  - 5点サンプル
@@ -152,55 +161,109 @@ bool PhysWorld::GetFootGroundHit_Sampled(const Actor* a,
     const ColliderComponent* foot = FindFootCollider(a);
     if (!foot) return false;
 
-    auto obb = foot->GetBoundingVolume()->GetOBB();
-    if (!obb) return false;
+    auto obbSP = foot->GetBoundingVolume()->GetOBB();
+    if (!obbSP) return false;
 
-    // 足下面からちょい上を開始点にして下へ
-    const float startY = (obb->pos - obb->axisY * obb->radius.y).y + 0.10f;
-    const float maxDist = 1.0f; // いったん固定。必要なら足速度で広げる
+    const OBB& obb = *obbSP;
+
+    // ------------------------------------------------------------
+    // 1) startY / maxDist を足サイズ基準で安全側に
+    //    - bottom から 시작すると坂の上側を取りこぼす
+    // ------------------------------------------------------------
+    Vector3 ay = obb.axisY;
+    if (ay.LengthSq() > Math::NearZeroEpsilon) ay.Normalize();
+    else ay = Vector3::UnitY;
+
+    // 足の上面中心からスタート（坂の上側を確実に拾う）
+    const float startY = (obb.pos + ay * obb.radius.y).y + 0.10f;
+
+    // 足の高さ(2*radius.y) + 余裕ぶん。短すぎる 1.0f をやめる
+    const float maxDist = (obb.radius.y * 2.0f) + 1.0f;
 
     std::vector<Vector3> points;
     BuildFootSamplePoints(foot, points);
     if (points.empty()) return false;
 
-    const float cosMaxSlope = std::cos(DegToRad(mMaxGroundSlopeDeg));
+    // ------------------------------------------------------------
+    // 2) スロープ判定
+    // ------------------------------------------------------------
+    const float cosMaxSlope = std::cos(Math::ToRadians(mMaxGroundSlopeDeg));
 
-    int validCount = 0;
-    float bestY = -std::numeric_limits<float>::max();
-    GroundHit bestHit;
-
-    for (const auto& p : points)
+    // 有効ヒットを集める
+    struct Sample
     {
+        GroundHit hit;
+        bool isCenter = false;
+    };
+    std::vector<Sample> samples;
+    samples.reserve(points.size());
+
+    for (size_t i = 0; i < points.size(); ++i)
+    {
+        const Vector3& p = points[i];
+
         GroundHit h;
         if (!SampleGroundAtPoint(p, startY, maxDist, groundMask, foot, h))
         {
             continue;
         }
 
-        // 斜面判定：normal.y が小さい（急）なら床扱いしない
-        // Collider床は UnitY なので必ず通る
+        // 急すぎる面は床扱いしない（Terrain / OBBどちらも normal が入ってる前提）
         if (h.normal.y < cosMaxSlope)
         {
             continue;
         }
 
-        ++validCount;
-
-        // “一番高い床” を採用（段差で沈まない）
-        if (h.y > bestY)
-        {
-            bestY = h.y;
-            bestHit = h;
-        }
+        Sample s;
+        s.hit      = h;
+        s.isCenter = (i == 0); // ★BuildFootSamplePoints で中心を先頭にしておく
+        samples.push_back(s);
     }
 
-    // 角（エッジ）落下：支持点が少ないなら床にしない
-    if (validCount < mMinSupportSamples)
+    // ------------------------------------------------------------
+    // 3) 角落下（支持点不足）
+    // ------------------------------------------------------------
+    if ((int)samples.size() < mMinSupportSamples)
     {
         return false;
     }
 
-    outHit = bestHit;
+    // ------------------------------------------------------------
+    // 4) 出力の作り方：スムーズ優先
+    //    - center が取れてるならそれを採用（RayDownに近い挙動）
+    //    - 取れてないなら y の中央値を採用（bestYより跳ねにくい）
+    // ------------------------------------------------------------
+    for (const auto& s : samples)
+    {
+        if (s.isCenter)
+        {
+            outHit = s.hit;
+            return true;
+        }
+    }
+
+    // center がない場合：中央値
+    std::vector<float> ys;
+    ys.reserve(samples.size());
+    for (const auto& s : samples) ys.push_back(s.hit.y);
+
+    std::sort(ys.begin(), ys.end());
+    const float medianY = ys[ys.size() / 2];
+
+    // medianY に一番近いサンプルを返す（normal / collider を保つ）
+    float bestAbs = FLT_MAX;
+    GroundHit best{};
+    for (const auto& s : samples)
+    {
+        const float d = std::fabs(s.hit.y - medianY);
+        if (d < bestAbs)
+        {
+            bestAbs = d;
+            best    = s.hit;
+        }
+    }
+
+    outHit = best;
     return true;
 }
 

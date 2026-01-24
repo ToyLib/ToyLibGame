@@ -19,15 +19,15 @@ namespace toy {
 enum class GroundSource
 {
     None,
-    Collider, // C_GROUND を持つ Collider の AABB 上面（max.y）
+    Collider, // C_GROUND を持つ Collider（床）のヒット
     Terrain   // 地形ポリゴン（Polygon）から算出した高さ
 };
 
 // GroundHit:
 //  - y        : ヒットした地面の高さ
-//  - distance : origin から地面までの距離（下方向）。すでに潜っている場合は 0
+//  - distance : startY から地面までの距離（下方向）。すでに潜っている場合は 0
 //  - pos      : (x, y, z) のヒット位置
-//  - normal   : 地形なら法線。Collider 床は基本 UnitY
+//  - normal   : 地形なら法線。Collider床は基本 UnitY（または床面法線）
 struct GroundHit
 {
     bool hit = false;
@@ -71,8 +71,8 @@ struct RaycastHit
 {
     bool hit = false;
 
-    Vector3 point   = Vector3::Zero;  // ヒット位置（ワールド）
-    Vector3 normal  = Vector3::UnitY; // ヒット面法線（ワールド・正規化）
+    Vector3 point    = Vector3::Zero;  // ヒット位置（ワールド）
+    Vector3 normal   = Vector3::UnitY; // ヒット面法線（ワールド・正規化）
     float   distance = 0.0f;
 
     class Actor* actor = nullptr;
@@ -102,13 +102,12 @@ struct ViewQueryDesc
 
     // 遮蔽（LOS）
     bool         requireLOS   = true;
-    uint32_t     losBlockMask = 0;           // 壁など遮蔽物のマスク
-    class Actor* ignoreActor  = nullptr;     // 自分など（遮蔽判定でも除外）
+    uint32_t     losBlockMask = 0;        // 壁など遮蔽物のマスク
+    class Actor* ignoreActor  = nullptr;  // 自分など（遮蔽判定でも除外）
 
-    // 近接オーバーライド：
-    // 近いターゲットは遮蔽を無視したい…などの運用向け
+    // 近接オーバーライド
     float nearOverrideDist = 2.0f;
-    bool  nearOverrideRequireLOS = false;    // 近くても遮蔽を見たいなら true
+    bool  nearOverrideRequireLOS = false;
 };
 
 struct ViewQueryHit
@@ -160,7 +159,6 @@ struct TerrainGrid
 
 //=============================================================================
 // PhysWorld
-// 物理・衝突・地面問い合わせなどをまとめた「ワールド」
 //=============================================================================
 class PhysWorld
 {
@@ -169,36 +167,27 @@ public:
     ~PhysWorld();
 
     //-------------------------------------------------------------------------
-    // 地形
+    // Terrain
     //-------------------------------------------------------------------------
     void  SetGroundPolygons(const std::vector<Polygon>& polys);
     float GetGroundHeightAt(const Vector3& pos) const;
 
-    // 地形のみ（Terrain）の高さ・法線を取得
+    // Terrain only
     bool GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const;
 
     //-------------------------------------------------------------------------
-    // 地面問い合わせ（Collider床 + Terrain の合成）
+    // Ground query (Collider + Terrain)
     //-------------------------------------------------------------------------
     bool GetNearestGroundY(const Actor* a, float& outY) const;
     bool GetNearestGroundHit(const Actor* a, GroundHit& outHit) const;
 
-    // 任意の XZ に対して「最も高い地面」を返す（足Collider不要）
-    //  - Collider床（C_GROUND）と Terrain の両方から判定
-    //  - outHit.pos は (pos.x, y, pos.z) になる
     bool GetNearestGroundHitAtXZ(const Vector3& pos, GroundHit& outHit) const;
 
-    // 下向きレイ（というより縦のスイープ）で「一番近い床」を取る
-    //  - Collider床の AABB 上面 or Terrain 高さを候補にする
-    //  - 潜り救済は「浅いめり込み」だけ許可（実装側で制御）
     bool GetGroundHitRayDown(const Vector3& origin,
                              float maxDist,
                              uint32_t groundMask,
                              GroundHit& outHit) const;
 
-    // y 区間 [startY -> endY] を下方向にスイープして床を探す
-    //  - xz は固定（垂直線分）
-    //  - ignore は除外したい Collider（例：自分の床扱いを避けたい場合）
     bool GetGroundHitSweepDown(float startY,
                                float endY,
                                float x,
@@ -206,6 +195,13 @@ public:
                                uint32_t groundMask,
                                GroundHit& outHit,
                                const ColliderComponent* ignore) const;
+
+    //=============================================================
+    // Foot ground sampling (NEW)  ※Gravity から呼ぶ
+    //=============================================================
+    bool GetFootGroundHit_Sampled(const Actor* a,
+                                  uint32_t groundMask,
+                                  GroundHit& outHit) const;
 
     //-------------------------------------------------------------------------
     // Ray
@@ -219,13 +215,13 @@ public:
                  RaycastHit& outHit) const;
 
     //-------------------------------------------------------------------------
-    // 視界クエリ
+    // View query
     //-------------------------------------------------------------------------
     void QueryView(const ViewQueryDesc& desc,
                    std::vector<ViewQueryHit>& outHits) const;
 
     //-------------------------------------------------------------------------
-    // Collider 管理（Actor が所有、PhysWorld は参照リストを持つだけ）
+    // Collider list management
     //-------------------------------------------------------------------------
     void AddCollider(ColliderComponent* c);
     void RemoveCollider(ColliderComponent* c);
@@ -237,7 +233,7 @@ public:
                                std::vector<ColliderComponent*>& out) const;
 
     //-------------------------------------------------------------------------
-    // ペア走査 / コールバック（衝突通知＋必要なら押し戻し）
+    // Pair test / callback
     //-------------------------------------------------------------------------
     void CollideAndCallback(uint32_t flagA,
                             uint32_t flagB,
@@ -248,24 +244,22 @@ public:
     void Test();
 
     //-------------------------------------------------------------------------
-    // ユーティリティ
+    // Utility
     //-------------------------------------------------------------------------
     Vector3 ComputePushBackDirection(const ColliderComponent* a,
                                      const ColliderComponent* b,
                                      bool allowY) const;
 
-    // 天井（ceilingFlag）とのめり込み解消（押し戻しベクトルを返す）
     bool ResolveCeiling(Actor* a,
                         uint32_t moverFlag,
                         uint32_t ceilingFlag,
                         Vector3& outPush) const;
 
-    // Debug
     size_t GetColliderCount() const { return mColliders.size(); }
 
 private:
     //-------------------------------------------------------------------------
-    // 地形ヘルパー
+    // Terrain helpers
     //-------------------------------------------------------------------------
     bool    IsInPolygon(const Polygon* pl, const Vector3& p) const;
     float   PolygonHeight(const Polygon* pl, const Vector3& p) const;
@@ -290,13 +284,13 @@ private:
     bool IsCollideBoxOBB(const OBB* cA, const OBB* cB) const;
 
     //-------------------------------------------------------------------------
-    // MTV（最小移動ベクトル）計算
+    // MTV
     //-------------------------------------------------------------------------
     struct MTVResult
     {
         bool    valid = false;
         float   depth = Math::Infinity;
-        Vector3 axis  = Vector3::Zero; // 正規化済み
+        Vector3 axis  = Vector3::Zero; // normalized
     };
 
     bool CompareLengthOBB_MTV(const struct OBB* cA,
@@ -310,7 +304,7 @@ private:
                              MTVResult& mtv) const;
 
     //-------------------------------------------------------------------------
-    // OBB 接触 / Ray
+    // OBB contact / Ray
     //-------------------------------------------------------------------------
     bool IntersectRayOBB(const Ray& ray,
                          const struct OBB* obb,
@@ -321,7 +315,7 @@ private:
         bool hit = false;
 
         float   depth  = 0.0f;
-        Vector3 normal = Vector3::UnitY; // A を押し戻す向き
+        Vector3 normal = Vector3::UnitY; // direction to push A
         Vector3 mtv    = Vector3::Zero;  // normal * (depth + eps)
     };
 
@@ -333,15 +327,11 @@ private:
                                     Vector3& outNormal) const;
 
     //=============================================================
-    // Foot ground sampling (NEW)
+    // Foot sampling helpers (NEW)
     //=============================================================
-    bool GetFootGroundHit_Sampled(const Actor* a,
-                                 uint32_t groundMask,
-                                 GroundHit& outHit) const;
-
-    bool SampleGroundAtPoint(const Vector3& samplePos,   // xz が重要
-                             float startY,               // レイ開始Y
-                             float maxDist,              // 下方向
+    bool SampleGroundAtPoint(const Vector3& samplePos,   // xz is important
+                             float startY,
+                             float maxDist,
                              uint32_t groundMask,
                              const ColliderComponent* ignore,
                              GroundHit& outHit) const;
@@ -349,20 +339,27 @@ private:
     void BuildFootSamplePoints(const ColliderComponent* foot,
                                std::vector<Vector3>& outPoints) const;
     
+    bool TryGetColliderTopHitAtXZ(const ColliderComponent* c,
+                                  float x,
+                                  float z,
+                                  float startY,
+                                  float endY,
+                                  float cosMaxSlope,
+                                  GroundHit& outHit) const;
+
 private:
     std::vector<Polygon> mTerrainPolygons;
     TerrainGrid          mTerrainGrid;
 
-    // Collider は Actor 側が所有。PhysWorld は参照の一覧だけ保持する。
     std::vector<ColliderComponent*> mColliders;
-    
+
     //=============================================================
-    // Tunables (NEW)  ※既存IFを変えないため PhysWorld 内部の設定に
+    // Tunables (NEW)
     //=============================================================
-    float mMaxGroundSlopeDeg    = 45.0f; // これ以上の斜面は「床じゃない」扱い
-    int   mMinSupportSamples    = 3;     // 5点中これ未満なら「角で落下」扱い
-    float mFootSampleInset      = 0.03f; // OBB端ギリの不安定回避（内側に寄せる）
-    float mGroundEpsY           = 0.02f; // “床として許す誤差”
+    float mMaxGroundSlopeDeg = 45.0f; // steeper than this is not "ground"
+    int   mMinSupportSamples = 3;     // out of 5
+    float mFootSampleInset   = 0.03f; // shrink sample from edge
+    float mGroundEpsY        = 0.02f; // tolerance
 };
 
 } // namespace toy

@@ -121,7 +121,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     //   - GroundPose は無効（アニメは自前で制御）
     //==================================================================
     mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(true);
+    mGravComp->SetEnableGroundPose(false);
 
     //==================================================================
     // 8) SensorComponent
@@ -156,7 +156,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mTargetSigne->SetGroundLift(0.1f);
     mTargetSigne->SetGridDiv(4);              // まずは4で十分
     mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
-    mTargetSigne->SetVisible(false);
+    mTargetSigne->SetVisible(true);
    
 }
 

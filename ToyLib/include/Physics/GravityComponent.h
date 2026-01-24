@@ -142,6 +142,8 @@ private:
     // フレーム終端の保険：
     // 地面に深く潜っていた場合の最小補正
     void ApplyGroundDepenetration(Actor* owner, ColliderComponent* foot);
+    
+    static float GetOBBMinY(const struct OBB& obb);
 
 private:
     //--------------------------------------------------------------------------

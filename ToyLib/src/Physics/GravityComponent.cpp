@@ -72,6 +72,17 @@ void GravityComponent::Update(float dt)
     }
 }
 
+float GravityComponent::GetOBBMinY(const OBB& obb)
+{
+    const float dy =
+        std::fabs(obb.axisX.y) * obb.radius.x +
+        std::fabs(obb.axisY.y) * obb.radius.y +
+        std::fabs(obb.axisZ.y) * obb.radius.z;
+
+    return obb.pos.y - dy;
+}
+
+
 //------------------------------------------------------------------------------
 // StepGravityOnce
 // ・サブステップ 1 回分の重力・接地・床追従処理
@@ -88,12 +99,11 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     const bool wasGrounded = mIsGrounded;
 
     //==========================================================================
-    // Pre) 動く床への追従
+    // Pre) 動く床への追従（前フレームの接地床で“予測”追従）
     //==========================================================================
     if (mIsGrounded && mGroundCollider && mGroundCollider->GetEnabled())
     {
-        Actor* groundOwner = mGroundCollider->GetOwner();
-        if (groundOwner)
+        if (Actor* groundOwner = mGroundCollider->GetOwner())
         {
             const Vector3 groundPos = groundOwner->GetPosition();
             const Vector3 deltaG    = groundPos - mPrevGroundPos;
@@ -110,60 +120,21 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //==========================================================================
-    // 0) 現在の足位置（OBB 最下点 + 中心XZ）
+    // 0) 現在の足位置（OBB 最下点）
     //==========================================================================
     auto obbPtr = foot->GetBoundingVolume()->GetOBB();
-    if (!obbPtr)
-    {
-        return;
-    }
+    if (!obbPtr) return;
 
     const OBB& footObb = *obbPtr;
 
-    // OBB の「最下点Y」を support 的に計算（傾き考慮）
-    auto GetOBBMinY = [](const OBB& obb) -> float
-    {
-        const float dy =
-            std::fabs(obb.axisX.y) * obb.radius.x +
-            std::fabs(obb.axisY.y) * obb.radius.y +
-            std::fabs(obb.axisZ.y) * obb.radius.z;
-
-        return obb.pos.y - dy;
-    };
-
-    const float footY0 = GetOBBMinY(footObb);
-
-    // 足の検知点は「中心XZ」で十分（Yは使わないので0でもOK）
-    const Vector3 footCenter0(footObb.pos.x, 0.0f, footObb.pos.z);
-
-    // このサブステップ内では「足 → Actor」のオフセットを固定する
-    const Vector3 ownerPos0 = owner->GetPosition();
-    const float offsetY0    = ownerPos0.y - footY0;
+    const float footY0   = GetOBBMinY(footObb);
+    const float offsetY0 = owner->GetPosition().y - footY0;
 
     //==========================================================================
-    // 1) 真下の床を取得（Collider 床 + Terrain）
+    // 1) 真下の床を取得（5点サンプル）
     //==========================================================================
-    const float kStartUp  = 0.05f;
-    const float kExtraRay = 0.5f;
-
-    const Vector3 origin0(footCenter0.x, footY0 + kStartUp, footCenter0.z);
-    const float rayLen = (mMaxStepDown + 2.0f) + kExtraRay;
-
     GroundHit hit;
-    bool hasGround = phys->GetGroundHitRayDown(origin0,
-                                               rayLen,
-                                               C_GROUND,
-                                               hit);
-
-    // 動く床が上がった場合など、明らかに高すぎるヒットは破棄
-    if (hasGround)
-    {
-        const float kAllowUp = (mMaxStepUp + mPenetrationEps) + 0.02f;
-        if (hit.y > origin0.y + kAllowUp)
-        {
-            hasGround = false;
-        }
-    }
+    bool hasGround = phys->GetFootGroundHit_Sampled(owner, C_GROUND, hit);
 
     // 法線の反転防止（フレーム間の安定化）
     if (hasGround)
@@ -190,32 +161,12 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //==========================================================================
-    // 3) 床追従（レイで同一床が取れた場合の整合）
-    //==========================================================================
-    if (hasGround &&
-        mIsGrounded &&
-        hit.source == GroundSource::Collider &&
-        hit.collider &&
-        hit.collider->HasFlag(C_GROUND) &&
-        hit.collider == mGroundCollider)
-    {
-        const Vector3 groundPos = hit.collider->GetOwner()->GetPosition();
-        const Vector3 deltaG    = groundPos - mPrevGroundPos;
-
-        Vector3 pos = owner->GetPosition();
-        pos += deltaG;
-        SetOwnerPosAndSync(owner, pos);
-
-        mPrevGroundPos = groundPos;
-    }
-
-    //==========================================================================
-    // 4) 接地中の貼り付き処理（重力を入れない）
+    // 3) 接地中の貼り付き処理（重力を入れない）
     //==========================================================================
     if (mIsGrounded && hasGround)
     {
         const float groundY = hit.y;
-        const float gap     = footY0 - groundY; // ★ foot最下点基準
+        const float gap     = footY0 - groundY;
 
         const float kStickUp   = 0.03f;
         const float kStickDown = mPenetrationEps + 0.02f;
@@ -230,6 +181,17 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             mVelocityY  = 0.0f;
             mIsGrounded = true;
 
+            // 接地床の確定（動く床追従のため）
+            if (hit.source == GroundSource::Collider && hit.collider)
+            {
+                mGroundCollider = hit.collider;
+                mPrevGroundPos  = hit.collider->GetOwner()->GetPosition();
+            }
+            else
+            {
+                mGroundCollider = nullptr;
+            }
+
             UpdateGroundPoseCache(owner, hit, deltaTime, true, wasGrounded);
             if (mEnableGroundPose)
             {
@@ -243,6 +205,7 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         {
             const float lift    = -gap;
             const float kLiftUp = (mMaxStepUp + mPenetrationEps) + 0.02f;
+
             if (lift <= kLiftUp)
             {
                 Vector3 cur = owner->GetPosition();
@@ -251,6 +214,17 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
                 mVelocityY  = 0.0f;
                 mIsGrounded = true;
+
+                // 接地床の確定
+                if (hit.source == GroundSource::Collider && hit.collider)
+                {
+                    mGroundCollider = hit.collider;
+                    mPrevGroundPos  = hit.collider->GetOwner()->GetPosition();
+                }
+                else
+                {
+                    mGroundCollider = nullptr;
+                }
 
                 UpdateGroundPoseCache(owner, hit, deltaTime, true, wasGrounded);
                 if (mEnableGroundPose)
@@ -263,7 +237,7 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //==========================================================================
-    // 5) 空中：重力加速
+    // 4) 空中：重力加速
     //==========================================================================
     mVelocityY += mGravityAccel * deltaTime;
     if (mVelocityY < mMaxFallSpeed)
@@ -271,31 +245,29 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
         mVelocityY = mMaxFallSpeed;
     }
 
-    const float nextFootY = footY0 + mVelocityY * deltaTime; // ★ foot最下点基準
+    const float nextFootY = footY0 + mVelocityY * deltaTime;
 
     //==========================================================================
-    // 6) 落下中の着地スナップ判定
+    // 5) 落下中の着地スナップ判定
     //==========================================================================
     if (hasGround && mVelocityY <= 0.0f)
     {
         const float groundY = hit.y;
 
-        const float upLimit   = mMaxStepUp   + mPenetrationEps;
-        const float downLimit = mMaxStepDown + mPenetrationEps;
+        const float upLimit    = mMaxStepUp   + mPenetrationEps;
+        const float downLimit  = mMaxStepDown + mPenetrationEps;
 
-        const bool  withinUp  = (groundY <= footY0 + upLimit); // ★ foot最下点基準
-        const float yGapNext  = groundY - nextFootY;
+        const bool  withinUp   = (groundY <= footY0 + upLimit);
+        const float yGapNext   = groundY - nextFootY;
         const bool  withinDown = (yGapNext >= -downLimit);
 
         if (withinUp && withinDown)
         {
-            if (hit.source == GroundSource::Collider &&
-                hit.collider &&
-                hit.collider->HasFlag(C_GROUND))
+            // 接地床の確定（動く床追従のため）
+            if (hit.source == GroundSource::Collider && hit.collider)
             {
-                const Vector3 groundPos = hit.collider->GetOwner()->GetPosition();
                 mGroundCollider = hit.collider;
-                mPrevGroundPos  = groundPos;
+                mPrevGroundPos  = hit.collider->GetOwner()->GetPosition();
             }
             else
             {
@@ -319,7 +291,7 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //==========================================================================
-    // 7) 自由落下
+    // 6) 自由落下
     //==========================================================================
     mIsGrounded     = false;
     mGroundCollider = nullptr;
