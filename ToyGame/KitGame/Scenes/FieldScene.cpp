@@ -64,9 +64,9 @@ void FieldScene::InitField()
     DeployFire(Vector3::Zero);
 
     // レンガ
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 8; ++i)
     {
-        for (int j = 0; j < 10; ++j)
+        for (int j = 0; j < 5; ++j)
         {
             DeployBrick(Vector3(-80 + 15*j/2 + 10*i*1.5, 20, 20 + 5*j*1.5));
         }
