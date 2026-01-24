@@ -64,17 +64,17 @@ void FieldScene::InitField()
     DeployFire(Vector3::Zero);
 
     // レンガ
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         for (int j = 0; j < 10; ++j)
         {
-            DeployBrick(Vector3(-100 + 20*j/2 + 10*i*2, 20, 20 + 5*j*2));
+            DeployBrick(Vector3(-80 + 15*j/2 + 10*i*1.5, 20, 20 + 5*j*1.5));
         }
     }
 
-    for (int i = 0; i < 15; ++i)
+    for (int i = 0; i < 13; ++i)
     {
-        DeployBrick(Vector3(0, -3+i*2, -15 + i*2));
+        DeployBrick(Vector3(0, -3+i*2, -20 + i*3));
 
     }
     
@@ -155,7 +155,7 @@ void FieldScene::DeployBrick(Vector3 pos)
 {
     auto actor = CreateActor<toy::Actor>();
     actor->SetPosition(pos);
-    actor->SetScale(2.0f);
+    actor->SetScale(4.0f);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.x"));
@@ -176,7 +176,7 @@ void FieldScene::DeployFire(Vector3 pos)
     fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
   
     fireActor->SetPosition(Vector3(-8, 0, -30));
-    fireActor->SetScale(0.03f);
+    fireActor->SetScale(0.02f);
     auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
     fireCollider->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x")->GetVertexArray());
     fireCollider->SetEnabled(true);
