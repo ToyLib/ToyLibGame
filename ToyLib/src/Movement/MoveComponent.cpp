@@ -122,20 +122,25 @@ bool MoveComponent::TryMoveWithRayCheck(const Vector3& moveVec, float deltaTime)
     Vector3 bestStop = goal;
     bool hitAny = false;
 
-    auto CastAtHeight = [&](float h) -> void
+    auto CastAtHeight = [&](float h, bool filterFloorLike) -> void
     {
         Vector3 s = start; s.y += h;
         Vector3 g = goal;  g.y += h;
 
-        Vector3 stop;
-        if (phys->RayHitWall(s, g, stop))
+        Vector3 stop, n;
+
+        // 45度までを床扱い（調整したいなら 0.8f(≈36°) とかでもOK）
+        constexpr float kCosFloorLike = 0.707f;
+
+        const float cosFloorLike = filterFloorLike ? kCosFloorLike : 0.0f;
+
+        if (phys->RayHitWallEx(s, g, C_WALL, /*ignoreActor*/owner,
+                               cosFloorLike, stop, n))
         {
-            // このRayの結果を水平面に戻す
             stop.y = goal.y;
 
-            // より手前（startに近い）を採用
-            const float curDistSq  = (bestStop - start).LengthSq();
-            const float newDistSq  = (stop    - start).LengthSq();
+            const float curDistSq = (bestStop - start).LengthSq();
+            const float newDistSq = (stop    - start).LengthSq();
             if (!hitAny || newDistSq < curDistSq)
             {
                 bestStop = stop;
@@ -144,9 +149,8 @@ bool MoveComponent::TryMoveWithRayCheck(const Vector3& moveVec, float deltaTime)
         }
     };
 
-    CastAtHeight(kRayMid);
-    CastAtHeight(kRayLow);
-
+    CastAtHeight(kRayMid, false);
+    CastAtHeight(kRayLow, true); 
     owner->SetPosition(hitAny ? bestStop : goal);
 
     //========================================================

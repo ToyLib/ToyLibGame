@@ -101,7 +101,9 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
         return false;
     }
 
+    //============================================================
     // グリッド未使用時：全探索
+    //============================================================
     if (!mTerrainGrid.enabled || mTerrainGrid.cells.empty())
     {
         float highestY = -std::numeric_limits<float>::max();
@@ -132,13 +134,17 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
         return found;
     }
 
-    // グリッド使用時（3x3）
+    //============================================================
+    // グリッド使用時（3x3 セル探索）
+    //============================================================
     const float minX = mTerrainGrid.origin.x;
     const float minZ = mTerrainGrid.origin.y;
     const float cs   = mTerrainGrid.cellSize;
 
-    const int baseCX = static_cast<int>(std::floor((pos.x - minX) / cs));
-    const int baseCZ = static_cast<int>(std::floor((pos.z - minZ) / cs));
+    const int baseCX =
+        static_cast<int>(std::floor((pos.x - minX) / cs));
+    const int baseCZ =
+        static_cast<int>(std::floor((pos.z - minZ) / cs));
 
     float highestY = -std::numeric_limits<float>::max();
     bool found = false;
@@ -156,12 +162,14 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
                 continue;
             }
 
-            const auto& candidates =
+            // ★ 修正点：型を明示（1次元 cells 前提）
+            const std::vector<int>& candidates =
                 mTerrainGrid.cells[mTerrainGrid.CellIndex(cx, cz)];
 
             for (int idx : candidates)
             {
-                if (idx < 0 || idx >= static_cast<int>(mTerrainPolygons.size()))
+                if (idx < 0 ||
+                    idx >= static_cast<int>(mTerrainPolygons.size()))
                 {
                     continue;
                 }
@@ -176,8 +184,8 @@ bool PhysWorld::GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const
                 const float y = PolygonHeight(&poly, pos);
                 if (y > highestY)
                 {
-                    highestY = y;
-                    found = true;
+                    highestY   = y;
+                    found      = true;
                     bestNormal = PolygonNormal(poly);
                 }
             }

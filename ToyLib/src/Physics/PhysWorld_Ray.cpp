@@ -227,6 +227,19 @@ bool PhysWorld::RayHitWall(const Vector3& start,
                            const Vector3& end,
                            Vector3& hitPos) const
 {
+    Vector3 n;
+    return RayHitWallEx(start, end, C_WALL, /*ignoreActor*/nullptr,
+                        /*cosFloorLike*/0.0f, hitPos, n);
+}
+
+bool PhysWorld::RayHitWallEx(const Vector3& start,
+                            const Vector3& end,
+                            uint32_t wallMask,
+                            const Actor* ignoreActor,
+                            float cosFloorLike,          // 例: cos(45deg)=0.707
+                            Vector3& outHitPos,
+                            Vector3& outHitNormal) const
+{
     Ray ray;
     ray.start = start;
     ray.dir   = end - start;
@@ -236,15 +249,27 @@ bool PhysWorld::RayHitWall(const Vector3& start,
     {
         return false;
     }
-
     ray.dir.Normalize();
 
-    float closestT = rayLen;
-    bool hit = false;
+    float   closestT = rayLen;
+    bool    hit      = false;
+    Vector3 bestN    = Vector3::UnitY;
 
     for (auto* col : mColliders)
     {
-        if (!col->HasAnyFlag(C_WALL))
+        if (!col || !col->GetEnabled())
+        {
+            continue;
+        }
+
+        // 対象マスク（通常 C_WALL を渡す）
+        if (!col->HasAnyFlag(wallMask))
+        {
+            continue;
+        }
+
+        // ignoreActor（自分等）を除外したい場合
+        if (ignoreActor && col->GetOwner() == ignoreActor)
         {
             continue;
         }
@@ -255,14 +280,35 @@ bool PhysWorld::RayHitWall(const Vector3& start,
             continue;
         }
 
-        float t = 0.0f;
-        if (IntersectRayOBB(ray, obb.get(), t))
+        float   t = 0.0f;
+        Vector3 n = Vector3::UnitY;
+
+        if (IntersectRayOBB_WithNormal(ray, obb.get(), t, n))
         {
-            if (t < closestT)
+            if (t < 0.0f || t > closestT)
             {
-                closestT = t;
-                hit = true;
+                continue;
             }
+
+            //========================================================
+            // “床っぽい面” を壁として扱わないフィルタ
+            //  - n.y が大きい = 上向き = 床/坂の可能性が高い
+            //  - 例: 45度までを床扱い -> cos(45)=0.707
+            //  - ここを高くするほど「床扱い」が厳しくなる
+            //========================================================
+            if (cosFloorLike > 0.0f)
+            {
+                // たまに法線が逆になるケースもあるので絶対値で見る
+                const float up = std::fabs(n.y);
+                if (up >= cosFloorLike)
+                {
+                    continue; // 床っぽいので無視（＝止めない）
+                }
+            }
+
+            closestT = t;
+            bestN    = n;
+            hit      = true;
         }
     }
 
@@ -271,7 +317,8 @@ bool PhysWorld::RayHitWall(const Vector3& start,
         return false;
     }
 
-    hitPos = ray.start + ray.dir * (closestT - 0.01f);
+    outHitNormal = bestN;
+    outHitPos    = ray.start + ray.dir * (closestT - 0.01f);
     return true;
 }
 

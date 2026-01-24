@@ -207,7 +207,15 @@ public:
     // Ray
     //-------------------------------------------------------------------------
     bool RayHitWall(const Vector3& start, const Vector3& end, Vector3& hitPos) const;
-
+    bool RayHitWallEx(const Vector3& start,
+                                const Vector3& end,
+                                uint32_t wallMask,
+                                const Actor* ignoreActor,
+                                float cosFloorLike,          // 例: cos(45deg)=0.707
+                                Vector3& outHitPos,
+                 Vector3& outHitNormal) const;
+    
+    
     bool Raycast(const Vector3& origin,
                  const Vector3& dir,
                  float maxDist,
@@ -239,7 +247,8 @@ public:
                             uint32_t flagB,
                             bool doPushBack = false,
                             bool allowY = false,
-                            bool stopVerticalSpeed = false);
+                            bool stopVerticalSpeed = false
+                            );
 
     void Test();
 

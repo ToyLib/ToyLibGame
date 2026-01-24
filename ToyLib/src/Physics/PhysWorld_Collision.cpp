@@ -5,10 +5,12 @@
 #include "Physics/PhysWorld.h"
 
 #include "Physics/ColliderComponent.h"
+#include "Physics/GravityComponent.h"
 #include "Engine/Core/Actor.h"
 #include "Movement/MoveComponent.h"
 
 #include <algorithm>
+#include <iostream>
 
 namespace toy {
 
@@ -88,6 +90,8 @@ void PhysWorld::GetCollidersByAllFlags(uint32_t mask,
 
 //=============================================================================
 // Collider ペア走査 + コールバック + 押し戻し
+//  ★ ignoreCollider を追加：この相手との pushback を抑制できる
+//  ★ allowY=false の壁ずり用途向けに「接地床の横pushだけ無視」が可能
 //=============================================================================
 void PhysWorld::CollideAndCallback(uint32_t flagA,
                                    uint32_t flagB,
@@ -95,114 +99,68 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
                                    bool allowY,
                                    bool stopVerticalSpeed)
 {
-    // 極小 push は「押していない」とみなすための閾値
     constexpr float kMinPushSq = 1e-10f;
 
     for (auto* c1 : mColliders)
     {
-        if (!c1 || !c1->GetEnabled())
-        {
-            continue;
-        }
+        if (!c1 || !c1->GetEnabled()) continue;
+        if (!c1->HasAnyFlag(flagA))   continue;
 
-        if (!c1->HasAnyFlag(flagA))
-        {
-            continue;
-        }
+        Actor* ownerA = c1->GetOwner();
+        if (!ownerA) continue;
 
-        bool collided = false;
-
-        //============================================================
-        // 「最も強い押し」1つだけを採用する
-        //============================================================
+        bool    collided  = false;
         Vector3 bestPush  = Vector3::Zero;
         float   bestLenSq = 0.0f;
         bool    hasPush   = false;
 
         for (auto* c2 : mColliders)
         {
-            if (!c2 || !c2->GetEnabled())
+            if (!c2 || !c2->GetEnabled()) continue;
+            if (!c2->HasAnyFlag(flagB))   continue;
+
+            Actor* ownerB = c2->GetOwner();
+            if (!ownerB) continue;
+            if (ownerA == ownerB) continue;
+
+            if (!(JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2)))
             {
                 continue;
             }
 
-            if (!c2->HasAnyFlag(flagB))
+            // 通知
+            c1->Collided(c2);
+            c2->Collided(c1);
+            collided = true;
+
+            if (!doPushBack) continue;
+            if (c1->IsTrigger() || c2->IsTrigger()) continue;
+
+            Vector3 push = ComputePushBackDirection(c1, c2, allowY);
+            if (!allowY) push.y = 0.0f;
+
+            const float lenSq = push.LengthSq();
+            if (lenSq <= kMinPushSq) continue;
+
+            if (!hasPush || lenSq > bestLenSq)
             {
-                continue;
-            }
-
-            if (c1->GetOwner() == c2->GetOwner())
-            {
-                continue;
-            }
-
-            // Broad + Narrow
-            if (JudgeWithRadius(c1, c2) && JudgeWithOBB(c1, c2))
-            {
-                // 衝突通知（Trigger 含む）
-                c1->Collided(c2);
-                c2->Collided(c1);
-
-                collided = true;
-
-                // 押し戻し対象か？
-                if (!doPushBack)
-                {
-                    continue;
-                }
-
-                if (c1->IsTrigger() || c2->IsTrigger())
-                {
-                    continue;
-                }
-
-                Vector3 push = ComputePushBackDirection(c1, c2, allowY);
-
-                // 壁ずり用途：Y 成分を切る
-                if (!allowY)
-                {
-                    push.y = 0.0f;
-                }
-
-                const float lenSq = push.LengthSq();
-
-                // 極小 push は無視
-                if (lenSq <= kMinPushSq)
-                {
-                    continue;
-                }
-
-                // 最大 push を採用
-                if (!hasPush || lenSq > bestLenSq)
-                {
-                    bestLenSq = lenSq;
-                    bestPush  = push;
-                    hasPush   = true;
-                }
+                bestLenSq = lenSq;
+                bestPush  = push;
+                hasPush   = true;
             }
         }
 
-        //============================================================
-        // 押し戻し適用
-        //============================================================
         if (collided && hasPush)
         {
-            Actor* owner = c1->GetOwner();
-            owner->SetPosition(owner->GetPosition() + bestPush);
+            ownerA->SetPosition(ownerA->GetPosition() + bestPush);
 
-            // 垂直速度停止（床・天井用途）
             if (stopVerticalSpeed)
             {
-                if (auto* move = owner->GetComponent<MoveComponent>())
+                if (auto* move = ownerA->GetComponent<MoveComponent>())
                 {
                     move->SetVerticalSpeed(0.0f);
                 }
             }
-        }
-        else if (collided && doPushBack)
-        {
-            // 衝突したが有効な push が無いケース
-            // （ログ用途などで残している想定）
         }
     }
 }

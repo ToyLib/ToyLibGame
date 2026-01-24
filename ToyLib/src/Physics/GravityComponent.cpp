@@ -129,7 +129,7 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
     const float footY0   = GetOBBMinY(footObb);
     const float offsetY0 = owner->GetPosition().y - footY0;
-    
+
     // 足OBB下面中心（XZ基準点）
     mFootBottomPos = footObb.pos - footObb.axisY * footObb.radius.y;
     mHasFootBottom = true;
@@ -165,6 +165,29 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     }
 
     //==========================================================================
+    // ★接地中は「踏んでる床Collider」を毎回確定させる（動く床追従用）
+    //==========================================================================
+    if (hasGround && mIsGrounded)
+    {
+        if (hit.source == GroundSource::Collider && hit.collider && hit.collider->HasFlag(C_GROUND))
+        {
+            if (mGroundCollider != hit.collider)
+            {
+                mGroundCollider = hit.collider;
+
+                if (Actor* groundOwner = hit.collider->GetOwner())
+                {
+                    mPrevGroundPos = groundOwner->GetPosition();
+                }
+            }
+        }
+        else
+        {
+            mGroundCollider = nullptr;
+        }
+    }
+
+    //==========================================================================
     // 3) 接地中の貼り付き処理（重力を入れない）
     //==========================================================================
     if (mIsGrounded && hasGround)
@@ -185,7 +208,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             mVelocityY  = 0.0f;
             mIsGrounded = true;
 
-            // 接地床の確定（動く床追従のため）
             if (hit.source == GroundSource::Collider && hit.collider)
             {
                 mGroundCollider = hit.collider;
@@ -219,7 +241,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
                 mVelocityY  = 0.0f;
                 mIsGrounded = true;
 
-                // 接地床の確定
                 if (hit.source == GroundSource::Collider && hit.collider)
                 {
                     mGroundCollider = hit.collider;
@@ -267,7 +288,6 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
 
         if (withinUp && withinDown)
         {
-            // 接地床の確定（動く床追従のため）
             if (hit.source == GroundSource::Collider && hit.collider)
             {
                 mGroundCollider = hit.collider;
