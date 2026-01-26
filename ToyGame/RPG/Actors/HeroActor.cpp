@@ -2,6 +2,7 @@
 #include "MagicActor.h"
 #include "HealMagicActor.h"
 #include "ToyLib.h"
+#include "Movement/DirMoveComponent_Legacy.h"
 #include <iostream>
 
 
@@ -61,7 +62,7 @@ HeroActor::HeroActor(toy::Application* a)
 
     // --- 移動コンポーネント ---
     //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
-    mMoveComp = CreateComponent<toy::DirMoveComponent>();
+    mMoveComp = CreateComponent<toy::DirMoveComponent_Legacy>();
     
     
     // --- カメラコンポーネント ---

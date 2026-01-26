@@ -2,6 +2,7 @@
 
 #include "ToyLib.h"
 
+
 #ifndef __HEROMOTION
 #define __HEROMOTION
 enum HeroMotion
