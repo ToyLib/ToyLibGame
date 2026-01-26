@@ -124,10 +124,10 @@ private:
     const aiScene*   mScene { nullptr };
 
     // ボーン名 → ボーンインデックス
-    std::map<std::string, unsigned int> mBoneMapping {};
+    std::map<std::string, uint32_t> mBoneMapping {};
 
     // ボーン数
-    unsigned int mNumBones {0};
+    uint32_t mNumBones {0};
 
     // ボーンごとのオフセット行列・最終変換行列
     std::vector<struct BoneInfo> mBoneInfo;
