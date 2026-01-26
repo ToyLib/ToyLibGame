@@ -117,7 +117,7 @@ private:
     std::shared_ptr<struct OBB>  mObb;
     
     // バウンディングスフィア半径
-    float mRadius;
+    float mRadius{};
     
     // AABB から生成した 12枚のポリゴン（ローカル空間）
     std::array<Polygon, kNumPolygons> mPolygons{};

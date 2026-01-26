@@ -4,9 +4,6 @@
 namespace toy {
 
 TextFont::TextFont()
-    : mFont(nullptr)
-    , mFilePath("")
-    , mPointSize(0)
 {
 }
 

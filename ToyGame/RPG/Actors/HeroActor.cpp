@@ -73,8 +73,8 @@ HeroActor::HeroActor(toy::Application* a)
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
     mGravComp->SetEnableGroundPose(false);
-    mGravComp->SetMaxFallSpeed(-75.0f);
-    mGravComp->SetJumpSpeed(25.0f);
+    mGravComp->SetGravityAccel(-80.0f);
+    mGravComp->SetJumpSpeed(35.0f);
     
     // --- センサーコンポーネント ---
     mSensor= CreateComponent<toy::SensorComponent>();

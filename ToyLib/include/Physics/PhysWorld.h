@@ -165,29 +165,29 @@ class PhysWorld
 public:
     PhysWorld();
     ~PhysWorld();
-
+    
     //-------------------------------------------------------------------------
     // Terrain
     //-------------------------------------------------------------------------
     void  SetGroundPolygons(const std::vector<Polygon>& polys);
     float GetGroundHeightAt(const Vector3& pos) const;
-
+    
     // Terrain only
     bool GetGroundHitAt(const Vector3& pos, GroundHit& outHit) const;
-
+    
     //-------------------------------------------------------------------------
     // Ground query (Collider + Terrain)
     //-------------------------------------------------------------------------
     bool GetNearestGroundY(const Actor* a, float& outY) const;
     bool GetNearestGroundHit(const Actor* a, GroundHit& outHit) const;
-
+    
     bool GetNearestGroundHitAtXZ(const Vector3& pos, GroundHit& outHit) const;
-
+    
     bool GetGroundHitRayDown(const Vector3& origin,
                              float maxDist,
                              uint32_t groundMask,
                              GroundHit& outHit) const;
-
+    
     bool GetGroundHitSweepDown(float startY,
                                float endY,
                                float x,
@@ -195,25 +195,25 @@ public:
                                uint32_t groundMask,
                                GroundHit& outHit,
                                const ColliderComponent* ignore) const;
-
+    
     //=============================================================
     // Foot ground sampling (NEW)  ※Gravity から呼ぶ
     //=============================================================
     bool GetFootGroundHit_Sampled(const Actor* a,
                                   uint32_t groundMask,
                                   GroundHit& outHit) const;
-
+    
     //-------------------------------------------------------------------------
     // Ray
     //-------------------------------------------------------------------------
     bool RayHitWall(const Vector3& start, const Vector3& end, Vector3& hitPos) const;
     bool RayHitWallEx(const Vector3& start,
-                                const Vector3& end,
-                                uint32_t wallMask,
-                                const Actor* ignoreActor,
-                                float cosFloorLike,          // 例: cos(45deg)=0.707
-                                Vector3& outHitPos,
-                 Vector3& outHitNormal) const;
+                      const Vector3& end,
+                      uint32_t wallMask,
+                      const Actor* ignoreActor,
+                      float cosFloorLike,          // 例: cos(45deg)=0.707
+                      Vector3& outHitPos,
+                      Vector3& outHitNormal) const;
     
     
     bool Raycast(const Vector3& origin,
@@ -221,25 +221,25 @@ public:
                  float maxDist,
                  uint32_t flagMask,
                  RaycastHit& outHit) const;
-
+    
     //-------------------------------------------------------------------------
     // View query
     //-------------------------------------------------------------------------
     void QueryView(const ViewQueryDesc& desc,
                    std::vector<ViewQueryHit>& outHits) const;
-
+    
     //-------------------------------------------------------------------------
     // Collider list management
     //-------------------------------------------------------------------------
     void AddCollider(ColliderComponent* c);
     void RemoveCollider(ColliderComponent* c);
-
+    
     void GetCollidersByAnyFlags(uint32_t mask,
-                               std::vector<ColliderComponent*>& out) const;
-
+                                std::vector<ColliderComponent*>& out) const;
+    
     void GetCollidersByAllFlags(uint32_t mask,
-                               std::vector<ColliderComponent*>& out) const;
-
+                                std::vector<ColliderComponent*>& out) const;
+    
     //-------------------------------------------------------------------------
     // Pair test / callback
     //-------------------------------------------------------------------------
@@ -249,23 +249,23 @@ public:
                             bool allowY = false,
                             bool stopVerticalSpeed = false
                             );
-
+    
     void Test();
-
+    
     //-------------------------------------------------------------------------
     // Utility
     //-------------------------------------------------------------------------
     Vector3 ComputePushBackDirection(const ColliderComponent* a,
                                      const ColliderComponent* b,
                                      bool allowY) const;
-
+    
     bool ResolveCeiling(Actor* a,
                         uint32_t moverFlag,
                         uint32_t ceilingFlag,
                         Vector3& outPush) const;
-
+    
     size_t GetColliderCount() const { return mColliders.size(); }
-
+    
 private:
     //-------------------------------------------------------------------------
     // Terrain helpers
@@ -273,25 +273,25 @@ private:
     bool    IsInPolygon(const Polygon* pl, const Vector3& p) const;
     float   PolygonHeight(const Polygon* pl, const Vector3& p) const;
     Vector3 PolygonNormal(const Polygon& pl) const;
-
+    
     ColliderComponent* FindFootCollider(const Actor* a) const;
-
+    
     //-------------------------------------------------------------------------
     // OBB / Sphere
     //-------------------------------------------------------------------------
     bool JudgeWithRadius(const ColliderComponent* col1,
                          const ColliderComponent* col2) const;
-
+    
     bool JudgeWithOBB(const ColliderComponent* col1,
                       const ColliderComponent* col2) const;
-
+    
     bool CompareLengthOBB(const struct OBB* cA,
                           const struct OBB* cB,
                           const Vector3& vSep,
                           const Vector3& vDistance) const;
-
+    
     bool IsCollideBoxOBB(const OBB* cA, const OBB* cB) const;
-
+    
     //-------------------------------------------------------------------------
     // MTV
     //-------------------------------------------------------------------------
@@ -301,40 +301,40 @@ private:
         float   depth = Math::Infinity;
         Vector3 axis  = Vector3::Zero; // normalized
     };
-
+    
     bool CompareLengthOBB_MTV(const struct OBB* cA,
                               const struct OBB* cB,
                               const Vector3& vSep,
                               const Vector3& vDistance,
                               MTVResult& mtv) const;
-
+    
     bool IsCollideBoxOBB_MTV(const struct OBB* cA,
                              const struct OBB* cB,
                              MTVResult& mtv) const;
-
+    
     //-------------------------------------------------------------------------
     // OBB contact / Ray
     //-------------------------------------------------------------------------
     bool IntersectRayOBB(const Ray& ray,
                          const struct OBB* obb,
                          float& outT) const;
-
+    
     struct Contact
     {
         bool hit = false;
-
+        
         float   depth  = 0.0f;
         Vector3 normal = Vector3::UnitY; // direction to push A
         Vector3 mtv    = Vector3::Zero;  // normal * (depth + eps)
     };
-
+    
     bool IntersectOBBContact(const OBB* a, const OBB* b, Contact& out) const;
-
+    
     bool IntersectRayOBB_WithNormal(const Ray& ray,
                                     const struct OBB* obb,
                                     float& outT,
                                     Vector3& outNormal) const;
-
+    
     //=============================================================
     // Foot sampling helpers (NEW)
     //=============================================================
@@ -344,7 +344,7 @@ private:
                              uint32_t groundMask,
                              const ColliderComponent* ignore,
                              GroundHit& outHit) const;
-
+    
     void BuildFootSamplePoints(const ColliderComponent* foot,
                                std::vector<Vector3>& outPoints) const;
     
@@ -355,20 +355,20 @@ private:
                                   float endY,
                                   float cosMaxSlope,
                                   GroundHit& outHit) const;
-
+    
 private:
     std::vector<Polygon> mTerrainPolygons;
-    TerrainGrid          mTerrainGrid;
-
+    TerrainGrid          mTerrainGrid{};
+    
     std::vector<ColliderComponent*> mColliders;
-
+    
     //=============================================================
     // Tunables (NEW)
     //=============================================================
-    float mMaxGroundSlopeDeg = 45.0f; // steeper than this is not "ground"
-    int   mMinSupportSamples = 3;     // out of 5
-    float mFootSampleInset   = 0.03f; // shrink sample from edge
-    float mGroundEpsY        = 0.02f; // tolerance
+    float mMaxGroundSlopeDeg{45.0f}; // steeper than this is not "ground"
+    int   mMinSupportSamples{3};     // out of 5
+    float mFootSampleInset  {0.03f}; // shrink sample from edge
+    float mGroundEpsY       {0.02f}; // tolerance
 };
 
 } // namespace toy

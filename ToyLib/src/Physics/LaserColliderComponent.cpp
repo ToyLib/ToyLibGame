@@ -12,7 +12,6 @@ namespace toy {
 //------------------------------------------------------------------------------
 LaserColliderComponent::LaserColliderComponent(Actor* a)
     : ColliderComponent(a)
-    , mLength(100.0f) // デフォルトの射程（描画用）
 {
     // これはレーザー専用のコライダー
     SetFlags(C_HURTBOX);

@@ -9,7 +9,6 @@
 namespace toy {
 
 SoundEffect::SoundEffect()
-    : mBuffer(0)
 {
 }
 

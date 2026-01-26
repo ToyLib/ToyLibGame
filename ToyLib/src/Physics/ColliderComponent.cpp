@@ -16,11 +16,6 @@ namespace toy {
 //------------------------------------------------------------------------------
 ColliderComponent::ColliderComponent(Actor* a)
     : Component(a)
-    , mFlags(C_NONE)
-    , mIsCollided(false)
-    , mEnabled(true)
-    , mIsTrigger(false)
-    , mTargetState(TargetState::None)
 {
     // 当たり判定形状（AABB/OBB/Polygon）を持つコンポーネントを自動生成
     mBoundingVolume = GetOwner()->CreateComponent<BoundingVolumeComponent>();

@@ -25,18 +25,6 @@ inline void SetOwnerPosAndSync(Actor* owner, const Vector3& pos)
 //------------------------------------------------------------------------------
 GravityComponent::GravityComponent(Actor* a)
     : Component(a)
-    , mSelfFlag(C_BODY)
-    , mVelocityY(0.0f)
-    , mGravityAccel(-60.0f)
-    , mJumpSpeed(22.0f)
-    , mMaxFallSpeed(-40.0f)
-    , mIsGrounded(false)
-    , mEnableGroundPose(false)
-    , mMaxStepUp(0.35f)
-    , mMaxStepDown(0.75f)
-    , mPenetrationEps(0.05f)
-    , mGroundCollider(nullptr)
-    , mPrevGroundPos(Vector3::Zero)
 {
 }
 

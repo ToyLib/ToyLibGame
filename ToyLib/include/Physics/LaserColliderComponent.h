@@ -27,7 +27,7 @@ public:
     
 private:
     // 描画や射程制限で使うレーザーの長さ
-    float mLength;
+    float mLength{100.0f};
 };
 
 } // namespace toy

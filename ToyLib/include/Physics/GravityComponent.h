@@ -152,33 +152,33 @@ private:
     //--------------------------------------------------------------------------
     // 内部状態
     //--------------------------------------------------------------------------
-    uint32_t mSelfFlag = 0; // 自分の種別（C_PLAYER 等）
+    uint32_t mSelfFlag{}; // 自分の種別（C_PLAYER 等）
 
-    float mVelocityY;
-    float mGravityAccel;
-    float mJumpSpeed;
-    float mMaxFallSpeed;
+    float mVelocityY{};
+    float mGravityAccel{-60.0f};
+    float mJumpSpeed{22.0f};
+    float mMaxFallSpeed{-40.0f};
 
-    bool  mIsGrounded;
-    bool  mEnableGroundPose;
+    bool  mIsGrounded{false};
+    bool  mEnableGroundPose{false};
 
     // スナップ許容値
-    float mMaxStepUp;
-    float mMaxStepDown;
-    float mPenetrationEps;
+    float mMaxStepUp{0.35f};
+    float mMaxStepDown{0.75f};
+    float mPenetrationEps{};
 
     // 現在乗っている床
-    const ColliderComponent* mGroundCollider;
-    Vector3 mPrevGroundPos;
+    const ColliderComponent* mGroundCollider{nullptr};
+    Vector3 mPrevGroundPos{Vector3::Zero};
 
     // 地面情報キャッシュ
-    GroundPose mGroundPose;
+    GroundPose mGroundPose{};
 
     // 法線反転防止用
-    Vector3 mPrevGroundNormal = Vector3::UnitY;
+    Vector3 mPrevGroundNormal{Vector3::UnitY};
     
-    bool    mHasFootBottom = false;
-    Vector3 mFootBottomPos = Vector3::Zero;
+    bool    mHasFootBottom{false};
+    Vector3 mFootBottomPos{Vector3::Zero};
 };
 
 } // namespace toy
