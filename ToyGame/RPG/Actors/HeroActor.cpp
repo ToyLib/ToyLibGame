@@ -54,7 +54,7 @@ HeroActor::HeroActor(toy::Application* a)
     Vector3 vScale;
     JsonHelper::GetVector3(json["collider"], "bounding_box_scale", vScale);
     mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
-    mCollComp->SetFlags(toy::C_FOOT | toy::C_BODY | toy::C_PLAYER_TEAM);
+    mCollComp->SetFlags(toy::C_FOOT | toy::C_BODY | toy::C_GROUND | toy::C_WALL | toy::C_PLAYER_TEAM);
     mCollComp->SetEnabled(true);
 
     
@@ -73,6 +73,8 @@ HeroActor::HeroActor(toy::Application* a)
     // --- 重力コンポーネント ---
     mGravComp = CreateComponent<toy::GravityComponent>();
     mGravComp->SetEnableGroundPose(false);
+    mGravComp->SetMaxFallSpeed(-75.0f);
+    mGravComp->SetJumpSpeed(25.0f);
     
     // --- センサーコンポーネント ---
     mSensor= CreateComponent<toy::SensorComponent>();
