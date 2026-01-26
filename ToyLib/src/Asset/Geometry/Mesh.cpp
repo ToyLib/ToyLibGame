@@ -585,7 +585,7 @@ void Mesh::LoadMeshData()
 // - Ambient / Diffuse / Specular / Shininess を Material に反映
 // - Diffuse テクスチャ（外部 or 埋め込み）を読み込む
 //==============================================================
-void Mesh::LoadMaterials(AssetManager* assetMamager, const std::string& meshFilename)
+void Mesh::LoadMaterials(AssetManager* assetManager, const std::string& meshFilename)
 {
     for (unsigned int i = 0; i < mScene->mNumMaterials; ++i)
     {
@@ -635,7 +635,7 @@ void Mesh::LoadMaterials(AssetManager* assetMamager, const std::string& meshFile
                         ? aiTex->mWidth
                         : aiTex->mWidth * aiTex->mHeight * 4;
 
-                    auto tex = assetMamager->GetEmbeddedTexture(key, imageData, imageSize);
+                    auto tex = assetManager->GetEmbeddedTexture(key, imageData, imageSize);
                     if (tex)
                     {
                         mat->SetDiffuseMap(tex);
@@ -646,12 +646,23 @@ void Mesh::LoadMaterials(AssetManager* assetMamager, const std::string& meshFile
             {
                 std::string meshPath = StringUtil::GetDirectory(meshFilename);
                 // 通常のファイルパス
-                auto tex = assetMamager->GetTexture(meshPath + texPath);
+                auto tex = assetManager->GetTexture(meshPath + texPath);
                 if (tex)
                 {
                     mat->SetDiffuseMap(tex);
                 }
             }
+            mat->SetUseTexture(true);
+        }
+        else
+        {
+            auto tex = assetManager->GetWhite1x1Texture();
+            if (tex)
+            {
+                mat->SetDiffuseMap(tex);
+                mat->SetUseTexture(false);
+            }
+
         }
 
         mMaterials.push_back(mat);

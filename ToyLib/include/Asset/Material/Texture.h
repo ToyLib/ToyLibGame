@@ -100,11 +100,11 @@ private:
     //--------------------------------------------------------------------------
 
     // OpenGL テクスチャ ID
-    unsigned int mTextureID{};
+    unsigned int mTextureID {};
 
     // サイズ
-    int mWidth{};
-    int mHeight{};
+    int mWidth {};
+    int mHeight {};
 };
 
 } // namespace toy

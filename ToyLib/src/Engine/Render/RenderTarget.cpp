@@ -14,13 +14,7 @@ RenderTarget::RenderTarget()
 
 RenderTarget::~RenderTarget()
 {
-    /*
-     if (mDepthRBO) glDeleteRenderbuffers(1, &mDepthRBO);
-     if (mFBO)      glDeleteFramebuffers(1, &mFBO);
-     mDepthRBO = 0;
-     mFBO = 0;
-     mColorTex.reset();
-     */
+    // Unload();
 }
 
 void RenderTarget::Unload()

@@ -7,23 +7,6 @@
 namespace toy {
 
 //-------------------------------------------------------------
-// コンストラクタ
-// ・太陽光の強さはデフォルト 1.0
-//-------------------------------------------------------------
-LightingManager::LightingManager()
-    : mSunIntensity(1.0f)
-    , mDirLight(Vector3::Zero)
-    , mAmbientColor(Vector3(0.8f, 0.8f, 0.8f))
-
-{
-}
-
-LightingManager::~LightingManager()
-{
-}
-
-
-//-------------------------------------------------------------
 // ApplyToShader()
 // ・現在のライティング関連パラメーターを GLSL シェーダーに送る
 // ・Renderer → 各 VisualComponent 描画時に呼ばれる想定

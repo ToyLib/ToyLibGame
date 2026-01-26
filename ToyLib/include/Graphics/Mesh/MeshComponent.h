@@ -85,8 +85,8 @@ protected:
     //--------------------------------------------------------
     // 保持している描画リソース
     //--------------------------------------------------------
-    std::shared_ptr<class Mesh>  mMesh;               // 描画対象メッシュ
-    unsigned int mTextureIndex;                       // 使用するメッシュ内テクスチャインデックス
+    std::shared_ptr<class Mesh>  mMesh{};               // 描画対象メッシュ
+    unsigned int mTextureIndex {};                       // 使用するメッシュ内テクスチャインデックス
 
     bool mIsSkeletal;                                 // スキンメッシュかどうか
 

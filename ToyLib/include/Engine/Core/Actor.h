@@ -174,29 +174,29 @@ private:
     //=========================================================================
     // ・mPosition/mRotation/mScale は「保持値」（ワールド基準）
     // ・mWorldTransform は dirty のときだけ ComputeWorldTransform で再構築
-    Matrix4     mWorldTransform;         // ワールド行列
-    Vector3     mPosition;               // 位置（ワールド）
-    Quaternion  mRotation;               // 回転（ワールド）
-    float       mScale;                  // スケール（ワールド）
-    bool        mIsRecomputeWorldTransform;
+    Matrix4     mWorldTransform {Matrix4::Identity};     // ワールド行列
+    Vector3     mPosition       {Vector3::Zero};         // 位置（ワールド）
+    Quaternion  mRotation       {Quaternion::Identity};  // 回転（ワールド）
+    float       mScale          {1.0f};                  // スケール（ワールド）
+    bool        mIsRecomputeWorldTransform{true};
 
     //=========================================================================
     // Pose (render-only)
     //=========================================================================
-    Quaternion  mPoseRotation;
-    Matrix4     mRenderWorldTransform;
+    Quaternion  mPoseRotation{Quaternion::Identity};
+    Matrix4     mRenderWorldTransform{Matrix4::Identity};
 
     //=========================================================================
     // Component / Application
     //=========================================================================
-    std::vector<std::unique_ptr<class Component>> mComponents;
-    class Application* mApp;
+    std::vector<std::unique_ptr<class Component>> mComponents{};
+    class Application* mApp{};
 
     //=========================================================================
     // State / ID
     //=========================================================================
-    enum State  mStatus;
-    std::string mActorID;
+    enum State  mStatus{State::Active};
+    std::string mActorID{"Unnamed Actor"};
 };
 
 } // namespace toy

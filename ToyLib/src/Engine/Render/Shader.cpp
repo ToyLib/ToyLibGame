@@ -6,9 +6,6 @@ namespace toy {
 // コンストラクタ／デストラクタ
 //=============================================================
 Shader::Shader()
-    : mShaderProgramID(0)
-    , mVertexShaderID(0)
-    , mFragShaderID(0)
 {
 }
 

@@ -126,75 +126,75 @@ void CameraAirYController::Apply(const Actor* owner,
     // ------------------------------------------------------------
     switch (mMode)
     {
-    case Mode::Hold:
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
+        case Mode::Hold:
+            ioCameraPos.y = mHoldCamY;
+            ioTarget.y    = mHoldTargetY;
+            break;
 
-    case Mode::FallAssist:
-    {
-        const float drop = mHoldTargetY - desiredTargetY;
-
-        if (!mFallAssistActive)
+        case Mode::FallAssist:
         {
-            if (drop > mFallOutOfViewThresholdY)
+            const float drop = mHoldTargetY - desiredTargetY;
+
+            if (!mFallAssistActive)
             {
-                mFallAssistActive = true;
+                if (drop > mFallOutOfViewThresholdY)
+                {
+                    mFallAssistActive = true;
+                }
             }
-        }
-        else
-        {
-            if (drop < (mFallOutOfViewThresholdY - mFallOutOfViewHysteresisY))
+            else
             {
-                mFallAssistActive = false;
+                if (drop < (mFallOutOfViewThresholdY - mFallOutOfViewHysteresisY))
+                {
+                    mFallAssistActive = false;
+                }
             }
+
+            if (mFallAssistActive)
+            {
+                mHoldTargetY = ExpApproach95(mHoldTargetY,
+                                             desiredTargetY,
+                                             dt,
+                                             mFallAssistTargetSeconds);
+
+                mHoldCamY = ExpApproach95(mHoldCamY,
+                                          desiredCamY,
+                                          dt,
+                                          mFallAssistCameraSeconds);
+            }
+
+            ioCameraPos.y = mHoldCamY;
+            ioTarget.y    = mHoldTargetY;
+            break;
         }
 
-        if (mFallAssistActive)
+        case Mode::Recover:
         {
             mHoldTargetY = ExpApproach95(mHoldTargetY,
                                          desiredTargetY,
                                          dt,
-                                         mFallAssistTargetSeconds);
+                                         mRecoverTargetSeconds);
 
             mHoldCamY = ExpApproach95(mHoldCamY,
                                       desiredCamY,
                                       dt,
-                                      mFallAssistCameraSeconds);
+                                      mRecoverCameraSeconds);
+
+            ioCameraPos.y = mHoldCamY;
+            ioTarget.y    = mHoldTargetY;
+
+            const bool doneTarget = (std::fabs(mHoldTargetY - desiredTargetY) < 0.01f);
+            const bool doneCam    = (std::fabs(mHoldCamY - desiredCamY) < 0.01f);
+
+            if (doneTarget && doneCam)
+            {
+                mMode = Mode::None;
+            }
+            break;
         }
 
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-        break;
-    }
-
-    case Mode::Recover:
-    {
-        mHoldTargetY = ExpApproach95(mHoldTargetY,
-                                     desiredTargetY,
-                                     dt,
-                                     mRecoverTargetSeconds);
-
-        mHoldCamY = ExpApproach95(mHoldCamY,
-                                  desiredCamY,
-                                  dt,
-                                  mRecoverCameraSeconds);
-
-        ioCameraPos.y = mHoldCamY;
-        ioTarget.y    = mHoldTargetY;
-
-        const bool doneTarget = (std::fabs(mHoldTargetY - desiredTargetY) < 0.01f);
-        const bool doneCam    = (std::fabs(mHoldCamY - desiredCamY) < 0.01f);
-
-        if (doneTarget && doneCam)
-        {
-            mMode = Mode::None;
-        }
-        break;
-    }
-
-    default:
-        break;
+        default:
+            break;
     }
 
     mPrevGrounded = grounded;

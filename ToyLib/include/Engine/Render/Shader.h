@@ -83,9 +83,9 @@ private:
     // OpenGL オブジェクト ID
     //---------------------------------------------------------
     
-    GLuint mVertexShaderID;    // 頂点シェーダ
-    GLuint mFragShaderID;      // フラグメントシェーダ
-    GLuint mShaderProgramID;   // リンク済みプログラム
+    GLuint mVertexShaderID {};    // 頂点シェーダ
+    GLuint mFragShaderID {};      // フラグメントシェーダ
+    GLuint mShaderProgramID {};   // リンク済みプログラム
     
     
     //---------------------------------------------------------

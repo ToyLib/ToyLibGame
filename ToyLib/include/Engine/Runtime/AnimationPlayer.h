@@ -91,22 +91,22 @@ private:
     Matrix4 LerpMatrix(const Matrix4& a, const Matrix4& b, float t);
 
 private:
-    std::shared_ptr<class Mesh> mMesh;
+    std::shared_ptr<class Mesh> mMesh {};
 
-    int   mAnimID      = 0;
-    float mPlayTime    = 0.0f;   // 秒
-    float mPlayRate    = 1.0f;
+    int   mAnimID      { 0 };
+    float mPlayTime    { 0.0f };   // 秒
+    float mPlayRate    { 1.0f };
 
-    bool  mIsLooping   = true;
-    bool  mIsPaused    = false;
+    bool  mIsLooping   { true };
+    bool  mIsPaused    { false };
 
     // PlayOnce 用
-    int   mNextAnimID  = -1;     // >=0 なら PlayOnce 中
-    bool  mIsFinished  = false;
+    int   mNextAnimID  { -1 };     // >=0 なら PlayOnce 中
+    bool  mIsFinished  { false };
 
-    std::vector<Matrix4> mFinalMatrices;
+    std::vector<Matrix4> mFinalMatrices {};
 
-    BlendInfo mBlend;
+    BlendInfo mBlend {};
 };
 
 } // namespace toy

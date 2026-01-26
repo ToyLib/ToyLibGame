@@ -8,9 +8,6 @@ namespace toy {
 
 CameraComponent::CameraComponent(Actor* owner, int updateOrder)
     : Component(owner, updateOrder)
-    , mCameraPosition(Vector3::Zero)
-    , mCameraTarget(Vector3::Zero)
-    , mIsEnabled(true)
 {
     //------------------------------------------------------------------
     // CameraManager へ登録

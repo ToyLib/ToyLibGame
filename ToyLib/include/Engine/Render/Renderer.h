@@ -278,41 +278,41 @@ private:
     // SDL / OpenGL
     //--------------------------------------------------------------------------
 
-    SDL_Window*   mWindow          = nullptr;
-    SDL_GLContext mGLContext       = nullptr;
-    float         mWindowDisplayScale = 1.0f;
+    SDL_Window*   mWindow             { nullptr };
+    SDL_GLContext mGLContext          { nullptr };
+    float         mWindowDisplayScale { 1.0f };
 
     //--------------------------------------------------------------------------
     // スクリーン / カメラ
     //--------------------------------------------------------------------------
 
-    float   mScreenWidth  = 0.0f;
-    float   mScreenHeight = 0.0f;
-    float   mVirtualWidth = 0.0f;
-    float   mVirtualHeight = 0.0f;
+    float   mScreenWidth {};
+    float   mScreenHeight {};
+    float   mVirtualWidth {};
+    float   mVirtualHeight {};
 
-    float   mPerspectiveFOV = 45.0f;
+    float   mPerspectiveFOV { 45.0f };
 
-    Matrix4 mViewMatrix;
-    Matrix4 mInvView;
-    Matrix4 mProjectionMatrix;
+    Matrix4 mViewMatrix {};
+    Matrix4 mInvView    {};
+    Matrix4 mProjectionMatrix {};
     
     
     //--------------------------------------------------------------------------
     // キャプチャーリクエストのキュー
     //--------------------------------------------------------------------------
 
-    std::vector<SceneCaptureRequest> mSceneCaptureQueue;
+    std::vector<SceneCaptureRequest> mSceneCaptureQueue {};
 
     //--------------------------------------------------------------------------
     // 描画状態 / デバッグ
     //--------------------------------------------------------------------------
 
-    Vector3 mClearColor;
-    Vector3 mWireColor;
+    Vector3 mClearColor { Vector3(0.2f, 0.5f, 0.8f) };
+    Vector3 mWireColor  { Vector3(1.0f, 1.0f, 1.0f) };
 
-    DebugInfo mDebugOnScreen;
-    DebugInfo mDebugRTT;
+    DebugInfo mDebugOnScreen {};
+    DebugInfo mDebugRTT {};
     DebugInfo* mDebugActiveScreen = &mDebugOnScreen;
     void ChangeDebugOnScreen() { mDebugActiveScreen = &mDebugOnScreen; }
     void ChangeDebugRTT() { mDebugActiveScreen = &mDebugRTT; }
@@ -324,12 +324,12 @@ private:
 
     std::shared_ptr<class LightingManager> mLightingManager;
 
-    float mShadowNear;
-    float mShadowFar;
-    float mShadowOrthoWidth;
-    float mShadowOrthoHeight;
-    int   mShadowFBOWidth;
-    int   mShadowFBOHeight;
+    float mShadowNear        { 10.0f };
+    float mShadowFar         { 100.0f };
+    float mShadowOrthoWidth  { 100.0f };
+    float mShadowOrthoHeight { 100.0f };
+    int   mShadowFBOWidth    { 4096 };
+    int   mShadowFBOHeight   { 4096 };
 
     static constexpr int kShadowCascadeCount = 2;
 
@@ -337,16 +337,16 @@ private:
     Matrix4 mLightSpaceMatrix[kShadowCascadeCount]{};
     std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount]{};
 
-    float mCascadeSplit0;
-    float mCascadeBlend;
+    float mCascadeSplit0 { 25.0f };
+    float mCascadeBlend  { 6.0f };
 
     //--------------------------------------------------------------------------
     // ポストエフェクト
     //--------------------------------------------------------------------------
     // メインシーン（ポスト用）RenderTarget
-    std::shared_ptr<RenderTarget> mSceneRT;
+    std::shared_ptr<RenderTarget> mSceneRT {};
     // ポスト設定
-    PostEffectDesc mPost;
+    PostEffectDesc mPost {};
 
     // ポスト描画
     void DrawPostFromSceneRT();
@@ -356,18 +356,18 @@ private:
     //--------------------------------------------------------------------------
     // フェード
     //--------------------------------------------------------------------------
-    float   mFadeAlpha = 0.0f;     // 0=表示, 1=完全暗転
-    Vector3 mFadeColor = Vector3(0,0,0);
-    bool    mEnableFade = false;
+    float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
+    Vector3 mFadeColor  { Vector3(0,0,0) };
+    bool    mEnableFade { false };
     void    DrawFadeOverlay();
 
     //--------------------------------------------------------------------------
     // ジオメトリ
     //--------------------------------------------------------------------------
 
-    std::shared_ptr<class VertexArray> mFullScreenQuad;
-    std::shared_ptr<class VertexArray> mSpriteVerts;
-    std::shared_ptr<class VertexArray> mSurfaceQuad;
+    std::shared_ptr<class VertexArray> mFullScreenQuad {};
+    std::shared_ptr<class VertexArray> mSpriteVerts {};
+    std::shared_ptr<class VertexArray> mSurfaceQuad {};
 
     void CreateFullScreenQuad();
     void CreateSpriteVerts();
@@ -377,7 +377,7 @@ private:
     // シェーダ
     //--------------------------------------------------------------------------
 
-    std::string mShaderPath;
+    std::string mShaderPath { "ToyLib/Shaders/" };
     std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
 
     bool LoadShaders();
@@ -386,8 +386,8 @@ private:
     // Visual / Sky
     //--------------------------------------------------------------------------
 
-    std::vector<class VisualComponent*> mVisualComps;
-    class SkyDomeComponent* mSkyDomeComp = nullptr;
+    std::vector<class VisualComponent*> mVisualComps {};
+    class SkyDomeComponent* mSkyDomeComp { nullptr };
 
     void DrawSky();
     void DrawVisualLayer(VisualLayer layer,

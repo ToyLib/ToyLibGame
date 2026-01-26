@@ -64,12 +64,12 @@ public:
     //-----------------------------------------
     // デバッグ情報
     //-----------------------------------------
-    DebugStats&       GetDebugStats()       { return mDebugStats; }
-    const DebugStats& GetDebugStats() const { return mDebugStats; }
-    bool GetEnableDebug()             const { return mEnableDebug; }
-    void SetEnableDebug(const bool b)       { mEnableDebug = b; }
-    bool GetEnableDebugWire()         const { return mEnableDebugWire; }
-    void SetEnableDebuWire(const bool b)    { mEnableDebugWire = b; }
+    DebugStats&       GetDebugStats()        { return mDebugStats; }
+    const DebugStats& GetDebugStats()  const { return mDebugStats; }
+    bool GetEnableDebug()              const { return mEnableDebug; }
+    void SetEnableDebug(const bool b)        { mEnableDebug = b; }
+    bool GetVisibleDebugWire()         const { return mVisibleDebugWire; }
+    void SetVisibleDebuWire(const bool b)    { mVisibleDebugWire = b; }
 
     
 protected:
@@ -96,31 +96,31 @@ private:
     //-----------------------------------------
     // ウィンドウ／アプリ設定
     //-----------------------------------------
-    std::string mApplicationTitle; // ウィンドウタイトル
-    std::string mSystemAssetPath;
-    bool  mIsFullScreen;           // フルスクリーン状態
+    std::string mApplicationTitle{}; // ウィンドウタイトル
+    std::string mSystemAssetPath{"ToyLib/Assets/"};
+    bool  mIsFullScreen{false};           // フルスクリーン状態
 
     // 現在のウィンドウの「物理解像度」（描画用）
-    int   mScreenWidth;
-    int   mScreenHeight;
+    int   mScreenWidth{1280};
+    int   mScreenHeight{720};
 
-    SDL_Window* mWindow;           // SDLウィンドウ
+    SDL_Window* mWindow{nullptr};           // SDLウィンドウ
 
     // ウィンドウモード時の「論理ウィンドウサイズ」（復帰用）
-    int   mWindowedWidth;
-    int   mWindowedHeight;
+    int   mWindowedWidth{1600};
+    int   mWindowedHeight{900};
 
-    bool  mIsActive;
-    bool  mIsPause;
-    Uint64 mTicksCount;            // 前フレームの時刻（ns 単位）
+    bool  mIsActive{false};
+    bool  mIsPause{false};
+    Uint64 mTicksCount{};            // 前フレームの時刻（ns 単位）
 
     // ウィンドウ操作関連ヘルパー
     void HandleWindowResized();
     
     // アスペクト比固定関連
-    float mTargetAspect;          // 幅 / 高さ
-    bool  mLockAspect;            // アスペクトロック有効か
-    bool  mIsAdjustingSize;       // 自前でサイズ変更中か（イベントループ防止）
+    float mTargetAspect{16.0f / 9.0f};  // 幅 / 高さ
+    bool  mLockAspect{true};            // アスペクトロック有効か
+    bool  mIsAdjustingSize{false};      // 自前でサイズ変更中か（イベントループ防止）
     
     //-----------------------------------------
     // サブシステム
@@ -141,14 +141,14 @@ private:
     //-----------------------------------------
     std::vector<std::unique_ptr<class Actor>> mActors;
     std::vector<std::unique_ptr<class Actor>> mPendingActors;
-    bool mIsUpdatingActors;
+    bool mIsUpdatingActors{false};
     
     //-----------------------------------------
     // デバッグ情報
     //-----------------------------------------
-    DebugStats mDebugStats;
-    bool mEnableDebug;
-    bool mEnableDebugWire;
+    DebugStats mDebugStats{};
+    bool mEnableDebug{false};
+    bool mVisibleDebugWire{false};
     
     //-----------------------------------------
     // 設定読み込み

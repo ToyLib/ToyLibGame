@@ -153,41 +153,41 @@ public:
     // 初期化（Gamepad オープンなどを行う）
     bool Initialize(SDL_Window* window);
     void Shutdown();
-
+    
     // SDL_PollEvents 前に呼ぶ（前フレーム状態の確保など）
     void PrepareForUpdate();
-
+    
     // SDL_PollEvents 後に呼ぶ（実際の入力更新）
     void Update();
-
+    
     // 現在の入力状態（フレームスナップショット）を取得
     const InputState& GetState() const { return mState; }
-
+    
     // JSON からボタンバインディングを読み込み
     bool LoadButtonConfig(const std::string& filePath);
-
+    
     // 論理ボタン問い合わせ API
     bool IsButtonDown(GameButton button) const;
     bool IsButtonPressed(GameButton button) const;
     bool IsButtonReleased(GameButton button) const;
-
+    
     // テキスト入力モード（SDL_StartTextInput / StopTextInput 用）
     void SetTextInputMode(bool enabled);
     bool IsTextInputMode() const { return mTextInputMode; }
-
+    
 private:
     // スティック／トリガー入力のデッドゾーンフィルタ（1D / 2D）
     float   Filter1D(int input);
     Vector2 Filter2D(int inputX, int inputY);
-
-    SDL_Gamepad* mGamepad = nullptr;  // SDL3 Gamepad ハンドル
-    InputState   mState;              // 現在の入力状態
-
+    
+    SDL_Gamepad* mGamepad { nullptr };  // SDL3 Gamepad ハンドル
+    InputState   mState {};             // 現在の入力状態
+    
     // GameButton ごとのバインディング
-    std::array<ButtonBinding, static_cast<size_t>(GameButton::Count)> mButtonBindings;
-
-    bool mTextInputMode = false;      // テキスト入力中かどうか
-    SDL_Window* mWindow = nullptr;    // 必要に応じて IME 等に利用
+    std::array<ButtonBinding, static_cast<size_t>(GameButton::Count)> mButtonBindings {};
+    
+    bool mTextInputMode { false };      // テキスト入力中かどうか
+    SDL_Window* mWindow { nullptr };    // 必要に応じて IME 等に利用
 };
 
 } // namespace toy

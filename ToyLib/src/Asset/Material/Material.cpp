@@ -10,13 +10,6 @@ namespace toy {
 //   ・テクスチャなし状態で初期化
 //--------------------------------------------------------------
 Material::Material()
-: mAmbientColor(0.5f, 0.5f, 0.5f)
-, mDiffuseColor(0.8f, 0.8f, 0.8f)
-, mSpecularColor(1.0f, 1.0f, 1.0f)
-, mShininess(32.0f)
-, mDiffuseMap(nullptr)
-, mOverrideColor(false)
-, mUniformColor(Vector3::Zero)
 {
 }
 
@@ -40,17 +33,9 @@ void Material::BindToShader(std::shared_ptr<Shader> shader,
     shader->SetVectorUniform("uSpecColor",     mSpecularColor);
     shader->SetFloatUniform ("uSpecPower",     mShininess);
 
-    // DiffuseMap（基本1枚のみ）
-    if (mDiffuseMap)
-    {
-        mDiffuseMap->SetActive(textureUnit);
-        shader->SetTextureUniform("uTexture", textureUnit);
-        shader->SetBooleanUniform("uUseTexture", true);
-    }
-    else
-    {
-        shader->SetBooleanUniform("uUseTexture", false);
-    }
+    mDiffuseMap->SetActive(textureUnit);
+    shader->SetTextureUniform("uTexture", textureUnit);
+    shader->SetBooleanUniform("uUseTexture", mUseTexture);
 }
 
 //--------------------------------------------------------------

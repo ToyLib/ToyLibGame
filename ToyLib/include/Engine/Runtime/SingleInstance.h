@@ -26,10 +26,10 @@ private:
 #ifdef _WIN32
     HANDLE mMutex;  // Windows: 名前付き Mutex ハンドル
 #else
-    int mFd;        // Unix系: lock ファイルのファイルディスクリプタ
+    int mFd {};        // Unix系: lock ファイルのファイルディスクリプタ
 #endif
 
-    bool mIsLocked; // ロックを取得できたか（＝単一インスタンスとして有効）
+    bool mIsLocked { false }; // ロックを取得できたか（＝単一インスタンスとして有効）
 
 public:
     //---------------------------------------------------------

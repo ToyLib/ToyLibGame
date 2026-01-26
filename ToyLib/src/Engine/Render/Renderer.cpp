@@ -69,28 +69,6 @@ namespace toy {
 //=============================================================
 
 Renderer::Renderer()
-    : mScreenWidth(0.0f)
-    , mScreenHeight(0.0f)
-    , mVirtualWidth(0.0f)
-    , mVirtualHeight(0.0f)
-    , mPerspectiveFOV(45.0f)
-    , mClearColor(Vector3(0.2f, 0.5f, 0.8f))
-    , mWireColor(Vector3(1.0f, 1.0f, 1.0f))
-    , mShadowNear(10.f)
-    , mShadowFar(100)
-    , mShadowOrthoWidth(100.f)
-    , mShadowOrthoHeight(100.f)
-    , mShadowFBOWidth(4096)
-    , mShadowFBOHeight(4096)
-    , mWindow(nullptr)
-    , mGLContext(nullptr)
-    , mShaderPath("ToyLib/Shaders/")
-
-    , mSkyDomeComp(nullptr)
-    , mLightSpaceMatrix(Matrix4::Identity)
-    , mWindowDisplayScale(1.0f)
-    , mCascadeSplit0(25.0f)
-    , mCascadeBlend(6.0f)
 {
     // ライティング管理クラス（Directional/Point など）
     mLightingManager = std::make_shared<LightingManager>();

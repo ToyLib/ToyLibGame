@@ -15,14 +15,7 @@ namespace toy {
 // コンストラクタ
 //-------------------------------------------------------------
 Actor::Actor(Application* a)
-    : mStatus(State::Active)
-    , mPosition(Vector3::Zero)
-    , mRotation(Quaternion::Identity)
-    , mScale(1.0f)
-    , mApp(a)
-    , mIsRecomputeWorldTransform(true)
-    , mPoseRotation(Quaternion::Identity)
-    , mActorID("Unnamed Actor")
+    : mApp(a)
 {
 }
 

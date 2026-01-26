@@ -22,22 +22,8 @@ namespace toy {
 //=============================================================
 
 Application::Application()
-    : mIsActive(false)
-    , mIsUpdatingActors(false)
-    , mIsPause(false)
-    , mScreenWidth(1600)    // 初期の想定物理解像度（あくまで暫定）
-    , mScreenHeight(900)
-    , mWindowedWidth(1280)  // 起動時の論理ウィンドウサイズ
-    , mWindowedHeight(720)
-    , mIsFullScreen(false)
-    , mWindow(nullptr)
-    , mTicksCount(0)
-    , mTargetAspect(16.0f / 9.0f)
-    , mLockAspect(true)
-    , mIsAdjustingSize(false)
+    : mIsFullScreen(false)
     , mEnableDebug(false)
-    , mEnableDebugWire(false)
-    , mSystemAssetPath("ToyLib/Assets/")
 {
     mRenderer      = std::make_unique<Renderer>();
     mInputSys      = std::make_unique<InputSystem>();

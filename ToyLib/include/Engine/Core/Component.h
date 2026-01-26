@@ -48,11 +48,11 @@ public:
     
 private:
     // この Component を所有している Actor
-    class Actor* mOwnerActor;
+    class Actor* mOwnerActor{};
 
 protected:
     // 更新優先度（UpdateOrder）
-    int mUpdateOrder;
+    int mUpdateOrder{};
 };
 
 } // namespace toy
