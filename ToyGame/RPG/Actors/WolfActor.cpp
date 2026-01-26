@@ -6,18 +6,18 @@ WolfActor::WolfActor(toy::Application* a)
 , mAction(ActionType::IDLE)
 , mLifeTime(0.0f)
 {
-    SetScale(0.05f);
-    SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
+    SetScale(3.0f);
+    //SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180)));
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>(1000);
     //meshComp->SetToonRender(true);
     //meshComp->SetContourFactor(1.01f);
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Enemy/wolf.fbx"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Enemy/wolf.gltf"));
     
     
     mColleder = CreateComponent<toy::ColliderComponent>();
-    mColleder->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Enemy/wolf.fbx")->GetVertexArray());
-    mColleder->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
+    mColleder->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Enemy/wolf.gltf")->GetVertexArray());
+    //mColleder->GetBoundingVolume()->AdjustBoundingBox(Vector3(0.0f, 35, 30), Vector3(0.9, 0.9, 0.6));
     mColleder->SetEnabled(true);
     mColleder->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);
     

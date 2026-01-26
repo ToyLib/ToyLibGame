@@ -11,8 +11,8 @@ FollowMoveComponent::FollowMoveComponent(Actor* owner, int updateOrder)
     : MoveComponent(owner, updateOrder)
     , mTarget(nullptr)
     , mFollowDistance(3.0f)   // これ以上離れたら追いかける
-    , mFollowSpeed(200.0f)    // 追従速度
-    , mRotationSpeed(90.0f)   // 1秒あたりの最大回転角（度）
+    , mFollowSpeed(20.0f)    // 追従速度
+    , mRotationSpeed(45.0f)   // 1秒あたりの最大回転角（度）
 {
 }
 
@@ -96,7 +96,7 @@ void FollowMoveComponent::Update(float deltaTime)
         moveDir.Normalize();
         
         // NOTE: 負号付きで使っているのは既存挙動を維持するため
-        TryMoveWithRayCheck(moveDir * (-mFollowSpeed), deltaTime);
+        TryMoveWithRayCheck(moveDir * (mFollowSpeed), deltaTime);
     }
 }
 
