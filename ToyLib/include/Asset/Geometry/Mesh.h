@@ -127,7 +127,7 @@ private:
     std::map<std::string, uint32_t> mBoneMapping {};
 
     // ボーン数
-    uint32_t mNumBones {0};
+    uint32_t mNumBones { 0 };
 
     // ボーンごとのオフセット行列・最終変換行列
     std::vector<struct BoneInfo> mBoneInfo;
@@ -145,7 +145,7 @@ private:
     std::vector<class AnimationClip> mAnimationClips;
 
     // 使用シェーダー名（例："Mesh", "Skinned"）
-    std::string mShaderName {};
+    std::string mShaderName;
 
     // スペキュラー係数
     float mSpecPower {1.0f};

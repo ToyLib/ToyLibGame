@@ -9,8 +9,6 @@
 namespace toy {
 
 AssetManager::AssetManager()
-    : mAssetsPath("ToyGame/Assets") // デフォルトのアセット基準パス
-    , mWindowDisplayScale(1.0f)
 {
     
 }
