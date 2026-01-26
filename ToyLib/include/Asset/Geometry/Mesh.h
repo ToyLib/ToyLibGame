@@ -130,19 +130,19 @@ private:
     unsigned int mNumBones {0};
 
     // ボーンごとのオフセット行列・最終変換行列
-    std::vector<struct BoneInfo> mBoneInfo {};
+    std::vector<struct BoneInfo> mBoneInfo;
 
     // ルートノードの逆変換行列
     Matrix4 mGlobalInverseTransform { Matrix4::Identity };
 
     // 頂点配列（1ファイルに複数メッシュがある場合も考慮）
-    std::vector<std::shared_ptr<class VertexArray>> mVertexArray {};
+    std::vector<std::shared_ptr<class VertexArray>> mVertexArray;
 
     // マテリアル一覧（VertexArray の MaterialIndex と対応）
-    std::vector<std::shared_ptr<class Material>> mMaterials {};
+    std::vector<std::shared_ptr<class Material>> mMaterials;
 
     // アニメーションクリップ一覧
-    std::vector<class AnimationClip> mAnimationClips {};
+    std::vector<class AnimationClip> mAnimationClips;
 
     // 使用シェーダー名（例："Mesh", "Skinned"）
     std::string mShaderName {};
