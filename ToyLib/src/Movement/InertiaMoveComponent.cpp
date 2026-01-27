@@ -9,12 +9,6 @@ namespace toy {
 //------------------------------------------------------------------------------
 InertiaMoveComponent::InertiaMoveComponent(class Actor* owner, int updateOrder)
     : MoveComponent(owner, updateOrder)
-    , mTargetForwardSpeed (0.0f)
-    , mTargetRightSpeed   (0.0f)
-    , mTargetVerticalSpeed(0.0f)
-    , mTargetAngularSpeed (0.0f)
-    , mAcceleration       (5.0f)    // 慣性の効き具合（大きいほどすぐ追従）
-    , mAngularAcceleration(90.0f)   // 回転慣性の追従度
 {
 }
 

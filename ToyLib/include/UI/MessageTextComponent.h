@@ -123,13 +123,13 @@ private:
     std::string mRawText;
 
     // レイアウト条件（外部から注入）
-    Vector2 mBoxSize;
-    Vector2 mPadding;
-    int     mLineGapPx;
+    Vector2 mBoxSize    { 640.0f, 160.0f };
+    Vector2 mPadding    { 16.0f, 16.0f };
+    int     mLineGapPx  { 2 };
 
     // ページ分割結果（各ページは “表示用の完成文字列”）
     std::vector<std::string> mPages;
-    int mCurrentPage;
+    int mCurrentPage { 0 };
 
     //--------------------------------------------------------------------------
     // Typewriter state
@@ -140,16 +140,16 @@ private:
     // ※UTF-8 の “文字数” と substr の “バイト数” を混同しないこと！
     //   表示には mCharEnds を使って “文字数→バイト長” に変換する。
     //--------------------------------------------------------------------------
-    float  mCharSpeed;     // chars/sec
-    float  mCharAcc;
-    bool   mTyping;
+    float  mCharSpeed { 30.0f };     // chars/sec
+    float  mCharAcc   { 0.0f };
+    bool   mTyping    { false };
 
     // i文字目までの “バイト長” を格納（UTF-8境界）
     // 例：mCharEnds[0] = 1文字目までのバイト数
     std::vector<size_t> mCharEnds;
 
     // 表示している “文字数”（0..mCharEnds.size）
-    size_t mVisibleCharCount;
+    size_t mVisibleCharCount { 0 };
 
     // NOTE:
     // mVisibleChars (SIZE_MAX など) を別に持つと二重管理になりやすいので、

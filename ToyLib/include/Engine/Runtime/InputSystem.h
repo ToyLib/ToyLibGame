@@ -108,8 +108,8 @@ private:
     Uint8   mCurrButtons[SDL_GAMEPAD_BUTTON_COUNT] {};   // 現フレームのボタン状態
     Uint8   mPrevButtons[SDL_GAMEPAD_BUTTON_COUNT] {};   // 前フレームのボタン状態
 
-    Vector2 mLeftStick  { Vector2::Zero };
-    Vector2 mRightStick { Vector2::Zero };
+    Vector2 mLeftStick        { Vector2::Zero };
+    Vector2 mRightStick       { Vector2::Zero };
     float   mLeftTrigger      {};
     float   mRightTrigger     {};
     // トリガーの前フレーム値
@@ -126,8 +126,8 @@ private:
 //=============================================================
 struct InputState
 {
-    KeyboardState   Keyboard;
-    ControllerState Controller;
+    KeyboardState   Keyboard   {};
+    ControllerState Controller {};
 
     // 論理ボタンの状態問い合わせ
     bool IsButtonDown(GameButton button) const;
@@ -184,7 +184,7 @@ private:
     InputState   mState {};             // 現在の入力状態
     
     // GameButton ごとのバインディング
-    std::array<ButtonBinding, static_cast<size_t>(GameButton::Count)> mButtonBindings {};
+    std::array<ButtonBinding, static_cast<size_t>(GameButton::Count)> mButtonBindings;
     
     bool mTextInputMode { false };      // テキスト入力中かどうか
     SDL_Window* mWindow { nullptr };    // 必要に応じて IME 等に利用

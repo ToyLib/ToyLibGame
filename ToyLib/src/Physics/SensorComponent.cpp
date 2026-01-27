@@ -8,13 +8,11 @@ namespace toy {
 
 SensorComponent::SensorComponent(Actor* owner, int order)
     : Component(owner, order)
-    , mDesc{}
 {
 }
 
-SensorComponent::SensorComponent(Actor* a, const Desc& d, int order)
-    : Component(a, order)
-    , mDesc(d)
+SensorComponent::SensorComponent(Actor* owner, const Desc& d, int order)
+    : Component(owner, order)
 {
 }
 

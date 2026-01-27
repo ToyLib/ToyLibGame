@@ -49,47 +49,47 @@ public:
     struct Desc
     {
         // モード（必要なら preset が適用される）
-        ParticleMode mode = ParticleMode::Spark;
+        ParticleMode mode { ParticleMode::Spark };
 
         // GPU バッファ上の最大パーティクル数（容量）
-        uint32_t maxParticles = 64;
+        uint32_t maxParticles { 64 };
 
         // コンポーネント寿命（秒）
         // 0 = 無限（Stop() されるまで継続）
-        float componentLife   = 0.0f;
+        float componentLife   { 0.0f };
 
         // 1 粒の寿命（秒）
-        float particleLife    = 0.6f;
+        float particleLife    { 0.6f };
 
         // 1 粒のサイズ（ワールド or スクリーン基準は実装側の想定に従う）
-        float size            = 1.0f;
+        float size            { 1.0f };
 
         // 再スポーン頻度（1秒あたりの目安）
         // ※ GPU 更新なので「厳密に毎秒 N 個」ではなく近似/平均として扱う想定
-        float spawnRatePerSec = 60.0f;
+        float spawnRatePerSec { 60.0f };
 
         // スポーン数を徐々に増やすランプ時間（秒）
         // 0 = ランプ無し（即座に spawnRatePerSec へ）
-        float spawnRampSec    = 0.0f;
+        float spawnRampSec    { 0.0f };
 
         // 放射の広がり（初速方向/位置のばらつき等に使用する想定）
-        float spread          = 2.0f;
+        float spread          { 2.0f };
 
         // 重力（下方向の加速度）
-        float gravity         = 0.0f;
+        float gravity         { 0.0f };
 
         // 揚力（上方向の加速度：煙などで使用）
-        float lift            = 0.0f;
+        float lift            { 0.0f };
 
         // ブレンド設定：true なら加算合成（発光系向け）
-        bool  additiveBlend   = true;
+        bool  additiveBlend   { true };
 
         // ウォームスタート：初期化直後から「既に飛んでいる」状態にする
         // true ならバッファ初期値をランダム分布させ、見た目の立ち上がりを自然にする
-        bool  warmStart       = true;
+        bool  warmStart       { true };
 
         // エミッタのオフセット（Actor ローカル空間）
-        Vector3 emitterOffset = Vector3::Zero;
+        Vector3 emitterOffset { Vector3::Zero };
     };
 
 public:

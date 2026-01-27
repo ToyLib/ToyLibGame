@@ -20,8 +20,7 @@ namespace toy {
 class Shader
 {
 public:
-    Shader();
-    ~Shader();
+    Shader() = default;
     
     //---------------------------------------------------------
     // シェーダ読み込み／破棄
@@ -83,8 +82,8 @@ private:
     // OpenGL オブジェクト ID
     //---------------------------------------------------------
     
-    GLuint mVertexShaderID {};    // 頂点シェーダ
-    GLuint mFragShaderID {};      // フラグメントシェーダ
+    GLuint mVertexShaderID  {};   // 頂点シェーダ
+    GLuint mFragShaderID    {};   // フラグメントシェーダ
     GLuint mShaderProgramID {};   // リンク済みプログラム
     
     

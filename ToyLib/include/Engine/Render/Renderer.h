@@ -62,10 +62,10 @@ struct UIScaleInfo
 struct SceneCaptureRequest
 {
     std::shared_ptr<class RenderTarget> rt;
-    Matrix4 view;
-    Matrix4 proj;
-    bool drawUI = false;
-    const class Texture* skipTexture = nullptr; // フィードバック防止用
+    Matrix4 view { Matrix4::Identity };
+    Matrix4 proj { Matrix4::Identity };
+    bool drawUI { false };
+    const class Texture* skipTexture { nullptr }; // フィードバック防止用
 };
 
 //==============================================================================
@@ -73,8 +73,8 @@ struct SceneCaptureRequest
 //==============================================================================
 struct DebugInfo
 {
-    unsigned int drawObjectCount = 0;
-    unsigned int drawCallCount   = 0;
+    unsigned int drawObjectCount {};
+    unsigned int drawCallCount   {};
 };
 
 //==============================================================================

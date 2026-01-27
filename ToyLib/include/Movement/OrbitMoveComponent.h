@@ -25,17 +25,17 @@ public:
     }
 
 private:
-    class Actor* mCenterActor;
+    class Actor* mCenterActor { nullptr };
 
-    float mOrbitRadius;        // 現在の距離
-    float mMinRadius;
-    float mMaxRadius;
+    float mOrbitRadius        { 5.0f };        // 現在の距離
+    float mMinRadius          { 1.0f };
+    float mMaxRadius          { 30.0f };
 
     // ProcessInput で mForwardSpeed / mRightSpeed に入れるときの上限値
-    float mMaxOrbitSpeed;      // 円周方向の最大速度
-    float mMaxRadialSpeed;     // 半径方向の最大速度
+    float mMaxOrbitSpeed      { 5.0f };      // 円周方向の最大速度
+    float mMaxRadialSpeed     { 6.0f };     // 半径方向の最大速度
 
-    float mCurrentAngle;       // デバッグ用（なくてもOK）
+    float mCurrentAngle       {};       // デバッグ用
 };
 
 } // namespace toy

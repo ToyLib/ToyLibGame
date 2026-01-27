@@ -12,15 +12,7 @@ namespace toy {
 //------------------------------------------------------------------------------
 DirMoveComponent_Legacy::DirMoveComponent_Legacy(class Actor* a, int order)
     : MoveComponent(a, order)
-    , mSpeed(9.0f)                    // カメラ基準移動の基本速度
-    , mPrevPosition(Vector3::Zero)    // 前フレームの位置
-    , mDidMoveByInput(false)
-{
-}
-
-DirMoveComponent_Legacy::~DirMoveComponent_Legacy()
-{
-}
+{ }
 
 //------------------------------------------------------------------------------
 // Update

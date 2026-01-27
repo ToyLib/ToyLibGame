@@ -131,32 +131,32 @@ private:
     // ------------------------------------------------------------
     // Camera layout
     // ------------------------------------------------------------
-    float mHorzDist{10.0f};
-    float mVertDist{4.0f};
-    float mTargetDist{10.0f};
+    float mHorzDist   { 10.0f };
+    float mVertDist   {  4.0f };
+    float mTargetDist { 10.0f };
 
     // ------------------------------------------------------------
     // Spring follow
     // ------------------------------------------------------------
-    SpringSettings mSpring{200.0f, 1.0f};
+    SpringSettings mSpring { 200.0f, 1.0f };
 
-    Vector3 mActualPos{Vector3::Zero};
-    Vector3 mVelocity{Vector3::Zero};
+    Vector3 mActualPos { Vector3::Zero };
+    Vector3 mVelocity  { Vector3::Zero };
 
-    bool mFirstUpdate{true};
+    bool mFirstUpdate  { true };
 
     // ------------------------------------------------------------
     // Input accumulation (Orbit style)
     // ------------------------------------------------------------
-    float mHeightInput{0.0f};
-    float mHeightSpeed{7.0f};
-    float mMinVertDist{1.0f};
-    float mMaxVertDist{10.0f};
+    float mHeightInput {  0.0f };
+    float mHeightSpeed {  7.0f };
+    float mMinVertDist {  1.0f };
+    float mMaxVertDist { 10.0f };
 
     // ------------------------------------------------------------
     // Air Y controller (composed)
     // ------------------------------------------------------------
-    CameraAirYController mAirY{};
+    CameraAirYController mAirY {};
 };
 
 } // namespace toy

@@ -16,10 +16,6 @@
 
 namespace toy {
 
-PhysWorld::PhysWorld()
-{}
-PhysWorld::~PhysWorld()
-{}
 
 //------------------------------------------------------------------------------
 // AABBOverlap

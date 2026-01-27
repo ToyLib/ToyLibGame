@@ -148,7 +148,7 @@ private:
     std::string mShaderName;
 
     // スペキュラー係数
-    float mSpecPower {1.0f};
+    float mSpecPower { 1.0f };
 };
 
 } // namespace toy

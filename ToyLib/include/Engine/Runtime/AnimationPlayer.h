@@ -16,11 +16,11 @@ namespace toy {
 //-------------------------------------------------------------
 struct BlendInfo
 {
-    int   fromAnimID     = -1;     // ブレンド元クリップID
-    int   toAnimID       = -1;     // ブレンド先クリップID
-    float blendDuration  = 0.30f;  // ブレンド時間（秒）
-    float blendTime      = 0.0f;   // 経過時間（秒）
-    bool  isBlending     = false;  // ブレンド中か
+    int   fromAnimID     { -1 };     // ブレンド元クリップID
+    int   toAnimID       { -1 };     // ブレンド先クリップID
+    float blendDuration  { 0.30f };  // ブレンド時間（秒）
+    float blendTime      { 0.0f };   // 経過時間（秒）
+    bool  isBlending     { false };  // ブレンド中か
 
     void Reset()
     {

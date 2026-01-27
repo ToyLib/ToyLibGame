@@ -42,7 +42,7 @@ public:
     
 private:
     //--- 基本テクスチャ -------------------------------------
-    std::shared_ptr<class Texture> mDiffuseMap { nullptr };
+    std::shared_ptr<class Texture> mDiffuseMap;
     
     //--- 光沢値（Phong/Blinn 用） ----------------------------
     float mShininess { 32.0f };

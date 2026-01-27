@@ -12,14 +12,6 @@ namespace toy {
 //==============================================================
 MessageTextComponent::MessageTextComponent(Actor* owner, int drawOrder, VisualLayer layer)
     : TextSpriteComponent(owner, drawOrder, layer)
-    , mBoxSize(Vector2(640.0f, 160.0f))
-    , mPadding(Vector2(16.0f, 16.0f))
-    , mLineGapPx(2)
-    , mCurrentPage(0)
-    , mCharSpeed(30.0f)     // chars/sec
-    , mCharAcc(0.0f)
-    , mTyping(false)
-    , mVisibleCharCount(0)
 {
 }
 

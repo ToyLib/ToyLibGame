@@ -105,25 +105,25 @@ public:
 
 private:
     // 少なくとも 1 つ以上のコライダーと当たっているか
-    bool mIsCollided{false};
+    bool mIsCollided    { false };
     
     // 判定を行うかどうかのフラグ
-    bool mEnabled{true};
+    bool mEnabled       { true };
     
     // 自動で生成されたバウンディングボリューム
-    class BoundingVolumeComponent* mBoundingVolume{nullptr};
+    class BoundingVolumeComponent* mBoundingVolume { nullptr };
     
     // 自分のコライダー種別（ビットフラグ）
-    uint32_t mFlags{C_NONE};
+    uint32_t mFlags     { C_NONE };
     
     // このフレーム中に衝突した相手の一覧
     std::vector<ColliderComponent*> mTargetColliders;
     
     // Trigger当たっても反応しない
-    bool mIsTrigger{false};
+    bool mIsTrigger     { false };
     
     // ターゲッティング状態
-    TargetState mTargetState{TargetState::None};
+    TargetState mTargetState { TargetState::None };
 };
 
 } // namespace toy

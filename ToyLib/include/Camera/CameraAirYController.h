@@ -61,28 +61,28 @@ private:
     };
 
 private:
-    bool mEnabled{false};
+    bool mEnabled { false };
 
-    Mode mMode{Mode::None};
+    Mode mMode    { Mode::None };
 
     // Hold/Recover の保持値
-    float mHoldCamY{0.0f};
-    float mHoldTargetY{0.0f};
+    float mHoldCamY    { 0.0f };
+    float mHoldTargetY { 0.0f };
 
     // 接地状態の履歴
-    bool mPrevGrounded{true};
+    bool mPrevGrounded { true };
 
     // 落下時の “見失い判定”
-    float mFallOutOfViewThresholdY{1.8f};
-    float mFallOutOfViewHysteresisY{0.4f};
-    bool  mFallAssistActive{false};
+    float mFallOutOfViewThresholdY  { 1.8f };
+    float mFallOutOfViewHysteresisY { 0.4f };
+    bool  mFallAssistActive         { false };
 
     // 追従速度（95%到達秒）
-    float mFallAssistTargetSeconds{0.18f};
-    float mFallAssistCameraSeconds{0.45f};
+    float mFallAssistTargetSeconds { 0.18f };
+    float mFallAssistCameraSeconds { 0.45f };
 
-    float mRecoverTargetSeconds{0.15f};
-    float mRecoverCameraSeconds{0.30f};
+    float mRecoverTargetSeconds { 0.15f };
+    float mRecoverCameraSeconds { 0.30f };
 };
 
 } // namespace toy

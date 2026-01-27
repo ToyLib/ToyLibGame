@@ -14,7 +14,6 @@ class DirMoveComponent : public MoveComponent
 {
 public:
     DirMoveComponent(class Actor* owner, int updateOrder = 10);
-    virtual ~DirMoveComponent();
 
     // メイン更新（カメラ基準移動 → 衝突付き移動 → 向き調整）
     void Update(float deltaTime) override;
@@ -24,16 +23,16 @@ public:
 
 private:
     // カメラ基準の移動速度（前後左右の最大値）
-    float mSpeed;
+    float mSpeed { 9.0f };
 
     // 前フレーム位置（回転の補助用）
-    Vector3 mPrevPosition;
+    Vector3 mPrevPosition { Vector3::Zero };
 
     // 実際に動いた方向へ Actor を向ける
     void AdjustDir();
     
     // ユーザーインプットによる自発的な動きか
-    bool mDidMoveByInput;
+    bool mDidMoveByInput { false };
 };
 
 } // namespace toy

@@ -9,10 +9,10 @@ namespace toy {
 //-------------------------------------------------------------
 struct GameTime
 {
-    int   day    = 1;     // 拡張用（今は 1日目固定）
-    int   hour   = 12;    // 0〜23
-    int   minute = 0;     // 0〜59
-    float second = 0.0f;  // 秒（小数で滑らかに）
+    int   day    {  1 };    // 拡張用（今は 1日目固定）
+    int   hour   { 12 };    // 0〜23
+    int   minute {  0 };     // 0〜59
+    float second { 0.0f };  // 秒（小数で滑らかに）
 
     // 1日のうちどれくらい経過したか（0.0〜1.0）
     float GetTimeOfDay01() const
@@ -37,7 +37,7 @@ struct GameTime
 class TimeOfDaySystem
 {
 public:
-    TimeOfDaySystem();
+    TimeOfDaySystem() = default;
     
     //---------------------------------------------------------
     // 更新
@@ -86,9 +86,9 @@ public:
     
     
 private:
-    GameTime mTime;     // 現在のゲーム内時刻
-    float    mTimeScale; // 進行速度倍率（例: 60 = 1秒で1分進む）
-    bool     mRunning;   // 時間が進むかどうか
+    GameTime mTime      {};         // 現在のゲーム内時刻
+    float    mTimeScale { 60.0f };  // 進行速度倍率（例: 60 = 1秒で1分進む）
+    bool     mRunning   { true };   // 時間が進むかどうか
 };
 
 } // namespace toy

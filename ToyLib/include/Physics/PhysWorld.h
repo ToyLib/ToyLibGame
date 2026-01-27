@@ -30,16 +30,16 @@ enum class GroundSource
 //  - normal   : 地形なら法線。Collider床は基本 UnitY（または床面法線）
 struct GroundHit
 {
-    bool hit = false;
-
-    float y        = -FLT_MAX;
-    float distance =  FLT_MAX;
-
-    Vector3 pos    = Vector3::Zero;
-    Vector3 normal = Vector3::UnitY;
-
-    GroundSource source = GroundSource::None;
-    const class ColliderComponent* collider = nullptr;
+    bool hit { false };
+    
+    float y        { -FLT_MAX };
+    float distance {  FLT_MAX };
+    
+    Vector3 pos    { Vector3::Zero };
+    Vector3 normal { Vector3::UnitY };
+    
+    GroundSource source { GroundSource::None };
+    const class ColliderComponent* collider { nullptr };
 };
 
 //=============================================================================
@@ -47,8 +47,8 @@ struct GroundHit
 //=============================================================================
 struct Ray
 {
-    Vector3 start = Vector3::Zero;
-    Vector3 dir   = Vector3::UnitZ; // 正規化前提（コンストラクタで正規化する）
+    Vector3 start { Vector3::Zero };
+    Vector3 dir   { Vector3::UnitZ }; // 正規化前提（コンストラクタで正規化する）
 
     Ray() = default;
 
@@ -69,13 +69,13 @@ struct Ray
 
 struct RaycastHit
 {
-    bool hit = false;
+    bool hit { false };
 
-    Vector3 point    = Vector3::Zero;  // ヒット位置（ワールド）
-    Vector3 normal   = Vector3::UnitY; // ヒット面法線（ワールド・正規化）
-    float   distance = 0.0f;
+    Vector3 point    { Vector3::Zero };  // ヒット位置（ワールド）
+    Vector3 normal   { Vector3::UnitY }; // ヒット面法線（ワールド・正規化）
+    float   distance { 0.0f };
 
-    class Actor* actor = nullptr;
+    class Actor* actor { nullptr };
 };
 
 // Ray vs triangle (Möller–Trumbore)
@@ -90,33 +90,33 @@ bool IntersectRayTriangle(const Ray& ray,
 //=============================================================================
 struct ViewQueryDesc
 {
-    Vector3 origin  = Vector3::Zero;
-    Vector3 forward = Vector3::UnitZ; // 内部で正規化
-
-    float fovRad  = Math::ToRadians(90.0f);
-    float maxDist = 30.0f;
+    Vector3 origin  { Vector3::Zero };
+    Vector3 forward { Vector3::UnitZ }; // 内部で正規化
+    
+    float fovRad  { Math::ToRadians(90.0f) };
+    float maxDist { 30.0f };
 
     // 候補条件（Any）:
     //  (colliderFlags & flagMask) != 0 のものを候補にする
-    uint32_t flagMask = 0;
+    uint32_t flagMask {};
 
     // 遮蔽（LOS）
-    bool         requireLOS   = true;
-    uint32_t     losBlockMask = 0;        // 壁など遮蔽物のマスク
-    class Actor* ignoreActor  = nullptr;  // 自分など（遮蔽判定でも除外）
+    bool         requireLOS   { true };
+    uint32_t     losBlockMask { 0 };        // 壁など遮蔽物のマスク
+    class Actor* ignoreActor  { nullptr };  // 自分など（遮蔽判定でも除外）
 
     // 近接オーバーライド
-    float nearOverrideDist = 2.0f;
-    bool  nearOverrideRequireLOS = false;
+    float nearOverrideDist { 2.0f };
+    bool  nearOverrideRequireLOS { false };
 };
 
 struct ViewQueryHit
 {
-    class Actor*             actor    = nullptr;
-    class ColliderComponent* collider = nullptr;
-
-    float dist     = 0.0f;
-    float cosAngle = -1.0f;
+    class Actor*             actor    { nullptr };
+    class ColliderComponent* collider { nullptr };
+    
+    float dist     { 0.0f };
+    float cosAngle { -1.0f };
 };
 
 //=============================================================================
@@ -124,14 +124,14 @@ struct ViewQueryHit
 //=============================================================================
 struct TerrainGrid
 {
-    bool enabled = false;
+    bool enabled { false };
 
     // origin.x = minX, origin.y = minZ
-    Vector2 origin   = Vector2::Zero;
-    float   cellSize = 10.0f;
+    Vector2 origin   { Vector2::Zero };
+    float   cellSize { 10.0f };
 
-    int cols = 0;
-    int rows = 0;
+    int cols {};
+    int rows {};
 
     // 各セルに「地形ポリゴンのインデックス」一覧を持つ
     std::vector<std::vector<int>> cells;
@@ -163,8 +163,7 @@ struct TerrainGrid
 class PhysWorld
 {
 public:
-    PhysWorld();
-    ~PhysWorld();
+    PhysWorld() = default;
     
     //-------------------------------------------------------------------------
     // Terrain
@@ -321,11 +320,11 @@ private:
     
     struct Contact
     {
-        bool hit = false;
+        bool hit { false };
         
-        float   depth  = 0.0f;
-        Vector3 normal = Vector3::UnitY; // direction to push A
-        Vector3 mtv    = Vector3::Zero;  // normal * (depth + eps)
+        float   depth  { 0.0f };
+        Vector3 normal { Vector3::UnitY }; // direction to push A
+        Vector3 mtv    { Vector3::Zero };  // normal * (depth + eps)
     };
     
     bool IntersectOBBContact(const OBB* a, const OBB* b, Contact& out) const;
@@ -365,10 +364,10 @@ private:
     //=============================================================
     // Tunables (NEW)
     //=============================================================
-    float mMaxGroundSlopeDeg{45.0f}; // steeper than this is not "ground"
-    int   mMinSupportSamples{3};     // out of 5
-    float mFootSampleInset  {0.03f}; // shrink sample from edge
-    float mGroundEpsY       {0.02f}; // tolerance
+    float mMaxGroundSlopeDeg { 45.0f }; // steeper than this is not "ground"
+    int   mMinSupportSamples { 3 };     // out of 5
+    float mFootSampleInset   { 0.03f }; // shrink sample from edge
+    float mGroundEpsY        { 0.02f }; // tolerance
 };
 
 } // namespace toy

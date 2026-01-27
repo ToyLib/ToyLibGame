@@ -174,17 +174,17 @@ private:
     //=========================================================================
     // ・mPosition/mRotation/mScale は「保持値」（ワールド基準）
     // ・mWorldTransform は dirty のときだけ ComputeWorldTransform で再構築
-    Matrix4     mWorldTransform {Matrix4::Identity};     // ワールド行列
-    Vector3     mPosition       {Vector3::Zero};         // 位置（ワールド）
-    Quaternion  mRotation       {Quaternion::Identity};  // 回転（ワールド）
-    float       mScale          {1.0f};                  // スケール（ワールド）
-    bool        mIsRecomputeWorldTransform{true};
+    Matrix4     mWorldTransform { Matrix4::Identity };     // ワールド行列
+    Vector3     mPosition       { Vector3::Zero };         // 位置（ワールド）
+    Quaternion  mRotation       { Quaternion::Identity };  // 回転（ワールド）
+    float       mScale          { 1.0f };                  // スケール（ワールド）
+    bool        mIsRecomputeWorldTransform { true };
 
     //=========================================================================
     // Pose (render-only)
     //=========================================================================
-    Quaternion  mPoseRotation{Quaternion::Identity};
-    Matrix4     mRenderWorldTransform{Matrix4::Identity};
+    Quaternion  mPoseRotation         { Quaternion::Identity };
+    Matrix4     mRenderWorldTransform { Matrix4::Identity };
 
     //=========================================================================
     // Component / Application

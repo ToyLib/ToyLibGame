@@ -35,14 +35,14 @@ public:
     
 private:
     //--- 目標速度（外部から設定される） --------------------------------------
-    float mTargetForwardSpeed;
-    float mTargetRightSpeed;
-    float mTargetVerticalSpeed;
-    float mTargetAngularSpeed;
+    float mTargetForwardSpeed  {};
+    float mTargetRightSpeed    {};
+    float mTargetVerticalSpeed {};
+    float mTargetAngularSpeed  {};
     
     //--- 慣性の追従速度 --------------------------------------------------------
-    float mAcceleration;        // 直線速度の追従度（高いほどキビキビ）
-    float mAngularAcceleration; // 回転速度の追従度
+    float mAcceleration        { 5.0f };  // 直線速度の追従度（高いほどキビキビ）
+    float mAngularAcceleration { 90.0f }; // 回転速度の追従度
 };
 
 } // namespace toy

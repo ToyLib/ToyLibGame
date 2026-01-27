@@ -73,16 +73,16 @@ protected:
     //==============================
     // 移動パラメータ
     //==============================
-    float mAngularSpeed;   // 回転速度（ヨー方向）
-    float mForwardSpeed;   // 前後移動
-    float mRightSpeed;     // 左右ストレイフ
-    float mVerticalSpeed;  // 上下（主に飛行や重力）
+    float mAngularSpeed  {};   // 回転速度（ヨー方向）
+    float mForwardSpeed  {};   // 前後移動
+    float mRightSpeed    {};   // 左右ストレイフ
+    float mVerticalSpeed {};   // 上下（主に飛行や重力）
 
     //==============================
     // ステート管理
     //==============================
-    bool mIsMovable;       // 移動可能か（行動ロック時などに false）
-    bool mIsTurnable;      // 回転可能か
+    bool mIsMovable  { true };  // 移動可能か（行動ロック時などに false）
+    bool mIsTurnable { true };  // 回転可能か
 };
 
 } // namespace toy

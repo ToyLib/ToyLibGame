@@ -96,44 +96,44 @@ private:
     //==================================================================
     // Orbit base parameters
     //==================================================================
-    Vector3 mOffset{0.0f, 4.0f, -5.0f};
-    Vector3 mUpVector{Vector3::UnitY};
+    Vector3 mOffset   { 0.0f, 4.0f, -5.0f };
+    Vector3 mUpVector { Vector3::UnitY };
 
-    float mYawSpeed{0.0f};
+    float mYawSpeed   { 0.0f };
 
     // Distance (zoom)
-    float mDistance{0.0f};
-    float mTargetDistance{0.0f};
-    float mMinDistance{5.0f};
-    float mMaxDistance{20.0f};
+    float mDistance       {  0.0f };
+    float mTargetDistance {  0.0f };
+    float mMinDistance    {  5.0f };
+    float mMaxDistance    { 20.0f };
 
     // Height (offset Y)
-    float mMinOffsetY{-2.0f};
-    float mMaxOffsetY{8.0f};
+    float mMinOffsetY     { -2.0f };
+    float mMaxOffsetY     {  8.0f };
 
     // Input accumulation
-    float mHeightInput{0.0f};
+    float mHeightInput    {  0.0f };
 
     // Smooth movement
-    Vector3 mCurrentPos{Vector3::Zero};
-    bool    mHasCurrentPos{false};
-    float   mPosLerpSpeed{8.0f};
+    Vector3 mCurrentPos    { Vector3::Zero };
+    bool    mHasCurrentPos { false };
+    float   mPosLerpSpeed  { 8.0f };
 
     // 遮蔽で寄せる補間（強すぎると“飛び”やすいので 12 推奨）
-    float   mWallLerpSpeed{12.0f};
+    float   mWallLerpSpeed { 12.0f };
 
     //==================================================================
     // Air Y control (composed)
     //==================================================================
-    CameraAirYController mAirY{};
+    CameraAirYController mAirY {};
 
     //==================================================================
     // Wall collision tuning (distance control)
     //==================================================================
-    float mCameraRadius{0.35f};          // 壁から離す余白（カメラ半径扱い）
-    float mCollisionShrinkSpeed{20.0f};  // 壁がある時：縮む速度（速め）
-    float mCollisionExpandSpeed{6.0f};   // 壁がない時：戻る速度（遅め）
-    float mCollisionMinDistance{1.0f};   // 最低距離（詰まりすぎ防止）
+    float mCameraRadius         {  0.35f };  // 壁から離す余白（カメラ半径扱い）
+    float mCollisionShrinkSpeed { 20.0f };   // 壁がある時：縮む速度（速め）
+    float mCollisionExpandSpeed {  6.0f };   // 壁がない時：戻る速度（遅め）
+    float mCollisionMinDistance {  1.0f };   // 最低距離（詰まりすぎ防止）
 };
 
 } // namespace toy

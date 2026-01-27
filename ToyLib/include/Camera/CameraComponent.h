@@ -91,8 +91,8 @@ protected:
     //  ・CameraManager はこの値を参照して
     //      prevPos / prevTarget を取得する
     //------------------------------------------------------------------
-    Vector3 mCameraPosition{ Vector3::Zero };
-    Vector3 mCameraTarget{ Vector3::Zero };
+    Vector3 mCameraPosition { Vector3::Zero };
+    Vector3 mCameraTarget   { Vector3::Zero };
 
     //------------------------------------------------------------------
     // Renderer に View 行列を渡す

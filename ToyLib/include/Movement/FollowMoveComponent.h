@@ -30,16 +30,16 @@ public:
     
 private:
     // 追従ターゲット
-    class Actor* mTarget = nullptr;
+    class Actor* mTarget { nullptr };
     
     // この距離より遠いと前進する
-    float mFollowDistance;
+    float mFollowDistance { 3.0f };
     
     // 前進速度
-    float mFollowSpeed;
+    float mFollowSpeed { 20.0f };
     
     // 1秒あたりの最大回転角（度ベース指定）
-    float mRotationSpeed;
+    float mRotationSpeed { 45.0f };
 };
 
 } // namespace toy

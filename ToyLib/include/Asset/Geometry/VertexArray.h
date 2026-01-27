@@ -109,13 +109,13 @@ private:
     //-----------------------------------------------
     // VBO 配列（最大 5 本：pos, normal, uv, boneID, weight）
     //-----------------------------------------------
-    unsigned int mVertexBuffer[5] = { 0 };
+    unsigned int mVertexBuffer[5] { 0 };
 
     //-----------------------------------------------
     // 頂点バッファ / インデックスバッファ
     //-----------------------------------------------
     unsigned int mVertexBufferID { 0 };
-    unsigned int mIndexBufferID { 0 };
+    unsigned int mIndexBufferID  { 0 };
 
     //-----------------------------------------------
     // マテリアルインデックスとして使う TextureID

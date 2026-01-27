@@ -68,7 +68,7 @@ public:
 
 private:
     std::vector<CameraComponent*> mCameras{};
-    CameraComponent* mActiveCamera{ nullptr };
+    CameraComponent* mActiveCamera { nullptr };
 };
 
 } // namespace toy

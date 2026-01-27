@@ -9,13 +9,6 @@ namespace toy {
 
 OrbitMoveComponent::OrbitMoveComponent(class Actor* owner, int updateOrder)
 : MoveComponent(owner, updateOrder)
-, mCenterActor(nullptr)
-, mOrbitRadius(5.0f)
-, mMinRadius(1.0f)
-, mMaxRadius(30.0f)
-, mMaxOrbitSpeed(5.0f)    // 公転の最大速度 [unit/sec]
-, mMaxRadialSpeed(6.0f)   // 近づく/離れるの最大速度
-, mCurrentAngle(0.0f)
 {
 }
 
@@ -26,8 +19,10 @@ OrbitMoveComponent::OrbitMoveComponent(class Actor* owner, int updateOrder)
 //----------------------------------------
 void OrbitMoveComponent::ProcessInput(const struct InputState& state)
 {
-    if (!mIsMovable) return;
-    
+    if (!mIsMovable)
+    {
+        return;
+    }
     // ここでは「速度を決めるだけ」。Update では一切書き換えない。
     mForwardSpeed = 0.0f;
     mRightSpeed   = 0.0f;
@@ -79,7 +74,10 @@ void OrbitMoveComponent::ProcessInput(const struct InputState& state)
 void OrbitMoveComponent::Update(float deltaTime)
 {
     
-    if (!mIsMovable) return;
+    if (!mIsMovable)
+    {
+        return;
+    }
     if (!mCenterActor)
     {
         // 中心がいないときは何もしない or MoveComponent::Update を呼ぶかは好み

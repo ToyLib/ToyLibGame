@@ -46,19 +46,19 @@ public:
     
 private:
     // 再生するサウンド名（AssetManager のキーになる）
-    std::string mSoundName{};
+    std::string mSoundName;
     
     // ボリューム（0.0〜1.0）
-    float mVolume{1.0f};
+    float mVolume       { 1.0f };
 
-    bool  mIsLoop{false};                   // ループ再生するか
-    bool  mAutoPlay{false};                 // 生成直後に自動再生するか
-    bool  mUse3DSound{false};               // 3Dサウンド（距離減衰を使うか)
-    bool  mIsExclusive{false};              // 排他モード
+    bool  mIsLoop       { false };      // ループ再生するか
+    bool  mAutoPlay     { false };      // 生成直後に自動再生するか
+    bool  mUse3DSound   { false };      // 3Dサウンド（距離減衰を使うか)
+    bool  mIsExclusive  { false };      // 排他モード
 
-    bool  mHasPlayed{false};                // AutoPlay 用フラグ
+    bool  mHasPlayed    { false };      // AutoPlay 用フラグ
 
-    ALuint mSource{};                       // OpenAL ソース（このコンポ用）
+    ALuint mSource      {};             // OpenAL ソース（このコンポ用）
 };
 
 } // namespace toy

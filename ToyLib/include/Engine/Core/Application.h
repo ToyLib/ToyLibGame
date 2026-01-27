@@ -96,31 +96,31 @@ private:
     //-----------------------------------------
     // ウィンドウ／アプリ設定
     //-----------------------------------------
-    std::string mApplicationTitle{}; // ウィンドウタイトル
-    std::string mSystemAssetPath{"ToyLib/Assets/"};
-    bool  mIsFullScreen{false};           // フルスクリーン状態
+    std::string mApplicationTitle {}; // ウィンドウタイトル
+    std::string mSystemAssetPath  { "ToyLib/Assets/" };
+    bool  mIsFullScreen           { false };  // フルスクリーン状態
 
     // 現在のウィンドウの「物理解像度」（描画用）
-    int   mScreenWidth{1280};
-    int   mScreenHeight{720};
+    int   mScreenWidth  { 1280 };
+    int   mScreenHeight {  720 };
 
-    SDL_Window* mWindow{nullptr};           // SDLウィンドウ
+    SDL_Window* mWindow { nullptr };   // SDLウィンドウ
 
     // ウィンドウモード時の「論理ウィンドウサイズ」（復帰用）
-    int   mWindowedWidth{1600};
-    int   mWindowedHeight{900};
+    int   mWindowedWidth  { 1600 };
+    int   mWindowedHeight {  900 };
 
-    bool  mIsActive{false};
-    bool  mIsPause{false};
-    Uint64 mTicksCount{};            // 前フレームの時刻（ns 単位）
+    bool  mIsActive { false };
+    bool  mIsPause  { false };
+    Uint64 mTicksCount {};            // 前フレームの時刻（ns 単位）
 
     // ウィンドウ操作関連ヘルパー
     void HandleWindowResized();
     
     // アスペクト比固定関連
     float mTargetAspect { 16.0f / 9.0f };  // 幅 / 高さ
-    bool  mLockAspect{true};            // アスペクトロック有効か
-    bool  mIsAdjustingSize{false};      // 自前でサイズ変更中か（イベントループ防止）
+    bool  mLockAspect { true };            // アスペクトロック有効か
+    bool  mIsAdjustingSize { false} ;      // 自前でサイズ変更中か（イベントループ防止）
     
     //-----------------------------------------
     // サブシステム

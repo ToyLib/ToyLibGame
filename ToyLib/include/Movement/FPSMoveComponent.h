@@ -14,8 +14,7 @@ class FPSMoveComponent : public MoveComponent
 {
 public:
     FPSMoveComponent(class Actor* owner, int updateOrder = 10);
-    virtual ~FPSMoveComponent();
-    
+   
     // 入力 → 移動量のセット
     void ProcessInput(const struct InputState& state) override;
     
@@ -23,8 +22,8 @@ public:
     void Update(float deltaTime) override;
     
 private:
-    float mTurnSpeed;   // 左右回転速度（度/秒）
-    float mSpeed;       // 前進・後退速度
+    float mTurnSpeed { 180.0f };   // 左右回転速度（度/秒）
+    float mSpeed     { 7.0f };     // 前進・後退速度
 };
 
 } // namespace toy

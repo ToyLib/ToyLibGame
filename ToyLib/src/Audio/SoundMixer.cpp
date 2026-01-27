@@ -12,18 +12,10 @@ namespace toy {
 
 SoundMixer::SoundMixer(AssetManager* assetManager)
     : mAssetManager(assetManager)
-    , mDevice(nullptr)
-    , mContext(nullptr)
-    , mBgmSource(0)
-    , mBgmPlaying(false)
-    , mBgmLoop(true)
-    , mBgmEnabled(true)
-    , mSoundEnabled(true)
-    , mVolume(1.0f)
 {
     // OpenAL 初期化（デバイス + コンテキスト）
     InitOpenAL();
-
+    
     // BGM デコード用一時バッファ
     mBgmDecodeBuffer.resize(BGM_CHUNK_SIZE);
 }
