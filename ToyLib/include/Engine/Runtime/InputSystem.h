@@ -105,18 +105,18 @@ public:
     bool GetIsConnected() const { return mIsConnected; }
 
 private:
-    Uint8   mCurrButtons[SDL_GAMEPAD_BUTTON_COUNT]{};   // 現フレームのボタン状態
-    Uint8   mPrevButtons[SDL_GAMEPAD_BUTTON_COUNT]{};   // 前フレームのボタン状態
+    Uint8   mCurrButtons[SDL_GAMEPAD_BUTTON_COUNT] {};   // 現フレームのボタン状態
+    Uint8   mPrevButtons[SDL_GAMEPAD_BUTTON_COUNT] {};   // 前フレームのボタン状態
 
-    Vector2 mLeftStick  = Vector2::Zero;
-    Vector2 mRightStick = Vector2::Zero;
-    float   mLeftTrigger      = 0.0f;
-    float   mRightTrigger     = 0.0f;
-    // ★ 追加: トリガーの前フレーム値
-    float   mPrevLeftTrigger  = 0.0f;
-    float   mPrevRightTrigger = 0.0f;
+    Vector2 mLeftStick  { Vector2::Zero };
+    Vector2 mRightStick { Vector2::Zero };
+    float   mLeftTrigger      {};
+    float   mRightTrigger     {};
+    // トリガーの前フレーム値
+    float   mPrevLeftTrigger  {};
+    float   mPrevRightTrigger {};
 
-    bool    mIsConnected  = false;
+    bool    mIsConnected      { false };
 };
 
 //=============================================================

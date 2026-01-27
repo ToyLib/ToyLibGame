@@ -143,14 +143,14 @@ private:
     // ライト / フォグ / アンビエント
     //---------------------------------------------------------
     
-    DirectionalLight mDirLight      {Vector3::Zero};
+    DirectionalLight mDirLight      { Vector3::Zero };
     FogInfo          mFog           {};
-    Vector3          mAmbientColor  {Vector3(0.8f, 0.8f, 0.8f)};
+    Vector3          mAmbientColor  { 0.8f, 0.8f, 0.8f };
     
-    float mSunIntensity{1.0f}; // 太陽の強さ（時間帯／天候などで変化）
+    float mSunIntensity { 1.0f }; // 太陽の強さ（時間帯／天候などで変化）
     
     // ポイントライト
-    std::vector<class PointLightComponent*> mPointLights{};
+    std::vector<class PointLightComponent*> mPointLights;
 };
 
 } // namespace toy

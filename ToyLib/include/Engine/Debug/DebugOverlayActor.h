@@ -25,15 +25,15 @@ public:
     void SetTextColor(const Vector3& color) { mTextColor = color; }
     
 private:
-    class TextSpriteComponent* mTextComp{};
-    class SpriteComponent* mBgSprite{};
-    bool mEnabled{false};
-    bool mWireVisible{false};
+    class TextSpriteComponent* mTextComp { nullptr };
+    class SpriteComponent*     mBgSprite { nullptr };
+    bool mEnabled                        { false };
+    bool mWireVisible                    { false };
     
     // FPS を少し滑らかにしたいとき用
-    float mSmoothedFPS{0.0f};
+    float mSmoothedFPS { 0.0f };
     
-    Vector3 mTextColor{Vector3(0.3f, 1.0f, 0.3f)};
+    Vector3 mTextColor { 0.3f, 1.0f, 0.3f };
 };
 
 } // namespace toy

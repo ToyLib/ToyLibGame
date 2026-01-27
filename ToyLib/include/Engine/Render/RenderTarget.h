@@ -47,8 +47,8 @@ private:
     //--------------------------------------------------------------------------
     // GL リソース
     //--------------------------------------------------------------------------
-    unsigned int mFBO      {}; // Framebuffer Object
-    unsigned int mDepthRBO {}; // Depth Renderbuffer
+    unsigned int mFBO      { 0 }; // Framebuffer Object
+    unsigned int mDepthRBO { 0 }; // Depth Renderbuffer
 
     //--------------------------------------------------------------------------
     // サイズ

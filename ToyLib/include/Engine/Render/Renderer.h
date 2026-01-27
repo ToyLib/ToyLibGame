@@ -333,9 +333,9 @@ private:
 
     static constexpr int kShadowCascadeCount = 2;
 
-    GLuint  mShadowFBO[kShadowCascadeCount]{};
-    Matrix4 mLightSpaceMatrix[kShadowCascadeCount]{};
-    std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount]{};
+    GLuint  mShadowFBO[kShadowCascadeCount]        {};
+    Matrix4 mLightSpaceMatrix[kShadowCascadeCount] {};
+    std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount];
 
     float mCascadeSplit0 { 25.0f };
     float mCascadeBlend  { 6.0f };
@@ -344,7 +344,7 @@ private:
     // ポストエフェクト
     //--------------------------------------------------------------------------
     // メインシーン（ポスト用）RenderTarget
-    std::shared_ptr<RenderTarget> mSceneRT {};
+    std::shared_ptr<RenderTarget> mSceneRT ;
     // ポスト設定
     PostEffectDesc mPost {};
 
@@ -365,9 +365,9 @@ private:
     // ジオメトリ
     //--------------------------------------------------------------------------
 
-    std::shared_ptr<class VertexArray> mFullScreenQuad {};
-    std::shared_ptr<class VertexArray> mSpriteVerts {};
-    std::shared_ptr<class VertexArray> mSurfaceQuad {};
+    std::shared_ptr<class VertexArray> mFullScreenQuad;
+    std::shared_ptr<class VertexArray> mSpriteVerts;
+    std::shared_ptr<class VertexArray> mSurfaceQuad;
 
     void CreateFullScreenQuad();
     void CreateSpriteVerts();
@@ -386,7 +386,7 @@ private:
     // Visual / Sky
     //--------------------------------------------------------------------------
 
-    std::vector<class VisualComponent*> mVisualComps {};
+    std::vector<class VisualComponent*> mVisualComps;
     class SkyDomeComponent* mSkyDomeComp { nullptr };
 
     void DrawSky();
