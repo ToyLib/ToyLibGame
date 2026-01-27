@@ -189,14 +189,14 @@ private:
     //=========================================================================
     // Component / Application
     //=========================================================================
-    std::vector<std::unique_ptr<class Component>> mComponents{};
-    class Application* mApp{};
+    std::vector<std::unique_ptr<class Component>> mComponents;
+    class Application* mApp {};
 
     //=========================================================================
     // State / ID
     //=========================================================================
-    enum State  mStatus{State::Active};
-    std::string mActorID{"Unnamed Actor"};
+    enum State  mStatus  { State::Active };
+    std::string mActorID { "Unnamed Actor" };
 };
 
 } // namespace toy

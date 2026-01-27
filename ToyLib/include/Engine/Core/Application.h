@@ -118,7 +118,7 @@ private:
     void HandleWindowResized();
     
     // アスペクト比固定関連
-    float mTargetAspect{16.0f / 9.0f};  // 幅 / 高さ
+    float mTargetAspect { 16.0f / 9.0f };  // 幅 / 高さ
     bool  mLockAspect{true};            // アスペクトロック有効か
     bool  mIsAdjustingSize{false};      // 自前でサイズ変更中か（イベントループ防止）
     
@@ -141,14 +141,14 @@ private:
     //-----------------------------------------
     std::vector<std::unique_ptr<class Actor>> mActors;
     std::vector<std::unique_ptr<class Actor>> mPendingActors;
-    bool mIsUpdatingActors{false};
+    bool mIsUpdatingActors { false };
     
     //-----------------------------------------
     // デバッグ情報
     //-----------------------------------------
-    DebugStats mDebugStats{};
-    bool mEnableDebug{false};
-    bool mVisibleDebugWire{false};
+    DebugStats mDebugStats {};
+    bool mEnableDebug      { false };
+    bool mVisibleDebugWire { false };
     
     //-----------------------------------------
     // 設定読み込み
