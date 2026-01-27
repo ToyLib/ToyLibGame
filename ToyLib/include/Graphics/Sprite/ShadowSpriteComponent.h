@@ -36,8 +36,8 @@ protected:
     Matrix4 BuildWorldMatrix() const override;
 
 private:
-    float mStretch = 3.0f;
-    bool  mAutoRotateByLight = true;
+    float mStretch { 3.0f };
+    bool  mAutoRotateByLight { true };
 };
 
 } // namespace toy

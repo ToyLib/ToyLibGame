@@ -19,8 +19,6 @@ namespace toy {
 //----------------------------------------------------------------------
 SkeletalMeshComponent::SkeletalMeshComponent(Actor* a, int drawOrder, VisualLayer layer)
     : MeshComponent(a, drawOrder, layer,  true)
-    , mAnimTime(0.0f)
-    , mAnimPlayer(nullptr)
 {
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     mShader       = renderer->GetShader("Skinned");

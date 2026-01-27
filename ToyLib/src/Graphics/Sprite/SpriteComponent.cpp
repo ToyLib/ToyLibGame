@@ -19,13 +19,6 @@ namespace toy {
 
 SpriteComponent::SpriteComponent(Actor* a, int drawOrder, VisualLayer layer)
     : VisualComponent(a, drawOrder, layer)
-    , mScaleWidth(1.0f)
-    , mScaleHeight(1.0f)
-    , mTexWidth(0)
-    , mTexHeight(0)
-    , mIsTopLeft(true)
-    , mColor(Vector3(1.0f, 1.0f, 1.0f))
-    , mAlpha(1.0f)
 {
     mDrawOrder = drawOrder;
 

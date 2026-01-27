@@ -67,7 +67,7 @@ public:
     
 private:
     // 現在のアニメーション再生時間（秒）
-    float mAnimTime;
+    float mAnimTime { 0.0f };
     
     // アニメーション再生制御クラス
     std::unique_ptr<class AnimationPlayer> mAnimPlayer;

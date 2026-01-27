@@ -26,7 +26,7 @@ public:
                   int drawOrder = 100,
                   VisualLayer layer = VisualLayer::Effect3D,
                   bool isSkeletal = false);
-
+    
     virtual ~MeshComponent();
     
     //--------------------------------------------------------
@@ -34,7 +34,7 @@ public:
     //   ・通常のメッシュ描画
     //--------------------------------------------------------
     virtual void Draw() override;
-
+    
     //--------------------------------------------------------
     // DrawShadow()
     //   ・影描画専用（ShadowMap生成用）
@@ -47,15 +47,15 @@ public:
     virtual void SetMesh(std::shared_ptr<class Mesh> m) { mMesh = m; }
     const std::shared_ptr<class Mesh>& GetMesh() const { return mMesh; }
     void SetTextureIndex(unsigned int index) { mTextureIndex = index; }
-
+    
     //--------------------------------------------------------
     // Skeletal / Static メッシュ状態
     //--------------------------------------------------------
     bool GetIsSkeletal() const { return mIsSkeletal; }
-
+    
     // 複数 VAO を持つメッシュ（マルチマテリアル等）へのアクセス
     std::shared_ptr<class VertexArray> GetVertexArray(int id) const;
-
+    
     //--------------------------------------------------------
     // トゥーン描画設定（輪郭強調）
     //--------------------------------------------------------
@@ -67,7 +67,7 @@ public:
     void SetContourFactor(float f) { mContourFactor = f; }
     bool GetToon() const { return mIsToon; }
     void SetContourColor(const Vector3& color) { mContourColor = color; }
-
+    
     //--------------------------------------------------------
     // アニメーションの現在IDをセット（SkeletalMeshComponent が override）
     //--------------------------------------------------------
@@ -85,32 +85,32 @@ protected:
     //--------------------------------------------------------
     // 保持している描画リソース
     //--------------------------------------------------------
-    std::shared_ptr<class Mesh>  mMesh{};               // 描画対象メッシュ
+    std::shared_ptr<class Mesh>  mMesh;               // 描画対象メッシュ
     unsigned int mTextureIndex {};                       // 使用するメッシュ内テクスチャインデックス
-
-    bool mIsSkeletal;                                 // スキンメッシュかどうか
-
+    
+    bool mIsSkeletal {};                                 // スキンメッシュかどうか
+    
     std::shared_ptr<class Texture> mShadowMapTexture; // 影用テクスチャ（必要に応じて）
-
+    
     // ライティング・シェーダー
     std::shared_ptr<class LightingManager> mLightingManger;
     std::shared_ptr<class Shader> mShader;           // 通常描画用シェーダ
     std::shared_ptr<class Shader> mShadowShader;     // シャドウマップ描画用シェーダ
-
+    
     //--------------------------------------------------------
     // トゥーン（輪郭）描画設定
     //--------------------------------------------------------
-    bool  mIsToon;          // true なら toon + Outline
-    float mContourFactor;   // 1.05f など。輪郭スケール係数
-    Vector3 mContourColor;  // 輪郭色
+    bool  mIsToon { false };          // true なら toon + Outline
+    float mContourFactor  { 1.0f };   // 1.05f など。輪郭スケール係数
+    Vector3 mContourColor { 0.0f, 0.0f, 0.0f };  // 輪郭色
     
     
     //--------------------------------------------------------
     // ローカル変換（補正値）
     //--------------------------------------------------------
-    Vector3    mLocalPos;
-    Quaternion mLocalRot;
-    float      mLocalScale;
+    Vector3    mLocalPos { Vector3::Zero };
+    Quaternion mLocalRot { Quaternion(Vector3::UnitY, 0.0f) };
+    float      mLocalScale { 1.0f };
     
 };
 

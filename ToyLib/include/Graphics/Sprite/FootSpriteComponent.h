@@ -109,27 +109,27 @@ protected:
     //--------------------------------------------------------------------------
     // Transform parameters (world units)
     //--------------------------------------------------------------------------
-    float   mWidth  = 1.0f;
-    float   mDepth  = 1.0f;
+    float   mWidth  { 1.0f };
+    float   mDepth  { 1.0f };
 
-    Vector3 mOffsetPosition = Vector3::Zero;
-    float   mOffsetScale    = 1.0f;
-    float   mYaw            = 0.0f;
+    Vector3 mOffsetPosition { Vector3::Zero };
+    float   mOffsetScale    { 1.0f };
+    float   mYaw            { 0.0f };
 
     //--------------------------------------------------------------------------
     // Ground follow params（★今回追加）
     //--------------------------------------------------------------------------
-    bool  mSnapToGround        = true;   // default: ON（めり込み対策）
-    bool  mAlignToGround       = false;  // default: OFF（リングは水平の方が見やすい）
-    bool  mUseSmoothGroundPose = false;  // default: raw（影はrawが自然）
-    float mGroundLift          = 0.02f;  // default: 少し浮かせる
+    bool  mSnapToGround        { true };   // default: ON（めり込み対策）
+    bool  mAlignToGround       { false };  // default: OFF（リングは水平の方が見やすい）
+    bool  mUseSmoothGroundPose { false };  // default: raw（影はrawが自然）
+    float mGroundLift          { 0.02f };  // default: 少し浮かせる
 
     //--------------------------------------------------------------------------
     // Unlit parameters
     //--------------------------------------------------------------------------
-    Vector3 mTint         = Vector3(1.0f, 1.0f, 1.0f);
-    float   mAlpha        = 1.0f;
-    Vector3 mDiffuseColor = Vector3(1.0f, 1.0f, 1.0f);
+    Vector3 mTint         { 1.0f, 1.0f, 1.0f };
+    float   mAlpha        { 1.0f };
+    Vector3 mDiffuseColor { 1.0f, 1.0f, 1.0f };
 };
 
 } // namespace toy

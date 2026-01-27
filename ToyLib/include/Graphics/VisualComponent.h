@@ -73,25 +73,25 @@ protected:
     std::shared_ptr<class LightingManager> mLightingManager;
 
     // 可視状態フラグ
-    bool mIsVisible;
+    bool mIsVisible { true };
 
     // 加算ブレンドを使うかどうか
-    bool mIsBlendAdd;
+    bool mIsBlendAdd { false };
 
     // 描画レイヤー種別（Object3D, OverlayScreen など）
-    VisualLayer mLayer;
+    VisualLayer mLayer {};
 
     // 同一レイヤー内での描画順
-    int mDrawOrder;
+    int mDrawOrder {};
 
     // シャドウマップに描画するかどうか
-    bool mEnableShadow;
+    bool mEnableShadow { false };
 
     // 描画に使う頂点配列（フルスクリーンクアッドなど）
     std::shared_ptr<class VertexArray> mVertexArray;
     
     // 視錐台カリングを無効
-    bool mDisableFrustumCulling = false;
+    bool mDisableFrustumCulling { false };
 };
 
 } // namespace toy

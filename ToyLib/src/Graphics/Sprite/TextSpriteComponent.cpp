@@ -12,9 +12,6 @@ namespace toy {
 //==============================================================
 TextSpriteComponent::TextSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
 : SpriteComponent(owner, drawOrder, layer)
-, mText("")
-, mColor(1.0f, 1.0f, 1.0f)   // デフォルトは白文字
-, mFont(nullptr)
 {
 }
 

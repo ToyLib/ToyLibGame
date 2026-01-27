@@ -41,20 +41,20 @@ private:
 
 private:
     // グリッド分割（1なら2x2頂点＝ただのQuad）
-    int   mGridDiv = 4;
+    int   mGridDiv { 4 };
 
-    float mGroundLift = 0.02f;
-    float mMaxDeltaFromCenter = 0.6f;
+    float mGroundLift { 0.02f };
+    float mMaxDeltaFromCenter { 0.6f };
 
     // 直近の中心地面
-    bool  mHasBase = false;
-    float mBaseY = 0.0f;
+    bool  mHasBase { false };
+    float mBaseY   { 0.0f };
 
     // 再構築トリガ用キャッシュ
-    Vector3 mPrevOwnerPos = Vector3::Zero;
-    float   mPrevWidth = 0.0f;
-    float   mPrevDepth = 0.0f;
-    int     mPrevDiv = -1;
+    Vector3 mPrevOwnerPos { Vector3::Zero };
+    float   mPrevWidth { 0.0f };
+    float   mPrevDepth { 0.0f };
+    int     mPrevDiv   { -1 };
 
     // 地面沿いメッシュ（VAO）
     std::shared_ptr<VertexArray> mGridVAO;

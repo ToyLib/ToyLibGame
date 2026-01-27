@@ -77,23 +77,23 @@ private:
     //==================================================
     
     // スケール（幅／高さ）
-    float mScaleWidth;   // X方向の拡大率
-    float mScaleHeight;  // Y方向の拡大率
+    float mScaleWidth  { 1.0f };   // X方向の拡大率
+    float mScaleHeight { 1.0f };  // Y方向の拡大率
     
     // テクスチャサイズ
-    int   mTexWidth;     // ピクセル幅
-    float mTexHeight;    // ピクセル高さ
+    int   mTexWidth  {};     // ピクセル幅
+    float mTexHeight {};    // ピクセル高さ
     
     // 現在の画面サイズ（UI の場合に使用）
-    int   mScreenWidth;
-    int   mScreenHeight;
+    int   mScreenWidth {};
+    int   mScreenHeight {};
     
     // 左上固定（true のとき Actor 位置ではなく画面座標で描画）
-    bool  mIsTopLeft;
+    bool  mIsTopLeft { true };
     
     // カラー属性
-    Vector3 mColor;     // RGB
-    float mAlpha;       // A
+    Vector3 mColor { 1.0f, 1.0f, 1.0f };     // RGB
+    float mAlpha { 1.0f };       // A
     
     Vector3 mOffset = Vector3::Zero;
 };

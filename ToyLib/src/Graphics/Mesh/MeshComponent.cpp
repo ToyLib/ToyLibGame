@@ -21,15 +21,7 @@ namespace toy {
 //------------------------------------------------------------
 MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool isSkeletal)
     : VisualComponent(a, drawOrder, layer)
-    , mMesh(nullptr)
-    , mTextureIndex(0)
     , mIsSkeletal(isSkeletal)
-    , mIsToon(false)
-    , mContourFactor(1.0f)
-    , mContourColor(Vector3(0.0f, 0.0f, 0.0f))
-    , mLocalPos(Vector3::Zero)
-    , mLocalRot(Quaternion(Vector3::UnitY, 0.0f))
-    , mLocalScale(1.0f)
 {
     auto renderer = GetOwner()->GetApp()->GetRenderer();
     mShader          = renderer->GetShader("Mesh");
