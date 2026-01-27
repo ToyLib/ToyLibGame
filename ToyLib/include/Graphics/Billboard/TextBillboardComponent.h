@@ -79,10 +79,10 @@ private:
 
 private:
     std::string mText;                      // 表示文字列
-    Vector3     mColor;                     // 文字色（0〜1）
+    Vector3     mColor { 1.0f, 1.0f, 1.0f };                     // 文字色（0〜1）
     std::shared_ptr<class TextFont> mFont;  // フォント（共有）
 
-    bool        mIsDirty;                   // テクスチャ再生成が必要かどうか
+    bool        mIsDirty { true };                   // テクスチャ再生成が必要かどうか
 };
 
 } // namespace toy

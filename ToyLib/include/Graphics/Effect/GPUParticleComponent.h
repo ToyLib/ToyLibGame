@@ -218,31 +218,31 @@ private:
     //==============================================================
     // 状態
     //==============================================================
-    Desc  mDesc{};
-    bool  mInitialized;         // GL リソース生成済みか
-    bool  mPingPong;            // 現在どちらの VBO を src にしているか
-    bool  mRunning;             // 発生/更新が有効か
+    Desc  mDesc         {};
+    bool  mInitialized  { false };         // GL リソース生成済みか
+    bool  mPingPong     { false };         // 現在どちらの VBO を src にしているか
+    bool  mRunning      { false };         // 発生/更新が有効か
 
     // 時間管理
-    float mComponentLifeAcc;    // コンポーネント寿命の経過
-    float mTimeAcc;             // スポーン制御などに使う時間
+    float mComponentLifeAcc { 0.0f };      // コンポーネント寿命の経過
+    float mTimeAcc          { 0.0f };      // スポーン制御などに使う時間
 
     //==============================================================
     // GL リソース
     //==============================================================
-    unsigned int mQuadVBO;
-    unsigned int mQuadIBO;
+    unsigned int mQuadVBO {};
+    unsigned int mQuadIBO {};
 
     // パーティクルデータ（ping-pong）
-    unsigned int mParticleVBO_A;
-    unsigned int mParticleVBO_B;
+    unsigned int mParticleVBO_A {};
+    unsigned int mParticleVBO_B {};
 
     // VAO
-    unsigned int mUpdateVAO;
-    unsigned int mRenderVAO;
+    unsigned int mUpdateVAO {};
+    unsigned int mRenderVAO {};
     
-    bool mPendingHardReset = true;
-    int mSkipDrawFrames = 2;
+    bool mPendingHardReset { true };
+    int mSkipDrawFrames { 2 };
 };
 
 } // namespace toy

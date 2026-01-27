@@ -20,10 +20,10 @@ enum class WeatherType
 //======================================================================
 struct WeatherState
 {
-    WeatherType type      = WeatherType::CLEAR;
-    float rainAmount      = 0.0f;
-    float fogAmount       = 0.0f;
-    float snowAmount      = 0.0f;
+    WeatherType type      { WeatherType::CLEAR };
+    float rainAmount      { 0.0f };
+    float fogAmount       { 0.0f };
+    float snowAmount      { 0.0f };
 };
 
 } // namespace toy

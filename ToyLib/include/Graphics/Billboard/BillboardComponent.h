@@ -32,7 +32,7 @@ public:
     
 private:
     // スプライトのスケール（Texture のサイズに掛ける倍率）
-    float mScale;
+    float mScale { 1.0f };
 };
 
 } // namespace toy

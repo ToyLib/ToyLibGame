@@ -12,7 +12,6 @@ namespace toy {
 
 BillboardComponent::BillboardComponent(class Actor* a, int drawOrder)
 : VisualComponent(a, drawOrder, VisualLayer::Effect3D)
-, mScale(1.0f)
 {
     // メッシュ用シェーダーを流用（板ポリをメッシュ扱いで描画）
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Mesh");

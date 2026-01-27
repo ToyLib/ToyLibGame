@@ -66,17 +66,6 @@ static const unsigned int kQuadIndices[6] =
 
 GPUParticleComponent::GPUParticleComponent(Actor* owner, int drawOrder)
     : VisualComponent(owner, drawOrder)
-    , mInitialized(false)
-    , mPingPong(false)
-    , mRunning(false)
-    , mComponentLifeAcc(0.0f)
-    , mTimeAcc(0.0f)
-    , mQuadVBO(0)
-    , mQuadIBO(0)
-    , mParticleVBO_A(0)
-    , mParticleVBO_B(0)
-    , mUpdateVAO(0)
-    , mRenderVAO(0)
 {
     // エフェクト枠で扱う（ToyLib の描画レイヤー整理に合わせる）
     mLayer = VisualLayer::Effect3D;

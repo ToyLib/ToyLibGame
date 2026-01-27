@@ -100,15 +100,15 @@ private:
     std::shared_ptr<class RenderTarget> mRT;
 
     // キャプチャ用カメラ行列
-    Matrix4 mView;
-    Matrix4 mProj;
+    Matrix4 mView { Matrix4::Identity };
+    Matrix4 mProj { Matrix4::Identity };
 
     // updateHz 用の蓄積時間
-    float mAcc;
+    float mAcc {};
     
-    CaptureMode mCaptureMode;
+    CaptureMode mCaptureMode { CaptureMode::Fixed };
     
-    SurfaceInfo mSurfaceInfo;
+    SurfaceInfo mSurfaceInfo {};
 };
 
 } // namespace toy

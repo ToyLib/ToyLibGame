@@ -20,10 +20,6 @@ namespace toy {
 //======================================
 WeatherDomeComponent::WeatherDomeComponent(Actor* a)
     : SkyDomeComponent(a)
-    , mTime(0.5f)                          // 1日(0〜1)中の現在時間
-    , mSunDir(Vector3::UnitY)              // 初期は真上
-    , mMoonDir(Vector3::NegUnitY) // 固定の月方向
-    , mWeatherType(WeatherType::CLEAR)     // 初期天気：快晴
 {
     // 月方向は念のため正規化
     mMoonDir.Normalize();

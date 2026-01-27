@@ -3,14 +3,6 @@
 
 namespace toy {
 
-WeatherManager::WeatherManager()
-: mWeather(WeatherType::CLEAR)
-{
-    // ------------------------------------------------------------
-    // 初期状態は「快晴」
-    // WeatherDome / WeatherOverlay への参照は外部からセットされる
-    // ------------------------------------------------------------
-}
 
 void WeatherManager::Update(float deltaTime)
 {
@@ -21,8 +13,11 @@ void WeatherManager::Update(float deltaTime)
     // ・SkyDome … 空や色、フォグ色など
     // ・Overlay … パーティクル（雨・雪）、フォグ量など
     // ------------------------------------------------------------
-    if (!mWeatherDome || !mWeatherOverlay) return;
-
+    if (!mWeatherDome || !mWeatherOverlay)
+    {
+        return;
+    }
+    
     // スカイドーム側にも天気を反映
     mWeatherDome->SetWeatherType(mWeather);
 

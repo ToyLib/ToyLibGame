@@ -15,10 +15,6 @@ namespace toy {
 TextBillboardComponent::TextBillboardComponent(Actor* owner,
                                                int drawOrder)
 : BillboardComponent(owner, drawOrder)
-, mText("")
-, mColor(1.0f, 1.0f, 1.0f)   // デフォルトは白文字
-, mFont(nullptr)
-, mIsDirty(true)
 {
     // BillboardComponent 側は Effect3D 固定なので、
     // 必要ならここでレイヤーを上書き

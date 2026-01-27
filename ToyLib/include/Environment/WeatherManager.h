@@ -10,7 +10,7 @@ namespace toy {
 class WeatherManager
 {
 public:
-    WeatherManager();
+    WeatherManager() = default;
 
     //==================================================================
     // Update
@@ -39,13 +39,13 @@ public:
 
 private:
     // 画面エフェクト（雨・雪・雷など）
-    class toy::WeatherOverlayComponent* mWeatherOverlay = nullptr;
+    class WeatherOverlayComponent* mWeatherOverlay { nullptr };
 
     // 空・光源・フォグなど
-    class toy::WeatherDomeComponent* mWeatherDome = nullptr;
+    class WeatherDomeComponent* mWeatherDome  { nullptr };
 
     // 現在の天気（基準状態）
-    toy::WeatherType mWeather = toy::WeatherType::CLEAR;
+    WeatherType mWeather { WeatherType::CLEAR };
 };
 
 } // namespace toy

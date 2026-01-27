@@ -85,19 +85,19 @@ private:
 
     // LightingManager への参照（所有しない）
     // コンストラクタで登録、デストラクタで解除する
-    LightingManager* mLighting;
+    LightingManager* mLighting { nullptr };
 
     // ライトパラメータ
-    Vector3 mColor;        // ライト色
-    float   mIntensity;    // 明るさ
+    Vector3 mColor     { 1.0f, 1.0f, 1.0f };        // ライト色
+    float   mIntensity { 3.0f };    // 明るさスケール（シェーダ側で乗算される想定）
 
     // 距離減衰係数
-    float   mConstant;     // 定数項
-    float   mLinear;       // 一次項
-    float   mQuadratic;    // 二次項
+    float   mConstant  { 1.0f };     // 定数項
+    float   mLinear    { 0.09f };    // 一次項
+    float   mQuadratic { 0.032f };   // 二次項
 
-    float   mRadius;       // 影響半径
-    bool    mIsEnabled;    // 有効フラグ
+    float   mRadius    { 28.0f };    // 影響半径
+    bool    mIsEnabled { true };     // 有効フラグ
 };
 
 } // namespace toy

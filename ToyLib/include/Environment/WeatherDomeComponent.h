@@ -16,13 +16,13 @@ public:
     
     // スカイドーム描画
     void Draw() override;
-
+    
     // 時間帯進行・天候補間・色の更新
     void Update(float deltaTime) override;
     
     // 時間帯 (0.0〜1.0 … 夜→昼→夜)
     void SetTime(float t);
-
+    
     // 太陽方向（ライト計算のベース）
     void SetSunDirection(const Vector3& dir);
     
@@ -37,10 +37,10 @@ private:
     //==============================================
     // 基本状態
     //==============================================
-    float    mTime;       // 時間帯 (0〜1)
-    Vector3  mSunDir;     // 太陽方向（ワールド座標）
-    Vector3  mMoonDir;    // 月方向
-    WeatherType mWeatherType; // 現在の天候
+    float    mTime           { 0.5f };               // 時間帯 (0〜1)
+    Vector3  mSunDir         { Vector3::UnitY };     // 太陽方向（ワールド座標）
+    Vector3  mMoonDir        { Vector3::NegUnitY };  // 月方向
+    WeatherType mWeatherType { WeatherType::CLEAR }; // 現在の天候
     
     //==============================================
     // シェーダーへ渡す元データ（既存 SkyDome 表現）

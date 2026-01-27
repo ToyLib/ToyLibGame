@@ -30,13 +30,6 @@ namespace toy {
 //==============================================================================
 RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
     : VisualComponent(owner, drawOrder, VisualLayer::Object3D)
-    , mFlipX(true)
-    , mFlipY(true)
-    , mScaleX(1.0f)
-    , mScaleY(1.0f)
-    , mOpacity(1.0f)
-    , mTint(Vector3(1.0f, 1.0f, 1.0f))
-    , mMode(SurfaceMode::Mirror)
 {
     // 置物の板ポリ：ビルボードなし、通常 3D と同じ扱い
     auto* renderer = GetOwner()->GetApp()->GetRenderer();

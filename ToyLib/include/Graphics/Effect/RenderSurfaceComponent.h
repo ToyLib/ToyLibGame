@@ -53,16 +53,16 @@ private:
     //==========================================================================
     // パラメータ
     //==========================================================================
-    bool    mFlipX;
-    bool    mFlipY;
+    bool    mFlipX    { true };
+    bool    mFlipY    { true };
     
-    float   mScaleX;
-    float   mScaleY;
+    float   mScaleX   { 1.0f };
+    float   mScaleY   { 1.0f };
 
-    float   mOpacity;
-    Vector3 mTint;
+    float   mOpacity  { 1.0f };
+    Vector3 mTint     {1.0f, 1.0f, 1.0f };
     
-    SurfaceMode mMode;
+    SurfaceMode mMode { SurfaceMode::Mirror };
 };
 
 } // namespace toy

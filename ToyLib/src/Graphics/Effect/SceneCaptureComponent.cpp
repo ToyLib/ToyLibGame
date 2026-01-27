@@ -30,9 +30,6 @@ namespace toy {
 //==============================================================================
 SceneCaptureComponent::SceneCaptureComponent(Actor* owner)
     : Component(owner)
-    , mView(Matrix4::Identity)
-    , mProj(Matrix4::Identity)
-    , mCaptureMode(CaptureMode::Fixed)
 {
 }
 

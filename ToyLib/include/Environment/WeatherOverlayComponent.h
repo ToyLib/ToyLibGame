@@ -34,14 +34,14 @@ public:
 
 private:
     //------ 各エフェクトの強度（0.0〜1.0） ------
-    float mRainAmount;   // 雨（雨粒の量・密度）
-    float mFogAmount;    // 霧（画面の白み・減衰）
-    float mSnowAmount;   // 雪（雪粒の量・密度）
+    float mRainAmount  { 0.0f };   // 雨（雨粒の量・密度）
+    float mFogAmount   { 0.0f };    // 霧（画面の白み・減衰）
+    float mSnowAmount  { 0.0f };   // 雪（雪粒の量・密度）
 
 
     // 太陽/月の向き
-    Vector3 mSunDir;
-    Vector3 mMoonDir;
+    Vector3 mSunDir  { Vector3::UnitY };
+    Vector3 mMoonDir { Vector3::UnitY };
 };
 
 } // namespace toy

@@ -41,8 +41,8 @@ public:
     void SetEnableLight(const bool b) { mEnableLight = b; };
     
 private:
-    Vector3 mColor;   // ワイヤーフレームの線の色
-    bool mEnableLight;
+    Vector3 mColor    { 1.0f, 1.0f, 1.0f };   // ワイヤーフレームの線の色
+    bool mEnableLight { false };
 };
 
 } // namespace toy
