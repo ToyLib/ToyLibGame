@@ -411,19 +411,26 @@ void Renderer::FlushSceneCaptures()
 
 void Renderer::DrawPostFromSceneRT()
 {
-    if (!mSceneRT) return;
-
+    if (!mSceneRT)
+    {
+        return;
+    }
+    
     auto sceneTex = mSceneRT->GetColorTexture();
-    if (!sceneTex) return;
-
+    if (!sceneTex)
+    {
+        return;
+    }
     // ここは「上書き」したいのでブレンド切るのが無難
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
     auto sh = GetShader("PostEffect");
-    if (!sh) return;
-
+    if (!sh)
+    {
+        return;
+    }
     sh->SetActive();
 
     // sampler2D
