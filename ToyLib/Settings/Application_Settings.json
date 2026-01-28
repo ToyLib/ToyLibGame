@@ -3,7 +3,8 @@
   "asset_path": "ToyLib/Assets/",
   "screen": {
     "screen_width": 1600,
-    "screen_height": 900
+    "screen_height": 900,
+    "fullscreen": false
   },
   "debug": {
     "enabled": true

@@ -22,7 +22,7 @@ namespace toy {
 //=============================================================
 
 Application::Application()
-    : mIsFullScreen(false)
+    : mIsFullScreen(true)
     , mEnableDebug(false)
 {
     mRenderer      = std::make_unique<Renderer>();
@@ -531,25 +531,21 @@ void Application::HandleWindowResized()
 void Application::SetFullscreen(bool enable)
 {
     if (!mWindow)
-    {
         return;
-    }
-    
-    // 現在のフルスクリーンモードを確認
+
     const bool isNowFullscreen =
         (SDL_GetWindowFlags(mWindow) & SDL_WINDOW_FULLSCREEN) != 0;
 
     if (isNowFullscreen == enable)
     {
-        mIsFullScreen = enable; // 念のため同期
+        mIsFullScreen = enable; // 状態同期だけ
         return;
     }
-    
+
     if (enable)
     {
-        // ★ フルスクリーンに入る前に「論理ウィンドウサイズ」を保存
         int w = 0, h = 0;
-        SDL_GetWindowSize(mWindow, &w, &h); // ← ピクセルではない
+        SDL_GetWindowSize(mWindow, &w, &h);
         mWindowedWidth  = w;
         mWindowedHeight = h;
     }
@@ -563,25 +559,14 @@ void Application::SetFullscreen(bool enable)
 
     mIsFullScreen = enable;
 
-    // 実ピクセルサイズを取り直して Renderer へ通知
     HandleWindowResized();
 
-    if (!enable)
+    if (!enable && mWindowedWidth > 0 && mWindowedHeight > 0)
     {
-        // フルスクリーン解除時に元の論理サイズへ戻す
-        if (mWindowedWidth > 0 && mWindowedHeight > 0)
-        {
-            SDL_SetWindowSize(mWindow, mWindowedWidth, mWindowedHeight);
-            SDL_SetWindowPosition(
-                mWindow,
-                SDL_WINDOWPOS_CENTERED,
-                SDL_WINDOWPOS_CENTERED
-            );
-
-            // サイズ変更イベントが飛んでくるはずだが、
-            // 念のためここでも更新しておいてもよい
-            HandleWindowResized();
-        }
+        SDL_SetWindowSize(mWindow, mWindowedWidth, mWindowedHeight);
+        SDL_SetWindowPosition(mWindow,
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED);
     }
 }
 
