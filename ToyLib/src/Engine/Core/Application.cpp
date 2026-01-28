@@ -132,7 +132,7 @@ bool Application::Initialize()
     mInputSys->Initialize(mRenderer->GetSDLWindow());
     mInputSys->LoadButtonConfig("ToyLib/Settings/InputConfig.json");
 
-    // 必要であれば起動時フルスクリーンに切り替え
+    // 初回必要であれば起動時フルスクリーンに切り替え
     if (mIsFullScreen)
     {
         SetFullscreen(mIsFullScreen);
@@ -535,8 +535,13 @@ void Application::SetFullscreen(bool enable)
         return;
     }
     
-    if (mIsFullScreen == enable)
+    // 現在のフルスクリーンモードを確認
+    const bool isNowFullscreen =
+        (SDL_GetWindowFlags(mWindow) & SDL_WINDOW_FULLSCREEN) != 0;
+
+    if (isNowFullscreen == enable)
     {
+        mIsFullScreen = enable; // 念のため同期
         return;
     }
     

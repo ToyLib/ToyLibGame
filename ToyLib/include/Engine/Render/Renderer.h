@@ -357,7 +357,7 @@ private:
     // フェード
     //--------------------------------------------------------------------------
     float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
-    Vector3 mFadeColor  { Vector3(0,0,0) };
+    Vector3 mFadeColor  { 0, 0, 0 };
     bool    mEnableFade { false };
     void    DrawFadeOverlay();
 
