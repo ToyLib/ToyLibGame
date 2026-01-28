@@ -8,15 +8,6 @@
 namespace toy {
 
 
-RenderTarget::RenderTarget()
-{
-}
-
-RenderTarget::~RenderTarget()
-{
-    // Unload();
-}
-
 void RenderTarget::Unload()
 {
     if (mDepthRBO)
