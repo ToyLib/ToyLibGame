@@ -301,6 +301,60 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
             return;
         }
     }
+    
+    //==========================================================================
+    // 5.5) ★Safety: hasGround なのにスナップ条件に入れなかった場合の救済
+    //   - OBBが天井/壁と絡むと withinUp/withinDown が一瞬外れて「自由落下」に落ちやすい
+    //   - 「床っぽい法線」かつ「近い」なら床に寄せて確定させる
+    //==========================================================================
+    if (hasGround && mVelocityY <= 0.0f)
+    {
+        // “床っぽい”判定（とりあえず緩めでOK：後で調整）
+        // 0.5  = 約60度（cos60）
+        // 0.707= 約45度（cos45）
+        constexpr float kCosFloorLike = 0.5f;
+
+        if (hit.normal.y >= kCosFloorLike)
+        {
+            const float groundY = hit.y;
+
+            // 通常判定より少し広めに救済する
+            const float upLimit2   = (mMaxStepUp   + mPenetrationEps) * 2.0f;
+            const float downLimit2 = (mMaxStepDown + mPenetrationEps) * 2.0f;
+
+            const bool  withinUp2   = (groundY <= footY0 + upLimit2);
+            const float yGapNext2   = groundY - nextFootY;
+            const bool  withinDown2 = (yGapNext2 >= -downLimit2);
+
+            if (withinUp2 && withinDown2)
+            {
+                // ここは「床を信じて確定」
+                if (hit.source == GroundSource::Collider && hit.collider)
+                {
+                    mGroundCollider = hit.collider;
+                    mPrevGroundPos  = hit.collider->GetOwner()->GetPosition();
+                }
+                else
+                {
+                    mGroundCollider = nullptr;
+                }
+
+                Vector3 cur = owner->GetPosition();
+                cur.y = groundY + offsetY0 + 0.001f;
+                SetOwnerPosAndSync(owner, cur);
+
+                mVelocityY  = 0.0f;
+                mIsGrounded = true;
+
+                UpdateGroundPoseCache(owner, hit, deltaTime, true, wasGrounded);
+                if (mEnableGroundPose)
+                {
+                    owner->SetPoseRotation(mGroundPose.smooth);
+                }
+                return;
+            }
+        }
+    }
 
     //==========================================================================
     // 6) 自由落下
