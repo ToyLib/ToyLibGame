@@ -17,7 +17,7 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
