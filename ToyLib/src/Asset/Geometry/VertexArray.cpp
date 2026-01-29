@@ -2,7 +2,23 @@
 #include "Asset/Geometry/Polygon.h"
 #include "glad/glad.h"
 
+#include <algorithm> // std::fill
+
 namespace toy {
+
+//--------------------------------------------------------------
+// 内部：安全初期化
+//--------------------------------------------------------------
+static inline void ResetGLIds(unsigned int& vao,
+                             unsigned int& ebo,
+                             unsigned int (&vbo)[5],
+                             unsigned int& numVbo)
+{
+    vao = 0;
+    ebo = 0;
+    numVbo = 0;
+    std::fill(std::begin(vbo), std::end(vbo), 0u);
+}
 
 //==============================================================
 // コンストラクタ（スキンメッシュ用）
@@ -18,65 +34,63 @@ VertexArray::VertexArray(unsigned int numVerts,
                          unsigned int numIndices,
                          const unsigned int* indices)
 {
+    ResetGLIds(mVertexBufferID, mIndexBufferID, mVertexBuffer, mNumVBO);
+
     mNumVerts   = numVerts;
     mNumIndices = numIndices;
+    mNumVBO     = 5;
 
     // VAO 生成
     glGenVertexArrays(1, &mVertexBufferID);
     glBindVertexArray(mVertexBufferID);
 
     //------------------------------------------
-    // インデックスバッファ
+    // インデックスバッファ（EBO）
     //------------------------------------------
     glGenBuffers(1, &mIndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(indices[0]) * numIndices,
+                 sizeof(indices[0]) * mNumIndices,
                  indices,
                  GL_STATIC_DRAW);
 
     //------------------------------------------
     // VBO を 5 本用意
-    //  0: 位置 (vec3)
-    //  1: 法線 (vec3)
-    //  2: UV   (vec2)
-    //  3: BoneID (ivec4)
-    //  4: Weight (vec4)
     //------------------------------------------
     glGenBuffers(5, mVertexBuffer);
 
     // 位置
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(verts[0]) * numVerts * 3,
+                 sizeof(verts[0]) * mNumVerts * 3,
                  verts,
                  GL_STATIC_DRAW);
 
     // 法線
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[1]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(norms[0]) * numVerts * 3,
+                 sizeof(norms[0]) * mNumVerts * 3,
                  norms,
                  GL_STATIC_DRAW);
 
     // UV
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[2]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(uvs[0]) * numVerts * 2,
+                 sizeof(uvs[0]) * mNumVerts * 2,
                  uvs,
                  GL_STATIC_DRAW);
 
-    // BoneID
+    // BoneID（unsigned int x4）
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[3]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(boneids[0]) * numVerts * 4,
+                 sizeof(boneids[0]) * mNumVerts * 4,
                  boneids,
                  GL_STATIC_DRAW);
 
-    // Weight
+    // Weight（float x4）
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[4]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(weights[0]) * numVerts * 4,
+                 sizeof(weights[0]) * mNumVerts * 4,
                  weights,
                  GL_STATIC_DRAW);
 
@@ -101,13 +115,17 @@ VertexArray::VertexArray(unsigned int numVerts,
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[2]);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-    // bone id : layout(location = 3)
+    // bone id : layout(location = 3)  ※ unsigned int なので UNSIGNED_INT
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[3]);
-    glVertexAttribIPointer(3, 4, GL_INT, 0, nullptr);
+    glVertexAttribIPointer(3, 4, GL_UNSIGNED_INT, 0, nullptr);
 
     // weight : layout(location = 4)
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[4]);
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    // 任意：unbind（EBOはVAOに紐付くのでVAOを外す）
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
@@ -124,20 +142,23 @@ VertexArray::VertexArray(unsigned int numVerts,
                          unsigned int numIndices,
                          const unsigned int* indices)
 {
+    ResetGLIds(mVertexBufferID, mIndexBufferID, mVertexBuffer, mNumVBO);
+
     mNumVerts   = numVerts;
     mNumIndices = numIndices;
+    mNumVBO     = 3;
 
     // VAO
     glGenVertexArrays(1, &mVertexBufferID);
     glBindVertexArray(mVertexBufferID);
 
     //------------------------------------------
-    // インデックスバッファ
+    // インデックスバッファ（EBO）
     //------------------------------------------
     glGenBuffers(1, &mIndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(indices[0]) * numIndices,
+                 sizeof(indices[0]) * mNumIndices,
                  indices,
                  GL_STATIC_DRAW);
 
@@ -149,21 +170,21 @@ VertexArray::VertexArray(unsigned int numVerts,
     // 位置
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(float) * numVerts * 3,
+                 sizeof(float) * mNumVerts * 3,
                  verts,
                  GL_STATIC_DRAW);
 
     // 法線
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[1]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(float) * numVerts * 3,
+                 sizeof(float) * mNumVerts * 3,
                  norms,
                  GL_STATIC_DRAW);
 
     // UV
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[2]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(float) * numVerts * 2,
+                 sizeof(float) * mNumVerts * 2,
                  uvs,
                  GL_STATIC_DRAW);
 
@@ -174,17 +195,17 @@ VertexArray::VertexArray(unsigned int numVerts,
     glEnableVertexAttribArray(1); // normal
     glEnableVertexAttribArray(2); // uv
 
-    // position
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[0]);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-    // normal
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[1]);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-    // uv
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[2]);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
@@ -199,8 +220,11 @@ VertexArray::VertexArray(const float* verts,
                          const unsigned int* indices,
                          unsigned int numIndices)
 {
+    ResetGLIds(mVertexBufferID, mIndexBufferID, mVertexBuffer, mNumVBO);
+
     mNumVerts   = numVerts;
     mNumIndices = numIndices;
+    mNumVBO     = 1;
 
     // VAO
     glGenVertexArrays(1, &mVertexBufferID);
@@ -219,7 +243,7 @@ VertexArray::VertexArray(const float* verts,
                  GL_STATIC_DRAW);
 
     //------------------------------------------
-    // インデックスバッファ
+    // インデックスバッファ（EBO）
     //------------------------------------------
     glGenBuffers(1, &mIndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
@@ -230,36 +254,18 @@ VertexArray::VertexArray(const float* verts,
 
     //------------------------------------------
     // 頂点属性
-    //  layout(location=0) : position (xyz)
-    //  layout(location=1) : normal   (xyz)
-    //  layout(location=2) : uv       (xy)
     //------------------------------------------
-    // position
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0,
-                          3,
-                          GL_FLOAT,
-                          GL_FALSE,
-                          vertexSize,
-                          reinterpret_cast<void*>(0));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertexSize, (void*)0);
 
-    // normal
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1,
-                          3,
-                          GL_FLOAT,
-                          GL_FALSE,
-                          vertexSize,
-                          reinterpret_cast<void*>(sizeof(float) * 3));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertexSize, (void*)(sizeof(float) * 3));
 
-    // uv
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2,
-                          2,
-                          GL_FLOAT,
-                          GL_FALSE,
-                          vertexSize,
-                          reinterpret_cast<void*>(sizeof(float) * 6));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertexSize, (void*)(sizeof(float) * 6));
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
@@ -268,7 +274,6 @@ VertexArray::VertexArray(const float* verts,
 //==============================================================
 // コンストラクタ（vec2 専用：フルスクリーンクアッド等）
 //  - 位置のみ (x, y)
-//  - isVec2Only は将来の拡張用フラグ（現状未使用）
 //==============================================================
 VertexArray::VertexArray(const float* verts,
                          unsigned int numVerts,
@@ -276,8 +281,11 @@ VertexArray::VertexArray(const float* verts,
                          unsigned int numIndices,
                          bool /*isVec2Only*/)
 {
+    ResetGLIds(mVertexBufferID, mIndexBufferID, mVertexBuffer, mNumVBO);
+
     mNumVerts   = numVerts;
     mNumIndices = numIndices;
+    mNumVBO     = 1;
 
     // VAO
     glGenVertexArrays(1, &mVertexBufferID);
@@ -289,27 +297,25 @@ VertexArray::VertexArray(const float* verts,
     glGenBuffers(1, &mVertexBuffer[0]);
     glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(float) * 2 * numVerts,
+                 sizeof(float) * 2 * mNumVerts,
                  verts,
                  GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0,
-                          2,
-                          GL_FLOAT,
-                          GL_FALSE,
-                          2 * sizeof(float),
-                          nullptr);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
 
     //------------------------------------------
-    // インデックスバッファ
+    // インデックスバッファ（EBO）
     //------------------------------------------
     glGenBuffers(1, &mIndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mIndexBufferID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(unsigned int) * numIndices,
+                 sizeof(unsigned int) * mNumIndices,
                  indices,
                  GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     // vec2-only の場合は物理用ポリゴンは不要なので作成しない
 }
@@ -323,7 +329,7 @@ void VertexArray::CreatePolygons(const float* verts,
                                  const unsigned int* indices,
                                  const unsigned int num)
 {
-    // num はインデックス数なので 3 で割って三角形数にする
+    // ※この関数は verts が xyz 配列の時だけ呼ぶ前提（現状の運用どおり）
     for (unsigned int i = 0; i < num / 3; ++i)
     {
         Polygon poly;
@@ -349,7 +355,6 @@ void VertexArray::CreatePolygons(const float* verts,
 
 //==============================================================
 // ワールド行列を適用した三角形リストを返す
-//  - 物理判定（レイ vs ポリゴン等）で使用
 //==============================================================
 std::vector<Polygon> VertexArray::GetWorldPolygons(const Matrix4& worldTransform) const
 {
@@ -374,16 +379,39 @@ std::vector<Polygon> VertexArray::GetWorldPolygons(const Matrix4& worldTransform
 VertexArray::~VertexArray()
 {
     mPolygons.clear();
-
-
+    Unload();
 }
 
+//==============================================================
+// 生成済みの VBO / IBO / VAO を破棄
+//==============================================================
 void VertexArray::Unload()
 {
-    // 生成済みの VBO / IBO / VAO を破棄
-    glDeleteBuffers(5, mVertexBuffer);       // 未使用スロットは 0 のままなので安全
-    glDeleteBuffers(1, &mIndexBufferID);
-    glDeleteVertexArrays(1, &mVertexBufferID);
+    // 先にunbind（保険）
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // ★作成した本数だけ消す（ここが重要）
+    if (mNumVBO > 0)
+    {
+        glDeleteBuffers((GLsizei)mNumVBO, mVertexBuffer);
+        mNumVBO = 0;
+    }
+
+    if (mIndexBufferID != 0)
+    {
+        glDeleteBuffers(1, &mIndexBufferID);
+        mIndexBufferID = 0;
+    }
+
+    if (mVertexBufferID != 0)
+    {
+        glDeleteVertexArrays(1, &mVertexBufferID);
+        mVertexBufferID = 0;
+    }
+
+    // 念のため 0 で埋める
+    std::fill(std::begin(mVertexBuffer), std::end(mVertexBuffer), 0u);
 }
 
 //==============================================================

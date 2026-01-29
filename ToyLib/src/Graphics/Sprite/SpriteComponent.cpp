@@ -266,6 +266,15 @@ void SpriteComponent::GatherRenderItems(RenderQueueLike& out)
 
     // RenderItem 詰める
     RenderItem it;
+    it.type  = RenderItemType::Sprite;
+    it.pass  = RenderPass::UI;          // ★UIパスに寄せるなら
+    it.layer = GetLayer();
+
+    it.cull      = CullMode::None;      // ★UIはカリング不要
+    it.frontFace = FrontFace::CCW;      // ★任意
+    it.blend     = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
+    it.depthTest  = false;
+    it.depthWrite = false;
     it.pass      = RenderPass::Main;       // UIだけならUIパスにしてもOK
     it.layer     = GetLayer();             // UI/Overlayなど
     it.drawOrder = GetDrawOrder();

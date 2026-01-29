@@ -289,7 +289,10 @@ void Renderer::DrawWorldPass_NoUI()
     DrawSky();
 
     DrawVisualLayer(VisualLayer::Background2D);
-    DrawVisualLayer(VisualLayer::Object3D);
+
+    // ★ここ
+    DrawObject3DPass_Only(nullptr);
+
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
     DrawVisualLayer(VisualLayer::Object2D);
@@ -297,54 +300,92 @@ void Renderer::DrawWorldPass_NoUI()
 
 void Renderer::DrawUIPass_Only()
 {
-    // DrawVisualLayer 内でも UI は depth off にしてくれるが、ここで保険
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
-    DrawVisualLayer(VisualLayer::UI);
-
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
-    
-    // RenderQueueによる描画新設
+    // RenderQueueによる描画（UIは新パスへ寄せる）
     RenderQueue queue;
     for (auto* vc : mVisualComps)
     {
-        if (vc->GetLayer() == VisualLayer::UI /*など*/)
+        if (vc->GetLayer() == VisualLayer::UI)
+        {
             vc->GatherRenderItems(queue);
+        }
     }
+
+    // UIパス入口で期待状態を明示（混在期の保険）
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     DrawRenderQueue(queue);
-    
+
+    // ※ここで戻すかは好みだけど、旧パスが残る間は戻す方が事故が減る
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Renderer::DrawPass(bool drawUI)
+void Renderer::DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex)
 {
-    // カラーバッファ／デプスバッファ初期化
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderQueue queue;
 
-    // 1) ライト視点でのシャドウマップ描画
-    RenderShadowMap();
+    for (auto* vc : mVisualComps)
+    {
+        if (!vc->IsVisible()) continue;
+        if (vc->GetLayer() != VisualLayer::Object3D) continue;
 
-    // 2) 通常描画パス
+        // RTT中の「自分自身のRTテクスチャ描画スキップ」も反映したいなら
+        // GatherRenderItems に skipTex を渡す設計にするのが理想だけど、
+        // ひとまず vc 側が it.texture を持つならここで除外でもOK
+        vc->GatherRenderItems(queue);
+    }
+
+    // Object3D の期待状態（旧 DrawVisualLayer と同じ）
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // スカイドーム（背景）
+    
+    
+    DrawRenderQueue(queue);
+
+    // 以降のレイヤーに影響しないよう “戻す” は今の混在期なら入れてOK
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+}
+
+void Renderer::DrawPass(bool drawUI)
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    RenderShadowMap();
+
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     DrawSky();
 
-    // レイヤー別描画（奥から順に）
     DrawVisualLayer(VisualLayer::Background2D);
-    DrawVisualLayer(VisualLayer::Object3D);
+
+    // ★ここ
+    DrawObject3DPass_Only(nullptr);
+
     DrawVisualLayer(VisualLayer::Effect3D);
     DrawVisualLayer(VisualLayer::OverlayScreen);
     DrawVisualLayer(VisualLayer::Object2D);
+
     if (drawUI)
-    {
         DrawVisualLayer(VisualLayer::UI);
-    }
 }
 
 void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,

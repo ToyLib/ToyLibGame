@@ -4,10 +4,10 @@
 
 namespace toy {
 
-// 前方宣言（実体は今まで通り）
 class VertexArray;
 class Texture;
 class Shader;
+class Material;   // ★追加
 
 struct GeometryHandle
 {
@@ -16,12 +16,18 @@ struct GeometryHandle
 
 struct TextureHandle
 {
-    Texture* ptr = nullptr;
+    Texture*    ptr = nullptr;
 };
 
 struct ShaderHandle
 {
-    Shader* ptr = nullptr; // 当面GL Shader。後でPipelineHandleに置換。
+    Shader*     ptr = nullptr;
+};
+
+// ★追加：MaterialHandle
+struct MaterialHandle
+{
+    Material* ptr = nullptr;
 };
 
 } // namespace toy

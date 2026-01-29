@@ -127,6 +127,7 @@ public:
     void ApplyToShader(std::shared_ptr<class Shader> shader,
                        const Matrix4& viewMatrix);
     
+    void ApplyToShader(Shader* shader, const Matrix4& viewMatrix);
     
     //---------------------------------------------------------
     // Point Light 管理

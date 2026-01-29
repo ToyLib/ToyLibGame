@@ -271,7 +271,7 @@ public:
 
     ShaderHandle GetShaderHandle(const std::string& name);
     TextureHandle ToHandle(const std::shared_ptr<Texture>& tex) const;
-    
+    MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
     
 private:
     //--------------------------------------------------------------------------
@@ -406,6 +406,7 @@ private:
     void DrawRenderQueue(const RenderQueue& items);
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it);
+    void DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex);
 };
 
 } // namespace toy

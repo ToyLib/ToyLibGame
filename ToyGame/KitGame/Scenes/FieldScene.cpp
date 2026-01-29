@@ -13,7 +13,7 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::Watercolor;
     effectDesc.intensity = 1.0f;
     //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);

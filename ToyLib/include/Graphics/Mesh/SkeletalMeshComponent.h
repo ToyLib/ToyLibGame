@@ -36,6 +36,8 @@ public:
     void Draw() override;
     void DrawShadow(int cascadeIndex) override;
     
+    void GatherRenderItems(RenderQueueLike& out) override;
+    
     //--------------------------------------------------------
     // Update
     //  - AnimationPlayer の再生時間を進めて

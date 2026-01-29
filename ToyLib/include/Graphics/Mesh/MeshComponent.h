@@ -35,6 +35,8 @@ public:
     //--------------------------------------------------------
     virtual void Draw() override;
     
+    void GatherRenderItems(RenderQueueLike& out) override;
+    
     //--------------------------------------------------------
     // DrawShadow()
     //   ・影描画専用（ShadowMap生成用）

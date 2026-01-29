@@ -8,38 +8,58 @@
 
 namespace toy {
 
-// ★まずは Sprite が出せる最小版
+enum class RenderItemType {
+    Sprite,
+    Mesh,
+    SkinnedMesh,
+    Debug
+};
+
 struct RenderItem
 {
-    // ソートキー
-    RenderPass  pass  = RenderPass::Main;
-    VisualLayer layer = VisualLayer::Object3D;
+    // sort key
+    RenderPass  pass      = RenderPass::Main;
+    VisualLayer layer     = VisualLayer::Object3D;
     int         drawOrder = 0;
 
-    // 形状
-    PrimitiveTopology topology = PrimitiveTopology::Triangles;
-    GeometryHandle    geometry {};       // SpriteならRendererの共通Quad VAO
-    int               indexCount = 0;    // Spriteなら6
+    RenderItemType type   = RenderItemType::Sprite; // ★追加
 
-    // 状態
-    BlendMode blend = BlendMode::Alpha;
-    bool      depthTest  = false;        // Spriteはfalse
-    bool      depthWrite = false;        // Spriteはfalse
+    // geometry
+    PrimitiveTopology topology  = PrimitiveTopology::Triangles;
+    GeometryHandle    geometry  {};
+    int               indexCount = 0;
 
-    // シェーダ（暫定：Rendererがpassで選ぶなら不要。今は入れてもOK）
+    // render state
+    BlendMode  blend      = BlendMode::Opaque;
+    bool       depthTest  = true;
+    bool       depthWrite = true;
+
+    CullMode   cull       = CullMode::Back;          // ★追加
+    FrontFace  frontFace  = FrontFace::CCW;          // ★追加
+
+    // shader (暫定：GL Shader)
     ShaderHandle shader {};
 
-    // 行列
+    // transforms
     Matrix4 world   { Matrix4::Identity };
     Matrix4 viewProj{ Matrix4::Identity };
 
-    // テクスチャ（Spriteは1枚）
-    TextureHandle texture {};
-    int textureUnit = 0;
+    // texture / material
+    TextureHandle  texture {};
+    int            textureUnit = 0;
 
-    // “Sprite用 uniform”
+    MaterialHandle material {};                      // ★追加（Meshで使う）
+
+    // sprite-only uniforms
     Vector3 color { 1.0f, 1.0f, 1.0f };
     float   alpha { 1.0f };
+    
+    // ★Skinned 用（nullptrなら非スキン）
+    const Matrix4* matrixPalette = nullptr;
+    int            paletteCount  = 0;
+
+
+    
 };
 
 } // namespace toy

@@ -20,22 +20,30 @@ Material::Material()
 //   ・Ambient / Diffuse / Specular / Shininess
 //   ・DiffuseMap のバインド
 //--------------------------------------------------------------
-void Material::BindToShader(std::shared_ptr<Shader> shader,
-                            int textureUnit) const
+void Material::BindToShader(Shader* shader, int textureUnit) const
 {
-    // 単色描画（OverrideColor）
-    shader->SetBooleanUniform("uOverrideColor", mOverrideColor);
-    shader->SetVectorUniform("uUniformColor", mUniformColor);
+    if (!shader) return;
 
-    // マテリアル基本色
+    shader->SetBooleanUniform("uOverrideColor", mOverrideColor);
+    shader->SetVectorUniform("uUniformColor",  mUniformColor);
+
     shader->SetVectorUniform("uAmbientColor",  mAmbientColor);
     shader->SetVectorUniform("uDiffuseColor",  mDiffuseColor);
     shader->SetVectorUniform("uSpecColor",     mSpecularColor);
     shader->SetFloatUniform ("uSpecPower",     mShininess);
 
-    mDiffuseMap->SetActive(textureUnit);
-    shader->SetTextureUniform("uTexture", textureUnit);
+    // ★ここ、mDiffuseMapがnullの可能性があるならガード推奨
+    if (mDiffuseMap)
+    {
+        mDiffuseMap->SetActive(textureUnit);
+        shader->SetTextureUniform("uTexture", textureUnit);
+    }
     shader->SetBooleanUniform("uUseTexture", mUseTexture);
+}
+
+void Material::BindToShader(std::shared_ptr<Shader> shader, int textureUnit) const
+{
+    BindToShader(shader.get(), textureUnit);
 }
 
 //--------------------------------------------------------------

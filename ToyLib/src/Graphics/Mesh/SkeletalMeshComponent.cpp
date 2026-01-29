@@ -44,6 +44,7 @@ void SkeletalMeshComponent::SetAnimID(const unsigned int animID, const bool mode
 //----------------------------------------------------------------------
 void SkeletalMeshComponent::Draw()
 {
+    
     if (!mMesh)
     {
         return;
@@ -263,4 +264,9 @@ void SkeletalMeshComponent::SetMesh(std::shared_ptr<Mesh> mesh)
     mAnimPlayer = std::make_unique<AnimationPlayer>(mesh);
 }
 
+
+void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike &out)
+{
+    return;
+}
 } // namespace toy

@@ -223,4 +223,64 @@ void MeshComponent::DrawShadow(int cascadeIndex)
     }
     renderer->AddDrawObject();
 }
+
+void MeshComponent::GatherRenderItems(RenderQueueLike& out)
+{
+    if (!mIsVisible || !mMesh) return;
+
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // viewProj（ToyLib流：view * proj）
+    Matrix4 view = renderer->GetViewMatrix();
+    Matrix4 proj = renderer->GetProjectionMatrix();
+    Matrix4 viewProj = view * proj;
+
+    // world transform（既存Draw()の合成そのまま）
+    Matrix4 worldMatrix =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetRenderWorldTransform();
+
+    // サブメッシュ単位で item を積む
+    auto vaList = mMesh->GetVertexArray();
+    for (auto& v : vaList)
+    {
+        if (!v) continue;
+
+        RenderItem it;
+        it.type      = RenderItemType::Mesh;
+        it.pass      = RenderPass::Main;
+        it.layer     = GetLayer();
+        it.drawOrder = GetDrawOrder();
+
+        it.topology   = PrimitiveTopology::Triangles;
+        it.geometry   = GeometryHandle{ v.get() };
+        it.indexCount = v->GetNumIndices();
+
+        // state（通常メッシュ）
+        it.depthTest  = true;
+        it.depthWrite = true;
+
+        // MeshComponentの加算ブレンドフラグを尊重（旧Draw()と同じ）
+        it.blend = mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque;
+
+        it.cull      = CullMode::Back;
+        it.frontFace = FrontFace::CCW;
+
+        // shader
+        it.shader = renderer->GetShaderHandle("Mesh");
+
+        // transforms
+        it.world   = worldMatrix;
+        it.viewProj= viewProj;
+
+        // material
+        auto mat = mMesh->GetMaterial(v->GetTextureID());
+        it.material = renderer->ToHandle(mat);
+
+        out.Push(it);
+    }
+}
+
 } // namespace toy

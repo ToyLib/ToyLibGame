@@ -5,10 +5,10 @@ namespace toy {
 
 enum class RenderPass
 {
-    Main,       // 通常描画（3Dなど）
-    UI,         // UI/2D
-    Shadow,     // 影（将来）
-    Debug,      // ワイヤー等
+    Main,
+    UI,
+    Shadow,
+    Debug,
 };
 
 enum class PrimitiveTopology
@@ -22,6 +22,21 @@ enum class BlendMode
     Opaque,
     Alpha,
     Additive,
+};
+
+// ★追加：カリング
+enum class CullMode
+{
+    None,
+    Back,
+    Front,
+};
+
+// ★追加：FrontFace
+enum class FrontFace
+{
+    CCW,
+    CW,
 };
 
 } // namespace toy
