@@ -9,7 +9,7 @@
     "position": [0.0, 0.0, 5.0]
   },
   "clearColor": [0.0, 0.34, 0.68],
-  "wireColor": [1.0, 1.0, 1.0],
+  "wireColor": [0.0, 1.0, 0.88],
   "ambient": [0.5, 0.5, 0.5],
   "specular": [0.5, 0.5, 0.5],
   "directionalLight": {
