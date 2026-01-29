@@ -305,6 +305,16 @@ void Renderer::DrawUIPass_Only()
 
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
+    
+    // RenderQueueによる描画新設
+    RenderQueue queue;
+    for (auto* vc : mVisualComps)
+    {
+        if (vc->GetLayer() == VisualLayer::UI /*など*/)
+            vc->GatherRenderItems(queue);
+    }
+    DrawRenderQueue(queue);
+    
 }
 
 void Renderer::DrawPass(bool drawUI)

@@ -39,7 +39,13 @@ void StageScene::InitScene()
             std::cerr << "MessageBox closed." << std::endl;
 
         }
-    );    
+    );
+    
+    // テスト用スプライト
+    auto ac = CreateActor<toy::Actor>();
+    auto sp = ac->CreateComponent<toy::SpriteComponent>(1000);
+    sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
+    ac->SetPosition(Vector3(100.0f, 100.0f,0));
 }
 
 void StageScene::Update(float delatTime)

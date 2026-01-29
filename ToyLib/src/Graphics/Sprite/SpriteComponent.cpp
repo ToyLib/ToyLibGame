@@ -61,6 +61,9 @@ void SpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
 //--------------------------------------------------
 void SpriteComponent::Draw()
 {
+    // DrawPass移行のためリターン
+    return;
+    
     if (!mIsVisible || mTexture == nullptr)
     {
         return;
@@ -203,4 +206,90 @@ void SpriteComponent::Draw()
     
     renderer->AddDrawObject();
 }
+
+
+#include "Engine/Render/RenderItem.h"
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Core/Application.h"
+#include "Engine/Render/Renderer.h"
+#include "Asset/Geometry/VertexArray.h"
+#include "Asset/Material/Texture.h"
+
+
+void SpriteComponent::GatherRenderItems(RenderQueueLike& out)
+{
+    if (!mIsVisible || !mTexture) return;
+
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // UIスケール
+    UIScaleInfo ui = renderer->GetUIScaleInfo();
+    const float sw    = ui.screenW;
+    const float sh    = ui.screenH;
+    const float scale = ui.scale;
+
+    // 表示サイズ（ピクセル）
+    const float texW   = static_cast<float>(mTexWidth);
+    const float texH   = static_cast<float>(mTexHeight);
+    const float width  = texW * mScaleWidth  * scale;
+    const float height = texH * mScaleHeight * scale;
+
+    // 位置（あなたの既存ロジックそのまま）
+    Vector3 pos;
+    {
+        Vector3 logicalPos = GetOwner()->GetPosition() + mOffset;
+
+        const float px = ui.offsetX + logicalPos.x * scale;
+        const float py = ui.offsetY + logicalPos.y * scale;
+
+        if (mIsTopLeft)
+        {
+            const float cx = px + width  * 0.5f;
+            const float cy = py + height * 0.5f;
+            pos.x = cx - sw * 0.5f;
+            pos.y = sh * 0.5f - cy;
+            pos.z = logicalPos.z;
+        }
+        else
+        {
+            pos.x = px - sw * 0.5f;
+            pos.y = sh * 0.5f - py;
+            pos.z = logicalPos.z;
+        }
+    }
+
+    // 行列
+    Matrix4 world = Matrix4::CreateScale(width, height, 1.0f);
+    world *= Matrix4::CreateTranslation(pos);
+
+    Matrix4 viewProj = Matrix4::CreateSimpleViewProj(sw, sh);
+
+    // RenderItem 詰める
+    RenderItem it;
+    it.pass      = RenderPass::Main;       // UIだけならUIパスにしてもOK
+    it.layer     = GetLayer();             // UI/Overlayなど
+    it.drawOrder = GetDrawOrder();
+
+    it.topology  = PrimitiveTopology::Triangles;
+    it.geometry  = renderer->GetSpriteQuadHandle(); // ★Rendererが返す共通ジオメトリ
+    it.indexCount = 6;
+
+    it.blend     = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
+    it.depthTest  = false;
+    it.depthWrite = false;
+
+    it.shader    = renderer->GetShaderHandle("Sprite"); // ★暫定でOK（pass選択にしてもよい）
+
+    it.world     = world;
+    it.viewProj  = viewProj;
+
+    it.texture   = renderer->ToHandle(mTexture); // or mTexture->GetHandle() 的なもの
+    it.textureUnit = 0;
+
+    it.color     = mColor;
+    it.alpha     = mAlpha;
+
+    out.Push(it);
+}
 } // namespace toy
+

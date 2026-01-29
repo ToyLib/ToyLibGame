@@ -2,7 +2,10 @@
 
 #include "Utils/MathUtil.h"
 #include "Engine/Render/PostEffect.h"
+#include "Engine/Render/VisualLayer.h"
 #include "glad/glad.h"
+
+#include "Engine/Render/RenderQueue.h"
 
 #include <SDL3/SDL.h>
 
@@ -14,18 +17,7 @@
 
 namespace toy {
 
-//==============================================================================
-// VisualLayer
-//==============================================================================
-enum class VisualLayer
-{
-    Background2D,
-    Object3D,
-    Effect3D,
-    OverlayScreen,
-    Object2D,
-    UI,
-};
+
 
 //==============================================================================
 // ScreenProjectResult
@@ -273,6 +265,14 @@ public:
         mEnableFade = (mFadeAlpha > 0.0f);
     }
 
+    
+    
+    GeometryHandle GetSpriteQuadHandle() const;
+
+    ShaderHandle GetShaderHandle(const std::string& name);
+    TextureHandle ToHandle(const std::shared_ptr<Texture>& tex) const;
+    
+    
 private:
     //--------------------------------------------------------------------------
     // SDL / OpenGL
@@ -401,6 +401,11 @@ private:
     bool InitializeShadowMapping();
     void RenderShadowMap();
     
+    
+    // OpenGL 切り離し準備
+    void DrawRenderQueue(const RenderQueue& items);
+    void ApplyState_GL(const RenderItem& it);
+    void DrawItem_GL(const RenderItem& it);
 };
 
 } // namespace toy

@@ -48,6 +48,8 @@ MeshComponent::~MeshComponent()
 //------------------------------------------------------------
 void MeshComponent::Draw()
 {
+    // DrawPass変更のため早期リターン
+    return;
     if (!mMesh)
     {
         return;
