@@ -11,181 +11,6 @@
 
 namespace toy {
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <iomanip>
-
-static const char* GLBoolStr(GLint v) { return (v == GL_TRUE) ? "TRUE" : "FALSE"; }
-
-static void DumpSamplerUnits(GLuint program, const std::vector<const char*>& names)
-{
-    for (auto* n : names)
-    {
-        GLint loc = glGetUniformLocation(program, n);
-        if (loc < 0)
-        {
-            std::cerr << "  [Sampler] " << n << " loc=-1\n";
-            continue;
-        }
-        GLint unit = -999;
-        glGetUniformiv(program, loc, &unit);
-        std::cerr << "  [Sampler] " << n << " unit=" << unit << "\n";
-    }
-}
-
-static void DumpProgramStatus(GLuint program)
-{
-    if (program == 0)
-    {
-        std::cerr << "[GL] Program=0 (no current program)\n";
-        return;
-    }
-
-    GLint linked = 0;
-    glGetProgramiv(program, GL_LINK_STATUS, &linked);
-
-    GLint validated = 0;
-    glGetProgramiv(program, GL_VALIDATE_STATUS, &validated);
-
-    GLint activeUniforms = 0;
-    glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &activeUniforms);
-
-    GLint activeAttribs = 0;
-    glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &activeAttribs);
-
-    std::cerr << "[GL] Program=" << program
-              << " LINK=" << GLBoolStr(linked)
-              << " VALIDATE=" << GLBoolStr(validated)
-              << " uniforms=" << activeUniforms
-              << " attribs=" << activeAttribs
-              << "\n";
-
-    if (!linked)
-    {
-        GLint logLen = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLen);
-        if (logLen > 1)
-        {
-            std::string log;
-            log.resize((size_t)logLen);
-            GLsizei outLen = 0;
-            glGetProgramInfoLog(program, logLen, &outLen, log.data());
-            std::cerr << "[GL] Program Link Log:\n" << log << "\n";
-        }
-    }
-
-    if (!validated)
-    {
-        GLint logLen = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLen);
-        if (logLen > 1)
-        {
-            std::string log;
-            log.resize((size_t)logLen);
-            GLsizei outLen = 0;
-            glGetProgramInfoLog(program, logLen, &outLen, log.data());
-            std::cerr << "[GL] Program Validate Log:\n" << log << "\n";
-        }
-    }
-}
-
-static void DumpVAOState(GLuint vao)
-{
-    if (vao == 0)
-    {
-        std::cerr << "[GL] VAO=0 (no VAO bound)\n";
-        return;
-    }
-
-    GLint ebo = 0;
-    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ebo);
-
-    std::cerr << "[GL] VAO=" << vao
-              << " EBO=" << ebo
-              << "\n";
-
-    // location 0..4 だけ見る（ToyLibの基本想定）
-    for (int loc = 0; loc <= 4; ++loc)
-    {
-        GLint enabled = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &enabled);
-
-        GLint size = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_SIZE, &size);
-
-        GLint type = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_TYPE, &type);
-
-        GLint normalized = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_NORMALIZED, &normalized);
-
-        GLint stride = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_STRIDE, &stride);
-
-        GLint bufBinding = 0;
-        glGetVertexAttribiv(loc, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &bufBinding);
-
-        void* ptr = nullptr;
-        glGetVertexAttribPointerv(loc, GL_VERTEX_ATTRIB_ARRAY_POINTER, &ptr);
-
-        std::cerr << "  [Attrib" << loc << "] enabled=" << enabled
-                  << " size=" << size
-                  << " type=0x" << std::hex << type << std::dec
-                  << " norm=" << normalized
-                  << " stride=" << stride
-                  << " vbo=" << bufBinding
-                  << " ptr=" << ptr
-                  << "\n";
-    }
-}
-
-static void DumpUniformLocations(GLuint program, const std::vector<const char*>& names)
-{
-    if (program == 0) return;
-
-    for (auto* n : names)
-    {
-        GLint loc = glGetUniformLocation(program, n);
-        std::cerr << "  [Uniform] " << n << " loc=" << loc << "\n";
-    }
-}
-
-static void DumpDrawPrecheck(GLsizei indexCount)
-{
-    GLint prog = 0;
-    GLint vao  = 0;
-    GLint ebo  = 0;
-
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
-    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
-    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &ebo);
-
-    std::cerr << "[PreDraw] Program=" << prog
-              << " VAO=" << vao
-              << " EBO=" << ebo
-              << " indexCount=" << indexCount
-              << "\n";
-
-    // core profile: VAO must be bound for glDrawElements
-    if (vao == 0)
-        std::cerr << "  !! VAO is 0 (invalid for glDrawElements in core profile)\n";
-
-    if (ebo == 0)
-        std::cerr << "  !! EBO is 0 (indices missing)\n";
-}
-
-static void DumpGLError(const char* tag)
-{
-    for (;;)
-    {
-        GLenum err = glGetError();
-        if (err == GL_NO_ERROR) break;
-        std::cerr << "[GL ERROR] " << tag << " err=0x" << std::hex << err << std::dec << "\n";
-    }
-}
-
-
 
 void Renderer::DrawRenderQueue(const RenderQueue& queue)
 {
@@ -246,22 +71,7 @@ void Renderer::DrawItem_GL(const RenderItem& it)
     if (!it.shader.ptr)
         return;
 
-    // まずエラー掃除（前フレームの残骸を消す）
-    DumpGLError("Before SetActive");
-
     it.shader.ptr->SetActive();
-
-    // 現在のProgram確認
-    GLint prog = 0;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
-    std::cerr << "[Draw] type=" << (int)it.type
-              << " layer=" << (int)it.layer
-              << " Prog=" << prog
-              << " idxCount=" << it.indexCount
-              << "\n";
-
-    // Program状態（LINK/VALIDATE）も見る
-    DumpProgramStatus((GLuint)prog);
 
     // matrices
     it.shader.ptr->SetMatrixUniform("uViewProj", it.viewProj);
@@ -309,7 +119,7 @@ void Renderer::DrawItem_GL(const RenderItem& it)
                 it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
             }
 
-            it.shader.ptr->SetBooleanUniform("uUseToon", false);
+            it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
 
             if (it.material.ptr)
             {
@@ -318,7 +128,48 @@ void Renderer::DrawItem_GL(const RenderItem& it)
             break;
         }
         case RenderItemType::SkinnedMesh:
-            return; // 未対応なら描かない（事故防止）
+        {
+            if (mLightingManager)
+            {
+                Matrix4 view = GetViewMatrix();
+                mLightingManager->ApplyToShader(it.shader.ptr, view);
+            }
+            
+            // ★ shadow (Phong系が参照してるなら必須)
+            {
+                auto sm0 = GetShadowMapTexture(0);
+                auto sm1 = GetShadowMapTexture(1);
+
+                if (sm0) sm0->SetActive(6);
+                if (sm1) sm1->SetActive(7);
+
+                it.shader.ptr->SetTextureUniform("uShadowMap0", 6);
+                it.shader.ptr->SetTextureUniform("uShadowMap1", 7);
+
+                it.shader.ptr->SetMatrixUniform("uLightViewProj0", GetLightSpaceMatrix(0));
+                it.shader.ptr->SetMatrixUniform("uLightViewProj1", GetLightSpaceMatrix(1));
+
+                it.shader.ptr->SetFloatUniform("uCascadeSplit0", GetCascadeSplit0());
+                it.shader.ptr->SetFloatUniform("uCascadeBlend",  GetCascadeBlend());
+                it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
+            }
+
+            it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
+
+            if (it.material.ptr)
+                it.material.ptr->BindToShader(it.shader.ptr, 0);
+
+            // ★ここが本体
+            if (it.matrixPalette && it.paletteCount > 0)
+            {
+                it.shader.ptr->SetMatrixUniforms(
+                    "uMatrixPalette",
+                    it.matrixPalette,
+                    (unsigned int)it.paletteCount
+                );
+            }
+            break;
+        }
         case RenderItemType::Debug:
             return;
     }
@@ -326,15 +177,7 @@ void Renderer::DrawItem_GL(const RenderItem& it)
     // VAO bind
     it.geometry.ptr->SetActive();
 
-    DumpSamplerUnits((GLuint)prog, {
-        "uTexture",
-        "uShadowMap0",
-        "uShadowMap1"
-    });
-
     glDrawElements(GL_TRIANGLES, (GLsizei)it.indexCount, GL_UNSIGNED_INT, nullptr);
-
-    DumpGLError("After glDrawElements");
 
     AddDrawCall();
     AddDrawObject();

@@ -33,6 +33,7 @@ struct RenderItem
     BlendMode  blend      = BlendMode::Opaque;
     bool       depthTest  = true;
     bool       depthWrite = true;
+    bool       toon       = false;
 
     CullMode   cull       = CullMode::Back;          // ★追加
     FrontFace  frontFace  = FrontFace::CCW;          // ★追加
@@ -55,8 +56,9 @@ struct RenderItem
     float   alpha { 1.0f };
     
     // ★Skinned 用（nullptrなら非スキン）
-    const Matrix4* matrixPalette = nullptr;
-    int            paletteCount  = 0;
+    // ---- Skinned only ----
+    const Matrix4* matrixPalette {};
+    int paletteCount { 0 }; // <= MAX_SKELETON_BONES
 
 
     

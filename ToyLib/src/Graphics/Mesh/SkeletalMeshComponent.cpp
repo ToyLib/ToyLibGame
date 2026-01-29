@@ -44,7 +44,7 @@ void SkeletalMeshComponent::SetAnimID(const unsigned int animID, const bool mode
 //----------------------------------------------------------------------
 void SkeletalMeshComponent::Draw()
 {
-    
+    return;
     if (!mMesh)
     {
         return;
@@ -265,8 +265,53 @@ void SkeletalMeshComponent::SetMesh(std::shared_ptr<Mesh> mesh)
 }
 
 
-void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike &out)
+void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike& out)
 {
-    return;
+    if (!mMesh) return;
+
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // ボーン行列
+    const auto& mats = mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : std::vector<Matrix4>{};
+    if (mAnimPlayer && mats.empty()) return; // 一旦わかりやすく（後で調整OK）
+
+    Matrix4 world =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        GetOwner()->GetRenderWorldTransform();
+
+    const Matrix4 vp = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
+
+    // SubMesh（VertexArray）ごとに積む
+    for (auto& va : mMesh->GetVertexArray())
+    {
+        RenderItem it{};
+        it.type = RenderItemType::SkinnedMesh;
+
+        it.geometry.ptr = va.get();
+        it.indexCount   = (int)va->GetNumIndices();
+
+        it.shader = renderer->GetShaderHandle("Skinned");  // ←ここだけでOK
+        it.material = renderer->ToHandle(mMesh->GetMaterial(va->GetTextureID()));
+
+        it.viewProj = vp;
+        it.world    = world;
+
+        // states（Meshと同等に）
+        it.depthTest  = true;
+        it.depthWrite = true;
+        it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha; // 今の運用に合わせて
+        it.cull       = CullMode::Back;
+        it.frontFace  = FrontFace::CCW;
+
+        // palette
+        it.matrixPalette = mats.data();
+        it.paletteCount  = (int)mats.size();
+        
+        it.toon         = mIsToon;
+
+        out.Push(it); // queue の API に合わせて
+    }
 }
 } // namespace toy

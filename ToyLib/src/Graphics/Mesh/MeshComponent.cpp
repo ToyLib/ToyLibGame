@@ -274,6 +274,8 @@ void MeshComponent::GatherRenderItems(RenderQueueLike& out)
         // transforms
         it.world   = worldMatrix;
         it.viewProj= viewProj;
+        
+        it.toon         = mIsToon;
 
         // material
         auto mat = mMesh->GetMaterial(v->GetTextureID());

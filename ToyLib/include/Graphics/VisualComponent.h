@@ -38,12 +38,8 @@ public:
     //========================
     // 新方式（段階導入）
     //========================
-    virtual void GatherRenderItems(RenderQueueLike& out)
-    {
-        (void)out;
-        // デフォルトは何もしない
-        // Sprite など移行したものだけ override して使う
-    }
+    virtual void GatherRenderItems(RenderQueueLike& out) {}
+    //virtual void GatherShadowItems(RenderQueueLike& out, int cascadeIndex) {} // ★追加
 
     //========================
     // 共通状態
