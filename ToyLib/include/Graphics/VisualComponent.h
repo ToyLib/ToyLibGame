@@ -39,7 +39,7 @@ public:
     // 新方式（段階導入）
     //========================
     virtual void GatherRenderItems(RenderQueueLike& out) {}
-    //virtual void GatherShadowItems(RenderQueueLike& out, int cascadeIndex) {} // ★追加
+    virtual void GatherShadowItems(RenderQueueLike& out, int cascadeIndex) {} // ★追加
 
     //========================
     // 共通状態

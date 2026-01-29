@@ -265,7 +265,9 @@ void Renderer::Draw()
     else
     {
         // 従来
-        DrawPass(true);
+//        DrawPass(true);
+        DrawWorldPass_NoUI();
+        DrawUIPass_Only();
     }
     
     // 4) フェード
@@ -384,8 +386,15 @@ void Renderer::DrawPass(bool drawUI)
     DrawVisualLayer(VisualLayer::OverlayScreen);
     DrawVisualLayer(VisualLayer::Object2D);
 
+    
+    RenderQueue queue;
+
+    
     if (drawUI)
+    {
         DrawVisualLayer(VisualLayer::UI);
+
+    }
 }
 
 void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
