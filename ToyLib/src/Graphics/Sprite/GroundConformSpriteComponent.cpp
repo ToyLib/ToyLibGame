@@ -4,6 +4,9 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Render/RenderItem.h"
+
 #include "Asset/Material/Texture.h"
 #include "Physics/PhysWorld.h"
 #include "Physics/GravityComponent.h"
@@ -11,11 +14,9 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Asset/Geometry/VertexArray.h"
 
-#include "glad/glad.h"
-
 #include <vector>
 #include <cmath>
-
+#include <iostream>
 
 namespace toy {
 
@@ -25,7 +26,7 @@ GroundConformSpriteComponent::GroundConformSpriteComponent(Actor* owner,
     : FootSpriteComponent(owner, drawOrder, layer)
 {
     // FootSprite のまま運用（Unlit前提・tint/alpha等）
-    
+    // ここでは特に追加初期化なし
 }
 
 void GroundConformSpriteComponent::PreDraw()
@@ -35,13 +36,13 @@ void GroundConformSpriteComponent::PreDraw()
 
 Matrix4 GroundConformSpriteComponent::BuildWorldMatrix() const
 {
-    // ここが重要：
-    // GroundConform は “頂点がすでにワールド座標” なので、
-    // ワールド行列は Identity を返す（余計な SRT を掛けない）。
+    // GroundConform は “頂点がすでにワールド座標” なので Identity
     return Matrix4::Identity;
 }
 
-
+//------------------------------------------------------------------------------
+// Ground sampling（あなたの元コードを忠実に維持）
+//------------------------------------------------------------------------------
 bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHit& outHit) const
 {
     outHit = GroundHit{};
@@ -143,7 +144,7 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     }
 
     //========================================
-    // (C) collider フォールバック（必要になったら）
+    // (C) collider フォールバック
     //========================================
     GroundHit anyHit;
     if (phys->GetNearestGroundHitAtXZ(pos, anyHit))
@@ -159,23 +160,20 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     return false;
 }
 
+//------------------------------------------------------------------------------
+// Grid rebuild（あなたの元コードを忠実に維持）
+//------------------------------------------------------------------------------
 void GroundConformSpriteComponent::RebuildGridIfNeeded()
 {
     Actor* owner = GetOwner();
-    if (!owner)
-    {
-        return;
-    }
+    if (!owner) return;
+
     auto* app = owner->GetApp();
-    if (!app)
-    {
-        return;
-    }
+    if (!app) return;
+
     auto* renderer = app->GetRenderer();
-    if (!renderer)
-    {
-        return;
-    }
+    if (!renderer) return;
+
     // 条件が整ってないなら作らない
     if (mWidth <= 0.0f || mDepth <= 0.0f)
     {
@@ -196,7 +194,7 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         (mGridDiv != mPrevDiv);
 
     //========================================================
-    // NEW: GroundPose の変化でも再構築する（停止中の追従）
+    // GroundPose の変化でも再構築する（停止中の追従）
     //========================================================
     bool groundChanged = false;
     if (auto* grav = owner->GetComponent<GravityComponent>())
@@ -205,19 +203,15 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         {
             const auto& gp = grav->GetGroundPose();
 
-            // y変化（mBaseY は前回中心地面）
             if (std::fabs(gp.y - mBaseY) > 0.005f)
             {
                 groundChanged = true;
             }
 
-            // normal変化：前回 baseHit.normal を保持してないので、簡易に “傾き量” で判定
-            // （より厳密にしたいなら mPrevBaseNormal をメンバ追加）
+            // normal変化：簡易判定（厳密にするなら mPrevBaseNormal を保持）
             const float tilt = 1.0f - Vector3::Dot(gp.normal, Vector3::UnitY);
-            if (tilt > 0.0005f) // ほんの少しでも傾いていたら更新したい場合
+            if (tilt > 0.0005f)
             {
-                // 「傾いた状態が続く」だけで毎回更新になるのが嫌なら
-                // mPrevBaseNormal をメンバにして Dot で差分判定にしてね
                 groundChanged = true;
             }
         }
@@ -356,69 +350,66 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         static_cast<unsigned int>(numIdx)
     );
 }
+
 //------------------------------------------------------------------------------
-// Draw override（FootSpriteComponent の Draw を “VAOだけ差し替え”）
+// 新パス：RenderQueue に積む
 //------------------------------------------------------------------------------
-void GroundConformSpriteComponent::Draw()
+void GroundConformSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
 {
     if (!mIsVisible)
-    {
         return;
-    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer || !mShader)
-    {
         return;
-    }
 
-    // 毎フレーム呼ばれる PreDraw 内で必要なら再構築
+    // 必要なら再構築
     PreDraw();
 
     if (!mGridVAO)
-    {
         return;
-    }
-    
-    
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, mIsBlendAdd ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = mLayer;          // Effect3Dのまま
+    it.drawOrder = mDrawOrder;
 
-    mShader->SetActive();
+    // texture を確実に通すため Billboard 扱い
+    it.type      = RenderItemType::Billboard;
 
-    // ★ワールド頂点なので Identity
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uWorldTransform", Matrix4::Identity);
+    it.topology   = PrimitiveTopology::Triangles;
+    it.geometry.ptr = mGridVAO.get();               // ★このVAOを直接使う
+    it.indexCount = static_cast<int>(mGridVAO->GetNumIndices());
 
-    const bool useTex = (mTexture != nullptr);
-    if (useTex)
-    {
-        mTexture->SetActive(0);
-        mShader->SetTextureUniform("uTexture", 0);
-    }
+    it.shader = renderer->GetShaderHandle("Unlit");
 
-    // FootSprite互換（Unlit）
-    mShader->SetIntUniform("uUseTint", 1);
-    mShader->SetIntUniform("uUseTexture", useTex ? 1 : 0);
-    mShader->SetVectorUniform("uTint", mTint);
-    mShader->SetFloatUniform("uAlpha", mAlpha);
-    mShader->SetVectorUniform("uDiffuseColor", mDiffuseColor);
-    mGridVAO->SetActive();
+    // transforms：頂点がワールドなので world=Identity
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    it.viewProj = view * proj;
+    it.world    = Matrix4::Identity;
 
-    
-    glDrawElements(GL_TRIANGLES,
-                   static_cast<GLsizei>(mGridVAO->GetNumIndices()),
-                   GL_UNSIGNED_INT,
-                   nullptr);
+    // state：足元板の基本（元の用途に合わせる）
+    it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.cull       = CullMode::None;
+    it.frontFace  = FrontFace::CCW;
 
-    renderer->AddDrawCall();
-    renderer->AddDrawObject();
+    it.texture     = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
 
-    PostDraw();
+    queue.Push(it);
+}
 
+//------------------------------------------------------------------------------
+// 旧 Draw（互換のため残す）
+//  ※新パス運用では Renderer が GatherRenderItems を呼ぶ想定
+//------------------------------------------------------------------------------
+void GroundConformSpriteComponent::Draw()
+{
+    // 混在事故防止：旧即時描画は基本しない
+    // 必要ならデバッグ用にここを一時的に復活させる
 }
 
 } // namespace toy

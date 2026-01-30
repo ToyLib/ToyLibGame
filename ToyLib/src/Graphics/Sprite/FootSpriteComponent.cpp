@@ -4,16 +4,19 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Render/RenderItem.h"
 #include "Asset/Material/Texture.h"
 #include "Asset/Geometry/VertexArray.h"
 
 // ★ Ground pose を取るため（ある場合だけ使う）
 #include "Physics/GravityComponent.h"
 
-#include "glad/glad.h"
-
 namespace toy {
 
+//------------------------------------------------------------------------------
+// 地面法線に合わせる回転（Yaw込み）
+//------------------------------------------------------------------------------
 static Matrix4 BuildAlignToGround(const Vector3& groundNormal, float yawRad)
 {
     Vector3 up = groundNormal;
@@ -50,15 +53,20 @@ static Matrix4 BuildAlignToGround(const Vector3& groundNormal, float yawRad)
     return m;
 }
 
-
+//------------------------------------------------------------------------------
+// ctor
+//------------------------------------------------------------------------------
 FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLayer layer)
-    : VisualComponent(owner, drawOrder)
+    : VisualComponent(owner, drawOrder, layer)
 {
-    mLayer     = layer;
     mIsVisible = true;
 
     // Unlit（Phong互換uniform名がある前提）
-    mShader = owner->GetApp()->GetRenderer()->GetShader("Unlit");
+    // ※新パスでは shader handle に積むだけなので、ここで取っておく
+    if (auto* r = owner->GetApp()->GetRenderer())
+    {
+        mShader = r->GetShader("Unlit");
+    }
 }
 
 void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
@@ -66,6 +74,9 @@ void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
     mTexture = std::move(tex);
 }
 
+//------------------------------------------------------------------------------
+// World行列（元の実装と同等）
+//------------------------------------------------------------------------------
 Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 {
     Vector3 pos = GetOwner()->GetPosition();
@@ -84,6 +95,8 @@ Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 
     //========================================
     // (2) Yは groundY にスナップ
+    //   ※現状 GravityComponent に SmoothGroundPose API が無いので
+    //     HasGroundPose()/GetGroundPose() のみを使う
     //========================================
     if (mSnapToGround && grav && grav->HasGroundPose())
     {
@@ -124,75 +137,79 @@ Matrix4 FootSpriteComponent::BuildWorldMatrix() const
     return scale * rotLay * rot * trans;
 }
 
-void FootSpriteComponent::Draw()
+//------------------------------------------------------------------------------
+// 新パス：RenderQueue に積む
+//------------------------------------------------------------------------------
+void FootSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
 {
     if (!mIsVisible)
-    {
         return;
-    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer || !mShader)
-    {
         return;
-    }
 
     auto vao = renderer->GetSpriteVerts();
     if (!vao)
-    {
         return;
-    }
-
-    //--------------------------------------------------------------------------
-    // Blend
-    //--------------------------------------------------------------------------
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, mIsBlendAdd ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
 
     PreDraw();
 
-    //--------------------------------------------------------------------------
-    // Shader setup
-    //--------------------------------------------------------------------------
-    mShader->SetActive();
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = mLayer;          // Effect3D をそのまま通す
+    it.drawOrder = mDrawOrder;
 
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uWorldTransform", BuildWorldMatrix());
+    // 3D板ポリなので Billboard 扱い（メッシュ扱いでもOKだが texture/unlit を分けやすい）
+    it.type      = RenderItemType::Billboard;
 
-    //--------------------------------------------------------------------------
-    // Texture
-    //--------------------------------------------------------------------------
-    const bool useTex = (mTexture != nullptr);
-    if (useTex)
-    {
-        mTexture->SetActive(0);
-        mShader->SetTextureUniform("uTexture", 0);
-    }
+    // geometry
+    it.topology   = PrimitiveTopology::Triangles;
+    it.geometry   = renderer->GetSpriteQuadHandle(); // 既存共通quad
+    it.indexCount = 6;
 
-    //--------------------------------------------------------------------------
-    // Unlit uniforms
-    //
-    // 重要：uUseTint=1 を FootSprite 側で必ず入れる
-    //  - TextBillboard 等が同じ Unlit を使っても互換運用できるようにするため
-    //--------------------------------------------------------------------------
-    mShader->SetIntUniform("uUseTint", 1);
-    mShader->SetIntUniform("uUseTexture", useTex ? 1 : 0);
-    mShader->SetVectorUniform("uTint", mTint);
-    mShader->SetFloatUniform("uAlpha", mAlpha);
-    mShader->SetVectorUniform("uDiffuseColor", mDiffuseColor);
+    // shader
+    it.shader = renderer->GetShaderHandle("Unlit");
 
-    //--------------------------------------------------------------------------
-    // Draw
-    //--------------------------------------------------------------------------
-    vao->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    // transforms（row-vector 規約：view * proj）
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    it.viewProj = view * proj;
+    it.world    = BuildWorldMatrix();
 
-    renderer->AddDrawCall();
-    renderer->AddDrawObject();
+    // render state（元の用途＝足元影/リングを想定）
+    it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
+    it.depthTest  = true;
+    it.depthWrite = false;                 // ←足元板は基本 OFF（必要なら外から変更する設計でもOK）
+    it.cull       = CullMode::None;        // 両面見せるほうが安全
+    it.frontFace  = FrontFace::CCW;
+
+    // texture
+    it.texture     = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
+
+    // ※Unlit 側の tint/alpha 等を “RenderItem に持たせてない” 前提なので、
+    //   透明はテクスチャのαを使う運用（元の挙動を壊さない最小移行）
+    //   どうしても tint/alpha を使いたい場合は RenderItem 拡張 or Material 化で後で対応。
+
+    queue.Push(it);
 
     PostDraw();
+}
+
+//------------------------------------------------------------------------------
+// 旧パス互換（当面は GatherRenderItems が主）
+//------------------------------------------------------------------------------
+void FootSpriteComponent::Draw()
+{
+    // 新パス運用中は基本ここは呼ばれない想定。
+    // デバッグで単体描画したい場合だけ残す。
+    RenderQueue tmp;
+    GatherRenderItems(tmp);
+
+    // ここで直接 Draw する旧動作に戻すのは混在事故の元なので、
+    // “何もしない” にしておく（呼び出し側が新パスを使う前提）。
+    // 必要なら一時的に Renderer 側の即時描画関数を用意して対応する。
 }
 
 } // namespace toy

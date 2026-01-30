@@ -32,8 +32,11 @@ public:
 
 protected:
     void PreDraw() override;
-    void Draw() override;
-    Matrix4 BuildWorldMatrix() const override;
+    void Draw() override;                      // 旧パス互換：基本は呼ばれないが残す
+    Matrix4 BuildWorldMatrix() const override; // GroundConformはIdentity
+
+    // 新パス
+    void GatherRenderItems(class RenderQueueLike& queue) override;
 
 private:
     void RebuildGridIfNeeded();
@@ -57,7 +60,7 @@ private:
     int     mPrevDiv   { -1 };
 
     // 地面沿いメッシュ（VAO）
-    std::shared_ptr<VertexArray> mGridVAO;
+    std::shared_ptr<class VertexArray> mGridVAO;
 };
 
 } // namespace toy
