@@ -275,7 +275,7 @@ void SpriteComponent::GatherRenderItems(RenderQueueLike& out)
     it.blend     = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
     it.depthTest  = false;
     it.depthWrite = false;
-    it.pass      = RenderPass::Main;       // UIだけならUIパスにしてもOK
+    it.pass      = RenderPass::World;       // UIだけならUIパスにしてもOK
     it.layer     = GetLayer();             // UI/Overlayなど
     it.drawOrder = GetDrawOrder();
 

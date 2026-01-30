@@ -196,6 +196,7 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 //------------------------------------------------------------
 void MeshComponent::DrawShadow(int cascadeIndex)
 {
+    return;
     if (!mMesh) return;
 
     auto renderer = GetOwner()->GetApp()->GetRenderer();
@@ -250,7 +251,7 @@ void MeshComponent::GatherRenderItems(RenderQueueLike& out)
 
         RenderItem it;
         it.type      = RenderItemType::Mesh;
-        it.pass      = RenderPass::Main;
+        it.pass      = RenderPass::World;
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();
 
@@ -280,6 +281,63 @@ void MeshComponent::GatherRenderItems(RenderQueueLike& out)
         // material
         auto mat = mMesh->GetMaterial(v->GetTextureID());
         it.material = renderer->ToHandle(mat);
+
+        out.Push(it);
+    }
+}
+
+void MeshComponent::GatherShadowItems(RenderQueueLike& out)
+{
+    if (!mMesh || !mShadowShader)
+        return;
+
+    // Shadow 出したくない個別フラグがあるならここで弾く
+    // if (!GetEnableShadow()) return;
+
+    auto* owner = GetOwner();
+    if (!owner) return;
+
+    auto* renderer = owner->GetApp()->GetRenderer();
+    if (!renderer) return;
+
+    // ★注意：カスケードは RenderShadowMap() 側で変えるので、
+    // ここでは「いまのライト行列」を入れる方式にしておく（過渡期）
+    // ＝後で RenderShadowMap で it.lightVP を上書きしてもOK
+    const Matrix4 lightVP = renderer->GetLightSpaceMatrix(0);
+
+    // world（あなたの MeshComponent の作りに合わせて）
+    Matrix4 world =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        owner->GetRenderWorldTransform();
+
+    // Mesh は submesh(=VertexArray) が複数あるので「1 VA ごと」に積む
+    auto& vaList = mMesh->GetVertexArray();
+    for (auto& va : vaList)
+    {
+        if (!va) continue;
+
+        RenderItem it{};
+        it.type      = RenderItemType::Mesh;          // ★Shadow専用タイプにしたいなら後で追加でもOK
+        it.layer     = VisualLayer::Object3D;         // 影は layer 無視でもOK（とりあえず入れる）
+        it.shader    = renderer->GetShaderHandle("ShadowMesh"); // ←既存名に合わせて
+        // もし mShadowShader を使うなら：
+        // it.shader.ptr = mShadowShader.get();
+
+        it.geometry.ptr = va.get();
+        it.indexCount   = (int)va->GetNumIndices();
+
+        it.viewProj = lightVP;     // Shadow.vert が uLightSpaceMatrix 使うならここは使わない
+        it.world    = world;
+        it.lightVP  = lightVP;     // RenderItem に lightVP があるならこっち推奨
+
+        // state（Shadow は深度のみ）
+        it.depthTest  = true;
+        it.depthWrite = true;
+        it.blend      = BlendMode::Opaque;
+        it.cull       = CullMode::Back;      // 影のピーターパン抑制で Front にする流派もある
+        it.frontFace  = FrontFace::CCW;
 
         out.Push(it);
     }

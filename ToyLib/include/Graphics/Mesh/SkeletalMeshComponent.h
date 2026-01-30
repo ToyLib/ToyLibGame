@@ -37,6 +37,7 @@ public:
     void DrawShadow(int cascadeIndex) override;
     
     void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherShadowItems(RenderQueueLike& out) override;
     
     //--------------------------------------------------------
     // Update

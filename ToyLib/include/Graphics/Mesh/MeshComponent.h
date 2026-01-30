@@ -36,6 +36,7 @@ public:
     virtual void Draw() override;
     
     void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherShadowItems(RenderQueueLike& out) override;
     
     //--------------------------------------------------------
     // DrawShadow()

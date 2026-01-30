@@ -403,9 +403,10 @@ private:
     
     
     // OpenGL 切り離し準備
-    void DrawRenderQueue(const RenderQueue& items);
+    void DrawRenderQueue_World(const RenderQueue& items);
+    void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
     void ApplyState_GL(const RenderItem& it);
-    void DrawItem_GL(const RenderItem& it);
+    void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
     void DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex);
 };
 

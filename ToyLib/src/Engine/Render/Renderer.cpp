@@ -319,7 +319,7 @@ void Renderer::DrawUIPass_Only()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    DrawRenderQueue(queue);
+    DrawRenderQueue_World(queue);
 
     // ※ここで戻すかは好みだけど、旧パスが残る間は戻す方が事故が減る
     glEnable(GL_DEPTH_TEST);
@@ -356,7 +356,7 @@ void Renderer::DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex)
 
     
     
-    DrawRenderQueue(queue);
+    DrawRenderQueue_World(queue);
 
     // 以降のレイヤーに影響しないよう “戻す” は今の混在期なら入れてOK
     glEnable(GL_DEPTH_TEST);
@@ -976,7 +976,15 @@ void Renderer::RenderShadowMap()
     GLint prevVP[4];
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
     glGetIntegerv(GL_VIEWPORT, prevVP);
+
+    // Shadow pass の期待状態
+    glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     // ベースとなる中心とライト方向は共通
     Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
@@ -992,8 +1000,8 @@ void Renderer::RenderShadowMap()
     // Near / Far 用の ortho サイズ（まずは固定でOK）
     const float orthoW[kShadowCascadeCount] =
     {
-        mShadowOrthoWidth,          // Near（既存値）
-        mShadowOrthoWidth * 4.0f    // Far（とりあえず広げる。後で調整）
+        mShadowOrthoWidth,
+        mShadowOrthoWidth * 4.0f
     };
     const float orthoH[kShadowCascadeCount] =
     {
@@ -1022,13 +1030,16 @@ void Renderer::RenderShadowMap()
         // --- フラスタム作ってカリング ---
         Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
 
-        for (auto& visual : mVisualComps)
+        // --- Shadow 専用 RenderQueue を構築 ---
+        RenderQueue queue;
+
+        for (auto* vc : mVisualComps)
         {
-            if (!visual->GetEnableShadow() || !visual->IsVisible())
+            if (!vc || !vc->GetEnableShadow() || !vc->IsVisible())
                 continue;
 
-            // 影パスでも BoundingVolume があればカリング（既存のまま）
-            Actor* owner = visual->GetOwner();
+            // 影パスでも BoundingVolume があればカリング
+            Actor* owner = vc->GetOwner();
             if (owner)
             {
                 auto bv = owner->GetComponent<BoundingVolumeComponent>();
@@ -1040,15 +1051,20 @@ void Renderer::RenderShadowMap()
                 }
             }
 
-            visual->DrawShadow(i);
+            // ★旧：vc->DrawShadow(i);
+            // ★新：Shadow用アイテムを積む
+            vc->GatherShadowItems(queue);//, i, lightVP);
         }
+
+        // ★影パス描画（RenderItemを回す）
+        DrawRenderQueue_Shadow(queue, i);
     }
 
-    // 戻す
+    // 戻す（color mask 含めて確実に）
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
-
 
 //=============================================================
 // その他ユーティリティ

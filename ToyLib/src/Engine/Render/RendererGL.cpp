@@ -12,12 +12,18 @@
 namespace toy {
 
 
-void Renderer::DrawRenderQueue(const RenderQueue& queue)
+void Renderer::DrawRenderQueue_World(const RenderQueue& queue)
 {
     for (const auto& it : queue.Items())
     {
-        DrawItem_GL(it);
+        DrawItem_GL(it, RenderPass::World, 0);
     }
+}
+
+void Renderer::DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex)
+{
+    for (const auto& it : queue.Items())
+        DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
 }
 
 void Renderer::ApplyState_GL(const RenderItem& it)
@@ -61,26 +67,51 @@ void Renderer::ApplyState_GL(const RenderItem& it)
 
 
 
-void Renderer::DrawItem_GL(const RenderItem& it)
+void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex /*Shadowの時だけ使う*/)
 {
     if (!it.geometry.ptr || it.indexCount <= 0)
         return;
 
-    ApplyState_GL(it);
+    //===========================
+    // 0) State
+    //===========================
+    ApplyState_GL(it); // it.depthTest/blend/cull/frontFace 等で統一
 
+    //===========================
+    // 1) Shader
+    //===========================
     if (!it.shader.ptr)
         return;
 
     it.shader.ptr->SetActive();
 
-    // matrices
-    it.shader.ptr->SetMatrixUniform("uViewProj", it.viewProj);
-    it.shader.ptr->SetMatrixUniform("uWorldTransform", it.world);
+    //===========================
+    // 2) 共通 Uniform（World / Shadow で違う）
+    //===========================
+    if (pass == RenderPass::World || pass == RenderPass::UI)
+    {
+        // World/UI: viewProj + worldTransform
+        it.shader.ptr->SetMatrixUniform("uViewProj", it.viewProj);
+        it.shader.ptr->SetMatrixUniform("uWorldTransform", it.world);
+    }
+    else if (pass == RenderPass::Shadow)
+    {
+        // Shadow: worldTransform + lightSpaceMatrix
+        it.shader.ptr->SetMatrixUniform("uWorldTransform", it.world);
+        it.shader.ptr->SetMatrixUniform("uLightSpaceMatrix", GetLightSpaceMatrix(cascadeIndex));
+    }
 
+    //===========================
+    // 3) Type別（ここが本体）
+    //===========================
     switch (it.type)
     {
         case RenderItemType::Sprite:
         {
+            // UI/Overlay用（Shadowでは描かない前提）
+            if (pass == RenderPass::Shadow)
+                return;
+
             it.shader.ptr->SetVectorUniform("uSpriteColor", it.color);
             it.shader.ptr->SetFloatUniform("uSpriteAlpha", it.alpha);
 
@@ -88,100 +119,125 @@ void Renderer::DrawItem_GL(const RenderItem& it)
             {
                 it.texture.ptr->SetActive(it.textureUnit);
                 it.shader.ptr->SetTextureUniform("uTexture", it.textureUnit);
+
+                // Phong/Sprite側に uUseTexture があるならここで
+                it.shader.ptr->SetBooleanUniform("uUseTexture", true);
+            }
+            else
+            {
+                // uUseTexture を参照してるなら false 必須（これが抜けると真っ黒/未定義になりがち）
+                it.shader.ptr->SetBooleanUniform("uUseTexture", false);
             }
             break;
         }
+
         case RenderItemType::Mesh:
         {
-            // lighting
-            if (mLightingManager)
+            if (pass == RenderPass::World)
             {
-                Matrix4 view = GetViewMatrix();
-                mLightingManager->ApplyToShader(it.shader.ptr, view);
+                // lighting
+                if (mLightingManager)
+                {
+                    Matrix4 view = GetViewMatrix();
+                    mLightingManager->ApplyToShader(it.shader.ptr, view);
+                }
+
+                // shadow（Phong系が参照してるなら必須）
+                {
+                    auto sm0 = GetShadowMapTexture(0);
+                    auto sm1 = GetShadowMapTexture(1);
+                    if (sm0) sm0->SetActive(6);
+                    if (sm1) sm1->SetActive(7);
+
+                    it.shader.ptr->SetTextureUniform("uShadowMap0", 6);
+                    it.shader.ptr->SetTextureUniform("uShadowMap1", 7);
+
+                    it.shader.ptr->SetMatrixUniform("uLightViewProj0", GetLightSpaceMatrix(0));
+                    it.shader.ptr->SetMatrixUniform("uLightViewProj1", GetLightSpaceMatrix(1));
+
+                    it.shader.ptr->SetFloatUniform("uCascadeSplit0", GetCascadeSplit0());
+                    it.shader.ptr->SetFloatUniform("uCascadeBlend",  GetCascadeBlend());
+                    it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
+                }
+
+                it.shader.ptr->SetBooleanUniform("uUseToon", false);
+
+                if (it.material.ptr)
+                    it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
-
-            // ★ shadow (Phong系が参照してるなら必須)
+            else if (pass == RenderPass::Shadow)
             {
-                auto sm0 = GetShadowMapTexture(0);
-                auto sm1 = GetShadowMapTexture(1);
-
-                if (sm0) sm0->SetActive(6);
-                if (sm1) sm1->SetActive(7);
-
-                it.shader.ptr->SetTextureUniform("uShadowMap0", 6);
-                it.shader.ptr->SetTextureUniform("uShadowMap1", 7);
-
-                it.shader.ptr->SetMatrixUniform("uLightViewProj0", GetLightSpaceMatrix(0));
-                it.shader.ptr->SetMatrixUniform("uLightViewProj1", GetLightSpaceMatrix(1));
-
-                it.shader.ptr->SetFloatUniform("uCascadeSplit0", GetCascadeSplit0());
-                it.shader.ptr->SetFloatUniform("uCascadeBlend",  GetCascadeBlend());
-                it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
-            }
-
-            it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
-
-            if (it.material.ptr)
-            {
-                it.material.ptr->BindToShader(it.shader.ptr, 0);
+                // Shadowでは material/lighting 不要（深度だけ）
+                // ※ここで何もしないのが基本
             }
             break;
         }
+
         case RenderItemType::SkinnedMesh:
         {
-            if (mLightingManager)
+            if (pass == RenderPass::World)
             {
-                Matrix4 view = GetViewMatrix();
-                mLightingManager->ApplyToShader(it.shader.ptr, view);
+                // lighting
+                if (mLightingManager)
+                {
+                    Matrix4 view = GetViewMatrix();
+                    mLightingManager->ApplyToShader(it.shader.ptr, view);
+                }
+
+                // shadow（Phong系を使うなら通常メッシュ同様に必要）
+                {
+                    auto sm0 = GetShadowMapTexture(0);
+                    auto sm1 = GetShadowMapTexture(1);
+                    if (sm0) sm0->SetActive(6);
+                    if (sm1) sm1->SetActive(7);
+
+                    it.shader.ptr->SetTextureUniform("uShadowMap0", 6);
+                    it.shader.ptr->SetTextureUniform("uShadowMap1", 7);
+
+                    it.shader.ptr->SetMatrixUniform("uLightViewProj0", GetLightSpaceMatrix(0));
+                    it.shader.ptr->SetMatrixUniform("uLightViewProj1", GetLightSpaceMatrix(1));
+
+                    it.shader.ptr->SetFloatUniform("uCascadeSplit0", GetCascadeSplit0());
+                    it.shader.ptr->SetFloatUniform("uCascadeBlend",  GetCascadeBlend());
+                    it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
+                }
+
+                it.shader.ptr->SetBooleanUniform("uUseToon", false);
+
+                if (it.material.ptr)
+                    it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
-            
-            // ★ shadow (Phong系が参照してるなら必須)
-            {
-                auto sm0 = GetShadowMapTexture(0);
-                auto sm1 = GetShadowMapTexture(1);
 
-                if (sm0) sm0->SetActive(6);
-                if (sm1) sm1->SetActive(7);
-
-                it.shader.ptr->SetTextureUniform("uShadowMap0", 6);
-                it.shader.ptr->SetTextureUniform("uShadowMap1", 7);
-
-                it.shader.ptr->SetMatrixUniform("uLightViewProj0", GetLightSpaceMatrix(0));
-                it.shader.ptr->SetMatrixUniform("uLightViewProj1", GetLightSpaceMatrix(1));
-
-                it.shader.ptr->SetFloatUniform("uCascadeSplit0", GetCascadeSplit0());
-                it.shader.ptr->SetFloatUniform("uCascadeBlend",  GetCascadeBlend());
-                it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
-            }
-
-            it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
-
-            if (it.material.ptr)
-                it.material.ptr->BindToShader(it.shader.ptr, 0);
-
-            // ★ここが本体
+            // ★Skinned本体：palette（WorldでもShadowでも必要）
             if (it.matrixPalette && it.paletteCount > 0)
             {
                 it.shader.ptr->SetMatrixUniforms(
                     "uMatrixPalette",
                     it.matrixPalette,
-                    (unsigned int)it.paletteCount
+                    static_cast<unsigned int>(it.paletteCount)
                 );
             }
             break;
         }
+
         case RenderItemType::Debug:
-            return;
+            // 既存のデバッグ描画に合わせて適宜
+            if (pass == RenderPass::Shadow)
+                return;
+            break;
     }
 
-    // VAO bind
+    //===========================
+    // 4) Draw
+    //===========================
     it.geometry.ptr->SetActive();
-
-    glDrawElements(GL_TRIANGLES, (GLsizei)it.indexCount, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     AddDrawCall();
     AddDrawObject();
 }
+
+
 GeometryHandle Renderer::GetSpriteQuadHandle() const
 {
     GeometryHandle h;

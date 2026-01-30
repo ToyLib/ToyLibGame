@@ -18,7 +18,7 @@ enum class RenderItemType {
 struct RenderItem
 {
     // sort key
-    RenderPass  pass      = RenderPass::Main;
+    RenderPass  pass      = RenderPass::World;
     VisualLayer layer     = VisualLayer::Object3D;
     int         drawOrder = 0;
 
@@ -44,7 +44,9 @@ struct RenderItem
     // transforms
     Matrix4 world   { Matrix4::Identity };
     Matrix4 viewProj{ Matrix4::Identity };
-
+    
+    Matrix4 lightVP { Matrix4::Identity };
+    
     // texture / material
     TextureHandle  texture {};
     int            textureUnit = 0;
@@ -58,7 +60,7 @@ struct RenderItem
     // ★Skinned 用（nullptrなら非スキン）
     // ---- Skinned only ----
     const Matrix4* matrixPalette {};
-    int paletteCount { 0 }; // <= MAX_SKELETON_BONES
+    size_t paletteCount { 0 }; // <= MAX_SKELETON_BONES
 
 
     

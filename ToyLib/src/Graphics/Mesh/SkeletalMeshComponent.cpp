@@ -314,4 +314,60 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike& out)
         out.Push(it); // queue の API に合わせて
     }
 }
+void SkeletalMeshComponent::GatherShadowItems(RenderQueueLike& out)
+{
+    if (!mMesh || !mShadowShader || !mAnimPlayer)
+        return;
+
+    auto* owner = GetOwner();
+    if (!owner) return;
+
+    auto* renderer = owner->GetApp()->GetRenderer();
+    if (!renderer) return;
+
+    const Matrix4 lightVP = renderer->GetLightSpaceMatrix(0);
+
+    Matrix4 world =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        owner->GetRenderWorldTransform();
+
+    const auto& mats = mAnimPlayer->GetFinalMatrices();
+    if (mats.empty())
+        return;
+
+    auto& vaList = mMesh->GetVertexArray();
+    for (auto& va : vaList)
+    {
+        if (!va) continue;
+
+        RenderItem it{};
+        it.type        = RenderItemType::SkinnedMesh;
+        it.layer       = VisualLayer::Object3D;
+
+        // shadow-skinned shader（名前は既存に合わせて）
+        //it.shader.ptr  = mShadowShader.get();
+        it.shader = renderer->GetShaderHandle("ShadowSkinned");
+
+        it.geometry.ptr = va.get();
+        it.indexCount   = (int)va->GetNumIndices();
+
+        it.world   = world;
+        it.lightVP = lightVP;
+
+        // ★ここが本体
+        it.matrixPalette = mats.data();
+        it.paletteCount  = mats.size();
+
+        // Shadow state
+        it.depthTest  = true;
+        it.depthWrite = true;
+        it.blend      = BlendMode::Opaque;
+        it.cull       = CullMode::Back;
+        it.frontFace  = FrontFace::CCW;
+
+        out.Push(it);
+    }
+}
 } // namespace toy

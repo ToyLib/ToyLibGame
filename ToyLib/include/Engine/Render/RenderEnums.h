@@ -5,7 +5,7 @@ namespace toy {
 
 enum class RenderPass
 {
-    Main,
+    World,
     UI,
     Shadow,
     Debug,
