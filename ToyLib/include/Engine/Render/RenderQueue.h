@@ -22,6 +22,8 @@ public:
     std::vector<RenderItem>&       Items()       { return mItems; }
 
     void Clear() { mItems.clear(); }
+    
+    void Sort();
 
 private:
     std::vector<RenderItem> mItems;

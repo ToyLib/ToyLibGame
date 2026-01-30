@@ -29,10 +29,6 @@ public:
 
     virtual ~MeshComponent() = default;
 
-    // 旧描画パスは廃止（過渡期の呼び出しが残っても落ちないように空実装）
-    void Draw() override;
-    void DrawShadow(int cascadeIndex) override;
-
     // 新描画パス
     virtual void GatherRenderItems(RenderQueueLike& out) override;
     virtual void GatherShadowItems(RenderQueueLike& out) override;

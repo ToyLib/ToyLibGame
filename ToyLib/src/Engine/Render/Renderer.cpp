@@ -217,6 +217,129 @@ void Renderer::Shutdown()
 void Renderer::Draw()
 {
     ResetDebugCounter();
+    //=========================================================
+    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
+    //=========================================================
+    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glClearDepth(1.0);
+
+    glDisable(GL_STENCIL_TEST);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW); // 規約に合わせる（必要ならCW）
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    //=========================================================
+    // 1) SHADOW : ShadowMap を作る（CSM）
+    //=========================================================
+    // ここで RenderShadowMap() が
+    //  - FBO/viewport退避→shadowFBOに切替
+    //  - glColorMask(false) 等
+    //  - DrawRenderQueue_Shadow(queue, cascadeIndex)
+    //  - 退避を復帰
+    // をやる前提
+    RenderShadowMap();
+
+    // ★念のため World パス用の state を “必ず” 再設定（重要）
+    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    //=========================================================
+    // 2) WORLD（3D）：Mesh / SkinnedMesh を RenderQueue で描画
+    //=========================================================
+    {
+        RenderQueue worldQueue;
+
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+
+            // まずは Object3D だけ（必要なら Effect3D も追加）
+            if (vc->GetLayer() != VisualLayer::Object3D)
+                continue;
+
+            vc->GatherRenderItems(worldQueue);
+        }
+
+        // WORLD の入口 state（明示）
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        worldQueue.Sort();
+        DrawRenderQueue_World(worldQueue);
+    }
+
+    //=========================================================
+    // 3) UI：Sprite を RenderQueue で描画（深度OFF）
+    //=========================================================
+    {
+        RenderQueue uiQueue;
+
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+
+            if (vc->GetLayer() != VisualLayer::UI)
+                continue;
+
+            vc->GatherRenderItems(uiQueue);
+        }
+
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_CULL_FACE);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        DrawRenderQueue_World(uiQueue);
+
+        // 戻す（混在期の保険）
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
+
+    //=========================================================
+    // 4) Present
+    //=========================================================
+    SDL_GL_SwapWindow(mWindow);
+}
+/*
+void Renderer::Draw()
+{
+    ResetDebugCounter();
 
     ChangeDebugRTT();
     FlushSceneCaptures();
@@ -266,6 +389,7 @@ void Renderer::Draw()
 
     SDL_GL_SwapWindow(mWindow);
 }
+ */
 
 void Renderer::DrawWorldPass_NoUI()
 {

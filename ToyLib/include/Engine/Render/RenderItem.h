@@ -12,6 +12,7 @@ enum class RenderItemType {
     Sprite,
     Mesh,
     SkinnedMesh,
+    Billboard,
     Debug
 };
 

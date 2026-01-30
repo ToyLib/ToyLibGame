@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Graphics/VisualComponent.h"
-#include <memory>
 
 namespace toy {
 
@@ -9,30 +8,34 @@ namespace toy {
 // BillboardComponent
 //
 // ・3D空間に配置される看板型スプライト
-// ・常にカメラの方向を向く（カメラ正面に正対する）描画を行う
-// ・木、エフェクト、看板、キャラの簡易LOD などに使用
+// ・常にカメラ方向を向く（Y軸のみ回転）
+// ・木、簡易LOD、エフェクトなど
 //
-// VisualComponent を継承しているため、Renderer が管理する通常の
-// Drawパイプラインで描画される。
+// ※新レンダーパス用：Draw() は基本使わず GatherRenderItems に積む
 //======================================================================
 class BillboardComponent : public VisualComponent
 {
 public:
-    // drawOrder で描画順を指定（通常 Object3D レイヤー）
-    BillboardComponent(class Actor* a, int drawOrder);
-    ~BillboardComponent();
-    
-    // Billboard の描画処理
-    // カメラ方向に回転した板ポリを描画する
-    void Draw() override;
-    
-    // サイズ変更
-    void SetScale(float scale) { mScale = scale; }
+    BillboardComponent(class Actor* a,
+                       int drawOrder = 200,
+                       VisualLayer layer = VisualLayer::Object3D);
+
+    // 旧パス互換（混在期間用）: 基本は何もしない
+    void Draw() override {}
+
+    // 新パス
+    void GatherRenderItems(RenderQueueLike& out) override;
+
+    void SetScale(float s) { mScale = s; }
     float GetScale() const { return mScale; }
-    
+
+    // Y軸だけ向ける（木など）: true 推奨
+    void SetYawOnly(bool v) { mYawOnly = v; }
+    bool GetYawOnly() const { return mYawOnly; }
+
 private:
-    // スプライトのスケール（Texture のサイズに掛ける倍率）
     float mScale { 1.0f };
+    bool  mYawOnly { true };
 };
 
 } // namespace toy

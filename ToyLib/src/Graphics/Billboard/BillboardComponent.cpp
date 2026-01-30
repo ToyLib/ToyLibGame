@@ -1,64 +1,46 @@
 #include "Graphics/Billboard/BillboardComponent.h"
+
 #include "Asset/Material/Texture.h"
-#include "Engine/Render/Shader.h"
-#include "Engine/Render/LightingManager.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
+#include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
-#include "glad/glad.h"
+
+#include <cmath>
 
 namespace toy {
 
-BillboardComponent::BillboardComponent(class Actor* a, int drawOrder)
-: VisualComponent(a, drawOrder, VisualLayer::Effect3D)
+BillboardComponent::BillboardComponent(Actor* a, int drawOrder, VisualLayer layer)
+    : VisualComponent(a, drawOrder, layer)
 {
-    // メッシュ用シェーダーを流用（板ポリをメッシュ扱いで描画）
-    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Mesh");
+    // Shader / Geometry は Renderer 側で選ぶのでここでは持たない（新パス）
 }
 
-BillboardComponent::~BillboardComponent()
+//----------------------------------------------------------------------
+// GatherRenderItems
+//  - Billboard を RenderQueue に積む（新パス）
+//----------------------------------------------------------------------
+void BillboardComponent::GatherRenderItems(RenderQueueLike& out)
 {
-}
-
-void BillboardComponent::Draw()
-{
-    // 非表示 or テクスチャ未設定ならスキップ
-    if (!mIsVisible || !mTexture)
-    {
-        return;
-    }
-
-    // 加算ブレンド指定時だけブレンドモードを一時変更
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_ONE, GL_ONE);
-    }
+    if (!mIsVisible || !mTexture) return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer) return;
 
     // カメラ行列
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
 
-    // ============================
-    // カメラ方向を向く回転を計算
-    // ============================
+    // Actor ワールド位置（元コードに合わせる）
+    const Matrix4 actorWorld = GetOwner()->GetWorldTransform();
+    const Vector3 pos = actorWorld.GetTranslation();
 
-    // ★ ここをローカル位置 → ワールド位置に変更
-    // Vector3 pos = GetOwner()->GetPosition();
-    Matrix4 actorWorld = GetOwner()->GetWorldTransform();
-    Vector3 pos = actorWorld.GetTranslation();
+    // カメラ位置（invView から）
+    const Vector3 cameraPos = renderer->GetInvViewMatrix().GetTranslation();
 
-    // ビュー行列の逆行列からカメラ位置を取得
-    Matrix4 invView = renderer->GetInvViewMatrix();
-    Vector3 cameraPos = invView.GetTranslation();
-
-    // カメラ → ビルボードへの水平ベクトル
+    // 水平 billboard（元コード通り）
     Vector3 toCamera = pos - cameraPos;
-    toCamera.y = 0.0f;      // Yは固定してXZ平面上だけで回転
+    toCamera.y = 0.0f;
 
-    // ゼロ長近辺を回避（カメラとほぼ同じXZ位置の場合）
     if (toCamera.LengthSq() < 1.0e-6f)
     {
         toCamera = Vector3::UnitZ;
@@ -68,67 +50,53 @@ void BillboardComponent::Draw()
         toCamera.Normalize();
     }
 
-    // Y軸回転角（atan2(x, z) で方位角取得）
-    float angle = atan2f(toCamera.x, toCamera.z);
-    Matrix4 rotY = Matrix4::CreateRotationY(angle);
+    const float angle = std::atan2f(toCamera.x, toCamera.z);
+    const Matrix4 rotY = Matrix4::CreateRotationY(angle);
 
-    // ============================
-    // スケール・平行移動行列
-    // ============================
-    float scale = mScale * GetOwner()->GetScale();
+    // スケール（元コード：mScale * ownerScale、かつ texture size を掛ける）
+    const float scale = mScale * GetOwner()->GetScale();
 
-    Matrix4 scaleMat = Matrix4::CreateScale(
+    const Matrix4 scaleMat = Matrix4::CreateScale(
         mTexture->GetWidth()  * scale,
         mTexture->GetHeight() * scale,
         1.0f
     );
 
-    Matrix4 translate = Matrix4::CreateTranslation(pos);
-    
-    // アクターに反映
-    Quaternion q = Quaternion(Vector3::UnitY, angle);
-    GetOwner()->SetRotation(q);
-    
-    
-    // ============================
-    // シェーダー設定
-    // ============================
-    mShader->SetActive();
+    const Matrix4 translate = Matrix4::CreateTranslation(pos);
 
-    // ライティング情報を設定（環境光やディレクショナルライトなど）
-    if (mLightingManager)
+    // ★元コードの world 掛け順を維持
+    const Matrix4 world = scaleMat * rotY * translate;
+
+    // （元コードにあった副作用：Owner 回転反映）
+    // これが必要なら残す（挙動合わせ優先なら残してOK）
     {
-        mLightingManager->ApplyToShader(mShader, view);
+        Quaternion q = Quaternion(Vector3::UnitY, angle);
+        GetOwner()->SetRotation(q);
     }
 
-    // ★ 行列の掛け順は「元のまま」維持
-    Matrix4 world = scaleMat * rotY * translate;
-    mShader->SetMatrixUniform("uWorldTransform", world);
+    RenderItem it{};
+    it.type = RenderItemType::Billboard;                 // 「Meshとして出す」を維持
+    it.shader = renderer->GetShaderHandle("Mesh");  // Phong
+    it.viewProj = view * proj;
+    it.world    = world;
 
-    // ビュー・プロジェクション行列
-    mShader->SetMatrixUniform("uViewProj", view * proj);
+    // ★Rendererの共通Quadを使う（設計維持）
+    it.geometry = renderer->GetSpriteQuadHandle();  // すでにある想定
+    it.indexCount = 6;
 
-    // テクスチャ
-    mTexture->SetActive(0);
-    mShader->SetIntUniform("uUseTexture", 1);
-    mShader->SetTextureUniform("uTexture", 0);
+    // ★Materialが無いなら texture を直接渡す（最小変更）
+    it.texture = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
 
-    // ============================
-    // 描画
-    // ============================
-    if (mVertexArray)
-    {
-        mVertexArray->SetActive();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-        renderer->AddDrawCall();
-    }
+    // state（元 Draw の想定に近い）
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
 
-    // 加算ブレンドを使った場合は元に戻しておく
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-    renderer->AddDrawObject();
+    // 板ポリは片面カリングで消えやすいので、元挙動に近い“見える”を優先
+    it.cull      = CullMode::Front;
+    it.frontFace = FrontFace::CW;
+
+    out.Push(it);
 }
-
 } // namespace toy

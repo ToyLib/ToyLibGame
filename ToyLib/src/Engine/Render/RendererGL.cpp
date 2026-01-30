@@ -26,6 +26,7 @@ void Renderer::DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex
         DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
 }
 
+
 void Renderer::ApplyState_GL(const RenderItem& it)
 {
     // depth
@@ -219,7 +220,29 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
             }
             break;
         }
+        case RenderItemType::Billboard:
+        {
+            if (pass == RenderPass::Shadow)
+                return; // 影が欲しくなったら後で追加（まずは表示優先）
 
+            // Unlit 想定：uUseTexture / uTexture が必要
+            if (it.texture.ptr)
+            {
+                it.texture.ptr->SetActive(it.textureUnit);
+                it.shader.ptr->SetTextureUniform("uTexture", it.textureUnit);
+                it.shader.ptr->SetBooleanUniform("uUseTexture", true);
+            }
+            else
+            {
+                it.shader.ptr->SetBooleanUniform("uUseTexture", false);
+            }
+
+            // 任意：Unlit側に色/αがあるなら渡す
+            // it.shader.ptr->SetVectorUniform("uColor", it.color);
+            // it.shader.ptr->SetFloatUniform("uAlpha", it.alpha);
+
+            break;
+        }
         case RenderItemType::Debug:
             // 既存のデバッグ描画に合わせて適宜
             if (pass == RenderPass::Shadow)
