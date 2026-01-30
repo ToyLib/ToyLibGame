@@ -68,15 +68,24 @@ void Renderer::ApplyState_GL(const RenderItem& it)
 
 
 
-void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex /*Shadowの時だけ使う*/)
+void Renderer::DrawItem_GL(const RenderItem& it,
+                           RenderPass pass,
+                           int cascadeIndex /*Shadowの時だけ使う*/)
 {
-    if (!it.geometry.ptr || it.indexCount <= 0)
+    if (!it.geometry.ptr)
+        return;
+
+    const bool hasElements = (it.indexCount  > 0);
+    const bool hasArrays   = (it.vertexCount > 0);
+
+    // どっちも無いのは描けない
+    if (!hasElements && !hasArrays)
         return;
 
     //===========================
     // 0) State
     //===========================
-    ApplyState_GL(it); // it.depthTest/blend/cull/frontFace 等で統一
+    ApplyState_GL(it);
 
     //===========================
     // 1) Shader
@@ -91,42 +100,36 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
     //===========================
     if (pass == RenderPass::World || pass == RenderPass::UI)
     {
-        // World/UI: viewProj + worldTransform
-        it.shader.ptr->SetMatrixUniform("uViewProj", it.viewProj);
+        it.shader.ptr->SetMatrixUniform("uViewProj",       it.viewProj);
         it.shader.ptr->SetMatrixUniform("uWorldTransform", it.world);
     }
     else if (pass == RenderPass::Shadow)
     {
-        // Shadow: worldTransform + lightSpaceMatrix
-        it.shader.ptr->SetMatrixUniform("uWorldTransform", it.world);
+        it.shader.ptr->SetMatrixUniform("uWorldTransform",  it.world);
         it.shader.ptr->SetMatrixUniform("uLightSpaceMatrix", GetLightSpaceMatrix(cascadeIndex));
     }
 
     //===========================
-    // 3) Type別（ここが本体）
+    // 3) Type別
     //===========================
     switch (it.type)
     {
         case RenderItemType::Sprite:
         {
-            // UI/Overlay用（Shadowでは描かない前提）
             if (pass == RenderPass::Shadow)
                 return;
 
             it.shader.ptr->SetVectorUniform("uSpriteColor", it.color);
-            it.shader.ptr->SetFloatUniform("uSpriteAlpha", it.alpha);
+            it.shader.ptr->SetFloatUniform ("uSpriteAlpha", it.alpha);
 
             if (it.texture.ptr)
             {
                 it.texture.ptr->SetActive(it.textureUnit);
                 it.shader.ptr->SetTextureUniform("uTexture", it.textureUnit);
-
-                // Phong/Sprite側に uUseTexture があるならここで
                 it.shader.ptr->SetBooleanUniform("uUseTexture", true);
             }
             else
             {
-                // uUseTexture を参照してるなら false 必須（これが抜けると真っ黒/未定義になりがち）
                 it.shader.ptr->SetBooleanUniform("uUseTexture", false);
             }
             break;
@@ -136,7 +139,6 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
         {
             if (pass == RenderPass::World)
             {
-                // lighting
                 if (mLightingManager)
                 {
                     Matrix4 view = GetViewMatrix();
@@ -166,11 +168,7 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
                 if (it.material.ptr)
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
-            else if (pass == RenderPass::Shadow)
-            {
-                // Shadowでは material/lighting 不要（深度だけ）
-                // ※ここで何もしないのが基本
-            }
+            // Shadowでは material/lighting 不要
             break;
         }
 
@@ -178,14 +176,13 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
         {
             if (pass == RenderPass::World)
             {
-                // lighting
                 if (mLightingManager)
                 {
                     Matrix4 view = GetViewMatrix();
                     mLightingManager->ApplyToShader(it.shader.ptr, view);
                 }
 
-                // shadow（Phong系を使うなら通常メッシュ同様に必要）
+                // shadow
                 {
                     auto sm0 = GetShadowMapTexture(0);
                     auto sm1 = GetShadowMapTexture(1);
@@ -209,7 +206,7 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
 
-            // ★Skinned本体：palette（WorldでもShadowでも必要）
+            // palette（WorldでもShadowでも必要）
             if (it.matrixPalette && it.paletteCount > 0)
             {
                 it.shader.ptr->SetMatrixUniforms(
@@ -220,12 +217,12 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
             }
             break;
         }
+
         case RenderItemType::Billboard:
         {
             if (pass == RenderPass::Shadow)
-                return; // 影が欲しくなったら後で追加（まずは表示優先）
+                return;
 
-            // Unlit 想定：uUseTexture / uTexture が必要
             if (it.texture.ptr)
             {
                 it.texture.ptr->SetActive(it.textureUnit);
@@ -236,25 +233,49 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
             {
                 it.shader.ptr->SetBooleanUniform("uUseTexture", false);
             }
+            break;
+        }
 
-            // 任意：Unlit側に色/αがあるなら渡す
-            // it.shader.ptr->SetVectorUniform("uColor", it.color);
-            // it.shader.ptr->SetFloatUniform("uAlpha", it.alpha);
+        case RenderItemType::Debug:
+        {
+            if (pass == RenderPass::Shadow)
+                return;
+
+            // Solid系で色を使う前提（uSolColor がある想定）
+            // ※シェーダ側が違うならここは合わせてね
+            it.shader.ptr->SetVectorUniform("uSolColor", it.color);
+
+            // Light無効/有効をシェーダで切りたい場合は RenderItem にフラグを足すか
+            // ここは固定 false で運用でもOK
+            // it.shader.ptr->SetBooleanUniform("uUseLight", false);
 
             break;
         }
-        case RenderItemType::Debug:
-            // 既存のデバッグ描画に合わせて適宜
-            if (pass == RenderPass::Shadow)
-                return;
-            break;
     }
 
     //===========================
-    // 4) Draw
+    // 4) Draw  ★ここが今回の修正点
     //===========================
     it.geometry.ptr->SetActive();
-    glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
+
+    GLenum mode = GL_TRIANGLES;
+    switch (it.topology)
+    {
+        case PrimitiveTopology::Triangles: mode = GL_TRIANGLES; break;
+        case PrimitiveTopology::Lines:     mode = GL_LINES;     break;
+        default:                           mode = GL_TRIANGLES; break;
+    }
+
+    if (it.indexCount > 0)
+    {
+        // EBO 前提
+        glDrawElements(mode, it.indexCount, GL_UNSIGNED_INT, nullptr);
+    }
+    else
+    {
+        // ★EBO無し（Wireframe 等）
+        glDrawArrays(mode, 0, it.vertexCount);
+    }
 
     AddDrawCall();
     AddDrawObject();

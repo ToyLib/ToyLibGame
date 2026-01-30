@@ -62,6 +62,8 @@ struct RenderItem
     // ---- Skinned only ----
     const Matrix4* matrixPalette {};
     size_t paletteCount { 0 }; // <= MAX_SKELETON_BONES
+    
+    int               vertexCount = 0;
 
 
     

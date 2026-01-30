@@ -15,8 +15,8 @@ void GameApp::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
     mGameFlow->Init();
-    mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
-    //mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
+    //mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
+    mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
 }
 
 void GameApp::ProcessInput(const toy::InputState& input)

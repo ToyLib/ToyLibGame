@@ -217,8 +217,9 @@ void Renderer::Shutdown()
 void Renderer::Draw()
 {
     ResetDebugCounter();
+
     //=========================================================
-    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
+    // 0) Frame begin : GL state を強制初期化（混在期の事故防止）
     //=========================================================
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 
@@ -231,7 +232,7 @@ void Renderer::Draw()
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    glFrontFace(GL_CCW); // 規約に合わせる（必要ならCW）
+    glFrontFace(GL_CCW);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -239,17 +240,11 @@ void Renderer::Draw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     //=========================================================
-    // 1) SHADOW : ShadowMap を作る（CSM）
+    // 1) SHADOW : ShadowMap（CSM）
     //=========================================================
-    // ここで RenderShadowMap() が
-    //  - FBO/viewport退避→shadowFBOに切替
-    //  - glColorMask(false) 等
-    //  - DrawRenderQueue_Shadow(queue, cascadeIndex)
-    //  - 退避を復帰
-    // をやる前提
     RenderShadowMap();
 
-    // ★念のため World パス用の state を “必ず” 再設定（重要）
+    // ★ Shadow で壊れた可能性のある state を必ず復帰
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -265,7 +260,8 @@ void Renderer::Draw()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //=========================================================
-    // 2) WORLD（3D）：Mesh / SkinnedMesh を RenderQueue で描画
+    // 2) WORLD（Object3D）
+    //    Mesh / SkeletalMesh など「不透明3D」
     //=========================================================
     {
         RenderQueue worldQueue;
@@ -274,15 +270,13 @@ void Renderer::Draw()
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
-
-            // まずは Object3D だけ（必要なら Effect3D も追加）
             if (vc->GetLayer() != VisualLayer::Object3D)
                 continue;
 
             vc->GatherRenderItems(worldQueue);
         }
 
-        // WORLD の入口 state（明示）
+        // WORLD パスの入口 state（明示）
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
 
@@ -298,7 +292,44 @@ void Renderer::Draw()
     }
 
     //=========================================================
-    // 3) UI：Sprite を RenderQueue で描画（深度OFF）
+    // 2.5) EFFECT3D
+    //    Billboard / DebugWireframe / Effect 系
+    //    ・Z Test ON
+    //    ・Z Write OFF（旧挙動寄せ）
+    //=========================================================
+    {
+        RenderQueue effectQueue;
+
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+            if (vc->GetLayer() != VisualLayer::Effect3D)
+                continue;
+
+            vc->GatherRenderItems(effectQueue);
+        }
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE); // ★重要：透過・デバッグ系は Z 書かない
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        effectQueue.Sort();
+        DrawRenderQueue_World(effectQueue);
+
+        // 次のパスのために復帰
+        glDepthMask(GL_TRUE);
+    }
+
+    //=========================================================
+    // 3) UI
+    //    Sprite / Text / Overlay
     //=========================================================
     {
         RenderQueue uiQueue;
@@ -307,7 +338,6 @@ void Renderer::Draw()
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
-
             if (vc->GetLayer() != VisualLayer::UI)
                 continue;
 
@@ -321,9 +351,10 @@ void Renderer::Draw()
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        uiQueue.Sort();
         DrawRenderQueue_World(uiQueue);
 
-        // 戻す（混在期の保険）
+        // 混在期の保険：World に戻す
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
