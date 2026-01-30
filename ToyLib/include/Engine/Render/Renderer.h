@@ -82,7 +82,7 @@ public:
     // 初期化 / 終了
     //--------------------------------------------------------------------------
 
-    bool Initialize(SDL_Window* window);
+    bool Initialize(SDL_Window* window, SDL_GLContext glContext);
     void Shutdown();
 
     SDL_Window* GetSDLWindow() const { return mWindow; }

@@ -20,6 +20,7 @@ class AssetManager
 {
 public:
     AssetManager();
+    virtual ~AssetManager();
 
     //=========================================================
     // メッシュ（FBX/GLTF/OBJなど）取得

@@ -12,6 +12,10 @@ AssetManager::AssetManager()
 {
     
 }
+AssetManager::~AssetManager()
+{
+    UnloadData();
+}   
 
 void AssetManager::UnloadData()
 {

@@ -88,36 +88,16 @@ Renderer::~Renderer()
 // 初期化／終了処理
 //=============================================================
 
-bool Renderer::Initialize(SDL_Window* window)
+bool Renderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
 {
-    // SDLウィンドウを保持
-    mWindow = window;
 
-    //---------------------------------------------------------
-    // OpenGL コンテキスト属性設定
-    //---------------------------------------------------------
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    mWindow = window;     // 非所有
+    mGLContext = glContext;  // 非所有（destroyしない）
 
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE,   8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,  8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 
-    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 
-    //---------------------------------------------------------
-    // OpenGL コンテキスト生成
-    //---------------------------------------------------------
-    mGLContext = SDL_GL_CreateContext(mWindow);
-    if (!mGLContext)
-    {
-        std::cerr << "Failed to create GL context: " << SDL_GetError() << std::endl;
-        return false;
-    }
+
 
     //---------------------------------------------------------
     // 垂直同期（VSync）
@@ -197,26 +177,37 @@ bool Renderer::Initialize(SDL_Window* window)
 
 void Renderer::Shutdown()
 {
-    if (mWindow && mGLContext)
+    // 1) まず current を保証（できなければ何もしない）
+    if (!mWindow || !mGLContext)
+        return;
+
+    if (SDL_GL_MakeCurrent(mWindow, mGLContext) != 0)
+        return;
+
+    // 2) ここから先は GL を触ってOK
+
+    // Shadow textures（Unload が glDeleteTextures する前提）
+    for (auto& tex : mShadowMapTexture)
     {
-        SDL_GL_MakeCurrent(mWindow, mGLContext);
+        if (tex)
+        {
+            tex->Unload();
+            tex.reset();
+        }
     }
 
-    // シャドウ用 FBO / テクスチャを破棄
+    // FBO（mShadowFBO が必ず 0 初期化されている前提）
     glDeleteFramebuffers(kShadowCascadeCount, mShadowFBO);
     for (int i = 0; i < kShadowCascadeCount; ++i)
     {
         mShadowFBO[i] = 0;
-        mShadowMapTexture[i].reset();
         mLightSpaceMatrix[i] = Matrix4::Identity;
     }
 
-    // GL Context 破棄
-    if (mGLContext)
-    {
-        SDL_GL_DestroyContext(mGLContext);
-        mGLContext = nullptr;
-    }
+    // VAO/VBO 等（デストラクタで glDelete* するならここで current 必須）
+    mFullScreenQuad.reset();
+    mSpriteVerts.reset();
+    mSurfaceQuad.reset();
 }
 
 
