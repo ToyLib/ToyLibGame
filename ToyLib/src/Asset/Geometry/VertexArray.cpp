@@ -4,9 +4,6 @@
 
 #include <algorithm> // std::fill
 
-static int refcnt = 0;
-#include <iostream>
-
 namespace toy {
 
 //--------------------------------------------------------------
@@ -133,7 +130,6 @@ VertexArray::VertexArray(unsigned int numVerts,
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
     
-    std::cout << "[VA] cnt = " << ++refcnt << std::endl;
 }
 
 //==============================================================
@@ -215,8 +211,6 @@ VertexArray::VertexArray(unsigned int numVerts,
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
 
-    std::cout << "[VA] cnt = " << ++refcnt << std::endl;
-
 }
 
 //==============================================================
@@ -277,7 +271,6 @@ VertexArray::VertexArray(const float* verts,
 
     // 三角形ポリゴン（ローカル座標）生成
     CreatePolygons(verts, indices, mNumIndices);
-    std::cout << "[VA] cnt = " << ++refcnt << std::endl;
 
 }
 
@@ -328,7 +321,6 @@ VertexArray::VertexArray(const float* verts,
     glBindVertexArray(0);
 
     // vec2-only の場合は物理用ポリゴンは不要なので作成しない
-    std::cout << "[VA] cnt = " << ++refcnt << std::endl;
 
 }
 
@@ -424,9 +416,6 @@ void VertexArray::Unload()
 
     // 念のため 0 で埋める
     std::fill(std::begin(mVertexBuffer), std::end(mVertexBuffer), 0u);
-    
-    
-    std::cout << "[VA] cnt = " << --refcnt << std::endl;
 
 }
 

@@ -15,25 +15,11 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
     : VisualComponent(a, drawOrder, layer)
     , mIsSkeletal(isSkeletal)
 {
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    mShader         = renderer->GetShader("Mesh");
-    mShadowShader   = renderer->GetShader("ShadowMesh");
-    mLightingManger = renderer->GetLightingManager();
-
     mIsVisible    = true;
-    mLayer        = VisualLayer::Object3D;      // ★引数を尊重（以前はObject3D固定になってたので戻す）
+    mLayer        = layer;
     mEnableShadow = true;
 }
 
-void MeshComponent::Draw()
-{
-    // 旧描画パス廃止
-}
-
-void MeshComponent::DrawShadow(int /*cascadeIndex*/)
-{
-    // 旧描画パス廃止
-}
 
 std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 {

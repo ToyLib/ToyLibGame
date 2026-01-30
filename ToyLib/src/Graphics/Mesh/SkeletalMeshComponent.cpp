@@ -15,21 +15,7 @@ namespace toy {
 SkeletalMeshComponent::SkeletalMeshComponent(Actor* a, int drawOrder, VisualLayer layer)
     : MeshComponent(a, drawOrder, layer, true)
 {
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
-
-    // Skinned専用shaderへ差し替え（新パスでは RenderItem 側で選ぶが、ここも合わせておく）
-    mShader       = renderer->GetShader("Skinned");
-    mShadowShader = renderer->GetShader("ShadowSkinned");
-}
-
-void SkeletalMeshComponent::Draw()
-{
-    // 旧描画パス廃止
-}
-
-void SkeletalMeshComponent::DrawShadow(int /*cascadeIndex*/)
-{
-    // 旧描画パス廃止
+    
 }
 
 void SkeletalMeshComponent::Update(float deltaTime)

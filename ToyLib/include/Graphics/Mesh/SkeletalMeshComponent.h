@@ -22,11 +22,7 @@ class SkeletalMeshComponent : public MeshComponent
 public:
     SkeletalMeshComponent(class Actor* a,
                           int drawOrder = 100,
-                          VisualLayer layer = VisualLayer::Effect3D);
-
-    // 旧描画パス廃止（過渡期呼び出し対策で空実装）
-    void Draw() override;
-    void DrawShadow(int cascadeIndex) override;
+                          VisualLayer layer = VisualLayer::Object3D);
 
     // 新描画パス
     void GatherRenderItems(RenderQueueLike& out) override;

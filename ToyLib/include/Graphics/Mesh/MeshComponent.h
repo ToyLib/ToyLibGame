@@ -24,7 +24,7 @@ class MeshComponent : public VisualComponent
 public:
     MeshComponent(class Actor* a,
                   int drawOrder = 100,
-                  VisualLayer layer = VisualLayer::Effect3D,
+                  VisualLayer layer = VisualLayer::Object3D,
                   bool isSkeletal = false);
 
     virtual ~MeshComponent() = default;
