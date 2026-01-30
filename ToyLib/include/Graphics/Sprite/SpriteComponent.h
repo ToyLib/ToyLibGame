@@ -3,101 +3,74 @@
 #include "Graphics/VisualComponent.h"
 #include "Utils/MathUtil.h"
 
+#include <memory>
+
 namespace toy {
+
+class Texture;
+class RenderQueueLike;
 
 //==================================================
 // SpriteComponent
 //==================================================
-// 2Dスプライトを画面に描画するコンポーネント。
-// ・UIや2D HUD 表示向け（デフォルトで VisualLayer::UI）
-// ・Texture を貼った矩形を画面空間で描画する
-// ・スケーリングや画面左上固定描画などに対応
+// ・UI/2D向けスプライト
+// ・描画は RenderQueue 経由（GatherRenderItems）
+// ・Draw() は旧経路互換のため残すが空実装
 //==================================================
 class SpriteComponent : public VisualComponent
 {
 public:
-    // --------------------------------------------------------------
-    // コンストラクタ
-    //
-    // drawOrder : 描画順（小さいほど先に描画）
-    // layer     : UI / Overlay / Object3D などの描画レイヤー
-    // --------------------------------------------------------------
     SpriteComponent(class Actor* a, int drawOrder,
                     VisualLayer layer = VisualLayer::UI);
-    
-    ~SpriteComponent();
-    
-    //==================================================
-    // 描画処理 (Renderer が呼び出す)
-    //==================================================
+
+    ~SpriteComponent() override = default;
+
+    // 旧方式：残すが何もしない（OpenGL痕跡を消す）
     void Draw() override;
-    
-    // 新方式
+
+    // 新方式：RenderItem を積む
     void GatherRenderItems(RenderQueueLike& out) override;
-    
-    //==================================================
-    // スプライトの幅・高さスケール設定
-    //   w: 幅方向のスケール
-    //   h: 高さ方向のスケール
-    //==================================================
+
+    // サイズ倍率
     void SetScale(float w, float h)
     {
         mScaleWidth  = w;
         mScaleHeight = h;
     }
-    
-    //==================================================
-    // 使用するテクスチャを設定
-    //==================================================
-    void SetTexture(std::shared_ptr<class Texture> tex) override;
-    
-    //==================================================
-    // 左上固定フラグ
-    //
-    // true  → (0,0) を画面左上としてスプライトを描画
-    // false → Actor ワールド座標を ViewProj で変換して描画
-    //
-    // UI 用スプライトでは通常 true
-    //==================================================
+
+    // テクスチャ
+    void SetTexture(std::shared_ptr<Texture> tex) override;
+
+    // 左上固定（UI用）
     void SetIsTopLeft(bool b) { mIsTopLeft = b; }
-    
-    // 色（RGB）
+
+    // 色・アルファ
     void SetColor(const Vector3& color) { mColor = color; }
     const Vector3& GetColor() const { return mColor; }
-    
-    // 透明度（0.0〜1.0）
+
     void SetAlpha(float a) { mAlpha = Math::Clamp(a, 0.0f, 1.0f); }
     float GetAlpha() const { return mAlpha; }
-    
-    // 追加：同一Actor内で部品を組み立てる用のローカルオフセット（論理座標）
+
+    // 追加：ローカルオフセット（論理座標）
     void SetOffset(const Vector3& o) { mOffset = o; }
     const Vector3& GetOffset() const { return mOffset; }
-    
-    
+
 private:
-    //==================================================
-    // パラメータ
-    //==================================================
-    
     // スケール（幅／高さ）
-    float mScaleWidth  { 1.0f };   // X方向の拡大率
-    float mScaleHeight { 1.0f };  // Y方向の拡大率
-    
-    // テクスチャサイズ
-    int   mTexWidth  {};     // ピクセル幅
-    float mTexHeight {};    // ピクセル高さ
-    
-    // 現在の画面サイズ（UI の場合に使用）
-    int   mScreenWidth {};
-    int   mScreenHeight {};
-    
-    // 左上固定（true のとき Actor 位置ではなく画面座標で描画）
+    float mScaleWidth  { 1.0f };
+    float mScaleHeight { 1.0f };
+
+    // テクスチャサイズ（ピクセル）
+    int   mTexWidth  { 0 };
+    int   mTexHeight { 0 };
+
+    // 左上固定
     bool  mIsTopLeft { true };
-    
-    // カラー属性
-    Vector3 mColor { 1.0f, 1.0f, 1.0f };     // RGB
-    float mAlpha { 1.0f };       // A
-    
+
+    // カラー
+    Vector3 mColor { 1.0f, 1.0f, 1.0f };
+    float   mAlpha { 1.0f };
+
     Vector3 mOffset = Vector3::Zero;
 };
 

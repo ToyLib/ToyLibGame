@@ -1,250 +1,37 @@
 #include "Graphics/Mesh/SkeletalMeshComponent.h"
-#include "Engine/Render/Shader.h"
-#include "Engine/Render/LightingManager.h"
+
+#include "Engine/Runtime/AnimationPlayer.h"
 #include "Asset/Geometry/Mesh.h"
+#include "Asset/Geometry/VertexArray.h"
+#include "Asset/Material/Material.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
-#include "Asset/Material/Texture.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Asset/Material/Material.h"
-#include "Engine/Runtime/AnimationPlayer.h"
+#include "Engine/Render/RenderItem.h"
+#include "Engine/Render/RenderQueue.h"
 
 namespace toy {
 
-//----------------------------------------------------------------------
-// コンストラクタ
-//  - MeshComponent 側の isSkeletal = true を使う前提
-//  - スキニング用シェーダ／シャドウ用シェーダに差し替え
-//----------------------------------------------------------------------
 SkeletalMeshComponent::SkeletalMeshComponent(Actor* a, int drawOrder, VisualLayer layer)
-    : MeshComponent(a, drawOrder, layer,  true)
+    : MeshComponent(a, drawOrder, layer, true)
 {
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+
+    // Skinned専用shaderへ差し替え（新パスでは RenderItem 側で選ぶが、ここも合わせておく）
     mShader       = renderer->GetShader("Skinned");
     mShadowShader = renderer->GetShader("ShadowSkinned");
 }
 
-//----------------------------------------------------------------------
-// 再生するアニメーション ID を設定
-//  - mode は今のところ無視しているがインターフェースとして保持
-//----------------------------------------------------------------------
-void SkeletalMeshComponent::SetAnimID(const unsigned int animID, const bool mode)
-{
-    if (mAnimPlayer)
-    {
-        mAnimPlayer->Play(animID, true);
-    }
-}
-
-//----------------------------------------------------------------------
-// 通常描画
-//  - ボーン行列(uMatrixPalette)をシェーダへ渡してスキニング描画
-//  - MeshComponent::Draw とほぼ同じ構成＋スキニング用処理
-//----------------------------------------------------------------------
 void SkeletalMeshComponent::Draw()
 {
-    return;
-    if (!mMesh)
-    {
-        return;
-    }
-
-    // 加算ブレンド指定時
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_ONE, GL_ONE);
-    }
-
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
-    Matrix4 view  = renderer->GetViewMatrix();
-    Matrix4 proj  = renderer->GetProjectionMatrix();
-
-    mShader->SetActive();
-
-    // ライティング情報を反映
-    mLightingManger->ApplyToShader(mShader, view);
-
-    // 行列
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-
-    // ----------------------------
-    // CSM: ShadowMap 2枚 + LightVP 2本 + split/blend
-    // ----------------------------
-    {
-        auto sm0 = renderer->GetShadowMapTexture(0);
-        auto sm1 = renderer->GetShadowMapTexture(1);
-
-        // Texture unit は空いている番号なら何でもOK（ここでは 6/7）
-        if (sm0) sm0->SetActive(6);
-        if (sm1) sm1->SetActive(7);
-
-        // Phong.frag 側の uniform 名に合わせる
-        mShader->SetTextureUniform("uShadowMap0", 6);
-        mShader->SetTextureUniform("uShadowMap1", 7);
-
-        mShader->SetMatrixUniform("uLightViewProj0", renderer->GetLightSpaceMatrix(0));
-        mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
-
-        // まず動かす用の固定値（後で Renderer の設定値へ）
-        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSplit0());
-        mShader->SetFloatUniform("uCascadeBlend", renderer->GetCascadeBlend());
-
-        // Bias
-        mShader->SetFloatUniform("uShadowBias", 0.005f);
-    }
-
-    // Toon ON/OFF
-    mShader->SetBooleanUniform("uUseToon", mIsToon);
-
-    
-    Matrix4 worldMatrix =
-        Matrix4::CreateFromQuaternion(mLocalRot) *
-        Matrix4::CreateTranslation(mLocalPos) *
-        Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetRenderWorldTransform();
-    // World
-    mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
-
-    // ----------------------------
-    // ボーン行列パレット
-    // ----------------------------
-    static const std::vector<Matrix4> kEmpty;
-    const std::vector<Matrix4> transforms =
-        mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : kEmpty;
-
-    if (!transforms.empty())
-    {
-        mShader->SetMatrixUniforms(
-            "uMatrixPalette",
-            transforms.data(),
-            static_cast<unsigned int>(transforms.size())
-        );
-    }
-
-    mShader->SetFloatUniform("uSpecPower", mMesh->GetSpecPower());
-
-    // ----------------------------
-    // メッシュ本体描画
-    // ----------------------------
-    auto& va = mMesh->GetVertexArray();
-    for (auto& v : va)
-    {
-        auto mat = mMesh->GetMaterial(v->GetTextureID());
-        if (mat)
-        {
-            // こっちは元コード通り（必要なら BindToShader(mShader,0) へ統一でもOK）
-            mat->BindToShader(mShader);
-        }
-
-        v->SetActive();
-        glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-        renderer->AddDrawCall();
-    }
-
-    // ----------------------------
-    // トゥーン輪郭描画（アウトライン）
-    // ----------------------------
-    if (mContourFactor > 1.0f)
-    {
-        glFrontFace(GL_CW);
-
-        Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
-        mShader->SetMatrixUniform(
-            "uWorldTransform",
-            scaleOutline * worldMatrix
-        );
-
-        for (auto& v : va)
-        {
-            auto mat = mMesh->GetMaterial(v->GetTextureID());
-            if (mat)
-            {
-                mat->SetOverrideColor(true, mContourColor);
-                mat->BindToShader(mShader, 0);
-            }
-
-            v->SetActive();
-            glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-            renderer->AddDrawCall();
-
-            // 上書きカラーを元に戻す
-            if (mat)
-            {
-                mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
-            }
-        }
-
-        glFrontFace(GL_CCW);
-        renderer->AddDrawObject();
-    }
-
-    // 加算ブレンド解除
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-
-    renderer->AddDrawObject();
+    // 旧描画パス廃止
 }
 
-//----------------------------------------------------------------------
-// シャドウ描画
-//  - 通常描画と同様にボーン行列を渡しつつ、深度のみ書き込む想定
-//----------------------------------------------------------------------
-void SkeletalMeshComponent::DrawShadow(int cascadeIndex)
+void SkeletalMeshComponent::DrawShadow(int /*cascadeIndex*/)
 {
-    if (!mMesh)
-    {
-        return;
-    }
-
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
-
-    // ★カスケード指定でライト行列取得
-    Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
-
-    mShadowShader->SetActive();
-    Matrix4 worldMatrix =
-        Matrix4::CreateFromQuaternion(mLocalRot) *
-        Matrix4::CreateTranslation(mLocalPos) *
-        Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetRenderWorldTransform();
-    mShadowShader->SetMatrixUniform(
-        "uWorldTransform",
-        worldMatrix
-    );
-
-    // アニメーション行列（無ければ空配列）
-    static std::vector<Matrix4> gEmptyMatrixList;
-    const std::vector<Matrix4> transforms =
-            mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : gEmptyMatrixList;
-    if (!transforms.empty())
-    {
-        mShadowShader->SetMatrixUniforms(
-            "uMatrixPalette",
-            transforms.data(),
-            static_cast<unsigned int>(transforms.size())
-        );
-    }
-
-    mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
-
-    // シャドウマップ描画
-    auto& va = mMesh->GetVertexArray();
-    for (auto& v : va)
-    {
-        v->SetActive();
-        glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-        renderer->AddDrawCall();
-    }
-    renderer->AddDrawObject();
+    // 旧描画パス廃止
 }
 
-//----------------------------------------------------------------------
-// Update
-//  - 毎フレーム AnimationPlayer を進めるだけ
-//----------------------------------------------------------------------
 void SkeletalMeshComponent::Update(float deltaTime)
 {
     if (mAnimPlayer)
@@ -253,71 +40,90 @@ void SkeletalMeshComponent::Update(float deltaTime)
     }
 }
 
-//----------------------------------------------------------------------
-// SetMesh
-//  - MeshComponent 側の SetMesh を呼んだあと
-//    その Mesh を使う AnimationPlayer を生成
-//----------------------------------------------------------------------
+void SkeletalMeshComponent::SetAnimID(unsigned int animID, bool /*mode*/)
+{
+    if (mAnimPlayer)
+    {
+        mAnimPlayer->Play(animID, true);
+    }
+}
+
 void SkeletalMeshComponent::SetMesh(std::shared_ptr<Mesh> mesh)
 {
     MeshComponent::SetMesh(mesh);
-    mAnimPlayer = std::make_unique<AnimationPlayer>(mesh);
-}
 
+    if (mesh)
+    {
+        mAnimPlayer = std::make_unique<AnimationPlayer>(mesh);
+    }
+    else
+    {
+        mAnimPlayer.reset();
+    }
+}
 
 void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike& out)
 {
-    if (!mMesh) return;
+    if (!mIsVisible || !mMesh || !mAnimPlayer) return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
 
-    // ボーン行列
-    const auto& mats = mAnimPlayer ? mAnimPlayer->GetFinalMatrices() : std::vector<Matrix4>{};
-    if (mAnimPlayer && mats.empty()) return; // 一旦わかりやすく（後で調整OK）
+    const auto& mats = mAnimPlayer->GetFinalMatrices();
+    if (mats.empty()) return;
 
-    Matrix4 world =
+    const Matrix4 view     = renderer->GetViewMatrix();
+    const Matrix4 proj     = renderer->GetProjectionMatrix();
+    const Matrix4 viewProj = view * proj;
+
+    const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
         GetOwner()->GetRenderWorldTransform();
 
-    const Matrix4 vp = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
-
-    // SubMesh（VertexArray）ごとに積む
     for (auto& va : mMesh->GetVertexArray())
     {
+        if (!va) continue;
+
         RenderItem it{};
-        it.type = RenderItemType::SkinnedMesh;
+        it.type      = RenderItemType::SkinnedMesh;
+        it.pass      = RenderPass::World;          // ★必須
+        it.layer     = GetLayer();                 // ★必須
+        it.drawOrder = GetDrawOrder();             // ★必須
 
-        it.geometry.ptr = va.get();
-        it.indexCount   = (int)va->GetNumIndices();
+        it.topology   = PrimitiveTopology::Triangles;
+        it.geometry   = GeometryHandle{ va.get() };
+        it.indexCount = (int)va->GetNumIndices();
 
-        it.shader = renderer->GetShaderHandle("Skinned");  // ←ここだけでOK
-        it.material = renderer->ToHandle(mMesh->GetMaterial(va->GetTextureID()));
-
-        it.viewProj = vp;
-        it.world    = world;
-
-        // states（Meshと同等に）
+        // states
         it.depthTest  = true;
         it.depthWrite = true;
-        it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha; // 今の運用に合わせて
+        it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque;
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
-        // palette
+        // shader/material
+        it.shader   = renderer->GetShaderHandle("Skinned");
+        it.material = renderer->ToHandle(mMesh->GetMaterial(va->GetTextureID()));
+
+        // transforms
+        it.world    = world;
+        it.viewProj = viewProj;
+
+        // toon flag
+        it.toon = mIsToon;
+
+        // ★matrix palette
         it.matrixPalette = mats.data();
         it.paletteCount  = (int)mats.size();
-        
-        it.toon         = mIsToon;
 
-        out.Push(it); // queue の API に合わせて
+        out.Push(it);
     }
 }
+
 void SkeletalMeshComponent::GatherShadowItems(RenderQueueLike& out)
 {
-    if (!mMesh || !mShadowShader || !mAnimPlayer)
-        return;
+    if (!mIsVisible || !mEnableShadow || !mMesh || !mAnimPlayer) return;
 
     auto* owner = GetOwner();
     if (!owner) return;
@@ -325,49 +131,49 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueueLike& out)
     auto* renderer = owner->GetApp()->GetRenderer();
     if (!renderer) return;
 
-    const Matrix4 lightVP = renderer->GetLightSpaceMatrix(0);
+    const auto& mats = mAnimPlayer->GetFinalMatrices();
+    if (mats.empty()) return;
 
-    Matrix4 world =
+    const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
         owner->GetRenderWorldTransform();
 
-    const auto& mats = mAnimPlayer->GetFinalMatrices();
-    if (mats.empty())
-        return;
-
-    auto& vaList = mMesh->GetVertexArray();
-    for (auto& va : vaList)
+    for (auto& va : mMesh->GetVertexArray())
     {
         if (!va) continue;
 
         RenderItem it{};
-        it.type        = RenderItemType::SkinnedMesh;
-        it.layer       = VisualLayer::Object3D;
+        it.type      = RenderItemType::SkinnedMesh;
+        it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
+        it.layer     = GetLayer();
+        it.drawOrder = GetDrawOrder();
 
-        // shadow-skinned shader（名前は既存に合わせて）
-        //it.shader.ptr  = mShadowShader.get();
-        it.shader = renderer->GetShaderHandle("ShadowSkinned");
+        it.topology   = PrimitiveTopology::Triangles;
+        it.geometry   = GeometryHandle{ va.get() };
+        it.indexCount = (int)va->GetNumIndices();
 
-        it.geometry.ptr = va.get();
-        it.indexCount   = (int)va->GetNumIndices();
+        it.world = world;
 
-        it.world   = world;
-        it.lightVP = lightVP;
+        // ★カスケードごとの lightVP は Renderer の Shadow描画側で上書きする方針
+        it.lightVP = renderer->GetLightSpaceMatrix(0); // 保険（0を入れておく）
 
-        // ★ここが本体
+        // palette
         it.matrixPalette = mats.data();
-        it.paletteCount  = mats.size();
+        it.paletteCount  = (int)mats.size();
 
-        // Shadow state
+        // state（深度のみ）
         it.depthTest  = true;
         it.depthWrite = true;
         it.blend      = BlendMode::Opaque;
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
+        it.shader = renderer->GetShaderHandle("ShadowSkinned");
+
         out.Push(it);
     }
 }
+
 } // namespace toy

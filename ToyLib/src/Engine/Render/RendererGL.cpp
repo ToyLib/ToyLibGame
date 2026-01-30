@@ -160,7 +160,7 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
                     it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
                 }
 
-                it.shader.ptr->SetBooleanUniform("uUseToon", false);
+                it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
 
                 if (it.material.ptr)
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
@@ -202,7 +202,7 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
                     it.shader.ptr->SetFloatUniform("uShadowBias",    0.005f);
                 }
 
-                it.shader.ptr->SetBooleanUniform("uUseToon", false);
+                it.shader.ptr->SetBooleanUniform("uUseToon", it.toon);
 
                 if (it.material.ptr)
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
