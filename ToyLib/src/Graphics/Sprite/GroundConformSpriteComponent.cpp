@@ -162,14 +162,20 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
 void GroundConformSpriteComponent::RebuildGridIfNeeded()
 {
     Actor* owner = GetOwner();
-    if (!owner) return;
-
+    if (!owner)
+    {
+        return;
+    }
     auto* app = owner->GetApp();
-    if (!app) return;
-
+    if (!app)
+    {
+        return;
+    }
     auto* renderer = app->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
     // 条件が整ってないなら作らない
     if (mWidth <= 0.0f || mDepth <= 0.0f)
     {
