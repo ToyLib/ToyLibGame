@@ -4,18 +4,20 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/LightingManager.h"
-#include "Engine/Render/Shader.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Asset/Material/Texture.h"
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Render/RenderItem.h"
 
-#include "glad/glad.h"
+#include "Asset/Material/Texture.h"
+#include "Asset/Geometry/VertexArray.h"
+
+#include <cmath>
 
 namespace toy {
 
 ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
-    : FootSpriteComponent(owner, drawOrder, VisualLayer::Effect3D)
+    : GroundConformSpriteComponent(owner, drawOrder, VisualLayer::Effect3D)
 {
-    // 旧実装互換：Sprite シェーダ（完全Unlit＆Tint/Alpha対応）
+    // 旧実装互換：Sprite シェーダ（uSpriteColor/uSpriteAlpha）
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Sprite");
 
     // 影用のテクスチャを自前生成（現状再現）
@@ -23,123 +25,129 @@ ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
     tex->CreateAlphaCircle(256, 0.5f, 0.3f, Vector3(0.0f, 0.0f, 0.0f), 0.8f);
     SetTexture(tex);
 
-    // 新設計は “ワールド単位” サイズで指定する
-    // ※ここはキャラサイズに合わせて後で詰める前提の仮値
+    // 新設計は “ワールド単位” サイズで指定する（仮値）
     SetSize(100.0f, 100.0f);
 
     // 影は通常アルファ
     SetBlendAdd(false);
 
-    // Sprite.frag の uSpriteColor / uSpriteAlpha に対応させる（影は基本白でOK）
+    // Sprite.frag 用：Tint/Alpha（影は白でOK）
     SetTint(Vector3(1.0f, 1.0f, 1.0f));
     SetAlpha(1.0f);
+
+    // 影なので地面に貼り付け前提
+    SetSnapToGround(true);
+    SetAlignToGround(false);         // 影は水平が自然
+    SetUseSmoothGroundPose(false);   // raw
+}
+
+float ShadowSpriteComponent::ComputeLightYawRad() const
+{
+    float yaw = mYaw;
+
+    if (!mAutoRotateByLight)
+        return yaw;
+
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    auto lm = renderer ? renderer->GetLightingManager() : nullptr;
+
+    Vector3 lightDir = lm ? lm->GetLightDirection() : Vector3(0.0f, 0.0f, 1.0f);
+
+    // XZ 平面だけ使う
+    lightDir.y = 0.0f;
+
+    if (lightDir.LengthSq() < 0.0001f)
+    {
+        lightDir = Vector3(0.0f, 0.0f, 1.0f);
+    }
+    lightDir.Normalize();
+
+    yaw = atan2f(lightDir.x, lightDir.z);
+    return yaw;
 }
 
 Matrix4 ShadowSpriteComponent::BuildWorldMatrix() const
 {
-    //--------------------------------------------------------------------------
-    // 1) Yaw（ライト方向に合わせる：現状再現）
-    //--------------------------------------------------------------------------
-    float yaw = mYaw;
-
-    if (mAutoRotateByLight)
-    {
-        auto* renderer = GetOwner()->GetApp()->GetRenderer();
-        auto lm = renderer ? renderer->GetLightingManager() : nullptr;
-
-        Vector3 lightDir = lm ? lm->GetLightDirection() : Vector3(0.0f, 0.0f, 1.0f);
-
-        // XZ 平面だけ使う
-        lightDir.y = 0.0f;
-
-        if (lightDir.LengthSq() < 0.0001f)
-        {
-            lightDir = Vector3(0.0f, 0.0f, 1.0f);
-        }
-        lightDir.Normalize();
-
-        yaw = atan2f(lightDir.x, lightDir.z);
-    }
-
-    //--------------------------------------------------------------------------
-    // 2) Scale（奥行方向を伸ばして“影の伸び”を作る）
-    //
-    // SpriteVerts は XY 平面の板なので、X回転で地面に寝かせた後は
-    // Yスケールが “奥行(Z)” 相当になる。
-    //--------------------------------------------------------------------------
-    Matrix4 scale = Matrix4::CreateScale(
-        mWidth * mOffsetScale,                  // 幅（X）
-        mDepth * mOffsetScale * mStretch,       // 奥行（寝かせた後Z相当）
-        1.0f
-    );
-
-    // 地面に寝かせる
-    Matrix4 rotX = Matrix4::CreateRotationX(Math::ToRadians(90.0f));
-
-    // ライト方向へ回転
-    Matrix4 rotY = Matrix4::CreateRotationY(yaw);
-
-    // 位置
-    Matrix4 trans = Matrix4::CreateTranslation(
-        GetOwner()->GetPosition() + mOffsetPosition
-    );
-
-    return scale * rotX * rotY * trans;
+    // GroundConform は頂点がワールド座標なので Identity
+    return Matrix4::Identity;
 }
 
-void ShadowSpriteComponent::Draw()
+void ShadowSpriteComponent::PreDraw()
 {
-    if (!mIsVisible || !mTexture || !mShader)
-    {
+    // Shadow は “ライト方向Yaw + Stretch” を
+    // GroundConform のグリッド生成側へ反映したいので、
+    // 一時的に mYaw / mDepth を調整して Rebuild させる。
+
+    const float savedYaw   = mYaw;
+    const float savedDepth = mDepth;
+
+    // 1) yaw をライト方向に合わせる
+    mYaw = ComputeLightYawRad();
+
+    // 2) 奥行を伸ばす（GroundConform の halfD が mDepth を使うのでここで反映）
+    mDepth = savedDepth * mStretch;
+
+    // GroundConform の再構築
+    RebuildGridIfNeeded();
+
+    // 値は戻す（外から見たパラメータを汚さない）
+    mYaw   = savedYaw;
+    mDepth = savedDepth;
+}
+
+//------------------------------------------------------------------------------
+// 新パス：RenderQueue に積む（Sprite扱いで Sprite uniform を使う）
+//------------------------------------------------------------------------------
+void ShadowSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
+{
+    if (!mIsVisible || !mTexture)
         return;
-    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer)
-    {
+    if (!renderer || !mShader)
         return;
-    }
 
-    auto vao = renderer->GetSpriteVerts();
-    if (!vao)
-    {
+    // ここで必要なら再構築（ライトYaw/Stretch反映込み）
+    PreDraw();
+
+    if (!mGridVAO)
         return;
-    }
 
-    //--------------------------------------------------------------------------
-    // Blend（影は通常アルファ）
-    //--------------------------------------------------------------------------
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = mLayer;          // Effect3D
+    it.drawOrder = mDrawOrder;
 
-    //--------------------------------------------------------------------------
-    // Shader setup（Sprite）
-    //--------------------------------------------------------------------------
-    mShader->SetActive();
+    // ★Sprite扱い（Spriteシェーダ互換：uSpriteColor/uSpriteAlpha）
+    it.type      = RenderItemType::Sprite;
 
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
+    it.topology    = PrimitiveTopology::Triangles;
+    it.geometry.ptr = mGridVAO.get();
+    it.indexCount  = static_cast<int>(mGridVAO->GetNumIndices());
 
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uWorldTransform", BuildWorldMatrix());
+    it.shader = renderer->GetShaderHandle("Sprite");
 
-    // Sprite.frag 用：Tint/Alpha（FootSpriteのUnlit uniformではなくこちらを使う）
-    // 影はテクスチャが黒なので、基本は白TintでOK（色を変えたいならここで）
-    mShader->SetVectorUniform("uSpriteColor", mTint);
-    mShader->SetFloatUniform("uSpriteAlpha", mAlpha);
+    // transforms：頂点がワールドなので Identity
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    it.viewProj = view * proj;
+    it.world    = Matrix4::Identity;
 
-    // Texture
-    mTexture->SetActive(0);
-    mShader->SetTextureUniform("uTexture", 0);
+    // state：影
+    it.blend      = BlendMode::Alpha;   // 通常アルファ
+    it.depthTest  = true;
+    it.depthWrite = false;              // 影は depth write しない（重なりで破綻しにくい）
+    it.cull       = CullMode::None;
+    it.frontFace  = FrontFace::CCW;
 
-    //--------------------------------------------------------------------------
-    // Draw
-    //--------------------------------------------------------------------------
-    vao->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    // sprite uniforms
+    it.color = mTint;
+    it.alpha = mAlpha;
 
-    renderer->AddDrawCall();
-    renderer->AddDrawObject();
+    it.texture     = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
+
+    queue.Push(it);
 }
 
 } // namespace toy

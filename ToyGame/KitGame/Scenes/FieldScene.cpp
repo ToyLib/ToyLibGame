@@ -98,8 +98,14 @@ void FieldScene::InitField()
     // シャドウ用スプライト
     auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
     shadow->SetVisible(true);
-    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
-    shadow->SetOffsetScale(0.03f);
+    shadow->SetOffsetScale(1.0);
+    shadow->SetSize(5, 5);
+    shadow->SetBlendAdd(false);
+    shadow->SetAlpha(0.8f);
+    shadow->SetGroundLift(1.15f);
+    shadow->SetGridDiv(4);              // まずは4で十分
+    shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
+    
     
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();

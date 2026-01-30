@@ -219,7 +219,7 @@ void Renderer::Draw()
     ResetDebugCounter();
 
     //=========================================================
-    // 0) Frame begin : GL state を強制初期化（混在期の事故防止）
+    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
     //=========================================================
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 
@@ -237,20 +237,23 @@ void Renderer::Draw()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     //=========================================================
-    // 1) SHADOW : ShadowMap（CSM）
+    // 1) SHADOW : ShadowMap を作る（CSM）
     //=========================================================
     RenderShadowMap();
 
-    // ★ Shadow で壊れた可能性のある state を必ず復帰
+    // ★ Shadow パスが state を汚してもよい前提なので、ここで必ず戻す
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
+
+    glDisable(GL_STENCIL_TEST);
 
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -260,8 +263,9 @@ void Renderer::Draw()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //=========================================================
-    // 2) WORLD（Object3D）
-    //    Mesh / SkeletalMesh など「不透明3D」
+    // 2) WORLD OPAQUE（3D）：Object3D（Mesh / SkinnedMesh 等）
+    //   - 深度：Test ON / Write ON
+    //   - ブレンドは item 側で Opaque なら Disable される（ApplyState_GL）
     //=========================================================
     {
         RenderQueue worldQueue;
@@ -270,13 +274,12 @@ void Renderer::Draw()
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Object3D)
-                continue;
+            if (vc->GetLayer() != VisualLayer::Object3D) continue;
 
             vc->GatherRenderItems(worldQueue);
         }
 
-        // WORLD パスの入口 state（明示）
+        // WORLD(Opaque) 基本 state（最終的には item.state が優先される）
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
 
@@ -284,18 +287,17 @@ void Renderer::Draw()
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND); // Opaque前提（透過が混ざっても ApplyState_GL が上書きする）
 
         worldQueue.Sort();
         DrawRenderQueue_World(worldQueue);
     }
 
     //=========================================================
-    // 2.5) EFFECT3D
-    //    Billboard / DebugWireframe / Effect 系
-    //    ・Z Test ON
-    //    ・Z Write OFF（旧挙動寄せ）
+    // 3) WORLD EFFECT（3D）：Effect3D（Billboard / FootSprite / DebugWire 等）
+    //   - 深度：Test ON / Write OFF（半透明の基本）
+    //   - ブレンド：ON（alpha or additive は item 側で切替）
+    //   - カリング：基本 OFF（板ポリや線が多い）
     //=========================================================
     {
         RenderQueue effectQueue;
@@ -304,18 +306,16 @@ void Renderer::Draw()
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Effect3D)
-                continue;
+            if (vc->GetLayer() != VisualLayer::Effect3D) continue;
 
             vc->GatherRenderItems(effectQueue);
         }
 
+        // EFFECT 基本 state（最終的には item.state が優先される）
         glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE); // ★重要：透過・デバッグ系は Z 書かない
+        glDepthMask(GL_FALSE); // ★重要：半透明は深度を書かない
 
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
+        glDisable(GL_CULL_FACE); // ★板/線は裏も見せたいことが多い
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -323,13 +323,15 @@ void Renderer::Draw()
         effectQueue.Sort();
         DrawRenderQueue_World(effectQueue);
 
-        // 次のパスのために復帰
+        // 混在期の保険：World標準へ戻す
         glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
     }
 
     //=========================================================
-    // 3) UI
-    //    Sprite / Text / Overlay
+    // 4) UI：Sprite（深度OFF）
     //=========================================================
     {
         RenderQueue uiQueue;
@@ -338,8 +340,7 @@ void Renderer::Draw()
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::UI)
-                continue;
+            if (vc->GetLayer() != VisualLayer::UI) continue;
 
             vc->GatherRenderItems(uiQueue);
         }
@@ -354,7 +355,7 @@ void Renderer::Draw()
         uiQueue.Sort();
         DrawRenderQueue_World(uiQueue);
 
-        // 混在期の保険：World に戻す
+        // 戻す（混在期の保険）
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
@@ -363,7 +364,7 @@ void Renderer::Draw()
     }
 
     //=========================================================
-    // 4) Present
+    // 5) Present
     //=========================================================
     SDL_GL_SwapWindow(mWindow);
 }

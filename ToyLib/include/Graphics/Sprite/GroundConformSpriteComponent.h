@@ -37,10 +37,14 @@ protected:
 
     // 新パス
     void GatherRenderItems(class RenderQueueLike& queue) override;
+    void RebuildGridIfNeeded();
 
 private:
-    void RebuildGridIfNeeded();
     bool SampleGroundAtXZ(const Vector3& worldXZ, struct GroundHit& outHit) const;
+
+protected:
+    // 地面沿いメッシュ（VAO）
+    std::shared_ptr<class VertexArray> mGridVAO;
 
 private:
     // グリッド分割（1なら2x2頂点＝ただのQuad）
@@ -59,8 +63,6 @@ private:
     float   mPrevDepth { 0.0f };
     int     mPrevDiv   { -1 };
 
-    // 地面沿いメッシュ（VAO）
-    std::shared_ptr<class VertexArray> mGridVAO;
 };
 
 } // namespace toy
