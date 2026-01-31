@@ -16,14 +16,18 @@ void Renderer::DrawRenderQueue_World(const RenderQueue& queue)
 {
     for (const auto& it : queue.Items())
     {
-        DrawItem_GL(it, RenderPass::World, 0);
+        SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
+        DrawItem_GL(it, RenderPass::World, -1);
     }
 }
 
 void Renderer::DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex)
 {
     for (const auto& it : queue.Items())
+    {
+        SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
         DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
+    }
 }
 
 

@@ -23,7 +23,6 @@
 // Graphics
 //==============================================================================
 #include "Graphics/VisualComponent.h"
-#include "Graphics/Effect/ParticleComponent.h"
 #include "Graphics/Effect/RenderSurfaceComponent.h"
 #include "Graphics/Mesh/MeshComponent.h"
 #include "Graphics/Mesh/SkeletalMeshComponent.h"
