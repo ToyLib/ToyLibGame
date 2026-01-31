@@ -160,7 +160,7 @@ bool Renderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
     // クリアカラーの初期設定
     //---------------------------------------------------------
     SetClearColor(mClearColor);
-    mSkyDomeComp = nullptr;
+    //mSkyDomeComp = nullptr;
 
     //---------------------------------------------------------
     // ビューポート＆射影行列など、サイズ依存の状態をまとめて更新
@@ -210,16 +210,13 @@ void Renderer::Shutdown()
     mSurfaceQuad.reset();
 }
 
-
 //=============================================================
-// メイン描画パス
+// メイン描画パス(新パス)
 //=============================================================
-void Renderer::Draw()
+void Renderer::BeginFrame()
 {
-    ResetDebugCounter();
-
     //=========================================================
-    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
+    // Frame begin : 強制的に GL state を揃える（混在期の事故防止）
     //=========================================================
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 
@@ -239,13 +236,105 @@ void Renderer::Draw()
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
-    //=========================================================
-    // 1) SHADOW : ShadowMap を作る（CSM）
-    //=========================================================
-    RenderShadowMap();
+void Renderer::RenderShadowPass()
+{
+    // 現在のFBO/Viewportを退避（RTTでも壊さない）
+    GLint prevFBO = 0;
+    GLint prevVP[4];
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+    glGetIntegerv(GL_VIEWPORT, prevVP);
 
-    // ★ Shadow パスが state を汚してもよい前提なので、ここで必ず戻す
+    // Shadow pass の期待状態
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    // ベースとなる中心とライト方向は共通
+    Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
+    Vector3 lightDir  = mLightingManager->GetLightDirection();
+    Vector3 lightPos  = camCenter - lightDir * 50.0f;
+
+    Matrix4 lightView = Matrix4::CreateLookAt(
+        lightPos,
+        camCenter,
+        Vector3::UnitY
+    );
+
+    // Near / Far 用の ortho サイズ（まずは固定でOK）
+    const float orthoW[kShadowCascadeCount] =
+    {
+        mShadowOrthoWidth,
+        mShadowOrthoWidth * 4.0f
+    };
+    const float orthoH[kShadowCascadeCount] =
+    {
+        mShadowOrthoHeight,
+        mShadowOrthoHeight * 4.0f
+    };
+
+    for (int i = 0; i < kShadowCascadeCount; ++i)
+    {
+        // --- FBO バインド & viewport ---
+        glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
+        glViewport(0, 0, (GLsizei)mShadowFBOWidth, (GLsizei)mShadowFBOHeight);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // --- Light VP 構築（ToyLib流：view * proj） ---
+        Matrix4 lightProj = Matrix4::CreateOrtho(
+            orthoW[i],
+            orthoH[i],
+            mShadowNear,
+            mShadowFar
+        );
+
+        Matrix4 lightVP = lightView * lightProj;
+        mLightSpaceMatrix[i] = lightVP;
+
+        // --- フラスタム作ってカリング ---
+        Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
+
+        // --- Shadow 専用 RenderQueue を構築 ---
+        RenderQueue queue;
+
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc || !vc->GetEnableShadow() || !vc->IsVisible())
+                continue;
+
+            // 影パスでも BoundingVolume があればカリング
+            Actor* owner = vc->GetOwner();
+            if (owner)
+            {
+                auto bv = owner->GetComponent<BoundingVolumeComponent>();
+                if (bv)
+                {
+                    Cube aabb = bv->GetWorldAABB();
+                    if (!FrustumIntersectsAABB(shadowFrustum, aabb))
+                        continue;
+                }
+            }
+
+            // ★新：Shadow用アイテムを積む
+            vc->GatherShadowItems(queue);//, i, lightVP);
+        }
+
+        // ★影パス描画（RenderItemを回す）
+        DrawRenderQueue_Shadow(queue, i);
+    }
+
+    // 戻す（color mask 含めて確実に）
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
+}
+void Renderer::RestoreAfterShadowPass()
+{
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -261,52 +350,51 @@ void Renderer::Draw()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
 
-    //=========================================================
-    // (NEW) SKY（背景）
-    //   - SkyDome を最初に描く
-    //   - DepthTest: ON / DepthWrite: OFF
-    //   - Cull: OFF（内側を描くため）
-    //=========================================================
+void Renderer::DrawSkyPass()
+{
+    RenderQueue skyQueue;
+
+    for (auto* vc : mVisualComps)
     {
-        RenderQueue skyQueue;
+        if (!vc) continue;
+        if (!vc->IsVisible()) continue;
+        if (vc->GetLayer() != VisualLayer::Sky) continue;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Sky) continue;
-
-            vc->GatherRenderItems(skyQueue);
-        }
-        // Sky 基本 state（SkyDome の「内側」を描きたいので Cull は切る）
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-        glDepthMask(GL_FALSE);
-
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_BLEND);
-
-        skyQueue.Sort();
-        DrawRenderQueue_World(skyQueue);
-
-        // 戻す（混在期の保険）
-        glDepthMask(GL_TRUE);
-
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        vc->GatherRenderItems(skyQueue);
     }
 
+    // Sky 基本 state
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_FALSE);
+
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+
+    skyQueue.Sort();
+    DrawRenderQueue_World(skyQueue);
+
+    // 戻す（混在期の保険）
+    glDepthMask(GL_TRUE);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+void Renderer::DrawWorldPass()
+{
     //=========================================================
     // 2) WORLD OPAQUE（3D）：Object3D の Opaque だけ
     //=========================================================
-    RenderQueue worldOpaqueQueue;
     {
+        RenderQueue worldOpaqueQueue;
         RenderQueue tmp;
+
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
@@ -344,9 +432,10 @@ void Renderer::Draw()
     // 3) WORLD EFFECT (PRE)（3D）：深度に従う “貼り付き/足元系”
     //   - 透明Meshより先に描いて馴染ませる
     //=========================================================
-    RenderQueue effectPreQueue;
     {
+        RenderQueue effectPreQueue;
         RenderQueue tmp;
+
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
@@ -390,6 +479,7 @@ void Renderer::Draw()
     //=========================================================
     {
         RenderQueue tmp;
+
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
@@ -428,8 +518,8 @@ void Renderer::Draw()
     //=========================================================
     {
         RenderQueue effectOverlayQueue;
-
         RenderQueue tmp;
+
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
@@ -467,79 +557,149 @@ void Renderer::Draw()
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
     }
+}
+void Renderer::DrawOverlayScreenPass()
+{
     //=========================================================
     // 5.5) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
     //   - WeatherOverlayComponent など
-    //   - blend は RenderItem 側（Alpha/Additive）に従う
+    //   - blend は RenderItem 側（Alpha/Additive）に従う（※将来 ApplyState_GL）
     //=========================================================
+    RenderQueue overlayQueue;
+
+    for (auto* vc : mVisualComps)
     {
-        RenderQueue overlayQueue;
+        if (!vc) continue;
+        if (!vc->IsVisible()) continue;
+        if (vc->GetLayer() != VisualLayer::OverlayScreen) continue;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::OverlayScreen) continue;
-
-            vc->GatherRenderItems(overlayQueue);
-        }
-
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        glDisable(GL_CULL_FACE);
-
-        // ※ ここは「一旦ON」だけ。実際の blend func は
-        //    ApplyState_GL(it) で RenderItem.blend に従って切り替えるのが正解。
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        overlayQueue.Sort();
-        DrawRenderQueue_World(overlayQueue);
-
-        // 戻す（混在期の保険）
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_TRUE);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
+        vc->GatherRenderItems(overlayQueue);
     }
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+
+    // いまは一旦これで固定（将来は RenderItem.blend で切り替える）
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    overlayQueue.Sort();
+    DrawRenderQueue_World(overlayQueue);
+
+    // 戻す（混在期の保険）
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+}
+void Renderer::DrawFadePass()
+{
+    if (!mEnableFade)
+    {
+        return;
+    }
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    auto sh = GetShader("Fade");
+    if (!sh)
+    {
+        return;
+    }
+    
+    sh->SetActive();
+    sh->SetVectorUniform("uColor", mFadeColor);
+    sh->SetFloatUniform("uAlpha", mFadeAlpha);
+
+    mFullScreenQuad->SetActive();
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+    glDisable(GL_BLEND);
+}
+void Renderer::DrawUIPass()
+{
     //=========================================================
     // 6) UI：Sprite（深度OFF）
     //=========================================================
+    RenderQueue uiQueue;
+
+    for (auto* vc : mVisualComps)
     {
-        RenderQueue uiQueue;
+        if (!vc) continue;
+        if (!vc->IsVisible()) continue;
+        if (vc->GetLayer() != VisualLayer::UI) continue;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::UI) continue;
-
-            vc->GatherRenderItems(uiQueue);
-        }
-
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        glDisable(GL_CULL_FACE);
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        uiQueue.Sort();
-        DrawRenderQueue_World(uiQueue);
-
-        // 戻す（混在期の保険）
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_TRUE);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
+        vc->GatherRenderItems(uiQueue);
     }
 
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    uiQueue.Sort();
+    DrawRenderQueue_World(uiQueue);
+
+    // 戻す（混在期の保険）
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+}
+void Renderer::EndFrame()
+{
+    SDL_GL_SwapWindow(mWindow);
+}
+//=============================================================
+// メイン描画パス
+//=============================================================
+void Renderer::Draw()
+{
+    ResetDebugCounter();
+    //=========================================================
+    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
+    //=========================================================
+    BeginFrame();
+    //=========================================================
+    // 1) SHADOW : ShadowMap を作る（CSM）
+    //=========================================================
+    RenderShadowPass();
+    RestoreAfterShadowPass();
+
+    //=========================================================
+    // 2) SKY（背景）
+    //   - SkyDome を最初に描く
+    //=========================================================
+    DrawSkyPass();
+    //=========================================================
+    // 3) World
+    //=========================================================
+    DrawWorldPass();
+    
+    //=========================================================
+    // 4) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
+    //=========================================================
+    DrawOverlayScreenPass();
+    //=========================================================
+    // 5) UI：Sprite（深度OFF）
+    //=========================================================
+    DrawUIPass();
+
+    //=========================================================
+    // 6) Fade
+    //=========================================================
+    DrawFadePass();
     //=========================================================
     // 7) Present
     //=========================================================
-    SDL_GL_SwapWindow(mWindow);
+    EndFrame();
 }
 /*
 void Renderer::Draw()
@@ -595,7 +755,7 @@ void Renderer::Draw()
     SDL_GL_SwapWindow(mWindow);
 }
  */
-
+/*
 void Renderer::DrawWorldPass_NoUI()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -619,7 +779,8 @@ void Renderer::DrawWorldPass_NoUI()
     DrawVisualLayer(VisualLayer::OverlayScreen);
     DrawVisualLayer(VisualLayer::Object2D);
 }
-
+*/
+/*
 void Renderer::DrawUIPass_Only()
 {
     // RenderQueueによる描画（UIは新パスへ寄せる）
@@ -648,7 +809,8 @@ void Renderer::DrawUIPass_Only()
     glFrontFace(GL_CCW);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
-
+*/
+/*
 void Renderer::DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex)
 {
     RenderQueue queue;
@@ -682,7 +844,8 @@ void Renderer::DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex)
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
 }
-
+*/
+/*
 void Renderer::DrawPass(bool drawUI)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -716,7 +879,7 @@ void Renderer::DrawPass(bool drawUI)
 
     }
 }
-
+*/
 void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
                                   const Matrix4& view,
                                   const Matrix4& proj,
@@ -748,14 +911,14 @@ void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 影は一旦OFF推奨（必要なら前に話したFBO/VP退避復帰を入れて）
-    RenderShadowMap();
+    RenderShadowPass();
 
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    DrawSky();
+    //DrawSky();
     DrawVisualLayer(VisualLayer::Background2D,  skipTex);
     DrawVisualLayer(VisualLayer::Object3D,      skipTex);
     DrawVisualLayer(VisualLayer::Effect3D,      skipTex);
@@ -866,37 +1029,12 @@ void Renderer::DrawPostFromSceneRT()
     glEnable(GL_DEPTH_TEST);
 }
 
-void Renderer::DrawFadeOverlay()
-{
-    if (!mEnableFade)
-    {
-        return;
-    }
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    auto sh = GetShader("Fade");
-    if (!sh)
-    {
-        return;
-    }
-    
-    sh->SetActive();
-    sh->SetVectorUniform("uColor", mFadeColor);
-    sh->SetFloatUniform("uAlpha", mFadeAlpha);
-
-    mFullScreenQuad->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-
-    glDisable(GL_BLEND);
-}
 
 //=============================================================
 // SkyDome
 //=============================================================
-
+/*
 void Renderer::DrawSky()
 {
     if (!mSkyDomeComp)
@@ -905,7 +1043,7 @@ void Renderer::DrawSky()
     }
     mSkyDomeComp->Draw();
 }
-
+*/
 
 //=============================================================
 // VisualComponent 管理
@@ -1289,107 +1427,11 @@ bool Renderer::InitializeShadowMapping()
     return true;
 }
 
-void Renderer::RenderShadowMap()
-{
-    // 現在のFBO/Viewportを退避（RTTでも壊さない）
-    GLint prevFBO = 0;
-    GLint prevVP[4];
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
-    glGetIntegerv(GL_VIEWPORT, prevVP);
-
-    // Shadow pass の期待状態
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    // ベースとなる中心とライト方向は共通
-    Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
-    Vector3 lightDir  = mLightingManager->GetLightDirection();
-    Vector3 lightPos  = camCenter - lightDir * 50.0f;
-
-    Matrix4 lightView = Matrix4::CreateLookAt(
-        lightPos,
-        camCenter,
-        Vector3::UnitY
-    );
-
-    // Near / Far 用の ortho サイズ（まずは固定でOK）
-    const float orthoW[kShadowCascadeCount] =
-    {
-        mShadowOrthoWidth,
-        mShadowOrthoWidth * 4.0f
-    };
-    const float orthoH[kShadowCascadeCount] =
-    {
-        mShadowOrthoHeight,
-        mShadowOrthoHeight * 4.0f
-    };
-
-    for (int i = 0; i < kShadowCascadeCount; ++i)
-    {
-        // --- FBO バインド & viewport ---
-        glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
-        glViewport(0, 0, (GLsizei)mShadowFBOWidth, (GLsizei)mShadowFBOHeight);
-        glClear(GL_DEPTH_BUFFER_BIT);
-
-        // --- Light VP 構築（ToyLib流：view * proj） ---
-        Matrix4 lightProj = Matrix4::CreateOrtho(
-            orthoW[i],
-            orthoH[i],
-            mShadowNear,
-            mShadowFar
-        );
-
-        Matrix4 lightVP = lightView * lightProj;
-        mLightSpaceMatrix[i] = lightVP;
-
-        // --- フラスタム作ってカリング ---
-        Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
-
-        // --- Shadow 専用 RenderQueue を構築 ---
-        RenderQueue queue;
-
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc || !vc->GetEnableShadow() || !vc->IsVisible())
-                continue;
-
-            // 影パスでも BoundingVolume があればカリング
-            Actor* owner = vc->GetOwner();
-            if (owner)
-            {
-                auto bv = owner->GetComponent<BoundingVolumeComponent>();
-                if (bv)
-                {
-                    Cube aabb = bv->GetWorldAABB();
-                    if (!FrustumIntersectsAABB(shadowFrustum, aabb))
-                        continue;
-                }
-            }
-
-            // ★旧：vc->DrawShadow(i);
-            // ★新：Shadow用アイテムを積む
-            vc->GatherShadowItems(queue);//, i, lightVP);
-        }
-
-        // ★影パス描画（RenderItemを回す）
-        DrawRenderQueue_Shadow(queue, i);
-    }
-
-    // 戻す（color mask 含めて確実に）
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
-    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
-}
 
 //=============================================================
 // その他ユーティリティ
 //=============================================================
-
+/*
 void Renderer::RegisterSkyDome(SkyDomeComponent* sky)
 {
     mSkyDomeComp = sky;
@@ -1399,7 +1441,7 @@ void Renderer::RegisterSkyDome(SkyDomeComponent* sky)
         mSkyDomeComp->SetLightingManager(mLightingManager);
     }
 }
-
+*/
 void Renderer::SetClearColor(const Vector3& color)
 {
     // クリアカラー変更

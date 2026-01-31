@@ -92,7 +92,7 @@ public:
     //--------------------------------------------------------------------------
 
     void Draw();
-    void DrawPass(bool drawUI);
+    //void DrawPass(bool drawUI);
 
     void DrawToRenderTarget(std::shared_ptr<class RenderTarget> rt,
                             const Matrix4& view,
@@ -183,8 +183,8 @@ public:
 
     void UnloadData();
 
-    void RegisterSkyDome(class SkyDomeComponent* sky);
-    class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
+    //void RegisterSkyDome(class SkyDomeComponent* sky);
+    //class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
 
     std::shared_ptr<class LightingManager> GetLightingManager() const
     {
@@ -350,8 +350,8 @@ private:
 
     // ポスト描画
     void DrawPostFromSceneRT();
-    void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
-    void DrawUIPass_Only();     // UIだけ（クリアなし）
+    //void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
+    //void DrawUIPass_Only();     // UIだけ（クリアなし）
 
     //--------------------------------------------------------------------------
     // フェード
@@ -359,7 +359,7 @@ private:
     float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
     Vector3 mFadeColor  { 0, 0, 0 };
     bool    mEnableFade { false };
-    void    DrawFadeOverlay();
+
 
     //--------------------------------------------------------------------------
     // ジオメトリ
@@ -387,9 +387,9 @@ private:
     //--------------------------------------------------------------------------
 
     std::vector<class VisualComponent*> mVisualComps;
-    class SkyDomeComponent* mSkyDomeComp { nullptr };
+    //class SkyDomeComponent* mSkyDomeComp { nullptr };
 
-    void DrawSky();
+    //void DrawSky();
     void DrawVisualLayer(VisualLayer layer,
                          const std::shared_ptr<class Texture>& skipTex = nullptr);
 
@@ -399,15 +399,28 @@ private:
 
     bool LoadSettings(const std::string& filePath);
     bool InitializeShadowMapping();
-    void RenderShadowMap();
-    
+
     
     // OpenGL 切り離し準備
     void DrawRenderQueue_World(const RenderQueue& items);
     void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
-    void DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex);
+    //void DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex);
+    
+    
+private:
+    // 新DrawPass
+    void BeginFrame();
+    void RenderShadowPass();
+    void RestoreAfterShadowPass();
+    void DrawSkyPass();
+    void DrawWorldPass();
+    void DrawOverlayScreenPass();
+    void DrawFadePass();
+    void DrawUIPass();
+    void EndFrame();
+    
 };
 
 } // namespace toy
