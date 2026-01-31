@@ -24,7 +24,8 @@ enum class RenderItemType
     GPUParticle,
     SkyDome,
     Overlay,
-    Debug
+    Debug,
+    Surface
 };
 //==============================================================
 // RenderItem
@@ -142,6 +143,16 @@ struct RenderItem
     float   overlayFlareIntensity = 0.0f;
     Vector2 overlaySunPos         = Vector2::Zero;
     Vector3 overlayFlareColor     = Vector3(1.0f, 0.9f, 0.7f);
+    
+    //==========================================================
+    // Surface
+    //==========================================================
+    float   surfaceOpacity = 1.0f;
+    Vector3 surfaceTint    = Vector3(1,1,1);
+    bool    surfaceFlipX   = false;
+    bool    surfaceFlipY   = false;
+    int     surfaceMode    = 0;     // enum 化してもOK
+    float   time           = 0.0f;
     
 };
 

@@ -40,132 +40,77 @@ RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
 //==============================================================================
 // 描画
 //==============================================================================
-void RenderSurfaceComponent::Draw()
+void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
 {
-    // 表示OFF、もしくは表示対象テクスチャが無いなら何もしない
     if (!IsVisible() || !mTexture)
-    {
         return;
-    }
-
-    //--------------------------------------------------------------------------
-    // GL 状態（必要最低限）
-    //--------------------------------------------------------------------------
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-
-    // 裏面も見せたい演出があるなら、ここだけ無効にできる
-    // glDisable(GL_CULL_FACE);
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-
-    //--------------------------------------------------------------------------
-    // 依存リソース（万一 null の場合に備えて再取得）
-    //--------------------------------------------------------------------------
-    if (!mVertexArray)
-    {
-        mVertexArray = renderer->GetSurfaceQuad();
-    }
-    if (!mShader)
-    {
-        mShader = renderer->GetShader("RenderSurface");
-    }
-    if (!mVertexArray || !mShader)
-    {
+    if (!renderer)
         return;
-    }
 
-    //--------------------------------------------------------------------------
-    // シェーダ設定
-    //--------------------------------------------------------------------------
-    mShader->SetActive();
+    RenderItem it;
+    it.type = RenderItemType::Surface;
+    it.pass = RenderPass::World;
 
-    // 行列：ToyLib流（m * v）なので、シェーダ側も vec4 * mat4 で合わせる
-    Matrix4 sc = Matrix4::CreateScale(mScaleX, mScaleY, 1.0f);
+    //====================
+    // Geometry / Shader
+    //====================
+    it.geometry = renderer->GetSurfaceQuadHandle();
+    it.indexCount  = 6;   // ★ 必須（SurfaceQuad は EBO 6 前提）
+    it.vertexCount = 0;
+    it.shader   = renderer->GetShaderHandle("RenderSurface");
+
+    //====================
+    // Transform
+    //====================
     GetOwner()->ComputeWorldTransform();
-    const Matrix4 world = sc * GetOwner()->GetWorldTransform();
-    
-    
-    
-    mShader->SetMatrixUniform("uWorld", world);
-    mShader->SetMatrixUniform("uView",  renderer->GetViewMatrix());
-    mShader->SetMatrixUniform("uProj",  renderer->GetProjectionMatrix());
 
-    // 演出パラメータ
-    mShader->SetBooleanUniform("uFlipX", mFlipX);
-    mShader->SetBooleanUniform("uFlipY", mFlipY);
-    mShader->SetFloatUniform("uOpacity", mOpacity);
-    mShader->SetVectorUniform("uTint",   mTint);
-    
-    float gameTime = GetOwner()->GetApp()->GetTimeSconds();
-    mShader->SetFloatUniform("uTime", gameTime);
-    
+    Matrix4 sc = Matrix4::CreateScale(mScaleX, mScaleY, 1.0f);
+    it.world   = sc * GetOwner()->GetWorldTransform();
+
+    it.viewProj = renderer->GetViewProjMatrix();
+
+    //====================
+    // Texture
+    //====================
+    it.texture     = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
+
+    //====================
+    // State
+    //====================
+    it.depthTest  = true;
+    it.depthWrite = true;
+    it.cull       = CullMode::Back;
+    it.blend      = BlendMode::Alpha;
+
+    //====================
+    // Surface params
+    //====================
+    it.surfaceOpacity = mOpacity;
+    it.surfaceTint    = mTint;
+    it.surfaceFlipX   = mFlipX;
+    it.surfaceFlipY   = mFlipY;
+    int mode = 3; // Plain は fallback（= 3 など “0..2以外”）
     switch (mMode)
     {
-        case SurfaceMode::Plain:
-            mShader->SetIntUniform("uMode", 0);
-
-            mShader->SetFloatUniform("uDistortStrength", 0.0f);
-            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
-
-            mShader->SetFloatUniform("uFresnel", 0.0f);
-            mShader->SetFloatUniform("uFresnelPow", 1.0f);
-
-            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
-            break;
-        case SurfaceMode::Monitor:
-            mShader->SetIntUniform("uMode", 0);
-            
-            mShader->SetFloatUniform("uDistortStrength", 0.0f);
-            
-            mShader->SetFloatUniform("uScanlineStrength", 0.15f); // 0.1〜0.25
-            
-            mShader->SetFloatUniform("uFresnel", 0.0f);
-            mShader->SetFloatUniform("uFresnelPow", 1.0f);
-            
-            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
-            
-
-            break;
-        case SurfaceMode::Mirror:
-            mShader->SetIntUniform("uMode", 1);
-
-            mShader->SetFloatUniform("uDistortStrength", 0.01f); // 超重要：弱く
-
-            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
-
-            mShader->SetFloatUniform("uFresnel", 0.5f);   // カメラ側で計算できないなら固定でOK
-            mShader->SetFloatUniform("uFresnelPow", 5.0f); // 4〜8くらいが自然
-
-            mShader->SetFloatUniform("uWaveSpeed", 0.0f);
-            break;
-        case SurfaceMode::Water:
-            mShader->SetIntUniform("uMode", 2);
-
-            mShader->SetFloatUniform("uDistortStrength", 0.03f); // 0.02〜0.04
-
-            mShader->SetFloatUniform("uScanlineStrength", 0.0f);
-
-            mShader->SetFloatUniform("uFresnel", 0.0f);
-            mShader->SetFloatUniform("uFresnelPow", 1.0f);
-
-            mShader->SetFloatUniform("uWaveSpeed", 2.0f); // 0.5〜2.0
-            mShader->SetFloatUniform("uSwayStrength", 0.006f);
-            mShader->SetFloatUniform("uSparkleStrength", 0.1f);
-            break;
+        case SurfaceMode::Plain:   mode = 3; break; // fallback
+        case SurfaceMode::Monitor: mode = 0; break;
+        case SurfaceMode::Mirror:  mode = 1; break;
+        case SurfaceMode::Water:   mode = 2; break;
     }
-    // テクスチャ
-    mTexture->SetActive(0);
-    mShader->SetIntUniform("uSurfaceTex", 0);
-    //--------------------------------------------------------------------------
-    // 描画
-    //--------------------------------------------------------------------------
-    mVertexArray->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    it.surfaceMode = mode;
 
-    // Debug カウンタ
-    renderer->AddDrawCall();
-    renderer->AddDrawObject();
+    // 時間
+    it.time = GetOwner()->GetApp()->GetTimeSconds();
+
+    //====================
+    // Dispatch
+    //====================
+    it.dispatch = GetDispatch(it.type);
+
+    queue.Push(it);
 }
 
 } // namespace toy

@@ -31,37 +31,36 @@ public:
     RenderSurfaceComponent(class Actor* owner, int drawOrder = 100);
 
     // VisualComponent
-    void Draw() override;
-
+    void GatherRenderItems(RenderQueue& queue) override;
     //==========================================================================
     // 演出パラメータ
     //==========================================================================
     void SetFlip(bool flipX, bool flipY) { mFlipX = flipX; mFlipY = flipY; }
     void SetOpacity(float a) { mOpacity = a; }
     void SetTint(const Vector3& tint) { mTint = tint; }
-    
-    void SetScale(const float scX, const float scY) { mScaleX = scX; mScaleY = scY; }
+
+    void SetScale(float scX, float scY) { mScaleX = scX; mScaleY = scY; }
 
     bool    GetFlipX()   const { return mFlipX; }
     bool    GetFlipY()   const { return mFlipY; }
     float   GetOpacity() const { return mOpacity; }
     Vector3 GetTint()    const { return mTint; }
-    
-    void SetSurfaceMode(const SurfaceMode mode) { mMode = mode; }
+
+    void SetSurfaceMode(SurfaceMode mode) { mMode = mode; }
 
 private:
     //==========================================================================
     // パラメータ
     //==========================================================================
-    bool    mFlipX    { true };
-    bool    mFlipY    { true };
-    
-    float   mScaleX   { 1.0f };
-    float   mScaleY   { 1.0f };
+    bool  mFlipX   { true };
+    bool  mFlipY   { true };
 
-    float   mOpacity  { 1.0f };
-    Vector3 mTint     {1.0f, 1.0f, 1.0f };
-    
+    float mScaleX  { 1.0f };
+    float mScaleY  { 1.0f };
+
+    float   mOpacity { 1.0f };
+    Vector3 mTint    { 1.0f, 1.0f, 1.0f };
+
     SurfaceMode mMode { SurfaceMode::Mirror };
 };
 

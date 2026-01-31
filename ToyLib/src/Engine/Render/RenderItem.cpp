@@ -264,6 +264,41 @@ bool DispatchDebug(Renderer&,
     return false;
 }
 
+static bool DispatchSurface(Renderer& r,
+                            const RenderItem& it,
+                            RenderPass pass,
+                            int)
+{
+    if (pass != RenderPass::World)
+        return true; // 描かない
+
+    auto* sh = it.shader.ptr;
+    sh->SetActive();
+
+    // 行列（Surface用は分解してる前提）
+    sh->SetMatrixUniform("uWorld", it.world);
+    sh->SetMatrixUniform("uView",  r.GetViewMatrix());
+    sh->SetMatrixUniform("uProj",  r.GetProjectionMatrix());
+
+    // パラメータ
+    sh->SetBooleanUniform("uFlipX", it.surfaceFlipX);
+    sh->SetBooleanUniform("uFlipY", it.surfaceFlipY);
+    sh->SetFloatUniform  ("uOpacity", it.surfaceOpacity);
+    sh->SetVectorUniform ("uTint", it.surfaceTint);
+    sh->SetIntUniform    ("uMode", it.surfaceMode);
+    sh->SetFloatUniform  ("uTime", it.time);
+
+    // テクスチャ
+    if (it.texture.ptr)
+    {
+        it.texture.ptr->SetActive(it.textureUnit);
+        sh->SetIntUniform("uSurfaceTex", it.textureUnit);
+    }
+
+    return false; // ★通常の DrawDefaultGeometry に流す
+}
+
+
 RenderItem::DispatchFn GetDispatch(RenderItemType type)
 {
     switch (type)
@@ -276,8 +311,10 @@ RenderItem::DispatchFn GetDispatch(RenderItemType type)
         case RenderItemType::SkyDome:      return &DispatchSkyDome;
         case RenderItemType::Overlay:      return &DispatchOverlay;
         case RenderItemType::Debug:        return &DispatchDebug;
+        case RenderItemType::Surface:      return &DispatchSurface;
         default:                           return nullptr;
     }
 }
+
 
 } // namespace toy

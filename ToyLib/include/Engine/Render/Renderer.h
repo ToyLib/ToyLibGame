@@ -17,7 +17,7 @@
 
 namespace toy {
 
-
+class RenderTarget;
 
 //==============================================================================
 // ScreenProjectResult
@@ -51,14 +51,37 @@ struct UIScaleInfo
 //==============================================================================
 // Capture Request
 //==============================================================================
+
 struct SceneCaptureRequest
 {
-    std::shared_ptr<class RenderTarget> rt;
+    std::shared_ptr<RenderTarget> rt;
     Matrix4 view { Matrix4::Identity };
     Matrix4 proj { Matrix4::Identity };
     bool drawUI { false };
-    const class Texture* skipTexture { nullptr }; // フィードバック防止用
+
+    // 将来拡張
+    bool drawSky { true };
+    bool drawWorld { true };
+    bool drawOverlay { false }; // まず false 推奨
 };
+
+
+struct FramebufferScope
+{
+    GLint prevFbo = 0;
+    GLint prevVp[4] {};
+    FramebufferScope()
+    {
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
+        glGetIntegerv(GL_VIEWPORT, prevVp);
+    }
+    ~FramebufferScope()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
+        glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
+    }
+};
+
 
 //==============================================================================
 // デバッグ用の情報
@@ -126,18 +149,20 @@ public:
         mViewMatrix = view;
         mInvView    = view;
         mInvView.Invert();
+        mViewProjMatrix = mViewMatrix * mProjectionMatrix;
     }
 
     Matrix4 GetViewMatrix() const { return mViewMatrix; }
     Matrix4 GetInvViewMatrix() const { return mInvView; }
 
     Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
-    void SetProjectionMatrix(const Matrix4& mat) { mProjectionMatrix = mat; }
-
-    Matrix4 GetViewProjMatrix() const
+    void SetProjectionMatrix(const Matrix4& mat)
     {
-        return mViewMatrix * mProjectionMatrix;
+        mProjectionMatrix = mat;
+        mViewProjMatrix   = mViewMatrix * mProjectionMatrix;
     }
+
+    Matrix4 GetViewProjMatrix() const { return mViewProjMatrix; }
 
     float GetPerspectiveFov() const { return mPerspectiveFOV; }
     void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
@@ -152,7 +177,6 @@ public:
     //--------------------------------------------------------------------------
     
     void RequestSceneCapture(const SceneCaptureRequest& req);
-    void FlushSceneCaptures();
     
     //--------------------------------------------------------------------------
     // スクリーン / UI
@@ -268,6 +292,7 @@ public:
     
     
     GeometryHandle GetSpriteQuadHandle() const;
+    GeometryHandle GetSurfaceQuadHandle() const;
 
     ShaderHandle GetShaderHandle(const std::string& name);
     TextureHandle ToHandle(const std::shared_ptr<Texture>& tex) const;
@@ -296,6 +321,7 @@ private:
     Matrix4 mViewMatrix {};
     Matrix4 mInvView    {};
     Matrix4 mProjectionMatrix {};
+    Matrix4 mViewProjMatrix {};
     
     
     //--------------------------------------------------------------------------
@@ -349,7 +375,7 @@ private:
     PostEffectDesc mPost {};
 
     // ポスト描画
-    void DrawPostFromSceneRT();
+
     //void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
     //void DrawUIPass_Only();     // UIだけ（クリアなし）
 
@@ -418,9 +444,21 @@ private:
     void DrawWorldPass();
     void DrawOverlayScreenPass();
     void DrawFadePass();
+    void DrawPostEffectPass();
     void DrawUIPass();
     void EndFrame();
 
+private:
+
+
+    struct CameraState
+    {
+        Matrix4 view, proj, viewProj, invView;
+    };
+    std::vector<CameraState> mCameraStack;
+    void PushCameraState();
+    void PopCameraState();
+    void SetCameraState(const CameraState& s);
     
 };
 

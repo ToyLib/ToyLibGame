@@ -395,6 +395,12 @@ GeometryHandle Renderer::GetSpriteQuadHandle() const
     h.ptr = mSpriteVerts.get();       // 既存の共通SpriteVertsを使う
     return h;
 }
+GeometryHandle Renderer::GetSurfaceQuadHandle() const
+{
+    GeometryHandle h;
+    h.ptr = mSurfaceQuad.get();   // 既に CreateSurfaceQuad() で用意してる前提
+    return h;
+}
 
 ShaderHandle Renderer::GetShaderHandle(const std::string& name)
 {

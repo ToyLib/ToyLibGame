@@ -214,26 +214,31 @@ void Renderer::Shutdown()
 //=============================================================
 void Renderer::BeginFrame()
 {
-    //=========================================================
-    // Frame begin : 強制的に GL state を揃える（混在期の事故防止）
-    //=========================================================
-    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+    const bool usePost = (mPost.type != PostEffectType::None);
 
+    if (usePost)
+    {
+        if (!mSceneRT ||
+            mSceneRT->GetWidth()  != (int)mScreenWidth ||
+            mSceneRT->GetHeight() != (int)mScreenHeight)
+        {
+            mSceneRT = std::make_shared<RenderTarget>();
+            mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight);
+        }
+
+        // ★ここ
+        mSceneRT->Bind();
+    }
+    else
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+    }
+
+    // 以下いつもの GL state 初期化
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
-    glClearDepth(1.0);
-
-    glDisable(GL_STENCIL_TEST);
-
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -652,306 +657,7 @@ void Renderer::DrawUIPass()
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 }
-void Renderer::EndFrame()
-{
-    SDL_GL_SwapWindow(mWindow);
-}
-//=============================================================
-// メイン描画パス
-//=============================================================
-void Renderer::Draw()
-{
-    ResetDebugCounter();
-    //=========================================================
-    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
-    //=========================================================
-    BeginFrame();
-    //=========================================================
-    // 1) SHADOW : ShadowMap を作る（CSM）
-    //=========================================================
-    RenderShadowPass();
-    RestoreAfterShadowPass();
-
-    //=========================================================
-    // 2) SKY（背景）
-    //   - SkyDome を最初に描く
-    //=========================================================
-    DrawSkyPass();
-    //=========================================================
-    // 3) World
-    //=========================================================
-    DrawWorldPass();
-    
-    //=========================================================
-    // 4) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
-    //=========================================================
-    DrawOverlayScreenPass();
-    //=========================================================
-    // 5) UI：Sprite（深度OFF）
-    //=========================================================
-    DrawUIPass();
-
-    //=========================================================
-    // 6) Fade
-    //=========================================================
-    DrawFadePass();
-    //=========================================================
-    // 7) Present
-    //=========================================================
-    EndFrame();
-}
-/*
-void Renderer::Draw()
-{
-    ResetDebugCounter();
-
-    ChangeDebugRTT();
-    FlushSceneCaptures();
-
-    ChangeDebugOnScreen();
-
-    const bool usePost = (mPost.type != PostEffectType::None) && (mSceneRT != nullptr);
-
-    if (usePost)
-    {
-        // 1) ワールドを SceneRT へ（UIなし）
-        //    既存の DrawToRenderTarget を使うならこれでもOK：
-        //    DrawToRenderTarget(mSceneRT, mViewMatrix, mProjectionMatrix, false);
-        //
-        //    ただ DrawToRenderTarget は少し独自分岐があるので、
-        //    “完全にメインと同じ” を狙うなら以下の方式もアリ：
-
-        {
-            GLint prevVP[4];
-            glGetIntegerv(GL_VIEWPORT, prevVP);
-
-            mSceneRT->Bind();
-            DrawWorldPass_NoUI();
-
-            RenderTarget::Unbind();
-            glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
-            glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
-        }
-
-        // 2) バックバッファへポスト適用
-        glClear(GL_COLOR_BUFFER_BIT);
-        DrawPostFromSceneRT();
-
-        // 3) UIを後乗せ
-        DrawUIPass_Only();
-    }
-    else
-    {
-        // 従来
-//        DrawPass(true);
-        DrawWorldPass_NoUI();
-        DrawUIPass_Only();
-    }
-    
-    // 4) フェード
-    DrawFadeOverlay();
-
-    SDL_GL_SwapWindow(mWindow);
-}
- */
-/*
-void Renderer::DrawWorldPass_NoUI()
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    RenderShadowMap();
-
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    DrawSky();
-
-    DrawVisualLayer(VisualLayer::Background2D);
-
-    // ★ここ
-    DrawObject3DPass_Only(nullptr);
-
-    DrawVisualLayer(VisualLayer::Effect3D);
-    DrawVisualLayer(VisualLayer::OverlayScreen);
-    DrawVisualLayer(VisualLayer::Object2D);
-}
-*/
-/*
-void Renderer::DrawUIPass_Only()
-{
-    // RenderQueueによる描画（UIは新パスへ寄せる）
-    RenderQueue queue;
-    for (auto* vc : mVisualComps)
-    {
-        if (vc->GetLayer() == VisualLayer::UI)
-        {
-            vc->GatherRenderItems(queue);
-        }
-    }
-
-    // UIパス入口で期待状態を明示（混在期の保険）
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    DrawRenderQueue_World(queue);
-
-    // ※ここで戻すかは好みだけど、旧パスが残る間は戻す方が事故が減る
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-*/
-/*
-void Renderer::DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex)
-{
-    RenderQueue queue;
-
-    for (auto* vc : mVisualComps)
-    {
-        if (!vc->IsVisible()) continue;
-        if (vc->GetLayer() != VisualLayer::Object3D) continue;
-
-        // RTT中の「自分自身のRTテクスチャ描画スキップ」も反映したいなら
-        // GatherRenderItems に skipTex を渡す設計にするのが理想だけど、
-        // ひとまず vc 側が it.texture を持つならここで除外でもOK
-        vc->GatherRenderItems(queue);
-    }
-
-    // Object3D の期待状態（旧 DrawVisualLayer と同じ）
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    
-    
-    DrawRenderQueue_World(queue);
-
-    // 以降のレイヤーに影響しないよう “戻す” は今の混在期なら入れてOK
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-}
-*/
-/*
-void Renderer::DrawPass(bool drawUI)
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    RenderShadowMap();
-
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    DrawSky();
-
-    DrawVisualLayer(VisualLayer::Background2D);
-
-    // ★ここ
-    DrawObject3DPass_Only(nullptr);
-
-    DrawVisualLayer(VisualLayer::Effect3D);
-    DrawVisualLayer(VisualLayer::OverlayScreen);
-    DrawVisualLayer(VisualLayer::Object2D);
-
-    
-    RenderQueue queue;
-
-    
-    if (drawUI)
-    {
-        DrawVisualLayer(VisualLayer::UI);
-
-    }
-}
-*/
-void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
-                                  const Matrix4& view,
-                                  const Matrix4& proj,
-                                  bool drawUI)
-{
-    if (!rt)
-    {
-        return;
-    }
-
-    // 退避（描画先/カメラ/Viewport）
-    const Matrix4 prevView = mViewMatrix;
-    const Matrix4 prevProj = mProjectionMatrix;
-
-    GLint prevVP[4];
-    glGetIntegerv(GL_VIEWPORT, prevVP);
-
-    // 出力先をRTへ
-    rt->Bind();
-
-    // カメラ差し替え
-    mViewMatrix       = view;
-    mProjectionMatrix = proj;
-
-    auto skipTex = rt->GetColorTexture();
-
-    //DrawPass(drawUI);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // 影は一旦OFF推奨（必要なら前に話したFBO/VP退避復帰を入れて）
-    RenderShadowPass();
-
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    //DrawSky();
-    DrawVisualLayer(VisualLayer::Background2D,  skipTex);
-    DrawVisualLayer(VisualLayer::Object3D,      skipTex);
-    DrawVisualLayer(VisualLayer::Effect3D,      skipTex);
-    //DrawVisualLayer(VisualLayer::OverlayScreen, skipTex);
-    if (drawUI)
-    {
-        DrawVisualLayer(VisualLayer::UI, skipTex);
-    }
-
-    // 戻す
-    mViewMatrix       = prevView;
-    mProjectionMatrix = prevProj;
-
-    RenderTarget::Unbind();
-    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
-    //glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
-}
-void Renderer::FlushSceneCaptures()
-{
-    
-    for (const auto& req : mSceneCaptureQueue)
-    {
-        DrawToRenderTarget(
-            req.rt,
-            req.view,
-            req.proj,
-            req.drawUI
-        );
-    }
-
-    mSceneCaptureQueue.clear();
-}
-
-void Renderer::DrawPostFromSceneRT()
+void Renderer::DrawPostEffectPass()
 {
     if (!mSceneRT)
     {
@@ -1029,20 +735,177 @@ void Renderer::DrawPostFromSceneRT()
 }
 
 
+void Renderer::EndFrame()
+{
+    SDL_GL_SwapWindow(mWindow);
+}
+//=============================================================
+// メイン描画パス
+//=============================================================
+void Renderer::Draw()
+{
+    ResetDebugCounter();
+    
+    //=========================
+    // 0) SceneCapture (RTT)
+    //=========================
+    for (const auto& req : mSceneCaptureQueue)
+    {
+        DrawToRenderTarget(req.rt, req.view, req.proj, req.drawUI);
+    }
+    mSceneCaptureQueue.clear();
+    
+    //=========================================================
+    // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
+    //=========================================================
+    BeginFrame();
+    //=========================================================
+    // 1) SHADOW : ShadowMap を作る（CSM）
+    //=========================================================
+    RenderShadowPass();
+    RestoreAfterShadowPass();
+
+    //=========================================================
+    // 2) SKY（背景）
+    //   - SkyDome を最初に描く
+    //=========================================================
+    DrawSkyPass();
+    //=========================================================
+    // 3) World
+    //=========================================================
+    DrawWorldPass();
+    
+    //=========================================================
+    // 4) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
+    //=========================================================
+    DrawOverlayScreenPass();
+    //=========================================================
+    // 5) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
+    //=========================================================
+    if (mPost.type != PostEffectType::None)
+    {
+        RenderTarget::Unbind();
+        glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+        DrawPostEffectPass();
+    }
+    //=========================================================
+    // 5) UI：Sprite（深度OFF）
+    //=========================================================
+    DrawUIPass();
+
+    //=========================================================
+    // 6) Fade
+    //=========================================================
+    DrawFadePass();
+    //=========================================================
+    // 7) Present
+    //=========================================================
+    EndFrame();
+}
 
 //=============================================================
-// SkyDome
+// カメラ操作
 //=============================================================
-/*
-void Renderer::DrawSky()
+
+void Renderer::PushCameraState()
 {
-    if (!mSkyDomeComp)
+    CameraState s{};
+    s.view    = mViewMatrix;
+    s.proj    = mProjectionMatrix;
+    s.viewProj = mViewMatrix * mProjectionMatrix;
+    s.invView = mInvView;
+
+    mCameraStack.push_back(s);
+}
+
+void Renderer::SetCameraState(const CameraState& s)
+{
+    mViewMatrix       = s.view;
+    mProjectionMatrix = s.proj;
+    mInvView          = s.invView;
+
+    // viewProj は保持してるけど、Renderer側は “都度計算” 方式でもOK。
+    // もし Renderer に mViewProj をメンバで持つなら、ここで同期。
+    // mViewProj = s.viewProj;
+}
+
+void Renderer::PopCameraState()
+{
+    if (mCameraStack.empty())
+        return;
+
+    const CameraState s = mCameraStack.back();
+    mCameraStack.pop_back();
+    SetCameraState(s);
+}
+
+
+//=============================================================
+// シーンキャプチャーリクエスト
+//=============================================================
+
+void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
+{
+    // 無効チェック（最低限）
+    if (!req.rt)
     {
         return;
     }
-    mSkyDomeComp->Draw();
+    mSceneCaptureQueue.push_back(req);
 }
-*/
+
+void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
+                                  const Matrix4& view,
+                                  const Matrix4& proj,
+                                  bool drawUI)
+{
+    if (!rt)
+        return;
+
+    //=========================
+    // 0) FBO / Viewport 保存
+    //=========================
+    FramebufferScope fbScope;
+
+    //=========================
+    // 1) カメラ保存 → 差し替え
+    //=========================
+    PushCameraState();
+    SetViewMatrix(view);
+    SetProjectionMatrix(proj);
+
+    // RTT用デバッグカウンタ
+    ChangeDebugRTT();
+
+    //=========================
+    // 2) RT bind & clear
+    //=========================
+    rt->Bind();
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    //=========================
+    // 3) 描画パス（最小構成）
+    //=========================
+    DrawSkyPass();
+    DrawWorldPass();
+
+    if (drawUI)
+    {
+        DrawUIPass();
+    }
+
+    //=========================
+    // 4) 後始末
+    //=========================
+    ChangeDebugOnScreen();
+    PopCameraState();
+}
+
+
 
 //=============================================================
 // VisualComponent 管理
@@ -1152,14 +1015,7 @@ void Renderer::DrawVisualLayer(VisualLayer layer,
 }
 
 
-//=============================================================
-// シーンキャプチャーリクエスト
-//=============================================================
 
-void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
-{
-    mSceneCaptureQueue.emplace_back(req);
-}
 
 //=============================================================
 // 共通ジオメトリ（スプライト／フルスクリーン）
@@ -1430,17 +1286,6 @@ bool Renderer::InitializeShadowMapping()
 //=============================================================
 // その他ユーティリティ
 //=============================================================
-/*
-void Renderer::RegisterSkyDome(SkyDomeComponent* sky)
-{
-    mSkyDomeComp = sky;
-    if (mSkyDomeComp)
-    {
-        // SkyDome にライティング情報を共有
-        mSkyDomeComp->SetLightingManager(mLightingManager);
-    }
-}
-*/
 void Renderer::SetClearColor(const Vector3& color)
 {
     // クリアカラー変更
