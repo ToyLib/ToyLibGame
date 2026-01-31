@@ -263,23 +263,27 @@ void Renderer::Draw()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //=========================================================
-    // 2) WORLD OPAQUE（3D）：Object3D（Mesh / SkinnedMesh 等）
-    //   - 深度：Test ON / Write ON
-    //   - ブレンドは item 側で Opaque なら Disable される（ApplyState_GL）
+    // 2) WORLD OPAQUE（3D）：Object3D の Opaque だけ
     //=========================================================
+    RenderQueue worldOpaqueQueue;
     {
-        RenderQueue worldQueue;
-
+        RenderQueue tmp;
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
             if (vc->GetLayer() != VisualLayer::Object3D) continue;
-
-            vc->GatherRenderItems(worldQueue);
+            vc->GatherRenderItems(tmp);
         }
 
-        // WORLD(Opaque) 基本 state（最終的には item.state が優先される）
+        for (const auto& it : tmp.Items())
+        {
+            if (it.blend == BlendMode::Opaque)
+            {
+                worldOpaqueQueue.Push(it);
+            }
+        }
+
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
 
@@ -287,41 +291,140 @@ void Renderer::Draw()
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
 
-        glDisable(GL_BLEND); // Opaque前提（透過が混ざっても ApplyState_GL が上書きする）
+        glDisable(GL_BLEND);
 
-        worldQueue.Sort();
-        DrawRenderQueue_World(worldQueue);
+        worldOpaqueQueue.Sort();
+        DrawRenderQueue_World(worldOpaqueQueue);
     }
 
     //=========================================================
-    // 3) WORLD EFFECT（3D）：Effect3D（Billboard / FootSprite / DebugWire 等）
-    //   - 深度：Test ON / Write OFF（半透明の基本）
-    //   - ブレンド：ON（alpha or additive は item 側で切替）
-    //   - カリング：基本 OFF（板ポリや線が多い）
+    // 3) WORLD EFFECT (PRE)（3D）：深度に従う “貼り付き/足元系”
+    //   - 透明Meshより先に描いて馴染ませる
     //=========================================================
+    RenderQueue effectPreQueue;
     {
-        RenderQueue effectQueue;
-
+        RenderQueue tmp;
         for (auto* vc : mVisualComps)
         {
             if (!vc) continue;
             if (!vc->IsVisible()) continue;
             if (vc->GetLayer() != VisualLayer::Effect3D) continue;
-
-            vc->GatherRenderItems(effectQueue);
+            vc->GatherRenderItems(tmp);
         }
 
-        // EFFECT 基本 state（最終的には item.state が優先される）
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE); // ★重要：半透明は深度を書かない
+        // ★PREに入れるもの：
+        // - ShadowSprite（足元影）
+        // - GroundConform（地面沿い板）
+        // - いわゆる “床に貼る” 類
+        //
+        // ※ここは最小改修なので type で分ける（あとでフラグ追加でもOK）
+        for (const auto& it : tmp.Items())
+        {
+            const bool isPre =
+                (it.type == RenderItemType::Sprite) ||      // FootSprite/GroundConform/ShadowSprite が Sprite を積む想定
+                (it.type == RenderItemType::Debug);         // デバッグ線を “床に馴染ませたい”ならこちらへ
 
-        glDisable(GL_CULL_FACE); // ★板/線は裏も見せたいことが多い
+            if (isPre)
+            {
+                effectPreQueue.Push(it);
+            }
+        }
+
+        // PRE 基本 state
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
+        glDisable(GL_CULL_FACE);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        effectQueue.Sort();
-        DrawRenderQueue_World(effectQueue);
+        effectPreQueue.Sort();
+        DrawRenderQueue_World(effectPreQueue);
+
+        // 保険：戻す
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
+
+    //=========================================================
+    // 4) WORLD TRANSPARENT（3D）：Object3D の透明（Alpha/Additive）
+    //   - Opaqueの後 / EffectPre の後 に描くのが “馴染み” 重視
+    //=========================================================
+    {
+        RenderQueue tmp;
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+            if (vc->GetLayer() != VisualLayer::Object3D) continue;
+            vc->GatherRenderItems(tmp);
+        }
+
+        RenderQueue filtered;
+        for (const auto& it : tmp.Items())
+        {
+            if (it.blend != BlendMode::Opaque)
+            {
+                filtered.Push(it);
+            }
+        }
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        filtered.Sort();
+        DrawRenderQueue_World(filtered);
+
+        // 混在期の保険：戻す
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
+
+    //=========================================================
+    // 5) WORLD EFFECT (OVERLAY)（3D）：発光/粒/上に重ねたいもの
+    //=========================================================
+    {
+        RenderQueue effectOverlayQueue;
+
+        RenderQueue tmp;
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+            if (vc->GetLayer() != VisualLayer::Effect3D) continue;
+            vc->GatherRenderItems(tmp);
+        }
+
+        for (const auto& it : tmp.Items())
+        {
+            const bool isOverlay =
+                (it.type == RenderItemType::Billboard) ||
+                (it.type == RenderItemType::GPUParticle); // ★追加想定：粒は基本Overlay
+
+            if (isOverlay)
+            {
+                effectOverlayQueue.Push(it);
+            }
+        }
+
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
+        glDisable(GL_CULL_FACE);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        effectOverlayQueue.Sort();
+        DrawRenderQueue_World(effectOverlayQueue);
 
         // 混在期の保険：World標準へ戻す
         glDepthMask(GL_TRUE);
@@ -331,7 +434,7 @@ void Renderer::Draw()
     }
 
     //=========================================================
-    // 4) UI：Sprite（深度OFF）
+    // 6) UI：Sprite（深度OFF）
     //=========================================================
     {
         RenderQueue uiQueue;
@@ -364,11 +467,10 @@ void Renderer::Draw()
     }
 
     //=========================================================
-    // 5) Present
+    // 7) Present
     //=========================================================
     SDL_GL_SwapWindow(mWindow);
-}
-/*
+}/*
 void Renderer::Draw()
 {
     ResetDebugCounter();

@@ -13,6 +13,7 @@ enum class RenderItemType {
     Mesh,
     SkinnedMesh,
     Billboard,
+    GPUParticle,
     Debug
 };
 
@@ -65,6 +66,18 @@ struct RenderItem
     
     int               vertexCount = 0;
 
+    
+    //==========================================================
+    // ★ GPUParticle 用（Renderer が instanced で描くための情報）
+    //==========================================================
+    // ---- GPUParticle only (GL backend) ----
+    unsigned int gpuVAO        = 0;   // mRenderVAO
+    int          instanceCount = 0;   // maxParticles
+    // ---- GPUParticle only uniforms ----
+    Vector3 cameraRight { 1,0,0 };
+    Vector3 cameraUp    { 0,1,0 };
+    float   particleLifeMax = 1.0f;
+    float   particleSize    = 1.0f;
 
     
 };

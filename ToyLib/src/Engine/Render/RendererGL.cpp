@@ -67,28 +67,40 @@ void Renderer::ApplyState_GL(const RenderItem& it)
 }
 
 
-
 void Renderer::DrawItem_GL(const RenderItem& it,
                            RenderPass pass,
                            int cascadeIndex /*Shadowの時だけ使う*/)
 {
-    if (!it.geometry.ptr)
-        return;
+    //===========================================
+    // 0) GPUParticle は geometry.ptr を使わない
+    //===========================================
+    const bool isGPUParticle = (it.type == RenderItemType::GPUParticle);
 
-    const bool hasElements = (it.indexCount  > 0);
-    const bool hasArrays   = (it.vertexCount > 0);
+    if (!isGPUParticle)
+    {
+        if (!it.geometry.ptr)
+            return;
 
-    // どっちも無いのは描けない
-    if (!hasElements && !hasArrays)
-        return;
+        const bool hasElements = (it.indexCount  > 0);
+        const bool hasArrays   = (it.vertexCount > 0);
+
+        if (!hasElements && !hasArrays)
+            return;
+    }
+    else
+    {
+        // GPUParticle は専用VAO必須
+        if (it.gpuVAO == 0 || it.instanceCount <= 0 || it.indexCount <= 0)
+            return;
+    }
 
     //===========================
-    // 0) State
+    // 1) State
     //===========================
     ApplyState_GL(it);
 
     //===========================
-    // 1) Shader
+    // 2) Shader
     //===========================
     if (!it.shader.ptr)
         return;
@@ -96,7 +108,7 @@ void Renderer::DrawItem_GL(const RenderItem& it,
     it.shader.ptr->SetActive();
 
     //===========================
-    // 2) 共通 Uniform（World / Shadow で違う）
+    // 3) 共通 Uniform（World / Shadow）
     //===========================
     if (pass == RenderPass::World || pass == RenderPass::UI)
     {
@@ -110,7 +122,7 @@ void Renderer::DrawItem_GL(const RenderItem& it,
     }
 
     //===========================
-    // 3) Type別
+    // 4) Type別 Uniform
     //===========================
     switch (it.type)
     {
@@ -145,7 +157,6 @@ void Renderer::DrawItem_GL(const RenderItem& it,
                     mLightingManager->ApplyToShader(it.shader.ptr, view);
                 }
 
-                // shadow（Phong系が参照してるなら必須）
                 {
                     auto sm0 = GetShadowMapTexture(0);
                     auto sm1 = GetShadowMapTexture(1);
@@ -168,7 +179,6 @@ void Renderer::DrawItem_GL(const RenderItem& it,
                 if (it.material.ptr)
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
-            // Shadowでは material/lighting 不要
             break;
         }
 
@@ -182,7 +192,6 @@ void Renderer::DrawItem_GL(const RenderItem& it,
                     mLightingManager->ApplyToShader(it.shader.ptr, view);
                 }
 
-                // shadow
                 {
                     auto sm0 = GetShadowMapTexture(0);
                     auto sm1 = GetShadowMapTexture(1);
@@ -206,7 +215,6 @@ void Renderer::DrawItem_GL(const RenderItem& it,
                     it.material.ptr->BindToShader(it.shader.ptr, 0);
             }
 
-            // palette（WorldでもShadowでも必要）
             if (it.matrixPalette && it.paletteCount > 0)
             {
                 it.shader.ptr->SetMatrixUniforms(
@@ -236,52 +244,79 @@ void Renderer::DrawItem_GL(const RenderItem& it,
             break;
         }
 
+        case RenderItemType::GPUParticle:
+        {
+            if (pass == RenderPass::Shadow)
+                return;
+
+            // ParticleGPU.vert に合わせた uniform
+            it.shader.ptr->SetVectorUniform("uCameraRight", it.cameraRight);
+            it.shader.ptr->SetVectorUniform("uCameraUp",    it.cameraUp);
+            it.shader.ptr->SetFloatUniform ("uLifeMax",     it.particleLifeMax);
+            it.shader.ptr->SetFloatUniform ("uSize",        it.particleSize);
+
+            if (it.texture.ptr)
+            {
+                it.texture.ptr->SetActive(it.textureUnit);
+                it.shader.ptr->SetTextureUniform("uTexture", it.textureUnit);
+                it.shader.ptr->SetBooleanUniform("uUseTexture", true);
+            }
+            else
+            {
+                it.shader.ptr->SetBooleanUniform("uUseTexture", false);
+            }
+            break;
+        }
+
         case RenderItemType::Debug:
         {
             if (pass == RenderPass::Shadow)
                 return;
 
-            // Solid系で色を使う前提（uSolColor がある想定）
-            // ※シェーダ側が違うならここは合わせてね
             it.shader.ptr->SetVectorUniform("uSolColor", it.color);
-
-            // Light無効/有効をシェーダで切りたい場合は RenderItem にフラグを足すか
-            // ここは固定 false で運用でもOK
-            // it.shader.ptr->SetBooleanUniform("uUseLight", false);
-
             break;
         }
     }
 
     //===========================
-    // 4) Draw  ★ここが今回の修正点
+    // 5) Draw
     //===========================
-    it.geometry.ptr->SetActive();
-
-    GLenum mode = GL_TRIANGLES;
-    switch (it.topology)
+    if (it.type == RenderItemType::GPUParticle)
     {
-        case PrimitiveTopology::Triangles: mode = GL_TRIANGLES; break;
-        case PrimitiveTopology::Lines:     mode = GL_LINES;     break;
-        default:                           mode = GL_TRIANGLES; break;
-    }
-
-    if (it.indexCount > 0)
-    {
-        // EBO 前提
-        glDrawElements(mode, it.indexCount, GL_UNSIGNED_INT, nullptr);
+        // ★GPUParticle は専用VAOで Instanced draw
+        glBindVertexArray(it.gpuVAO);
+        glDrawElementsInstanced(GL_TRIANGLES,
+                                it.indexCount,
+                                GL_UNSIGNED_INT,
+                                nullptr,
+                                it.instanceCount);
+        glBindVertexArray(0);
     }
     else
     {
-        // ★EBO無し（Wireframe 等）
-        glDrawArrays(mode, 0, it.vertexCount);
+        it.geometry.ptr->SetActive();
+
+        GLenum mode = GL_TRIANGLES;
+        switch (it.topology)
+        {
+            case PrimitiveTopology::Triangles: mode = GL_TRIANGLES; break;
+            case PrimitiveTopology::Lines:     mode = GL_LINES;     break;
+            default:                           mode = GL_TRIANGLES; break;
+        }
+
+        if (it.indexCount > 0)
+        {
+            glDrawElements(mode, it.indexCount, GL_UNSIGNED_INT, nullptr);
+        }
+        else
+        {
+            glDrawArrays(mode, 0, it.vertexCount);
+        }
     }
 
     AddDrawCall();
     AddDrawObject();
 }
-
-
 GeometryHandle Renderer::GetSpriteQuadHandle() const
 {
     GeometryHandle h;
