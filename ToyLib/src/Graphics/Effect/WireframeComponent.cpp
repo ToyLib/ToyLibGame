@@ -42,7 +42,8 @@ void WireframeComponent::GatherRenderItems(RenderQueue& q)
 
     // 新パス上の種別：Debug（ワイヤーフレーム扱い）
     it.type = RenderItemType::Debug;
-
+    it.dispatch = GetDispatch(it.type);
+    
     // geometry
     it.geometry.ptr  = mVertexArray.get();
     it.topology      = PrimitiveTopology::Lines;

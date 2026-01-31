@@ -81,6 +81,7 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
     it.layer     = VisualLayer::OverlayScreen;
     it.drawOrder = GetDrawOrder();
     it.type      = RenderItemType::Overlay;
+    it.dispatch  = GetDispatch(it.type);
 
     // 旧 Draw の GL state を RenderItem state に変換（ロジック変更なし）
     it.depthTest  = false;

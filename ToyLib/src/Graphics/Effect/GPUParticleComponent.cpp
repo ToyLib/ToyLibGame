@@ -235,40 +235,41 @@ void GPUParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     BindInstanceAttributes(CurrentSrcVBO());
     glBindVertexArray(0);
 
-    RenderItem item;
-    item.pass      = RenderPass::World;
-    item.layer     = VisualLayer::Effect3D;
-    item.drawOrder = GetDrawOrder();
-    item.type      = RenderItemType::GPUParticle;
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = VisualLayer::Effect3D;
+    it.drawOrder = GetDrawOrder();
+    it.type      = RenderItemType::GPUParticle;
+    it.dispatch = GetDispatch(it.type);
+    
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
+    it.cull       = CullMode::None;
+    it.frontFace  = FrontFace::CCW;
 
-    item.depthTest  = true;
-    item.depthWrite = false;
-    item.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
-    item.cull       = CullMode::None;
-    item.frontFace  = FrontFace::CCW;
+    it.shader.ptr  = mRenderShader.get();
+    it.texture.ptr = mTexture.get();
+    it.textureUnit = 0;
 
-    item.shader.ptr  = mRenderShader.get();
-    item.texture.ptr = mTexture.get();
-    item.textureUnit = 0;
-
-    item.world    = Matrix4::Identity;
-    item.viewProj = viewProj;
+    it.world    = Matrix4::Identity;
+    it.viewProj = viewProj;
 
     // uniforms
-    item.cameraRight     = camRight;
-    item.cameraUp        = camUp;
-    item.particleLifeMax = mDesc.particleLife;
-    item.particleSize    = mDesc.size;
+    it.cameraRight     = camRight;
+    it.cameraUp        = camUp;
+    it.particleLifeMax = mDesc.particleLife;
+    it.particleSize    = mDesc.size;
 
     // ★ここが本体：Renderer はこれを bind して instanced draw する
-    item.gpuVAO        = mRenderVAO;
-    item.instanceCount = static_cast<int>(mDesc.maxParticles);
+    it.gpuVAO        = mRenderVAO;
+    it.instanceCount = static_cast<int>(mDesc.maxParticles);
 
     // indexCount は 6（quad）
-    item.topology   = PrimitiveTopology::Triangles;
-    item.indexCount = 6;
+    it.topology   = PrimitiveTopology::Triangles;
+    it.indexCount = 6;
 
-    outQueue.Push(item);
+    outQueue.Push(it);
 }
 
 //======================================================================

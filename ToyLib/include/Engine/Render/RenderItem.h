@@ -10,6 +10,8 @@
 
 namespace toy {
 
+class Renderer;
+
 //==============================================================
 // RenderItemType
 //==============================================================
@@ -24,7 +26,6 @@ enum class RenderItemType
     Overlay,
     Debug
 };
-
 //==============================================================
 // RenderItem
 //  - Renderer が「描画1単位」として処理するデータ
@@ -38,6 +39,13 @@ struct RenderItem
     RenderPass  pass      = RenderPass::World;
     VisualLayer layer     = VisualLayer::Object3D;
     int         drawOrder = 0;
+    
+    using DispatchFn = bool(*)(Renderer& r,
+                                  const RenderItem& it,
+                                  RenderPass pass,
+                                  int cascadeIndex);
+
+    DispatchFn dispatch = nullptr;
 
     RenderItemType type   = RenderItemType::Sprite;
 
@@ -134,6 +142,10 @@ struct RenderItem
     float   overlayFlareIntensity = 0.0f;
     Vector2 overlaySunPos         = Vector2::Zero;
     Vector3 overlayFlareColor     = Vector3(1.0f, 0.9f, 0.7f);
+    
 };
+
+
+RenderItem::DispatchFn GetDispatch(RenderItemType type);
 
 } // namespace toy

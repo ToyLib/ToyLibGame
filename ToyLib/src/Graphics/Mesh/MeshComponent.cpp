@@ -55,6 +55,7 @@ void MeshComponent::GatherRenderItems(RenderQueue& out)
 
         RenderItem it{};
         it.type      = RenderItemType::Mesh;
+        it.dispatch  = GetDispatch(it.type);
         it.pass      = RenderPass::World;          // ★必須
         it.layer     = GetLayer();                 // ★必須（UI/Overlay/Object3D etc）
         it.drawOrder = GetDrawOrder();             // ★必須（ソート用）
@@ -110,6 +111,8 @@ void MeshComponent::GatherShadowItems(RenderQueue& out)
 
         RenderItem it{};
         it.type      = RenderItemType::Mesh;       // Shadow専用Typeが無いならこれでOK
+        it.dispatch = GetDispatch(it.type);
+        
         it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();

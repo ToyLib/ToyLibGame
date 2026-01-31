@@ -120,6 +120,7 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     // ★Sprite扱い（Spriteシェーダ互換：uSpriteColor/uSpriteAlpha）
     it.type      = RenderItemType::Sprite;
+    it.dispatch  = GetDispatch(it.type);
 
     it.topology    = PrimitiveTopology::Triangles;
     it.geometry.ptr = mGridVAO.get();

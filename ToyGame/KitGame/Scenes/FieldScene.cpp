@@ -37,7 +37,7 @@ void FieldScene::InitScene()
     //CreateActor<RPGCharacter>();
     
     // エネミー
-    for (int i = 0; i < 1; ++i)
+    for (int i = 0; i < 10; ++i)
     {
         auto enemy = CreateActor<EnemyActor>();
         enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));

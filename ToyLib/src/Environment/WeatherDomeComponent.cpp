@@ -77,6 +77,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.layer     = VisualLayer::Sky;
     it.drawOrder = GetDrawOrder();
     it.type      = RenderItemType::SkyDome;
+    it.dispatch  = GetDispatch(it.type);
 
     // 旧Draw版：glDisable(CULL), glDepthMask(FALSE)
     // → RenderItem に「状態」として持たせる（Renderer側で反映）

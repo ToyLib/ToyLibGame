@@ -420,6 +420,7 @@ private:
     void DrawFadePass();
     void DrawUIPass();
     void EndFrame();
+
     
 };
 

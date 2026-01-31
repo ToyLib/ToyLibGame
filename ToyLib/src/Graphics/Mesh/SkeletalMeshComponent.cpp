@@ -73,6 +73,7 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
 
         RenderItem it{};
         it.type      = RenderItemType::SkinnedMesh;
+        it.dispatch  = GetDispatch(it.type);
         it.pass      = RenderPass::World;          // ★必須
         it.layer     = GetLayer();                 // ★必須
         it.drawOrder = GetDrawOrder();             // ★必須
@@ -132,6 +133,7 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
 
         RenderItem it{};
         it.type      = RenderItemType::SkinnedMesh;
+        it.dispatch  = GetDispatch(it.type);
         it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();

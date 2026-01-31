@@ -162,6 +162,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     // 3D板ポリなので Billboard 扱い（メッシュ扱いでもOKだが texture/unlit を分けやすい）
     it.type      = RenderItemType::Billboard;
+    it.dispatch  = GetDispatch(it.type);
 
     // geometry
     it.topology   = PrimitiveTopology::Triangles;

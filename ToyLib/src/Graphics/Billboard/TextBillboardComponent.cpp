@@ -80,6 +80,7 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
 
     RenderItem it{};
     it.type      = RenderItemType::Billboard;
+    it.dispatch = GetDispatch(it.type);
     it.pass      = RenderPass::World;
     it.layer     = GetLayer();          // Effect3D
     it.drawOrder = GetDrawOrder();

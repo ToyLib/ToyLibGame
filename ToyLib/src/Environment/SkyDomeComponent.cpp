@@ -73,6 +73,7 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.layer     = mLayer;
     it.drawOrder = GetDrawOrder();
     it.type      = RenderItemType::SkyDome;
+    it.dispatch  = GetDispatch(it.type);
 
     // Sky の定番ステート
     it.depthTest  = true;

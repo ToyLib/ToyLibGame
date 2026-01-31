@@ -376,6 +376,7 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     // texture を確実に通すため Billboard 扱い
     it.type      = RenderItemType::Billboard;
+    it.dispatch  = GetDispatch(it.type);
 
     it.topology   = PrimitiveTopology::Triangles;
     it.geometry.ptr = mGridVAO.get();               // ★このVAOを直接使う

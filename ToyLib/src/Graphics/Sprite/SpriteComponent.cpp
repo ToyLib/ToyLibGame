@@ -86,6 +86,7 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
     // RenderItem
     RenderItem it;
     it.type      = RenderItemType::Sprite;
+    it.dispatch  = GetDispatch(it.type);
     it.layer     = GetLayer();
     it.drawOrder = GetDrawOrder();
 

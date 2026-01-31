@@ -76,6 +76,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
 
     RenderItem it{};
     it.type = RenderItemType::Billboard;                 // 「Meshとして出す」を維持
+    it.dispatch = GetDispatch(it.type);
     it.shader = renderer->GetShaderHandle("Mesh");  // Phong
     it.viewProj = view * proj;
     it.world    = world;
