@@ -204,10 +204,6 @@ void GPUParticleComponent::Update(float deltaTime)
     UpdateParticlesGPU(deltaTime);
 }
 
-void GPUParticleComponent::Draw()
-{
-    // 新描画パスでは使用しない
-}
 
 //======================================================================
 // RenderQueue

@@ -52,7 +52,11 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
 {
     if (!mIsVisible || !mMesh || !mAnimPlayer) return;
 
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    auto* owner = GetOwner();
+    if (!owner) return;
+
+    auto* renderer = owner->GetApp()->GetRenderer();
+    if (!renderer) return;
 
     const auto& mats = mAnimPlayer->GetFinalMatrices();
     if (mats.empty()) return;
@@ -65,8 +69,11 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetRenderWorldTransform();
+        owner->GetRenderWorldTransform();
 
+    //=========================================================
+    // 1) 通常メッシュ
+    //=========================================================
     for (auto& va : mMesh->GetVertexArray())
     {
         if (!va) continue;
@@ -74,9 +81,9 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
         RenderItem it{};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);
-        it.pass      = RenderPass::World;          // ★必須
-        it.layer     = GetLayer();                 // ★必須
-        it.drawOrder = GetDrawOrder();             // ★必須
+        it.pass      = RenderPass::World;
+        it.layer     = GetLayer();
+        it.drawOrder = GetDrawOrder();
 
         it.topology   = PrimitiveTopology::Triangles;
         it.geometry   = GeometryHandle{ va.get() };
@@ -97,14 +104,41 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
         it.world    = world;
         it.viewProj = viewProj;
 
-        // toon flag
+        // toon
         it.toon = mIsToon;
 
-        // ★matrix palette
+        // matrix palette
         it.matrixPalette = mats.data();
         it.paletteCount  = (int)mats.size();
 
         out.Push(it);
+
+        //=====================================================
+        // 2) 輪郭（アウトライン）
+        //   - mContourFactor > 1.0f のときだけ
+        //   - CW にして「裏面」を描く
+        //   - overrideColor で塗りつぶし色にする
+        //=====================================================
+        if (mContourFactor > 1.0f)
+        {
+            RenderItem ol = it; // まずコピーして差分だけ変える
+
+            ol.depthTest  = true;
+            ol.depthWrite = false;              // お好み：輪郭は深度を書かない方が無難
+            ol.blend      = BlendMode::Opaque;  // 輪郭は基本不透明
+            ol.cull       = CullMode::Back;     // CWにした上で Back を消す＝表が出る（旧glFrontFace(CW)想定）
+            ol.frontFace  = FrontFace::CW;
+
+            // ★スケールアップ
+            const Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
+            ol.world = scaleOutline * world;
+
+            // ★色上書き（DispatchSkinnedMesh が SetOverrideColor→Bind→解除 する想定）
+            ol.overrideColor      = true;
+            ol.overrideColorValue = mContourColor;
+
+            out.Push(ol);
+        }
     }
 }
 

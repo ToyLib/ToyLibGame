@@ -16,7 +16,6 @@ public:
     ~SkyDomeComponent() override;          // ★cppで定義（=defaultでもOKだがcpp側）
 
     void Update(float deltaTime) override;
-    void Draw() override {}
     void GatherRenderItems(class RenderQueue& outQueue) override;
 
     void SetLightingManager(std::shared_ptr<LightingManager> mgr)

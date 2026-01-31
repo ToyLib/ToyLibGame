@@ -29,63 +29,85 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
     return list[(size_t)id];
 }
 
-void MeshComponent::GatherRenderItems(RenderQueue& out)
+void MeshComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible || !mMesh) return;
+    if (!mIsVisible) return;
+    if (!mMesh) return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer) return;
 
-    // viewProj（ToyLib流：view * proj）
-    const Matrix4 view     = renderer->GetViewMatrix();
-    const Matrix4 proj     = renderer->GetProjectionMatrix();
-    const Matrix4 viewProj = view * proj;
-
-    // world（既存Draw合成）
-    const Matrix4 world =
+    // ワールド行列（旧 Draw と同じ）
+    Matrix4 worldMatrix =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
         GetOwner()->GetRenderWorldTransform();
 
-    // submesh ごとに積む
-    auto& vaList = mMesh->GetVertexArray();
-    for (auto& va : vaList)
+    // 共有：ビュー・プロジェクション
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+
+    // サブメッシュごとに積む（Materialが違うため）
+    auto vaList = mMesh->GetVertexArray();
+    for (auto& v : vaList)
     {
-        if (!va) continue;
+        if (!v) continue;
 
-        RenderItem it{};
-        it.type      = RenderItemType::Mesh;
-        it.dispatch  = GetDispatch(it.type);
-        it.pass      = RenderPass::World;          // ★必須
-        it.layer     = GetLayer();                 // ★必須（UI/Overlay/Object3D etc）
-        it.drawOrder = GetDrawOrder();             // ★必須（ソート用）
+        // ---- 通常描画 ----
+        RenderItem it {};
+        it.pass      = RenderPass::World;
+        it.layer     = mLayer;
+        it.drawOrder = mDrawOrder;
 
-        it.topology   = PrimitiveTopology::Triangles;
-        it.geometry   = GeometryHandle{ va.get() };
-        it.indexCount = (int)va->GetNumIndices();
+        it.type     = RenderItemType::Mesh;
+        it.dispatch = GetDispatch(it.type);
 
-        // states
+        it.topology     = PrimitiveTopology::Triangles;
+        it.geometry.ptr = v.get();
+        it.indexCount   = static_cast<int>(v->GetNumIndices());
+
+        it.shader   = renderer->GetShaderHandle("Mesh");   // ★旧と同じ Mesh shader
+        it.world    = worldMatrix;
+        it.viewProj = view * proj;
+
+        it.toon = mIsToon;
+
+        it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque);
         it.depthTest  = true;
         it.depthWrite = true;
-        it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque;
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
-        // shader/material
-        it.shader   = renderer->GetShaderHandle("Mesh");
-        it.material = renderer->ToHandle(mMesh->GetMaterial(va->GetTextureID()));
+        // Material（旧：v->GetTextureID()で取ってたのと同じ）
+        auto mat = mMesh->GetMaterial(v->GetTextureID());
+        it.material = renderer->ToHandle(mat);
 
-        // transforms
-        it.world   = world;
-        it.viewProj= viewProj;
+        queue.Push(it);
 
-        // toon flag only
-        it.toon = mIsToon;
+        // ---- アウトライン（旧 Draw の輪郭処理そのまま） ----
+        if (mContourFactor > 1.0f)
+        {
+            RenderItem o = it;
 
-        out.Push(it);
+            // わずかにスケールアップしたワールド行列（旧：scaleOutline * worldMatrix）
+            Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
+            o.world = scaleOutline * worldMatrix;
+
+            // glFrontFace(GL_CW) と同義（裏面だけ残す）
+            o.frontFace = FrontFace::CW;
+
+            // 色を Material 上書き（旧：mat->SetOverrideColor(true, mContourColor)）
+            o.overrideColor      = true;
+            o.overrideColorValue = mContourColor;
+
+            // 通常より先に描く（必要なら）
+            o.drawOrder = mDrawOrder - 1;
+
+            queue.Push(o);
+        }
     }
 }
-
 void MeshComponent::GatherShadowItems(RenderQueue& out)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh) return;

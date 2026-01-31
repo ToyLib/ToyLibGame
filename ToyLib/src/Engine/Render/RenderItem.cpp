@@ -73,8 +73,25 @@ bool DispatchMesh(Renderer& r,
 
     sh->SetBooleanUniform("uUseToon", it.toon);
 
+    // ----------------------------
+    // Material（輪郭の override color 対応）
+    // ----------------------------
     if (it.material.ptr)
-        it.material.ptr->BindToShader(sh, 0);
+    {
+        // RenderItem に以下がある想定：
+        // bool    overrideColor;
+        // Vector3 overrideColorValue;
+        if (it.overrideColor)
+        {
+            it.material.ptr->SetOverrideColor(true, it.overrideColorValue);
+            it.material.ptr->BindToShader(sh, 0);
+            it.material.ptr->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
+        }
+        else
+        {
+            it.material.ptr->BindToShader(sh, 0);
+        }
+    }
 
     return false;
 }
@@ -88,15 +105,49 @@ bool DispatchSkinnedMesh(Renderer& r,
                          int)
 {
     auto* sh = it.shader.ptr;
+    if (!sh) return true; // 何もしない（安全弁）
 
-    if (pass == RenderPass::World)
+    //============================================================
+    // Shadow pass は別シェーダ（ShadowSkinned）側でやる想定
+    //============================================================
+    if (pass == RenderPass::Shadow)
     {
-        if (r.GetLightingManager())
-        {
-            Matrix4 view = r.GetViewMatrix();
-            r.GetLightingManager()->ApplyToShader(sh, view);
-        }
+        // ここに来るなら shadow 用の最低限だけ入れる（運用次第）
+        // ただし今の設計だと Shadow は別 Dispatch / 別 Shader のはずなので通常は通らない。
+        // 念のため World と Palette だけは送る。
+        sh->SetMatrixUniform("uWorldTransform", it.world);
 
+        if (it.matrixPalette && it.paletteCount > 0)
+        {
+            sh->SetMatrixUniforms("uMatrixPalette",
+                                  it.matrixPalette,
+                                  static_cast<unsigned int>(it.paletteCount));
+        }
+        return false;
+    }
+
+    //============================================================
+    // World pass
+    //============================================================
+    if (pass != RenderPass::World)
+    {
+        return false;
+    }
+
+    // 行列（★必須：輪郭でも world が変わる）
+    sh->SetMatrixUniform("uWorldTransform", it.world);
+    sh->SetMatrixUniform("uViewProj",       it.viewProj);
+
+    // ライティング
+    if (r.GetLightingManager())
+    {
+        Matrix4 view = r.GetViewMatrix();
+        r.GetLightingManager()->ApplyToShader(sh, view);
+    }
+
+    // シャドウ（輪郭は基本いらないので、overrideColor じゃない時だけ）
+    if (!it.overrideColor)
+    {
         if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
         if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
@@ -109,13 +160,30 @@ bool DispatchSkinnedMesh(Renderer& r,
         sh->SetFloatUniform("uCascadeSplit0", r.GetCascadeSplit0());
         sh->SetFloatUniform("uCascadeBlend",  r.GetCascadeBlend());
         sh->SetFloatUniform("uShadowBias",    0.005f);
-
-        sh->SetBooleanUniform("uUseToon", it.toon);
-
-        if (it.material.ptr)
-            it.material.ptr->BindToShader(sh, 0);
     }
 
+    // toon flag
+    sh->SetBooleanUniform("uUseToon", it.toon);
+
+    //============================================================
+    // Material bind（★overrideColor 反映→bind→戻す）
+    //============================================================
+    if (it.material.ptr)
+    {
+        if (it.overrideColor)
+        {
+            it.material.ptr->SetOverrideColor(true, it.overrideColorValue);
+        }
+
+        it.material.ptr->BindToShader(sh, 0);
+
+        if (it.overrideColor)
+        {
+            it.material.ptr->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
+        }
+    }
+
+    // matrix palette（World/Shadow どっちでも必要）
     if (it.matrixPalette && it.paletteCount > 0)
     {
         sh->SetMatrixUniforms("uMatrixPalette",
@@ -123,9 +191,9 @@ bool DispatchSkinnedMesh(Renderer& r,
                               static_cast<unsigned int>(it.paletteCount));
     }
 
+    // false = DrawDefaultGeometry に流す
     return false;
 }
-
 //============================================================
 // Billboard
 //============================================================

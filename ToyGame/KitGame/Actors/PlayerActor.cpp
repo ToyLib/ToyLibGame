@@ -131,7 +131,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     toy::SensorComponent::Desc sensorDesc =
     {
         .fovRad      = Math::ToRadians(360.0f),
-        .maxDist     = 30.0f,
+        .maxDist     = 60.0f,
         .requireLOS  = false
     };
     mSensor = CreateComponent<toy::SensorComponent>(sensorDesc);

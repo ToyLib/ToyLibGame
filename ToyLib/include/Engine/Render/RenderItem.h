@@ -78,6 +78,12 @@ struct RenderItem
     int            textureUnit = 0;
 
     //==========================================================
+    // Contour
+    //==========================================================
+    bool overrideColor  = false;
+    Vector3 overrideColorValue { Vector3(0.0f, 0.0f, 0.0f) };
+    
+    //==========================================================
     // Transforms
     //==========================================================
     Matrix4 world    { Matrix4::Identity };

@@ -17,9 +17,6 @@ class WeatherDomeComponent : public SkyDomeComponent
 public:
     WeatherDomeComponent(class Actor* owner, int drawOrder = 0);
 
-    // 旧パス互換（使わない前提なら空でOK）
-    void Draw() override {}
-
     // 元挙動：TimeOfDaySystem から時刻を取り ApplyTime()
     void Update(float deltaTime) override;
 

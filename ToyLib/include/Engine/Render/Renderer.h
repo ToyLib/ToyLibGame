@@ -409,15 +409,10 @@ private:
     bool LoadShaders();
 
     //--------------------------------------------------------------------------
-    // Visual / Sky
+    // Visual
     //--------------------------------------------------------------------------
 
     std::vector<class VisualComponent*> mVisualComps;
-    //class SkyDomeComponent* mSkyDomeComp { nullptr };
-
-    //void DrawSky();
-    void DrawVisualLayer(VisualLayer layer,
-                         const std::shared_ptr<class Texture>& skipTex = nullptr);
 
     //--------------------------------------------------------------------------
     // 内部初期化
@@ -432,8 +427,7 @@ private:
     void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
-    //void DrawObject3DPass_Only(const std::shared_ptr<Texture>& skipTex);
-    
+
     
 private:
     

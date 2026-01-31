@@ -27,15 +27,6 @@ public:
     virtual ~VisualComponent();
 
     //========================
-    // 旧方式（当面残す）
-    //========================
-    virtual void Draw() {} // ★ pure virtual にしない（ビルド維持）
-
-    // 旧シャドウ（当面残す）
-    virtual void DrawShadow() { DrawShadow(0); }
-    virtual void DrawShadow(int cascadeIndex) { (void)cascadeIndex; }
-
-    //========================
     // 新方式（段階導入）
     //========================
     virtual void GatherRenderItems(RenderQueue& out) {}

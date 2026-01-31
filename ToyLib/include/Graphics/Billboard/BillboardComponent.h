@@ -20,9 +20,6 @@ public:
                        int drawOrder = 200,
                        VisualLayer layer = VisualLayer::Object3D);
 
-    // 旧パス互換（混在期間用）: 基本は何もしない
-    void Draw() override {}
-
     // 新パス
     void GatherRenderItems(RenderQueue& out) override;
 

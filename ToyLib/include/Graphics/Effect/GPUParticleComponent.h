@@ -52,8 +52,6 @@ public:
     ~GPUParticleComponent();
 
     void Update(float deltaTime) override;
-    void Draw() override; // 新パスでは何もしない
-
     void SetTexture(std::shared_ptr<Texture> tex) override;
 
     void Init(const Desc& desc);
