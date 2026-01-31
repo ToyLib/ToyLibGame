@@ -36,14 +36,14 @@ void FieldScene::InitScene()
     CreateActor<PlayerActor>();
     //CreateActor<RPGCharacter>();
     
-
-    for (int i = 0; i < 10; ++i)
+    // エネミー
+    for (int i = 0; i < 1; ++i)
     {
         auto enemy = CreateActor<EnemyActor>();
         enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
     }
+ 
     
-    /*
     // フォント
     auto fnt = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
     // テキスト用 Actor を作成
@@ -51,11 +51,11 @@ void FieldScene::InitScene()
     //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
     uiActor->SetPosition(Vector3(1100.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
 
-    auto mTextComp = uiActor->CreateComponent<toy::TextSpriteComponent>();
-    mTextComp->SetFont(fnt);
-    mTextComp->SetFormat("");
-    mTextComp->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
-    */
+    auto text = uiActor->CreateComponent<toy::TextSpriteComponent>();
+    text->SetFont(fnt);
+    text->SetFormat("");
+    text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
+    mTextComp = text;
     
     
     // テスト用スプライト
