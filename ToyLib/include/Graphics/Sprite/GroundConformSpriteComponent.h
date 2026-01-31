@@ -32,7 +32,6 @@ public:
 
 protected:
     void PreDraw() override;
-    void Draw() override;                      // 旧パス互換：基本は呼ばれないが残す
     Matrix4 BuildWorldMatrix() const override; // GroundConformはIdentity
 
     // 新パス
@@ -57,12 +56,17 @@ private:
     bool  mHasBase { false };
     float mBaseY   { 0.0f };
 
+    // ★追加：前回の基準法線（坂にいるだけで毎フレームRebuildを防ぐ）
+    Vector3 mPrevBaseNormal { Vector3::UnitY };
+
     // 再構築トリガ用キャッシュ
     Vector3 mPrevOwnerPos { Vector3::Zero };
     float   mPrevWidth { 0.0f };
     float   mPrevDepth { 0.0f };
     int     mPrevDiv   { -1 };
-
+    
+    const class ColliderComponent* mPrevGroundCol{nullptr};
+    float mPrevBaseY{0};
 };
 
 } // namespace toy
