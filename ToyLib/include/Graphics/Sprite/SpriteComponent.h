@@ -8,7 +8,7 @@
 namespace toy {
 
 class Texture;
-class RenderQueueLike;
+class RenderQueue;
 
 //==================================================
 // SpriteComponent
@@ -25,11 +25,8 @@ public:
 
     ~SpriteComponent() override = default;
 
-    // 旧方式：残すが何もしない（OpenGL痕跡を消す）
-    void Draw() override;
-
     // 新方式：RenderItem を積む
-    void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherRenderItems(RenderQueue& out) override;
 
     // サイズ倍率
     void SetScale(float w, float h)

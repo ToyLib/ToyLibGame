@@ -24,7 +24,7 @@ WireframeComponent::WireframeComponent(Actor* owner,
 //------------------------------------------------------------
 // RenderQueue 変換
 //------------------------------------------------------------
-void WireframeComponent::GatherRenderItems(RenderQueueLike& q)
+void WireframeComponent::GatherRenderItems(RenderQueue& q)
 {
     if (!mIsVisible) return;
     if (!mVertexArray) return;

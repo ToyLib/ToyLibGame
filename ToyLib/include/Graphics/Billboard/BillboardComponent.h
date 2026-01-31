@@ -24,7 +24,7 @@ public:
     void Draw() override {}
 
     // 新パス
-    void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherRenderItems(RenderQueue& out) override;
 
     void SetScale(float s) { mScale = s; }
     float GetScale() const { return mScale; }

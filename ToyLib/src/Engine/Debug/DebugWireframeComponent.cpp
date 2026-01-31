@@ -14,7 +14,7 @@ DebugWireframeComponent::DebugWireframeComponent(
 {
 }
 
-void DebugWireframeComponent::GatherRenderItems(RenderQueueLike& q)
+void DebugWireframeComponent::GatherRenderItems(RenderQueue& q)
 {
     auto* app = GetOwner()->GetApp();
     if (!app) return;

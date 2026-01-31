@@ -98,7 +98,7 @@ void ShadowSpriteComponent::PreDraw()
 //------------------------------------------------------------------------------
 // 新パス：RenderQueue に積む（Sprite扱いで Sprite uniform を使う）
 //------------------------------------------------------------------------------
-void ShadowSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
+void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible || !mTexture)
         return;

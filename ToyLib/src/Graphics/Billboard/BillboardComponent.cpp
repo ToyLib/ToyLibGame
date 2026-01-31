@@ -19,7 +19,7 @@ BillboardComponent::BillboardComponent(Actor* a, int drawOrder, VisualLayer laye
 // GatherRenderItems
 //  - Billboard を RenderQueue に積む（新パス）
 //----------------------------------------------------------------------
-void BillboardComponent::GatherRenderItems(RenderQueueLike& out)
+void BillboardComponent::GatherRenderItems(RenderQueue& out)
 {
     if (!mIsVisible || !mTexture) return;
 

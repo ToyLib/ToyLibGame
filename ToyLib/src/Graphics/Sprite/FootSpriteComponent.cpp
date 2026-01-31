@@ -140,7 +140,7 @@ Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 //------------------------------------------------------------------------------
 // 新パス：RenderQueue に積む
 //------------------------------------------------------------------------------
-void FootSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
+void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible)
         return;

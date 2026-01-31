@@ -51,7 +51,7 @@ public:
     //----------------------------------------------------------
     // 新パス用：RenderItem 生成
     //----------------------------------------------------------
-    void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherRenderItems(RenderQueue& out) override;
 
 
 private:

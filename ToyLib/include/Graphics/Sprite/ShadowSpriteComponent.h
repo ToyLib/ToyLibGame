@@ -31,7 +31,7 @@ protected:
     void PreDraw() override;
 
     // 新パス
-    void GatherRenderItems(class RenderQueueLike& queue) override;
+    void GatherRenderItems(class RenderQueue& queue) override;
 
 private:
     // ライト方向から yaw を決める（XZ平面のみ）

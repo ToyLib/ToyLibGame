@@ -11,7 +11,7 @@ class VertexArray;
 class Texture;
 class LightingManager;
 class Shader;
-class RenderQueueLike;
+class RenderQueue;
 
 //------------------------------------------------------------
 // MeshComponent
@@ -30,8 +30,8 @@ public:
     virtual ~MeshComponent() = default;
 
     // 新描画パス
-    virtual void GatherRenderItems(RenderQueueLike& out) override;
-    virtual void GatherShadowItems(RenderQueueLike& out) override;
+    virtual void GatherRenderItems(RenderQueue& out) override;
+    virtual void GatherShadowItems(RenderQueue& out) override;
 
     // Mesh / Texture
     virtual void SetMesh(std::shared_ptr<class Mesh> m) { mMesh = std::move(m); }

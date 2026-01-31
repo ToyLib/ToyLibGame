@@ -10,7 +10,7 @@ namespace toy {
 
 class Texture;
 class Shader;
-class RenderQueueLike;
+class RenderQueue;
 
 class GPUParticleComponent : public VisualComponent
 {
@@ -66,7 +66,7 @@ public:
     //==============================================================
     // RenderQueue 用
     //==============================================================
-    void GatherRenderItems(RenderQueueLike& outQueue) override;
+    void GatherRenderItems(RenderQueue& outQueue) override;
 
 private:
     static ParticleMode ParseModeString(const std::string& s);

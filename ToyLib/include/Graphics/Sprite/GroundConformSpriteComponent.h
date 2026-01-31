@@ -36,7 +36,7 @@ protected:
     Matrix4 BuildWorldMatrix() const override; // GroundConformはIdentity
 
     // 新パス
-    void GatherRenderItems(class RenderQueueLike& queue) override;
+    void GatherRenderItems(class RenderQueue& queue) override;
     void RebuildGridIfNeeded();
 
 private:

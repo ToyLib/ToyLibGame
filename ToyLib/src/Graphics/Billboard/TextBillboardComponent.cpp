@@ -59,7 +59,7 @@ void TextBillboardComponent::Refresh()
 //==============================================================
 // RenderQueue 用 Gather
 //==============================================================
-void TextBillboardComponent::GatherRenderItems(RenderQueueLike& out)
+void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
 {
     // Dirty 解決
     if (mIsDirty)

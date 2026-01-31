@@ -33,6 +33,12 @@ void Renderer::ApplyState_GL(const RenderItem& it)
     if (it.depthTest) glEnable(GL_DEPTH_TEST);
     else             glDisable(GL_DEPTH_TEST);
 
+    // ★追加：SkyDome は LEQUAL（遠方Z=1.0でも描ける）
+    if (it.type == RenderItemType::SkyDome)
+        glDepthFunc(GL_LEQUAL);
+    else
+        glDepthFunc(GL_LESS);
+
     glDepthMask(it.depthWrite ? GL_TRUE : GL_FALSE);
 
     // blend
@@ -71,6 +77,8 @@ void Renderer::DrawItem_GL(const RenderItem& it,
                            RenderPass pass,
                            int cascadeIndex /*Shadowの時だけ使う*/)
 {
+    
+    
     //===========================================
     // 0) GPUParticle は geometry.ptr を使わない
     //===========================================
@@ -267,7 +275,38 @@ void Renderer::DrawItem_GL(const RenderItem& it,
             }
             break;
         }
+        case RenderItemType::SkyDome:
+        {
+            auto* sh = it.shader.ptr;
+            sh->SetActive();
 
+            // ★uMVP（旧Draw互換）
+            if (it.useMVP)
+            {
+                sh->SetMatrixUniform("uMVP", it.mvp);
+            }
+            else
+            {
+                // フォールバック（使わない想定）
+                // sh->SetMatrixUniform("uMVP", it.world * it.viewProj); など
+            }
+
+            sh->SetFloatUniform("uTime", it.skyTime);
+            sh->SetIntUniform("uWeatherType", it.skyWeatherType);
+            sh->SetFloatUniform("uTimeOfDay", it.skyTimeOfDay);
+
+            sh->SetVectorUniform("uSunDir", it.skySunDir);
+            sh->SetVectorUniform("uMoonDir", it.skyMoonDir);
+            sh->SetVectorUniform("uRawSkyColor", it.skyRawSkyColor);
+            sh->SetVectorUniform("uRawCloudColor", it.skyRawCloudColor);
+
+            // geometry draw
+            it.geometry.ptr->SetActive();
+            glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
+
+            AddDrawCall();
+            break;
+        }
         case RenderItemType::Debug:
         {
             if (pass == RenderPass::Shadow)

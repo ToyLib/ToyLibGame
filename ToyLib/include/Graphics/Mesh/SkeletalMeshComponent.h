@@ -8,7 +8,7 @@ namespace toy {
 
 class AnimationPlayer;
 class Mesh;
-class RenderQueueLike;
+class RenderQueue;
 
 constexpr size_t MAX_SKELETON_BONES = 96;
 
@@ -25,8 +25,8 @@ public:
                           VisualLayer layer = VisualLayer::Object3D);
 
     // 新描画パス
-    void GatherRenderItems(RenderQueueLike& out) override;
-    void GatherShadowItems(RenderQueueLike& out) override;
+    void GatherRenderItems(RenderQueue& out) override;
+    void GatherShadowItems(RenderQueue& out) override;
 
     void Update(float deltaTime) override;
 

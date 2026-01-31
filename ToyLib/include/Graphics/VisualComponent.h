@@ -13,7 +13,7 @@ class VertexArray;
 
 // 新方式のキュー（まだ無くてもビルド通すため forward）
 struct RenderItem;
-class RenderQueueLike;
+class RenderQueue;
 
 //----------------------------------------------------------------------
 // VisualComponent (Transitional)
@@ -38,8 +38,8 @@ public:
     //========================
     // 新方式（段階導入）
     //========================
-    virtual void GatherRenderItems(RenderQueueLike& out) {}
-    virtual void GatherShadowItems(RenderQueueLike& out) {} // ★追加
+    virtual void GatherRenderItems(RenderQueue& out) {}
+    virtual void GatherShadowItems(RenderQueue& out) {} // ★追加
 
     //========================
     // 共通状態

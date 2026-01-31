@@ -43,11 +43,29 @@ void FieldScene::InitScene()
         enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
     }
     
+    /*
+    // フォント
+    auto fnt = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
+    // テキスト用 Actor を作成
+    auto uiActor = CreateActor<toy::Actor>();
+    //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
+    uiActor->SetPosition(Vector3(1100.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
+
+    auto mTextComp = uiActor->CreateComponent<toy::TextSpriteComponent>();
+    mTextComp->SetFont(fnt);
+    mTextComp->SetFormat("");
+    mTextComp->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
+    */
+    
+    
     // テスト用スプライト
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     a->SetPosition(Vector3(100.0f, 100.0f,0));
+    
+    
+    
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
@@ -61,6 +79,11 @@ void FieldScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
+    /*
+    auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
+    auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
+    mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
+     */
 }
 
 void FieldScene::InitField()

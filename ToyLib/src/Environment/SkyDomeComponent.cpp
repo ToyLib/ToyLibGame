@@ -1,56 +1,98 @@
+// Environment/SkyDomeComponent.cpp
 #include "Environment/SkyDomeComponent.h"
-#include "Environment/SkyDomeMeshGenerator.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Engine/Render/Renderer.h"
-#include "Engine/Render/LightingManager.h"
+
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
-#include <algorithm>
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Render/RenderItem.h"
+#include "Asset/Geometry/VertexArray.h"
 
 namespace toy {
 
-SkyDomeComponent::SkyDomeComponent(Actor* a)
-    : Component(a)
+SkyDomeComponent::SkyDomeComponent(Actor* owner, int drawOrder, VisualLayer layer)
+    : VisualComponent(owner, drawOrder, layer)
 {
-    //========================================
-    // ベースクラスとしての最低限の初期化
-    //========================================
-
-    // スカイドーム用メッシュ生成（半球）
-    // 派生クラス（WeatherDomeComponent）がそのまま使う想定
-    mSkyVAO = SkyDomeMeshGenerator::CreateSkyDomeVAO(32, 16, 1.0f);
-
+    // Sky は最背面なので専用レイヤーがあるならそれを使う
+    // 無ければ Effect3D や Object3D でも可
+    mLayer = VisualLayer::Sky; // ★ VisualLayer::Sky が無いなら追加推奨
+    
     // Renderer に「スカイドームとして登録」
     // → Renderer側の描画パイプラインで SkyDomeComponent が呼ばれるようになる
-    GetOwner()->GetApp()->GetRenderer()->RegisterSkyDome(this);
-
-    // スカイドーム描画用の基本シェーダ取得
+        // スカイドーム描画用の基本シェーダ取得
     // 派生クラスがここに Uniform を詰めて描画する
     mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("SkyDome");
-}
-
-void SkyDomeComponent::Draw()
-{
-    //========================================
-    // ベースクラスでは描画しない
-    //========================================
-    // WeatherDomeComponent が実際の描画処理を行うため、
-    // ここでは VAO と Shader が揃っているか確認するだけ。
     
-    if (!mSkyVAO || !mShader)
-    {
-        return;
-    }
-    // ※ここで描画内容を書かないのは「派生クラスに任せる」ため。
+    auto light = GetOwner()->GetApp()->GetRenderer()->GetLightingManager();
+    SetLightingManager(light);
+    
+}
+SkyDomeComponent::~SkyDomeComponent() = default;
+
+void SkyDomeComponent::SetSkyGeometry(std::unique_ptr<VertexArray> vao)
+{
+    mSkyVAO = std::move(vao);
 }
 
-void SkyDomeComponent::Update(float deltaTime)
+void SkyDomeComponent::SetSkyShader(std::shared_ptr<Shader> shader)
 {
-    //========================================
-    // ベースクラスはロジックを持たない
-    //========================================
-    // 時間帯・天候・ライトカラーなどは WeatherDomeComponent で更新する。
+    mShader = std::move(shader);
+}
+
+void SkyDomeComponent::Update(float /*deltaTime*/)
+{
+    // ベースはロジック無し（派生が更新）
+}
+
+void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
+{
+    if (!mIsVisible)
+        return;
+
+    if (!mSkyVAO || !mShader)
+        return;
+
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer)
+        return;
+
+    // カメラ位置に追従させる
+    const Matrix4 invView = renderer->GetInvViewMatrix();
+    const Vector3 camPos  = invView.GetTranslation();
+
+    const Matrix4 world =
+        Matrix4::CreateScale(mSkyScale) *
+        Matrix4::CreateTranslation(camPos);
+
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 viewProj = view * proj;
+
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = mLayer;
+    it.drawOrder = GetDrawOrder();
+    it.type      = RenderItemType::SkyDome;
+
+    // Sky の定番ステート
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.blend      = BlendMode::Opaque;
+    it.cull       = CullMode::Front;      // ★ 内側を描く
+    it.frontFace  = FrontFace::CCW;
+
+    it.shader.ptr  = mShader.get();
+    it.geometry.ptr = mSkyVAO.get();
+
+    it.world    = world;
+    it.viewProj = viewProj;
+
+    it.topology   = PrimitiveTopology::Triangles;
+    it.indexCount = mSkyVAO->GetNumIndices();
+
+    // SkyDome の中身（uniform）は派生で埋める
+    // ベースは何も入れない（安全なデフォルト）
+    outQueue.Push(it);
 }
 
 } // namespace toy

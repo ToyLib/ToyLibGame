@@ -29,7 +29,7 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
     return list[(size_t)id];
 }
 
-void MeshComponent::GatherRenderItems(RenderQueueLike& out)
+void MeshComponent::GatherRenderItems(RenderQueue& out)
 {
     if (!mIsVisible || !mMesh) return;
 
@@ -85,7 +85,7 @@ void MeshComponent::GatherRenderItems(RenderQueueLike& out)
     }
 }
 
-void MeshComponent::GatherShadowItems(RenderQueueLike& out)
+void MeshComponent::GatherShadowItems(RenderQueue& out)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh) return;
 

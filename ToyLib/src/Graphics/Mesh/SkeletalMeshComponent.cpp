@@ -48,7 +48,7 @@ void SkeletalMeshComponent::SetMesh(std::shared_ptr<Mesh> mesh)
     }
 }
 
-void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike& out)
+void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
 {
     if (!mIsVisible || !mMesh || !mAnimPlayer) return;
 
@@ -107,7 +107,7 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueueLike& out)
     }
 }
 
-void SkeletalMeshComponent::GatherShadowItems(RenderQueueLike& out)
+void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh || !mAnimPlayer) return;
 

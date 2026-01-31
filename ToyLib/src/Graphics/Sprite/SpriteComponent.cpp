@@ -16,12 +16,6 @@ SpriteComponent::SpriteComponent(Actor* a, int drawOrder, VisualLayer layer)
     // 必要な情報は GatherRenderItems で Renderer から取得する
 }
 
-void SpriteComponent::Draw()
-{
-    // 旧経路は無効化（OpenGL痕跡を消す目的）
-    // Renderer 側が RenderQueue を描画する前提
-    return;
-}
 
 void SpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
 {
@@ -39,7 +33,7 @@ void SpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
     }
 }
 
-void SpriteComponent::GatherRenderItems(RenderQueueLike& out)
+void SpriteComponent::GatherRenderItems(RenderQueue& out)
 {
     if (!mIsVisible || !mTexture)
         return;

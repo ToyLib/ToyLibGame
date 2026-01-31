@@ -212,7 +212,7 @@ void GPUParticleComponent::Draw()
 //======================================================================
 // RenderQueue
 //======================================================================
-void GPUParticleComponent::GatherRenderItems(RenderQueueLike& outQueue)
+void GPUParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 {
     if (mSkipDrawFrames > 0) { --mSkipDrawFrames; return; }
     if (!mIsVisible || !mRunning) return;

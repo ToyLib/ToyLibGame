@@ -354,7 +354,7 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 //------------------------------------------------------------------------------
 // 新パス：RenderQueue に積む
 //------------------------------------------------------------------------------
-void GroundConformSpriteComponent::GatherRenderItems(RenderQueueLike& queue)
+void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible)
         return;

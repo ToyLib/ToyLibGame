@@ -26,7 +26,7 @@ public:
     // 旧Draw()のガード（GetVisibleDebugWire）をここへ移植し、
     // OKなら基底 WireframeComponent の GatherRenderItems に委譲する
     //==============================================================
-    void GatherRenderItems(RenderQueueLike& queue) override;
+    void GatherRenderItems(RenderQueue& queue) override;
 };
 
 } // namespace toy

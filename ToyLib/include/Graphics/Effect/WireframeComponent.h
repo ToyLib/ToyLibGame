@@ -23,7 +23,7 @@ public:
     //--------------------------------------------------------
     // RenderQueue 用
     //--------------------------------------------------------
-    void GatherRenderItems(RenderQueueLike& out) override;
+    void GatherRenderItems(RenderQueue& out) override;
 
 
     //--------------------------------------------------------

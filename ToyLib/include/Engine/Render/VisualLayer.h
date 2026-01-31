@@ -7,6 +7,7 @@ namespace toy {
 enum class VisualLayer
 {
     Background2D,
+    Sky,
     Object3D,
     Effect3D,
     OverlayScreen,

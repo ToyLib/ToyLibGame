@@ -263,6 +263,46 @@ void Renderer::Draw()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     //=========================================================
+    // (NEW) SKY（背景）
+    //   - SkyDome を最初に描く
+    //   - DepthTest: ON / DepthWrite: OFF
+    //   - Cull: OFF（内側を描くため）
+    //=========================================================
+    {
+        RenderQueue skyQueue;
+
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+            if (vc->GetLayer() != VisualLayer::Sky) continue;
+
+            vc->GatherRenderItems(skyQueue);
+        }
+        std::cerr << "[SkyPass] items=" << skyQueue.Items().size() << "\n";
+        // Sky 基本 state（SkyDome の「内側」を描きたいので Cull は切る）
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDepthMask(GL_FALSE);
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+
+        skyQueue.Sort();
+        DrawRenderQueue_World(skyQueue);
+
+        // 戻す（混在期の保険）
+        glDepthMask(GL_TRUE);
+
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    //=========================================================
     // 2) WORLD OPAQUE（3D）：Object3D の Opaque だけ
     //=========================================================
     RenderQueue worldOpaqueQueue;
@@ -295,6 +335,10 @@ void Renderer::Draw()
 
         worldOpaqueQueue.Sort();
         DrawRenderQueue_World(worldOpaqueQueue);
+
+        // 混在期の保険：戻す
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     //=========================================================
@@ -312,17 +356,11 @@ void Renderer::Draw()
             vc->GatherRenderItems(tmp);
         }
 
-        // ★PREに入れるもの：
-        // - ShadowSprite（足元影）
-        // - GroundConform（地面沿い板）
-        // - いわゆる “床に貼る” 類
-        //
-        // ※ここは最小改修なので type で分ける（あとでフラグ追加でもOK）
         for (const auto& it : tmp.Items())
         {
             const bool isPre =
-                (it.type == RenderItemType::Sprite) ||      // FootSprite/GroundConform/ShadowSprite が Sprite を積む想定
-                (it.type == RenderItemType::Debug);         // デバッグ線を “床に馴染ませたい”ならこちらへ
+                (it.type == RenderItemType::Sprite) ||
+                (it.type == RenderItemType::Debug);
 
             if (isPre)
             {
@@ -330,7 +368,6 @@ void Renderer::Draw()
             }
         }
 
-        // PRE 基本 state
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
 
@@ -351,7 +388,6 @@ void Renderer::Draw()
 
     //=========================================================
     // 4) WORLD TRANSPARENT（3D）：Object3D の透明（Alpha/Additive）
-    //   - Opaqueの後 / EffectPre の後 に描くのが “馴染み” 重視
     //=========================================================
     {
         RenderQueue tmp;
@@ -407,7 +443,7 @@ void Renderer::Draw()
         {
             const bool isOverlay =
                 (it.type == RenderItemType::Billboard) ||
-                (it.type == RenderItemType::GPUParticle); // ★追加想定：粒は基本Overlay
+                (it.type == RenderItemType::GPUParticle);
 
             if (isOverlay)
             {
@@ -470,7 +506,8 @@ void Renderer::Draw()
     // 7) Present
     //=========================================================
     SDL_GL_SwapWindow(mWindow);
-}/*
+}
+/*
 void Renderer::Draw()
 {
     ResetDebugCounter();

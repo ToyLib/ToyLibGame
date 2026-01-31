@@ -36,7 +36,7 @@ public:
     //--------------------------------------------------------------------------
     // RenderQueue（新パス）
     //--------------------------------------------------------------------------
-    void GatherRenderItems(class RenderQueueLike& queue) override;
+    void GatherRenderItems(class RenderQueue& queue) override;
 
     //--------------------------------------------------------------------------
     // Texture (VisualComponent互換)
