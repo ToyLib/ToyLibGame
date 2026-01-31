@@ -750,6 +750,15 @@ void Renderer::BuildFrameQueues()
     mQ_OverlayScreen.Clear();
     mQ_UI.Clear();
 
+    //========================================
+    // 1) Frustum を1回だけ作る
+    //========================================
+    const Matrix4 view = GetViewMatrix();
+    const Matrix4 proj = GetProjectionMatrix();
+    const Matrix4 vp   = view * proj;
+
+    const Frustum fr = BuildFrustumFromMatrix(vp);
+
     RenderQueue tmp;
 
     for (auto* vc : mVisualComps)
@@ -757,12 +766,40 @@ void Renderer::BuildFrameQueues()
         if (!vc) continue;
         if (!vc->IsVisible()) continue;
 
+        const VisualLayer layer = vc->GetLayer();
+
+        //========================================
+        // 2) レイヤーでカリング対象を絞る
+        //========================================
+        const bool shouldCull =
+            (layer == VisualLayer::Object3D) ||
+            (layer == VisualLayer::Effect3D);
+
+        if (shouldCull)
+        {
+            Actor* owner = vc->GetOwner();
+            if (owner)
+            {
+                auto* bv = owner->GetComponent<BoundingVolumeComponent>();
+                if (bv)
+                {
+                    const Cube aabb = bv->GetWorldAABB();
+                    if (!FrustumIntersectsAABB(fr, aabb))
+                    {
+                        continue; // ★ここで Gather 自体をスキップ
+                    }
+                }
+            }
+        }
+
+        //========================================
+        // 3) Gather → layer / pass で分配
+        //========================================
         tmp.Clear();
         vc->GatherRenderItems(tmp);
 
         for (const auto& it : tmp.Items())
         {
-            // UI は pass でも layer でも拾えるようにする（安全弁）
             if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
             {
                 mQ_UI.Push(it);
@@ -834,57 +871,50 @@ void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
     mSceneCaptureQueue.push_back(req);
 }
 
-void Renderer::DrawToRenderTarget(std::shared_ptr<RenderTarget> rt,
+void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
                                   const Matrix4& view,
                                   const Matrix4& proj,
                                   bool drawUI)
 {
-    if (!rt)
-        return;
+    if (!rt) return;
 
-    //=========================
-    // 0) FBO / Viewport 保存
-    //=========================
-    FramebufferScope fbScope;
+    const Matrix4 prevView = mViewMatrix;
+    const Matrix4 prevProj = mProjectionMatrix;
 
-    //=========================
-    // 1) カメラ保存 → 差し替え
-    //=========================
-    PushCameraState();
-    SetViewMatrix(view);
-    SetProjectionMatrix(proj);
+    GLint prevVP[4];
+    glGetIntegerv(GL_VIEWPORT, prevVP);
 
-    // RTT用デバッグカウンタ
-    ChangeDebugRTT();
-
-    //=========================
-    // 2) RT bind & clear
-    //=========================
-    rt->Bind();
-
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
+    rt->Bind();                       // ★ここで RT viewport
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    //=========================
-    // 3) 描画パス（最小構成）
-    //=========================
+    mViewMatrix       = view;
+    mProjectionMatrix = proj;
+
+    // --- 影パス（必要な場合） ---
+    RenderShadowPass();
+
+    // ★これが重要：RestoreAfterShadowPass が画面viewportへ戻すので
+    // RT viewportに戻し直す（旧コードに近い動きになる）
+    RestoreAfterShadowPass();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // ※BindはRestore側で壊してないなら不要
+    rt->Bind(); // ★viewport を RT に戻す（FBOも戻るのでこの形が確実）
+    // ↑「FBOはrtのままでviewportだけ戻したい」なら glViewport(0,0,rt->GetWidth(),rt->GetHeight()) でもOK
+
+    BuildFrameQueues();
+
     DrawSkyPass();
     DrawWorldPass();
+    DrawOverlayScreenPass();
+    if (drawUI) DrawUIPass();
+    DrawFadePass();
 
-    if (drawUI)
-    {
-        DrawUIPass();
-    }
+    // 復帰
+    mViewMatrix       = prevView;
+    mProjectionMatrix = prevProj;
 
-    //=========================
-    // 4) 後始末
-    //=========================
-    ChangeDebugOnScreen();
-    PopCameraState();
+    RenderTarget::Unbind();
+    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
-
 
 
 //=============================================================

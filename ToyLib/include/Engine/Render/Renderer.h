@@ -117,7 +117,7 @@ public:
     void Draw();
     //void DrawPass(bool drawUI);
 
-    void DrawToRenderTarget(std::shared_ptr<class RenderTarget> rt,
+    void DrawToRenderTarget(const std::shared_ptr<class RenderTarget>& rt,
                             const Matrix4& view,
                             const Matrix4& proj,
                             bool drawUI = false);
