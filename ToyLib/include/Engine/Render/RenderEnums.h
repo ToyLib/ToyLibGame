@@ -7,6 +7,7 @@ enum class RenderPass
 {
     World,
     UI,
+    Overlay,
     Shadow,
     Debug,
 };

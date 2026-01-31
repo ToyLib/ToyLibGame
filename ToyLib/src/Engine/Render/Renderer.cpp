@@ -279,7 +279,6 @@ void Renderer::Draw()
 
             vc->GatherRenderItems(skyQueue);
         }
-        std::cerr << "[SkyPass] items=" << skyQueue.Items().size() << "\n";
         // Sky 基本 state（SkyDome の「内側」を描きたいので Cull は切る）
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
@@ -468,7 +467,42 @@ void Renderer::Draw()
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
     }
+    //=========================================================
+    // 5.5) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
+    //   - WeatherOverlayComponent など
+    //   - blend は RenderItem 側（Alpha/Additive）に従う
+    //=========================================================
+    {
+        RenderQueue overlayQueue;
 
+        for (auto* vc : mVisualComps)
+        {
+            if (!vc) continue;
+            if (!vc->IsVisible()) continue;
+            if (vc->GetLayer() != VisualLayer::OverlayScreen) continue;
+
+            vc->GatherRenderItems(overlayQueue);
+        }
+
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_CULL_FACE);
+
+        // ※ ここは「一旦ON」だけ。実際の blend func は
+        //    ApplyState_GL(it) で RenderItem.blend に従って切り替えるのが正解。
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        overlayQueue.Sort();
+        DrawRenderQueue_World(overlayQueue);
+
+        // 戻す（混在期の保険）
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
     //=========================================================
     // 6) UI：Sprite（深度OFF）
     //=========================================================

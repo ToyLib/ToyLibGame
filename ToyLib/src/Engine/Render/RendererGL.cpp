@@ -277,35 +277,62 @@ void Renderer::DrawItem_GL(const RenderItem& it,
         }
         case RenderItemType::SkyDome:
         {
+            if (pass == RenderPass::Shadow)
+                return;
+
             auto* sh = it.shader.ptr;
             sh->SetActive();
 
-            // ★uMVP（旧Draw互換）
+            // ★旧 Draw() 互換：uMVP 直指定
             if (it.useMVP)
             {
                 sh->SetMatrixUniform("uMVP", it.mvp);
             }
-            else
-            {
-                // フォールバック（使わない想定）
-                // sh->SetMatrixUniform("uMVP", it.world * it.viewProj); など
-            }
 
             sh->SetFloatUniform("uTime", it.skyTime);
-            sh->SetIntUniform("uWeatherType", it.skyWeatherType);
+            sh->SetIntUniform  ("uWeatherType", it.skyWeatherType);
             sh->SetFloatUniform("uTimeOfDay", it.skyTimeOfDay);
 
-            sh->SetVectorUniform("uSunDir", it.skySunDir);
-            sh->SetVectorUniform("uMoonDir", it.skyMoonDir);
-            sh->SetVectorUniform("uRawSkyColor", it.skyRawSkyColor);
+            sh->SetVectorUniform("uSunDir",        it.skySunDir);
+            sh->SetVectorUniform("uMoonDir",       it.skyMoonDir);
+            sh->SetVectorUniform("uRawSkyColor",   it.skyRawSkyColor);
             sh->SetVectorUniform("uRawCloudColor", it.skyRawCloudColor);
 
-            // geometry draw
             it.geometry.ptr->SetActive();
             glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
             AddDrawCall();
-            break;
+            AddDrawObject();
+            return; // ★ここが重要
+        }
+        case RenderItemType::Overlay:
+        {
+            if (pass == RenderPass::Shadow)
+                return;
+
+            auto* sh = it.shader.ptr;
+            sh->SetActive();
+
+            // 旧 Draw の uniform 群
+            sh->SetFloatUniform("uTime", it.overlayTime);
+
+            sh->SetFloatUniform("uRainAmount", it.overlayRainAmount);
+            sh->SetFloatUniform("uFogAmount",  it.overlayFogAmount);
+            sh->SetFloatUniform("uSnowAmount", it.overlaySnowAmount);
+
+            sh->SetVector2Uniform("uResolution", it.overlayResolution);
+
+            sh->SetFloatUniform  ("uFlareIntensity", it.overlayFlareIntensity);
+            sh->SetVector2Uniform("uSunPos",         it.overlaySunPos);
+            sh->SetVectorUniform ("uFlareColor",     it.overlayFlareColor);
+
+            // draw（フルスクリーンクアッド：elements 前提）
+            it.geometry.ptr->SetActive();
+            glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
+
+            AddDrawCall();
+            AddDrawObject();
+            return; // ★共通 Draw に落とさない（SkyDome と同じ）
         }
         case RenderItemType::Debug:
         {

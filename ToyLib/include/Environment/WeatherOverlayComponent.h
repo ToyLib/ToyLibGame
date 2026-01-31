@@ -21,8 +21,8 @@ public:
                             VisualLayer layer = VisualLayer::OverlayScreen);
 
     // 画面全体のオーバーレイ描画
-    void Draw() override;
-
+    //void Draw() override;
+    void GatherRenderItems(RenderQueue& outQueue) override;
     //------ 天候強度のセット（WeatherManager から渡される） ------
     void SetRainAmount (const float amt) { mRainAmount = amt; }
     void SetFogAmount  (const float amt) { mFogAmount  = amt; }

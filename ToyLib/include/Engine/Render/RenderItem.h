@@ -21,6 +21,7 @@ enum class RenderItemType
     Billboard,
     GPUParticle,
     SkyDome,
+    Overlay,
     Debug
 };
 
@@ -43,10 +44,10 @@ struct RenderItem
     //==========================================================
     // Geometry
     //==========================================================
-    PrimitiveTopology topology   = PrimitiveTopology::Triangles;
-    GeometryHandle    geometry   {};
-    int               indexCount = 0;   // glDrawElements 用（0なら DrawArrays）
-    int               vertexCount = 0;  // glDrawArrays 用
+    PrimitiveTopology topology    = PrimitiveTopology::Triangles;
+    GeometryHandle    geometry    {};
+    int               indexCount  = 0;   // glDrawElements 用
+    int               vertexCount = 0;   // glDrawArrays 用
 
     //==========================================================
     // Render state
@@ -73,7 +74,7 @@ struct RenderItem
     Matrix4 world    { Matrix4::Identity };
     Matrix4 viewProj { Matrix4::Identity };
 
-    // Shadow 等で使いたい場合の予備（必要になったら用途確定）
+    // Shadow 等で使いたい場合の予備
     Matrix4 lightVP  { Matrix4::Identity };
 
     //==========================================================
@@ -86,15 +87,14 @@ struct RenderItem
     // SkinnedMesh-only
     //==========================================================
     const Matrix4* matrixPalette = nullptr;
-    size_t         paletteCount  = 0;   // <= MAX_SKELETON_BONES
+    size_t         paletteCount  = 0;
 
     //==========================================================
-    // GPUParticle-only (GL backend)
+    // GPUParticle-only
     //==========================================================
-    unsigned int gpuVAO        = 0;     // instanced 用 VAO
-    int          instanceCount = 0;     // インスタンス数
+    unsigned int gpuVAO        = 0;
+    int          instanceCount = 0;
 
-    // uniforms
     Vector3 cameraRight     { 1.0f, 0.0f, 0.0f };
     Vector3 cameraUp        { 0.0f, 1.0f, 0.0f };
     float   particleLifeMax = 1.0f;
@@ -103,28 +103,37 @@ struct RenderItem
     //==========================================================
     // SkyDome / WeatherDome params
     //==========================================================
-    // 雲アニメ等（0..1 をループで渡す想定）
-    float skyTime      = 0.0f;
-
-    // 1日（0..1）
-    float skyTimeOfDay = 0.0f;
-
-    // WeatherType を int で（GLSL 側は int uniform）
+    float skyTime        = 0.0f;   // 雲アニメ等（0..1）
+    float skyTimeOfDay   = 0.0f;   // 1日（0..1）
     int   skyWeatherType = 0;
 
-    Vector3 skySunDir  = Vector3::UnitY;
-    Vector3 skyMoonDir = Vector3::NegUnitY;
-
+    Vector3 skySunDir        = Vector3::UnitY;
+    Vector3 skyMoonDir       = Vector3::NegUnitY;
     Vector3 skyRawSkyColor   = Vector3::Zero;
     Vector3 skyRawCloudColor = Vector3::Zero;
 
-    // ★追加：SkyDome シェーダ側でもフォグを扱うなら必要
     Vector3 skyFogColor   = Vector3::Zero;
     float   skyFogDensity = 0.0f;
-    
-    // RenderItem.h に追加（例）
-    Matrix4 mvp { Matrix4::Identity };
+
+    // MVP 直指定（SkyDome 互換）
+    Matrix4 mvp    { Matrix4::Identity };
     bool    useMVP = false;
+
+    //==========================================================
+    // Overlay / WeatherOverlay params
+    //==========================================================
+    float   overlayTime = 0.0f;
+
+    float   overlayRainAmount = 0.0f;
+    float   overlayFogAmount  = 0.0f;
+    float   overlaySnowAmount = 0.0f;
+
+    Vector2 overlayResolution = Vector2::Zero;
+
+    // flare
+    float   overlayFlareIntensity = 0.0f;
+    Vector2 overlaySunPos         = Vector2::Zero;
+    Vector3 overlayFlareColor     = Vector3(1.0f, 0.9f, 0.7f);
 };
 
 } // namespace toy
