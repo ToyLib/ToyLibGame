@@ -226,27 +226,4 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
     DrawDefaultGeometry_GL(*this, it);
 }
 
-static bool DispatchSprite(Renderer& r, const RenderItem& it, RenderPass pass, int)
-{
-    if (pass == RenderPass::Shadow) return true; // 描かない（=完了扱い）
-
-    auto* sh = it.shader.ptr;
-    sh->SetVectorUniform("uSpriteColor", it.color);
-    sh->SetFloatUniform ("uSpriteAlpha", it.alpha);
-
-    if (it.texture.ptr)
-    {
-        it.texture.ptr->SetActive(it.textureUnit);
-        sh->SetTextureUniform("uTexture", it.textureUnit);
-        sh->SetBooleanUniform("uUseTexture", true);
-    }
-    else
-    {
-        sh->SetBooleanUniform("uUseTexture", false);
-    }
-    return false; // 通常Drawへ
-}
-
-
-
 } // namespace toy
