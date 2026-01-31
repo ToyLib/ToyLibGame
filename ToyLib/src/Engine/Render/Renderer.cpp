@@ -877,6 +877,8 @@ void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
                                   bool drawUI)
 {
     if (!rt) return;
+    
+    ChangeDebugRTT();
 
     const Matrix4 prevView = mViewMatrix;
     const Matrix4 prevProj = mProjectionMatrix;
@@ -914,6 +916,9 @@ void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
 
     RenderTarget::Unbind();
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
+    
+    ChangeDebugOnScreen();
+
 }
 
 
