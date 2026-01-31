@@ -436,6 +436,13 @@ private:
     
     
 private:
+    
+    RenderQueue mQ_Sky;
+    RenderQueue mQ_Object3D;
+    RenderQueue mQ_Effect3D;
+    RenderQueue mQ_OverlayScreen;
+    RenderQueue mQ_UI;
+    void BuildFrameQueues();
     // 新DrawPass
     void BeginFrame();
     void RenderShadowPass();

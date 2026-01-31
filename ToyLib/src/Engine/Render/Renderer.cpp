@@ -358,15 +358,9 @@ void Renderer::RestoreAfterShadowPass()
 
 void Renderer::DrawSkyPass()
 {
-    RenderQueue skyQueue;
-
-    for (auto* vc : mVisualComps)
+    if (mQ_Sky.Items().empty())
     {
-        if (!vc) continue;
-        if (!vc->IsVisible()) continue;
-        if (vc->GetLayer() != VisualLayer::Sky) continue;
-
-        vc->GatherRenderItems(skyQueue);
+        return;
     }
 
     // Sky 基本 state
@@ -377,8 +371,8 @@ void Renderer::DrawSkyPass()
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
 
-    skyQueue.Sort();
-    DrawRenderQueue_World(skyQueue);
+    mQ_Sky.Sort();
+    DrawRenderQueue_World(mQ_Sky);
 
     // 戻す（混在期の保険）
     glDepthMask(GL_TRUE);
@@ -397,17 +391,8 @@ void Renderer::DrawWorldPass()
     //=========================================================
     {
         RenderQueue worldOpaqueQueue;
-        RenderQueue tmp;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Object3D) continue;
-            vc->GatherRenderItems(tmp);
-        }
-
-        for (const auto& it : tmp.Items())
+        for (const auto& it : mQ_Object3D.Items())
         {
             if (it.blend == BlendMode::Opaque)
             {
@@ -434,21 +419,11 @@ void Renderer::DrawWorldPass()
 
     //=========================================================
     // 3) WORLD EFFECT (PRE)（3D）：深度に従う “貼り付き/足元系”
-    //   - 透明Meshより先に描いて馴染ませる
     //=========================================================
     {
         RenderQueue effectPreQueue;
-        RenderQueue tmp;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Effect3D) continue;
-            vc->GatherRenderItems(tmp);
-        }
-
-        for (const auto& it : tmp.Items())
+        for (const auto& it : mQ_Effect3D.Items())
         {
             const bool isPre =
                 (it.type == RenderItemType::Sprite) ||
@@ -482,22 +457,13 @@ void Renderer::DrawWorldPass()
     // 4) WORLD TRANSPARENT（3D）：Object3D の透明（Alpha/Additive）
     //=========================================================
     {
-        RenderQueue tmp;
+        RenderQueue transparentQueue;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Object3D) continue;
-            vc->GatherRenderItems(tmp);
-        }
-
-        RenderQueue filtered;
-        for (const auto& it : tmp.Items())
+        for (const auto& it : mQ_Object3D.Items())
         {
             if (it.blend != BlendMode::Opaque)
             {
-                filtered.Push(it);
+                transparentQueue.Push(it);
             }
         }
 
@@ -507,8 +473,8 @@ void Renderer::DrawWorldPass()
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        filtered.Sort();
-        DrawRenderQueue_World(filtered);
+        transparentQueue.Sort();
+        DrawRenderQueue_World(transparentQueue);
 
         // 混在期の保険：戻す
         glDepthMask(GL_TRUE);
@@ -522,17 +488,8 @@ void Renderer::DrawWorldPass()
     //=========================================================
     {
         RenderQueue effectOverlayQueue;
-        RenderQueue tmp;
 
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc) continue;
-            if (!vc->IsVisible()) continue;
-            if (vc->GetLayer() != VisualLayer::Effect3D) continue;
-            vc->GatherRenderItems(tmp);
-        }
-
-        for (const auto& it : tmp.Items())
+        for (const auto& it : mQ_Effect3D.Items())
         {
             const bool isOverlay =
                 (it.type == RenderItemType::Billboard) ||
@@ -564,32 +521,21 @@ void Renderer::DrawWorldPass()
 }
 void Renderer::DrawOverlayScreenPass()
 {
-    //=========================================================
-    // 5.5) OVERLAY SCREEN：画面全体の後処理系（深度OFF）
-    //   - WeatherOverlayComponent など
-    //   - blend は RenderItem 側（Alpha/Additive）に従う（※将来 ApplyState_GL）
-    //=========================================================
-    RenderQueue overlayQueue;
-
-    for (auto* vc : mVisualComps)
+    if (mQ_OverlayScreen.Items().empty())
     {
-        if (!vc) continue;
-        if (!vc->IsVisible()) continue;
-        if (vc->GetLayer() != VisualLayer::OverlayScreen) continue;
-
-        vc->GatherRenderItems(overlayQueue);
+        return;
     }
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_CULL_FACE);
 
-    // いまは一旦これで固定（将来は RenderItem.blend で切り替える）
+    // いまは固定（将来は RenderItem.blend で切り替える）
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    overlayQueue.Sort();
-    DrawRenderQueue_World(overlayQueue);
+    mQ_OverlayScreen.Sort();
+    DrawRenderQueue_World(mQ_OverlayScreen);
 
     // 戻す（混在期の保険）
     glEnable(GL_DEPTH_TEST);
@@ -626,18 +572,9 @@ void Renderer::DrawFadePass()
 }
 void Renderer::DrawUIPass()
 {
-    //=========================================================
-    // 6) UI：Sprite（深度OFF）
-    //=========================================================
-    RenderQueue uiQueue;
-
-    for (auto* vc : mVisualComps)
+    if (mQ_UI.Items().empty())
     {
-        if (!vc) continue;
-        if (!vc->IsVisible()) continue;
-        if (vc->GetLayer() != VisualLayer::UI) continue;
-
-        vc->GatherRenderItems(uiQueue);
+        return;
     }
 
     glDisable(GL_DEPTH_TEST);
@@ -647,8 +584,8 @@ void Renderer::DrawUIPass()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    uiQueue.Sort();
-    DrawRenderQueue_World(uiQueue);
+    mQ_UI.Sort();
+    DrawRenderQueue_World(mQ_UI);
 
     // 戻す（混在期の保険）
     glEnable(GL_DEPTH_TEST);
@@ -759,6 +696,7 @@ void Renderer::Draw()
     // 0) Frame begin : 強制的に GL state を揃える（混在期の事故防止）
     //=========================================================
     BeginFrame();
+    BuildFrameQueues();
     //=========================================================
     // 1) SHADOW : ShadowMap を作る（CSM）
     //=========================================================
@@ -802,6 +740,48 @@ void Renderer::Draw()
     //=========================================================
     EndFrame();
 }
+
+// レンダーキュー構築
+void Renderer::BuildFrameQueues()
+{
+    mQ_Sky.Clear();
+    mQ_Object3D.Clear();
+    mQ_Effect3D.Clear();
+    mQ_OverlayScreen.Clear();
+    mQ_UI.Clear();
+
+    RenderQueue tmp;
+
+    for (auto* vc : mVisualComps)
+    {
+        if (!vc) continue;
+        if (!vc->IsVisible()) continue;
+
+        tmp.Clear();
+        vc->GatherRenderItems(tmp);
+
+        for (const auto& it : tmp.Items())
+        {
+            // UI は pass でも layer でも拾えるようにする（安全弁）
+            if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+            {
+                mQ_UI.Push(it);
+                continue;
+            }
+
+            switch (it.layer)
+            {
+                case VisualLayer::Sky:           mQ_Sky.Push(it); break;
+                case VisualLayer::Object3D:      mQ_Object3D.Push(it); break;
+                case VisualLayer::Effect3D:      mQ_Effect3D.Push(it); break;
+                case VisualLayer::OverlayScreen: mQ_OverlayScreen.Push(it); break;
+                case VisualLayer::UI:            mQ_UI.Push(it); break;
+                default:                         mQ_Object3D.Push(it); break;
+            }
+        }
+    }
+}
+
 
 //=============================================================
 // カメラ操作
