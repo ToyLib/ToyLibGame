@@ -77,6 +77,7 @@ float softHighlight(vec2 uv, float t, float wave)
 }
 void main()
 {
+    
     vec2 uv = ApplyFlip(vUV);
     
 

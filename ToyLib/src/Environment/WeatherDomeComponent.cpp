@@ -1,115 +1,121 @@
+// Environment/WeatherDomeComponent.cpp
 #include "Environment/WeatherDomeComponent.h"
 #include "Environment/SkyDomeMeshGenerator.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Engine/Render/Renderer.h"
-#include "Engine/Render/LightingManager.h"
+
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Utils/MathUtil.h"
+#include "Engine/Render/Renderer.h"
+#include "Engine/Render/RenderItem.h"
+#include "Engine/Render/RenderQueue.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
+#include "Engine/Render/LightingManager.h"
+#include "Asset/Geometry/VertexArray.h"
+
+#include <SDL3/SDL.h>
 #include <algorithm>
 #include <cmath>
 
 namespace toy {
 
-//======================================
-// コンストラクタ
-//  - スカイドームメッシュ作成
-//  - Renderer への登録
-//  - SkyDome シェーダ取得
-//======================================
-WeatherDomeComponent::WeatherDomeComponent(Actor* a)
-    : SkyDomeComponent(a)
+//==============================================================
+// ctor（旧Draw版と同じ初期化：VAO生成＋Shader取得）
+//==============================================================
+WeatherDomeComponent::WeatherDomeComponent(Actor* owner, int drawOrder)
+    : SkyDomeComponent(owner, drawOrder, VisualLayer::Sky)
 {
-    // 月方向は念のため正規化
+    // 月方向は念のため正規化（旧と同じ）
     mMoonDir.Normalize();
 
-    // 半球メッシュ（頂点/インデックスバッファ）を生成
+    // 旧Draw版と同じ：半球メッシュ生成
     mSkyVAO = SkyDomeMeshGenerator::CreateSkyDomeVAO(32, 16, 1.0f);
-    
-    // Renderer に「スカイドーム描画対象」として登録
-    GetOwner()->GetApp()->GetRenderer()->RegisterSkyDome(this);
-    
-    // 天空描画用シェーダ（GLSL）の取得
-    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("SkyDome");
+
+    // 旧Draw版と同じ：SkyDomeシェーダ取得
+    if (auto* app = GetOwner()->GetApp())
+    {
+        if (auto* r = app->GetRenderer())
+        {
+            mShader = r->GetShader("SkyDome");
+        }
+    }
+
+    // RegisterSkyDome は描画シーケンスに入ってない前提なので依存しない（＝ここでは触らない）
 }
 
-//======================================
-// 時間設定（0〜1）
-//  1日を 0.0〜1.0 で表現しているので fmod でループ
-//======================================
-void WeatherDomeComponent::SetTime(float t)
-{
-    mTime = fmod(t, 1.0f);
-}
 
-//======================================
-// 太陽方向の外部設定
-//  ※ 通常は ApplyTime() で内部計算するが、外から上書きも可能
-//======================================
-void WeatherDomeComponent::SetSunDirection(const Vector3& dir)
+//==============================================================
+// GatherRenderItems（旧 Draw() がやってた “値の投入” を RenderItem化）
+//==============================================================
+void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
 {
-    mSunDir = dir;
-}
+    if (!mIsVisible) return;
 
-// （必要ならヘッダに宣言して使う）
-// void WeatherDomeComponent::SetMoonDirection(const Vector3& dir)
-// {
-//     mMoonDir = dir;
-//     mMoonDir.Normalize();
-// }
-
-//======================================
-// スカイドーム描画
-//  - カメラ位置を中心に巨大な半球を描画
-//  - 時間・天候などのパラメータをシェーダに渡す
-//======================================
-void WeatherDomeComponent::Draw()
-{
+    // 旧Draw版：if (!mSkyVAO || !mShader) return;
     if (!mSkyVAO || !mShader) return;
+
+    auto* app = GetOwner()->GetApp();
+    if (!app) return;
+
+    auto* renderer = app->GetRenderer();
+    if (!renderer) return;
+
+    // 旧Draw版：invView から camPos 取得
+    const Matrix4 invView = renderer->GetInvViewMatrix();
+    const Vector3 camPos  = invView.GetTranslation();
+
+    // 旧Draw版：model = Scale(200) * Translate(camPos)
+    const Matrix4 world =
+        Matrix4::CreateScale(200.0f) *
+        Matrix4::CreateTranslation(camPos);
+
+    // 旧Draw版：mvp = model * view * proj
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 viewProj = view * proj;
+
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = VisualLayer::Sky;
+    it.drawOrder = GetDrawOrder();
+    it.type      = RenderItemType::SkyDome;
+    it.dispatch  = GetDispatch(it.type);
+
+    // 旧Draw版：glDisable(CULL), glDepthMask(FALSE)
+    // → RenderItem に「状態」として持たせる（Renderer側で反映）
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.blend      = BlendMode::Opaque;
+
+    it.cull      = CullMode::None; // ★旧Drawの glDisable(GL_CULL_FACE) と一致
+    it.frontFace = FrontFace::CCW; // 一応保持
+
+    it.shader.ptr   = mShader.get();
+    it.geometry.ptr = mSkyVAO.get();
+
+    it.world    = world;
+    it.viewProj = viewProj;
+
+    it.topology   = PrimitiveTopology::Triangles;
+    it.indexCount = mSkyVAO->GetNumIndices();
+
+    // 旧Draw版：uTime = (ticks/60sec) 0..1
+    const float sec = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+    it.skyTime = std::fmod(sec, 60.0f) / 60.0f;
+
+    // 旧Draw版：uTimeOfDay / uWeatherType / uSunDir / uMoonDir / uRawSkyColor / uRawCloudColor
+    it.skyTimeOfDay     = std::fmod(mTime, 1.0f);
+    it.skyWeatherType   = static_cast<int>(mWeatherType);
+    it.skySunDir        = mSunDir;
+    it.skyMoonDir       = mMoonDir;
+    it.skyRawSkyColor   = mRawSkyColor;
+    it.skyRawCloudColor = mRawCloudColor;
     
-    // カメラの逆行列からワールド座標での位置を取得
-    Matrix4 invView = GetOwner()->GetApp()->GetRenderer()->GetInvViewMatrix();
-    
-    // スカイドームの中心をカメラ位置
-    Vector3 camPos = invView.GetTranslation();
-    
-    // 大きな半球として描画（スケール200）
-    Matrix4 model = Matrix4::CreateScale(200.0f) * Matrix4::CreateTranslation(camPos);
-    Matrix4 view  = GetOwner()->GetApp()->GetRenderer()->GetViewMatrix();
-    Matrix4 proj  = GetOwner()->GetApp()->GetRenderer()->GetProjectionMatrix();
-    Matrix4 mvp   = model * view * proj;
-    
-    // シェーダ有効化
-    mShader->SetActive();
-    mShader->SetMatrixUniform("uMVP", mvp);
-    
-    // 雲のアニメーション用時間（60秒で0〜1を1周）
-    float t = fmod(SDL_GetTicks() / 1000.0f, 60.0f) / 60.0f;
-    mShader->SetFloatUniform("uTime", t);
-    
-    // 天候タイプ（GLSL側では int で受け取る）
-    mShader->SetIntUniform("uWeatherType", static_cast<int>(mWeatherType));
-    
-    // 1日を0.0〜1.0で表現した時間帯（朝/昼/夕/夜のベース）
-    mShader->SetFloatUniform("uTimeOfDay", fmod(mTime, 1.0f));
-    
-    // 太陽・月の方向（ライティング＆レイマーチ等で使用）
-    mShader->SetVectorUniform("uSunDir",  mSunDir);
-    mShader->SetVectorUniform("uMoonDir", mMoonDir);   // ★ 追加：月方向を送る
-    
-    // CPU側で計算した生の空色・雲色（GLSLでの補正のベース）
-    mShader->SetVectorUniform("uRawSkyColor",   mRawSkyColor);
-    mShader->SetVectorUniform("uRawCloudColor", mRawCloudColor);
-    
-    // 背景なのでカリング/深度書き込みを一時的に無効化して描画
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE); // 背景なので Z 書き込み不要
-    mSkyVAO->SetActive();
-    glDrawElements(GL_TRIANGLES, mSkyVAO->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-    GetOwner()->GetApp()->GetRenderer()->AddDrawCall();
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
+    // ★旧Draw互換：uMVP を必ず渡す
+    it.useMVP = true;
+    it.mvp    = world * view * proj;   // = model * view * proj（旧Drawそのまま）
+
+    it.texture.ptr = nullptr;
+
+    outQueue.Push(it);
 }
 
 //======================================
@@ -606,5 +612,4 @@ void WeatherDomeComponent::ComputeFogFromSky(float timeOfDay)
         mLightingManager->SetFogColor(mFogColor);
     }
 }
-
 } // namespace toy

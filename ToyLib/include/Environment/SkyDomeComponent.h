@@ -1,54 +1,42 @@
 #pragma once
-#include "Engine/Core/Component.h"
-#include "Engine/Render/Shader.h"
+
+#include "Graphics/VisualComponent.h"
 #include <memory>
 
 namespace toy {
 
-//======================================
-// SkyDomeComponent
-//  - 「空の半球メッシュ」を描画するためのベースコンポーネント
-//  - 実際の見た目（時間帯・天候など）は派生クラス側で制御する想定
-//
-//  役割イメージ：
-//   * スカイドーム用の VertexArray / Shader / LightingManager を保持する土台
-//   * Renderer 側から「SkyDome として描画して」と呼ばれる窓口
-//   * WeatherDomeComponent などが継承して、Draw/Update を上書きする
-//======================================
-class SkyDomeComponent : public Component
+class VertexArray;
+class Shader;
+class LightingManager;
+
+class SkyDomeComponent : public VisualComponent
 {
 public:
-    // コンストラクタ
-    //  - 派生クラス側でメッシュ生成・Rendererへの登録・シェーダ取得などを行う前提
-    SkyDomeComponent(class Actor* a);
-    
-    // スカイドーム描画
-    //  - ベースクラスでは何もしない
-    //  - WeatherDomeComponent などの派生クラスでオーバーライドして描画処理を書く
-    virtual void Draw();
-    
-    // 更新処理
-    //  - ベースクラスでは特別な処理は持たない
-    //  - 派生クラス側で時間や天候に応じた更新処理を行う想定
+    SkyDomeComponent(class Actor* owner, int drawOrder = 0, VisualLayer layer = VisualLayer::Sky);
+    ~SkyDomeComponent() override;          // ★cppで定義（=defaultでもOKだがcpp側）
+
     void Update(float deltaTime) override;
-    
-    // ライティング管理クラスの設定
-    //  - 太陽方向・アンビエント色・フォグ色などを共有するために使用
-    void SetLightingManager(std::shared_ptr<class LightingManager> manager)
+    void GatherRenderItems(class RenderQueue& outQueue) override;
+
+    void SetLightingManager(std::shared_ptr<LightingManager> mgr)
     {
-        mLightingManager = manager;
+        mLightingManager = std::move(mgr);
     }
-    
+
 protected:
-    // スカイドーム用メッシュ（半球の VertexArray）
-    std::unique_ptr<class VertexArray> mSkyVAO;
-    
-    // ライティング制御（太陽・月・フォグなど）
-    std::shared_ptr<class LightingManager> mLightingManager;
-    
-    // スカイドーム描画用シェーダ
-    //  - WeatherDomeComponent では "SkyDome" シェーダを想定
-    std::shared_ptr<class Shader> mShader;
+    // ★宣言だけ（定義はcppへ）
+    void SetSkyGeometry(std::unique_ptr<VertexArray> vao);
+    void SetSkyShader(std::shared_ptr<Shader> shader);
+
+    VertexArray* GetSkyVAO() const { return mSkyVAO.get(); }
+    Shader*      GetShader() const { return mShader.get(); }
+
+protected:
+    std::unique_ptr<VertexArray>      mSkyVAO;
+    std::shared_ptr<LightingManager>  mLightingManager;
+    std::shared_ptr<Shader>           mShader;
+
+    float mSkyScale = 200.0f;
 };
 
 } // namespace toy

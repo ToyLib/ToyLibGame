@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Environment/SkyDomeComponent.h"
 #include "Environment/WeatherType.h"
 #include "Utils/MathUtil.h"
@@ -6,67 +7,53 @@
 namespace toy {
 
 //==============================================
-// 時間帯・天候に応じてスカイドームを描画する派生クラス
-//   └ SkyDomeComponent は基底の "空 VAO / Shader" 管理だけ担当
+// WeatherDomeComponent
+//  - “空 + 天候 + 昼夜 + ライティング更新”
+//  - Update: 元の挙動を尊重（TimeOfDaySystem → mTime → ApplyTime）
+//  - 描画: 新パスへ移行（GatherRenderItems）
 //==============================================
 class WeatherDomeComponent : public SkyDomeComponent
 {
 public:
-    WeatherDomeComponent(class Actor* a);
-    
-    // スカイドーム描画
-    void Draw() override;
-    
-    // 時間帯進行・天候補間・色の更新
+    WeatherDomeComponent(class Actor* owner, int drawOrder = 0);
+
+    // 元挙動：TimeOfDaySystem から時刻を取り ApplyTime()
     void Update(float deltaTime) override;
-    
-    // 時間帯 (0.0〜1.0 … 夜→昼→夜)
-    void SetTime(float t);
-    
-    // 太陽方向（ライト計算のベース）
-    void SetSunDirection(const Vector3& dir);
-    
-    // 天気
+
+    // 新パス：RenderItem を積む
+    void GatherRenderItems(class RenderQueue& outQueue) override;
+
+    // 元のAPI（WeatherManager が使う）
     WeatherType GetWeatherType() const { return mWeatherType; }
-    void SetWeatherType(WeatherType weather) { mWeatherType = weather; }
-    
-    // 太陽/月の向き
-    const Vector3& GetSunDir() const { return mSunDir; }
+    void SetWeatherType(WeatherType weather) { mWeatherType = weather; } // ← “受け取って保持”だけ（元通り）
+
+    const Vector3& GetSunDir()  const { return mSunDir; }
     const Vector3& GetMoonDir() const { return mMoonDir; }
+
 private:
-    //==============================================
-    // 基本状態
-    //==============================================
-    float    mTime           { 0.5f };               // 時間帯 (0〜1)
-    Vector3  mSunDir         { Vector3::UnitY };     // 太陽方向（ワールド座標）
-    Vector3  mMoonDir        { Vector3::NegUnitY };  // 月方向
-    WeatherType mWeatherType { WeatherType::CLEAR }; // 現在の天候
-    
-    //==============================================
-    // シェーダーへ渡す元データ（既存 SkyDome 表現）
-    //==============================================
-    Vector3 mRawSkyColor;     // 空の基本カラー
-    Vector3 mRawCloudColor;   // 雲の基本カラー
-    Vector3 mFogColor;        // 霧色（地平線付近）
-    float   mFogDensity;      // 霧の濃さ
-    
-    //==============================================
-    // 時間帯・天候による補正関数
-    //==============================================
-    
-    // 基本の SmoothStep（補間）
+    //==============================================================
+    // 元の内部状態（そのまま）
+    //==============================================================
+    float      mTime { 0.5f };                    // 0..1
+    Vector3    mSunDir  { Vector3::UnitY };
+    Vector3    mMoonDir { Vector3::NegUnitY };
+    WeatherType mWeatherType { WeatherType::CLEAR };
+
+    Vector3 mRawSkyColor   { Vector3::Zero };
+    Vector3 mRawCloudColor { Vector3::Zero };
+    Vector3 mFogColor      { Vector3::Zero };
+    float   mFogDensity    { 0.0f };
+
+private:
+    //==============================================================
+    // 元の計算関数（内容は cpp にそのまま移植）
+    //==============================================================
     float SmoothStep(float edge0, float edge1, float x);
 
-    // 時間帯に応じて raw 色をセット
-    void ApplyTime();
-    
-    // 朝夕の色味からフォグ色を求める
-    void ComputeFogFromSky(float timeOfDay);
+    void   ApplyTime();
+    void   ComputeFogFromSky(float timeOfDay);
 
-    // 時間帯による雲色
     Vector3 GetCloudColor(float time);
-
-    // 時間帯による空色
     Vector3 GetSkyColor(float time);
 };
 

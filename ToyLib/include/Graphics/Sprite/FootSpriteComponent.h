@@ -11,7 +11,7 @@ namespace toy {
 //  - Actor の足元に「地面に貼り付く板ポリ（スプライト）」を描く
 //  - 影（簡易シャドウ） / ロックオンリング / 範囲表示 / 足元エフェクト等の基底
 //
-// 両対応（ここが今回の追加）
+// 両対応（追加）
 //  - SnapToGround  : 地面高さにスナップ（めり込み防止）
 //  - AlignToGround : 地面法線に沿って傾ける（斜面追従）
 //
@@ -29,9 +29,9 @@ public:
     virtual ~FootSpriteComponent() = default;
 
     //--------------------------------------------------------------------------
-    // Draw
+    // RenderQueue（新パス）
     //--------------------------------------------------------------------------
-    void Draw() override;
+    void GatherRenderItems(class RenderQueue& queue) override;
 
     //--------------------------------------------------------------------------
     // Texture (VisualComponent互換)
@@ -71,23 +71,21 @@ public:
     void SetDiffuseColor(const Vector3& c) { mDiffuseColor = c; }
 
     //--------------------------------------------------------------------------
-    // Ground follow options（★今回追加）
+    // Ground follow options
     //--------------------------------------------------------------------------
-    // 地面高さにスナップ（めり込み防止）
     void SetSnapToGround(bool on) { mSnapToGround = on; }
     bool GetSnapToGround() const  { return mSnapToGround; }
 
-    // 地面法線に沿って傾ける（斜面追従）
     void SetAlignToGround(bool on) { mAlignToGround = on; }
     bool GetAlignToGround() const  { return mAlignToGround; }
 
-    // 少し浮かせる（Z-fighting/めり込み対策）
     void SetGroundLift(float y) { mGroundLift = y; }
     float GetGroundLift() const { return mGroundLift; }
 
     // raw / smooth のどちらを使うか（GravityのGroundPoseキャッシュを使用）
     //  - raw    : 即応（影向け）
     //  - smooth : 見た目が滑らか（車/4本足向け）
+    // ※現状 GravityComponent 側に Smooth API が無いので “保持だけ” する
     void SetUseSmoothGroundPose(bool on) { mUseSmoothGroundPose = on; }
     bool GetUseSmoothGroundPose() const  { return mUseSmoothGroundPose; }
 
@@ -117,12 +115,12 @@ protected:
     float   mYaw            { 0.0f };
 
     //--------------------------------------------------------------------------
-    // Ground follow params（★今回追加）
+    // Ground follow params
     //--------------------------------------------------------------------------
-    bool  mSnapToGround        { true };   // default: ON（めり込み対策）
-    bool  mAlignToGround       { false };  // default: OFF（リングは水平の方が見やすい）
-    bool  mUseSmoothGroundPose { false };  // default: raw（影はrawが自然）
-    float mGroundLift          { 0.02f };  // default: 少し浮かせる
+    bool  mSnapToGround        { true };
+    bool  mAlignToGround       { false };
+    bool  mUseSmoothGroundPose { false };  // 現状未使用（保持のみ）
+    float mGroundLift          { 0.02f };
 
     //--------------------------------------------------------------------------
     // Unlit parameters

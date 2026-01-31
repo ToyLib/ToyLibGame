@@ -105,6 +105,7 @@ private:
     int   mScreenHeight {  720 };
 
     SDL_Window* mWindow { nullptr };   // SDLウィンドウ
+    SDL_GLContext mGLContext { nullptr }; // GLコンテキスト
 
     // ウィンドウモード時の「論理ウィンドウサイズ」（復帰用）
     int   mWindowedWidth  { 1600 };

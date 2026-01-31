@@ -49,7 +49,7 @@ public:
     //  - AssetManager の shared_ptr<TextFont> をそのまま受け取る
     //  - 所有権は共有
     //----------------------------------------------------------
-    void SetFont(std::shared_ptr<TextFont> font);
+    void SetFont(std::shared_ptr<class TextFont> font);
 
     //----------------------------------------------------------
     // テキスト・フォント・カラーの現在設定を元に

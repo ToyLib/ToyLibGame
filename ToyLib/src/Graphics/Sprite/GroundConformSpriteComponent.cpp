@@ -4,6 +4,9 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
+#include "Engine/Render/RenderQueue.h"
+#include "Engine/Render/RenderItem.h"
+
 #include "Asset/Material/Texture.h"
 #include "Physics/PhysWorld.h"
 #include "Physics/GravityComponent.h"
@@ -11,11 +14,9 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Asset/Geometry/VertexArray.h"
 
-#include "glad/glad.h"
-
 #include <vector>
 #include <cmath>
-
+#include <iostream>
 
 namespace toy {
 
@@ -24,8 +25,6 @@ GroundConformSpriteComponent::GroundConformSpriteComponent(Actor* owner,
                                                            VisualLayer layer)
     : FootSpriteComponent(owner, drawOrder, layer)
 {
-    // FootSprite のまま運用（Unlit前提・tint/alpha等）
-    
 }
 
 void GroundConformSpriteComponent::PreDraw()
@@ -35,13 +34,12 @@ void GroundConformSpriteComponent::PreDraw()
 
 Matrix4 GroundConformSpriteComponent::BuildWorldMatrix() const
 {
-    // ここが重要：
-    // GroundConform は “頂点がすでにワールド座標” なので、
-    // ワールド行列は Identity を返す（余計な SRT を掛けない）。
     return Matrix4::Identity;
 }
 
-
+//------------------------------------------------------------------------------
+// Ground sampling（あなたの元コードを忠実に維持）
+//------------------------------------------------------------------------------
 bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHit& outHit) const
 {
     outHit = GroundHit{};
@@ -50,7 +48,6 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     auto* phys  = owner ? owner->GetApp()->GetPhysWorld() : nullptr;
     if (!owner || !phys) return false;
 
-    // 基準（地面優先/上限用）
     float refY = mBaseY;
     const ColliderComponent* refCol = nullptr;
 
@@ -60,13 +57,11 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
         {
             const auto& gp = grav->GetGroundPose();
             refY   = gp.y;
-            refCol = gp.collider; // GroundPose に統一
+            refCol = gp.collider;
         }
     }
 
-    //========================================
-    // (A) 乗ってる床 collider を優先（OBB上面を平面サンプル）
-    //========================================
+    // (A) 乗ってる床 collider 優先
     if (refCol)
     {
         const auto* bv = refCol->GetBoundingVolume();
@@ -77,7 +72,6 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
             {
                 const OBB& obb = *obbPtr;
 
-                // axis 正規化
                 Vector3 ax = obb.axisX;
                 Vector3 ay = obb.axisY;
                 Vector3 az = obb.axisZ;
@@ -86,31 +80,26 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
                 if (ay.LengthSq() > Math::NearZeroEpsilon) ay.Normalize(); else ay = Vector3::UnitY;
                 if (az.LengthSq() > Math::NearZeroEpsilon) az.Normalize(); else az = Vector3::UnitZ;
 
-                // 上向き法線に統一
                 Vector3 n = ay;
                 if (Vector3::Dot(n, Vector3::UnitY) < 0.0f)
                 {
                     n *= -1.0f;
                 }
 
-                // 上面平面上の1点
                 const Vector3 p0 = obb.pos + n * obb.radius.y;
 
-                // 垂直線分 (pos.x,*,pos.z) と平面の交点 y
                 const float denom = n.y;
                 if (std::fabs(denom) > 1e-6f)
                 {
                     const float y =
                         p0.y - (n.x * (pos.x - p0.x) + n.z * (pos.z - p0.z)) / denom;
 
-                    // 上面矩形内か（OBBローカルX/Z）
                     const Vector3 hitPos(pos.x, y, pos.z);
                     const Vector3 d = hitPos - obb.pos;
 
                     const float lx = Vector3::Dot(d, ax);
                     const float lz = Vector3::Dot(d, az);
 
-                    // 端のチラつき回避：内側に寄せる
                     const float kEdgeEps = 0.02f;
                     const bool inside =
                         (std::fabs(lx) <= (obb.radius.x - kEdgeEps)) &&
@@ -129,12 +118,9 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
                 }
             }
         }
-        // inside 判定できなかったらフォールバックへ
     }
 
-    //========================================
-    // (B) refCol が無い or 外に出た → terrain 優先
-    //========================================
+    // (B) Terrain
     GroundHit terrainHit;
     if (phys->GetGroundHitAt(pos, terrainHit))
     {
@@ -142,13 +128,11 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
         return true;
     }
 
-    //========================================
-    // (C) collider フォールバック（必要になったら）
-    //========================================
+    // (C) Collider fallback
     GroundHit anyHit;
     if (phys->GetNearestGroundHitAtXZ(pos, anyHit))
     {
-        const float kMaxAbove = 0.20f; // 0.1〜0.3 で調整
+        const float kMaxAbove = 0.20f;
         if (anyHit.y <= refY + kMaxAbove)
         {
             outHit = anyHit;
@@ -159,6 +143,9 @@ bool GroundConformSpriteComponent::SampleGroundAtXZ(const Vector3& pos, GroundHi
     return false;
 }
 
+//------------------------------------------------------------------------------
+// Grid rebuild（重い原因：毎フレーム Rebuild を止める）
+//------------------------------------------------------------------------------
 void GroundConformSpriteComponent::RebuildGridIfNeeded()
 {
     Actor* owner = GetOwner();
@@ -190,28 +177,49 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         (mGridDiv != mPrevDiv);
 
     //========================================================
-    // NEW: GroundPose の変化でも再構築する（停止中の追従）
+    // GroundPose の変化でも再構築する（停止中の追従）
+    //  ※「傾いてるか」ではなく「前回から変化したか」で判定する
     //========================================================
     bool groundChanged = false;
+
+    const ColliderComponent* curCol    = nullptr;
+    float   curY                       = mBaseY;
+    Vector3 curNormal                  = Vector3::UnitY;
+
     if (auto* grav = owner->GetComponent<GravityComponent>())
     {
         if (grav->HasGroundPose())
         {
             const auto& gp = grav->GetGroundPose();
+            curCol    = gp.collider;
+            curY      = gp.y;
+            curNormal = gp.normal;
 
-            // y変化（mBaseY は前回中心地面）
-            if (std::fabs(gp.y - mBaseY) > 0.005f)
+            // (1) 乗ってる床が変わった
+            if (curCol != mPrevGroundCol)
             {
                 groundChanged = true;
             }
 
-            // normal変化：前回 baseHit.normal を保持してないので、簡易に “傾き量” で判定
-            // （より厳密にしたいなら mPrevBaseNormal をメンバ追加）
-            const float tilt = 1.0f - Vector3::Dot(gp.normal, Vector3::UnitY);
-            if (tilt > 0.0005f) // ほんの少しでも傾いていたら更新したい場合
+            // (2) 地面Yが前回から変わった
+            if (std::fabs(curY - mPrevBaseY) > 0.01f) // 少し緩め（0.005f→0.01f）
             {
-                // 「傾いた状態が続く」だけで毎回更新になるのが嫌なら
-                // mPrevBaseNormal をメンバにして Dot で差分判定にしてね
+                groundChanged = true;
+            }
+
+            // (3) 法線が前回から変わった（角度差で判定）
+            // dot が 1 に近いほど同じ方向。0.9995 は約 1.8度差。
+            const float dotN = Vector3::Dot(curNormal, mPrevBaseNormal);
+            if (dotN < 0.9995f)
+            {
+                groundChanged = true;
+            }
+        }
+        else
+        {
+            // GroundPose 無い状態に変わったなら再構築扱い
+            if (mPrevGroundCol != nullptr)
+            {
                 groundChanged = true;
             }
         }
@@ -241,6 +249,34 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 
     mHasBase = true;
     mBaseY = baseHit.y;
+
+    //========================================================
+    // ★GroundPoseキャッシュ更新（次回の差分判定用）
+    //========================================================
+    {
+        if (auto* grav = owner->GetComponent<GravityComponent>())
+        {
+            if (grav->HasGroundPose())
+            {
+                const auto& gp = grav->GetGroundPose();
+                mPrevGroundCol  = gp.collider;
+                mPrevBaseY      = gp.y;
+                mPrevBaseNormal = gp.normal;
+            }
+            else
+            {
+                mPrevGroundCol  = nullptr;
+                mPrevBaseY      = mBaseY;
+                mPrevBaseNormal = Vector3::UnitY;
+            }
+        }
+        else
+        {
+            mPrevGroundCol  = nullptr;
+            mPrevBaseY      = mBaseY;
+            mPrevBaseNormal = Vector3::UnitY;
+        }
+    }
 
     // グリッド頂点数
     const int div = (mGridDiv < 1) ? 1 : mGridDiv;
@@ -350,69 +386,53 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
         static_cast<unsigned int>(numIdx)
     );
 }
+
 //------------------------------------------------------------------------------
-// Draw override（FootSpriteComponent の Draw を “VAOだけ差し替え”）
+// 新パス：RenderQueue に積む
 //------------------------------------------------------------------------------
-void GroundConformSpriteComponent::Draw()
+void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible)
-    {
         return;
-    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer || !mShader)
-    {
         return;
-    }
 
-    // 毎フレーム呼ばれる PreDraw 内で必要なら再構築
     PreDraw();
 
     if (!mGridVAO)
-    {
         return;
-    }
-    
-    
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, mIsBlendAdd ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+    RenderItem it;
+    it.pass      = RenderPass::World;
+    it.layer     = mLayer;
+    it.drawOrder = mDrawOrder;
 
-    mShader->SetActive();
+    it.type      = RenderItemType::Billboard;
+    it.dispatch  = GetDispatch(it.type);
 
-    // ★ワールド頂点なので Identity
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-    mShader->SetMatrixUniform("uWorldTransform", Matrix4::Identity);
+    it.topology     = PrimitiveTopology::Triangles;
+    it.geometry.ptr = mGridVAO.get();
+    it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
-    const bool useTex = (mTexture != nullptr);
-    if (useTex)
-    {
-        mTexture->SetActive(0);
-        mShader->SetTextureUniform("uTexture", 0);
-    }
+    it.shader = renderer->GetShaderHandle("Unlit");
 
-    // FootSprite互換（Unlit）
-    mShader->SetIntUniform("uUseTint", 1);
-    mShader->SetIntUniform("uUseTexture", useTex ? 1 : 0);
-    mShader->SetVectorUniform("uTint", mTint);
-    mShader->SetFloatUniform("uAlpha", mAlpha);
-    mShader->SetVectorUniform("uDiffuseColor", mDiffuseColor);
-    mGridVAO->SetActive();
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    it.viewProj = view * proj;
+    it.world    = Matrix4::Identity;
 
-    
-    glDrawElements(GL_TRIANGLES,
-                   static_cast<GLsizei>(mGridVAO->GetNumIndices()),
-                   GL_UNSIGNED_INT,
-                   nullptr);
+    it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
+    it.depthTest  = true;
+    it.depthWrite = false;
+    it.cull       = CullMode::None;
+    it.frontFace  = FrontFace::CCW;
 
-    renderer->AddDrawCall();
-    renderer->AddDrawObject();
+    it.texture     = renderer->ToHandle(mTexture);
+    it.textureUnit = 0;
 
-    PostDraw();
-
+    queue.Push(it);
 }
 
 } // namespace toy

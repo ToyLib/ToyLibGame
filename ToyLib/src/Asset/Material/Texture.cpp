@@ -21,6 +21,7 @@ Texture::Texture()
 
 Texture::~Texture()
 {
+    Unload();
 }
 
 //============================================================
@@ -482,6 +483,7 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
 //============================================================
 void Texture::SetActive(int unit)
 {
+    
     glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D, mTextureID);
 }

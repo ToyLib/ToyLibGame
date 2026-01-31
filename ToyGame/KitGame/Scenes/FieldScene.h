@@ -20,5 +20,5 @@ private:
     void DeployFire(Vector3 pos);
     std::unique_ptr<class toy::WeatherManager> mWeather;
     
-
+    class toy::TextSpriteComponent* mTextComp;
 };

@@ -59,8 +59,7 @@ Mesh::Mesh()
 
 Mesh::~Mesh()
 {
-    // shared_ptr がクリアされれば VAO は自動解放
-    mVertexArray.clear();
+	Unload();
 }
 
 //==============================================================
@@ -708,7 +707,7 @@ void Mesh::Unload()
     mScene = nullptr;
 	for (auto& VertexArray : mVertexArray)
     {
-        VertexArray->Unload();
+        //VertexArray->Unload();
     }
     mVertexArray.clear();
     mMaterials.clear();

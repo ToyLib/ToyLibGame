@@ -1,20 +1,18 @@
 #pragma once
 
 #include "Engine/Core/Component.h"
-#include "Utils/MathUtil.h" // Matrix4 など
+#include "Utils/MathUtil.h" // Matrix4, Vector3
 
 #include <memory>
 
 namespace toy {
-
-
 
 //==============================================================================
 // キャプチャーモード
 //==============================================================================
 enum class CaptureMode
 {
-    Fixed,   // Actor基準の固定カメラ（今の実装）
+    Fixed,   // Actor基準の固定カメラ
     Mirror,  // 鏡：メインカメラを反射
 };
 
@@ -23,43 +21,38 @@ enum class CaptureMode
 //==============================================================================
 struct SurfaceInfo
 {
-    float scWidth     = 1.0f;    // スクリーン上にスケールされる実サイズ
-    float scHeight    = 1.0f;
+    float scWidth  = 1.0f;  // スクリーン上にスケールされる実サイズ
+    float scHeight = 1.0f;
 };
 
+// Renderer 側にある想定（前方宣言）
+struct SceneCaptureRequest;
 
 //==============================================================================
 // SceneCaptureComponent
 //------------------------------------------------------------------------------
-// ・指定した View/Proj で RenderTarget に描画するキャプチャ用コンポーネント
-// ・更新頻度（Hz）や UI 描画の有無を Desc で制御
-//==============================================================================
 class SceneCaptureComponent : public Component
 {
 public:
     //==========================================================================
     // Desc
-    //--------------------------------------------------------------------------
-    // ・キャプチャ設定
-    // ・Init() でまとめて渡す想定
     //==========================================================================
     struct Desc
     {
-        int   width    = 512;   // キャプチャ解像度（幅）
-        int   height   = 512;   // キャプチャ解像度（高さ）
+        int   width    = 512;
+        int   height   = 512;
 
-        bool  enabled  = true;  // キャプチャ有効/無効
-        bool  drawUI   = false; // UI を描くか（まずは false 推奨）
+        bool  enabled  = true;
+        bool  drawUI   = false;
 
         float fov      = 45.0f;
-        float updateHz = 60.0f; // 更新頻度。0 なら毎フレーム更新
-        
+        float updateHz = 60.0f; // 0なら毎フレーム
     };
 
     //--------------------------------------------------------------------------
     // ctor / setup
     //--------------------------------------------------------------------------
-    SceneCaptureComponent(class Actor* owner);
+    explicit SceneCaptureComponent(class Actor* owner);
 
     void Init(const Desc& desc);
 
@@ -76,12 +69,10 @@ public:
     //--------------------------------------------------------------------------
     // Capture camera
     //--------------------------------------------------------------------------
-    // キャプチャ用の View/Proj をセット（Actor の向きで生成する想定だが外部指定も可）
     void SetViewProj(const Matrix4& view, const Matrix4& proj);
-    
-    void SetCaptureMode(const CaptureMode mode) { mCaptureMode = mode; }
-    
-    void SetSurfaceInfo(const SurfaceInfo info) { mSurfaceInfo = info; }
+
+    void SetCaptureMode(CaptureMode mode) { mCaptureMode = mode; }
+    void SetSurfaceInfo(const SurfaceInfo& info) { mSurfaceInfo = info; }
 
 private:
     //--------------------------------------------------------------------------
@@ -91,23 +82,18 @@ private:
 
     void BuildFixedView();
     void BuildMirrorView();
-    
+
 private:
-    // 設定
     Desc mDesc{};
 
-    // 出力先（カラー等を持つ RT）
     std::shared_ptr<class RenderTarget> mRT;
 
-    // キャプチャ用カメラ行列
     Matrix4 mView { Matrix4::Identity };
     Matrix4 mProj { Matrix4::Identity };
 
-    // updateHz 用の蓄積時間
-    float mAcc {};
-    
+    float mAcc { 0.0f };
+
     CaptureMode mCaptureMode { CaptureMode::Fixed };
-    
     SurfaceInfo mSurfaceInfo {};
 };
 

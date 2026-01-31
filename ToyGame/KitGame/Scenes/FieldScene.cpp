@@ -20,7 +20,7 @@ void FieldScene::InitScene()
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(8.0f, 30.0f);
 
    
@@ -36,12 +36,36 @@ void FieldScene::InitScene()
     CreateActor<PlayerActor>();
     //CreateActor<RPGCharacter>();
     
-
+    // エネミー
     for (int i = 0; i < 10; ++i)
     {
         auto enemy = CreateActor<EnemyActor>();
         enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
     }
+ 
+    
+    // フォント
+    auto fnt = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
+    // テキスト用 Actor を作成
+    auto uiActor = CreateActor<toy::Actor>();
+    //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
+    uiActor->SetPosition(Vector3(1100.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
+
+    auto text = uiActor->CreateComponent<toy::TextSpriteComponent>();
+    text->SetFont(fnt);
+    text->SetFormat("");
+    text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
+    mTextComp = text;
+    
+    
+    // テスト用スプライト
+    auto a = CreateActor<toy::Actor>();
+    auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
+    sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
+    a->SetPosition(Vector3(100.0f, 100.0f,0));
+    
+    
+    
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
@@ -55,6 +79,11 @@ void FieldScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
+    /*
+    auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
+    auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
+    mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
+     */
 }
 
 void FieldScene::InitField()
@@ -92,8 +121,14 @@ void FieldScene::InitField()
     // シャドウ用スプライト
     auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
     shadow->SetVisible(true);
-    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
-    shadow->SetOffsetScale(0.03f);
+    shadow->SetOffsetScale(1.0);
+    shadow->SetSize(5, 5);
+    shadow->SetBlendAdd(false);
+    shadow->SetAlpha(0.8f);
+    shadow->SetGroundLift(1.15f);
+    shadow->SetGridDiv(4);              // まずは4で十分
+    shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
+    
     
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();

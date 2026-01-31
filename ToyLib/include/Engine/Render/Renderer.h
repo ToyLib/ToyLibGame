@@ -2,7 +2,10 @@
 
 #include "Utils/MathUtil.h"
 #include "Engine/Render/PostEffect.h"
+#include "Engine/Render/VisualLayer.h"
 #include "glad/glad.h"
+
+#include "Engine/Render/RenderQueue.h"
 
 #include <SDL3/SDL.h>
 
@@ -14,18 +17,7 @@
 
 namespace toy {
 
-//==============================================================================
-// VisualLayer
-//==============================================================================
-enum class VisualLayer
-{
-    Background2D,
-    Object3D,
-    Effect3D,
-    OverlayScreen,
-    Object2D,
-    UI,
-};
+class RenderTarget;
 
 //==============================================================================
 // ScreenProjectResult
@@ -59,14 +51,37 @@ struct UIScaleInfo
 //==============================================================================
 // Capture Request
 //==============================================================================
+
 struct SceneCaptureRequest
 {
-    std::shared_ptr<class RenderTarget> rt;
+    std::shared_ptr<RenderTarget> rt;
     Matrix4 view { Matrix4::Identity };
     Matrix4 proj { Matrix4::Identity };
     bool drawUI { false };
-    const class Texture* skipTexture { nullptr }; // フィードバック防止用
+
+    // 将来拡張
+    bool drawSky { true };
+    bool drawWorld { true };
+    bool drawOverlay { false }; // まず false 推奨
 };
+
+
+struct FramebufferScope
+{
+    GLint prevFbo = 0;
+    GLint prevVp[4] {};
+    FramebufferScope()
+    {
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
+        glGetIntegerv(GL_VIEWPORT, prevVp);
+    }
+    ~FramebufferScope()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
+        glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
+    }
+};
+
 
 //==============================================================================
 // デバッグ用の情報
@@ -90,7 +105,7 @@ public:
     // 初期化 / 終了
     //--------------------------------------------------------------------------
 
-    bool Initialize(SDL_Window* window);
+    bool Initialize(SDL_Window* window, SDL_GLContext glContext);
     void Shutdown();
 
     SDL_Window* GetSDLWindow() const { return mWindow; }
@@ -100,9 +115,9 @@ public:
     //--------------------------------------------------------------------------
 
     void Draw();
-    void DrawPass(bool drawUI);
+    //void DrawPass(bool drawUI);
 
-    void DrawToRenderTarget(std::shared_ptr<class RenderTarget> rt,
+    void DrawToRenderTarget(const std::shared_ptr<class RenderTarget>& rt,
                             const Matrix4& view,
                             const Matrix4& proj,
                             bool drawUI = false);
@@ -134,18 +149,20 @@ public:
         mViewMatrix = view;
         mInvView    = view;
         mInvView.Invert();
+        mViewProjMatrix = mViewMatrix * mProjectionMatrix;
     }
 
     Matrix4 GetViewMatrix() const { return mViewMatrix; }
     Matrix4 GetInvViewMatrix() const { return mInvView; }
 
     Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
-    void SetProjectionMatrix(const Matrix4& mat) { mProjectionMatrix = mat; }
-
-    Matrix4 GetViewProjMatrix() const
+    void SetProjectionMatrix(const Matrix4& mat)
     {
-        return mViewMatrix * mProjectionMatrix;
+        mProjectionMatrix = mat;
+        mViewProjMatrix   = mViewMatrix * mProjectionMatrix;
     }
+
+    Matrix4 GetViewProjMatrix() const { return mViewProjMatrix; }
 
     float GetPerspectiveFov() const { return mPerspectiveFOV; }
     void SetPerspectiveFov(float f) { mPerspectiveFOV = f; }
@@ -160,7 +177,6 @@ public:
     //--------------------------------------------------------------------------
     
     void RequestSceneCapture(const SceneCaptureRequest& req);
-    void FlushSceneCaptures();
     
     //--------------------------------------------------------------------------
     // スクリーン / UI
@@ -191,8 +207,8 @@ public:
 
     void UnloadData();
 
-    void RegisterSkyDome(class SkyDomeComponent* sky);
-    class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
+    //void RegisterSkyDome(class SkyDomeComponent* sky);
+    //class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
 
     std::shared_ptr<class LightingManager> GetLightingManager() const
     {
@@ -273,6 +289,15 @@ public:
         mEnableFade = (mFadeAlpha > 0.0f);
     }
 
+    
+    
+    GeometryHandle GetSpriteQuadHandle() const;
+    GeometryHandle GetSurfaceQuadHandle() const;
+
+    ShaderHandle GetShaderHandle(const std::string& name);
+    TextureHandle ToHandle(const std::shared_ptr<Texture>& tex) const;
+    MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
+    
 private:
     //--------------------------------------------------------------------------
     // SDL / OpenGL
@@ -296,6 +321,7 @@ private:
     Matrix4 mViewMatrix {};
     Matrix4 mInvView    {};
     Matrix4 mProjectionMatrix {};
+    Matrix4 mViewProjMatrix {};
     
     
     //--------------------------------------------------------------------------
@@ -349,9 +375,9 @@ private:
     PostEffectDesc mPost {};
 
     // ポスト描画
-    void DrawPostFromSceneRT();
-    void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
-    void DrawUIPass_Only();     // UIだけ（クリアなし）
+
+    //void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
+    //void DrawUIPass_Only();     // UIだけ（クリアなし）
 
     //--------------------------------------------------------------------------
     // フェード
@@ -359,7 +385,7 @@ private:
     float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
     Vector3 mFadeColor  { 0, 0, 0 };
     bool    mEnableFade { false };
-    void    DrawFadeOverlay();
+
 
     //--------------------------------------------------------------------------
     // ジオメトリ
@@ -383,15 +409,10 @@ private:
     bool LoadShaders();
 
     //--------------------------------------------------------------------------
-    // Visual / Sky
+    // Visual
     //--------------------------------------------------------------------------
 
     std::vector<class VisualComponent*> mVisualComps;
-    class SkyDomeComponent* mSkyDomeComp { nullptr };
-
-    void DrawSky();
-    void DrawVisualLayer(VisualLayer layer,
-                         const std::shared_ptr<class Texture>& skipTex = nullptr);
 
     //--------------------------------------------------------------------------
     // 内部初期化
@@ -399,7 +420,46 @@ private:
 
     bool LoadSettings(const std::string& filePath);
     bool InitializeShadowMapping();
-    void RenderShadowMap();
+
+    
+    // OpenGL 切り離し準備
+    void DrawRenderQueue_World(const RenderQueue& items);
+    void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
+    void ApplyState_GL(const RenderItem& it);
+    void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
+
+    
+private:
+    
+    RenderQueue mQ_Sky;
+    RenderQueue mQ_Object3D;
+    RenderQueue mQ_Effect3D;
+    RenderQueue mQ_OverlayScreen;
+    RenderQueue mQ_UI;
+    void BuildFrameQueues();
+    // 新DrawPass
+    void BeginFrame();
+    void RenderShadowPass();
+    void RestoreAfterShadowPass();
+    void DrawSkyPass();
+    void DrawWorldPass();
+    void DrawOverlayScreenPass();
+    void DrawFadePass();
+    void DrawPostEffectPass();
+    void DrawUIPass();
+    void EndFrame();
+
+private:
+
+
+    struct CameraState
+    {
+        Matrix4 view, proj, viewProj, invView;
+    };
+    std::vector<CameraState> mCameraStack;
+    void PushCameraState();
+    void PopCameraState();
+    void SetCameraState(const CameraState& s);
     
 };
 

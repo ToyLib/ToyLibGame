@@ -12,49 +12,22 @@ AssetManager::AssetManager()
 {
     
 }
+AssetManager::~AssetManager()
+{
+    UnloadData();
+}   
 
 void AssetManager::UnloadData()
 {
-    // OpenGL, OpenALについてはUnload()でライフサイクル中に破棄する。
-    for (auto& [name, tex] : mTextures)
-    {
-        if (tex)
-        {
-            tex->Unload();
-        }
-    }
+
     mTextures.clear();
-    for (auto& [name, mesh] : mMeshes)
-    {
-        if (mesh)
-        {
-            mesh->Unload();
-        }
-    }
+
     mMeshes.clear();
-    for (auto& [name, se] : mSoundEffects)
-    {
-        if (se)
-        {
-            se->Unload();
-        }
-    }
+
     mSoundEffects.clear();
-    for (auto& [name, music] : mMusics)
-    {
-        if (music)
-        {
-            music->Unload();
-        }
-    }
+
     mMusics.clear();
-    for (auto& [name, font] : mTextFonts)
-    {
-        if (font)
-        {
-            font->Unload();
-        }
-    }
+
     mTextFonts.clear();
 }
 

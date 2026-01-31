@@ -1,224 +1,164 @@
 #include "Graphics/Mesh/MeshComponent.h"
-#include "Engine/Render/Shader.h"
-#include "Engine/Render/LightingManager.h"
+
 #include "Asset/Geometry/Mesh.h"
+#include "Asset/Geometry/VertexArray.h"
+#include "Asset/Material/Material.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Renderer.h"
-#include "Asset/Material/Texture.h"
-#include "Asset/Geometry/VertexArray.h"
-#include "Asset/Material/Material.h"
-
-#include "glad/glad.h"
-#include <vector>
+#include "Engine/Render/RenderItem.h"
+#include "Engine/Render/RenderQueue.h"
 
 namespace toy {
 
-//------------------------------------------------------------
-// コンストラクタ
-//  - Renderer からシェーダやライト情報を取得
-//  - デフォルトでは 3Dオブジェクトレイヤー & 影あり
-//------------------------------------------------------------
 MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool isSkeletal)
     : VisualComponent(a, drawOrder, layer)
     , mIsSkeletal(isSkeletal)
 {
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
-    mShader          = renderer->GetShader("Mesh");
-    mShadowShader    = renderer->GetShader("ShadowMesh");
-    mLightingManger  = renderer->GetLightingManager();
-
     mIsVisible    = true;
-    mLayer        = VisualLayer::Object3D;  // Mesh は基本3Dオブジェクト扱い
+    mLayer        = layer;
     mEnableShadow = true;
 }
 
-//------------------------------------------------------------
-// デストラクタ
-//------------------------------------------------------------
-MeshComponent::~MeshComponent()
-{
-}
 
-//------------------------------------------------------------
-// Draw()
-//  - 通常描画
-//  - シャドウマップ + ライティング + マテリアルを反映
-//  - オプションでトゥーン輪郭を追加描画
-//------------------------------------------------------------
-void MeshComponent::Draw()
-{
-    if (!mMesh)
-    {
-        return;
-    }
-
-    // 加算ブレンドが指定されている場合はブレンドモード変更
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_ONE, GL_ONE);
-    }
-
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
-
-    Matrix4 view = renderer->GetViewMatrix();
-    Matrix4 proj = renderer->GetProjectionMatrix();
-
-    // メインのメッシュシェーダを使用
-    mShader->SetActive();
-
-    // ライティング情報をシェーダに反映
-    mLightingManger->ApplyToShader(mShader, view);
-
-    // 行列類
-    mShader->SetMatrixUniform("uViewProj", view * proj);
-
-    // ----------------------------
-    // CSM: ShadowMap 2枚 + LightVP 2本 + split/blend
-    // ----------------------------
-    // ※ Texture unit は空いている番号なら何でもOK。ここでは 6/7 を使用。
-    {
-        auto sm0 = renderer->GetShadowMapTexture(0);
-        auto sm1 = renderer->GetShadowMapTexture(1);
-
-        if (sm0) sm0->SetActive(6);
-        if (sm1) sm1->SetActive(7);
-
-        // Phong.frag 側の uniform 名に合わせる
-        mShader->SetTextureUniform("uShadowMap0", 6);
-        mShader->SetTextureUniform("uShadowMap1", 7);
-
-        mShader->SetMatrixUniform("uLightViewProj0", renderer->GetLightSpaceMatrix(0));
-        mShader->SetMatrixUniform("uLightViewProj1", renderer->GetLightSpaceMatrix(1));
-
-        // まず動かす用の固定値（あとで Renderer 側の設定値に置き換え推奨）
-        mShader->SetFloatUniform("uCascadeSplit0", renderer->GetCascadeSplit0());
-        mShader->SetFloatUniform("uCascadeBlend", renderer->GetCascadeBlend());
-
-        // Bias
-        mShader->SetFloatUniform("uShadowBias", 0.005f);
-    }
-
-    // トゥーンレンダリングON/OFF
-    mShader->SetBooleanUniform("uUseToon", mIsToon);
-
-    // ワールド変換を送る
-    Matrix4 worldMatrix =
-        Matrix4::CreateFromQuaternion(mLocalRot) *
-        Matrix4::CreateTranslation(mLocalPos) *
-        Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetRenderWorldTransform();
-
-    mShader->SetMatrixUniform("uWorldTransform", worldMatrix);
-
-    //--------------------------------------------------------
-    // メッシュ本体の描画
-    //--------------------------------------------------------
-    auto vaList = mMesh->GetVertexArray();
-    for (auto& v : vaList)
-    {
-        auto mat = mMesh->GetMaterial(v->GetTextureID());
-        if (mat)
-        {
-            // Diffuse / Specular / Texture 等をまとめてバインド
-            mat->BindToShader(mShader, 0);
-        }
-
-        v->SetActive();
-        glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-        renderer->AddDrawCall();
-    }
-
-    //--------------------------------------------------------
-    // トゥーン輪郭描画（アウトライン）
-    //--------------------------------------------------------
-    if (mContourFactor > 1.0f)
-    {
-        glFrontFace(GL_CW);
-
-        // わずかにスケールアップしたワールド行列
-        Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
-        mShader->SetMatrixUniform(
-            "uWorldTransform",
-            scaleOutline * worldMatrix
-        );
-
-        for (auto& v : vaList)
-        {
-            auto mat = mMesh->GetMaterial(v->GetTextureID());
-            if (mat)
-            {
-                // 色を強制的に黒に上書きするモード
-                mat->SetOverrideColor(true, mContourColor);
-                mat->BindToShader(mShader, 0);
-            }
-
-            v->SetActive();
-            glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-            renderer->AddDrawCall();
-
-            // 上書きカラーを元に戻す
-            if (mat)
-            {
-                mat->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
-            }
-        }
-
-        glFrontFace(GL_CCW);
-        renderer->AddDrawObject();
-    }
-
-    // 加算ブレンドを戻す
-    if (mIsBlendAdd)
-    {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-
-    renderer->AddDrawObject();
-}
-
-//------------------------------------------------------------
-// GetVertexArray()
-//  - 指定インデックスのサブメッシュ VAO を取得
-//  - デバッグ用やカスタム描画に利用
-//------------------------------------------------------------
 std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 {
-    return mMesh->GetVertexArray()[id];
+    if (!mMesh) return nullptr;
+    auto& list = mMesh->GetVertexArray();
+    if (id < 0 || id >= (int)list.size()) return nullptr;
+    return list[(size_t)id];
 }
 
-//------------------------------------------------------------
-// DrawShadow()
-//  - シャドウマップ用の深度描画
-//  - ライティングは不要で、LightSpaceMatrix と WorldTransform のみ
-//------------------------------------------------------------
-void MeshComponent::DrawShadow(int cascadeIndex)
+void MeshComponent::GatherRenderItems(RenderQueue& queue)
 {
+    if (!mIsVisible) return;
     if (!mMesh) return;
 
-    auto renderer = GetOwner()->GetApp()->GetRenderer();
+    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    if (!renderer) return;
 
-    // ★カスケード指定で取得
-    Matrix4 light = renderer->GetLightSpaceMatrix(cascadeIndex);
-
-    mShadowShader->SetActive();
-    
+    // ワールド行列（旧 Draw と同じ）
     Matrix4 worldMatrix =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
         GetOwner()->GetRenderWorldTransform();
-    
-    mShadowShader->SetMatrixUniform("uWorldTransform", worldMatrix);
-    mShadowShader->SetMatrixUniform("uLightSpaceMatrix", light);
 
+    // 共有：ビュー・プロジェクション
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+
+    // サブメッシュごとに積む（Materialが違うため）
     auto vaList = mMesh->GetVertexArray();
     for (auto& v : vaList)
     {
-        v->SetActive();
-        glDrawElements(GL_TRIANGLES, v->GetNumIndices(), GL_UNSIGNED_INT, nullptr);
-        renderer->AddDrawCall();
+        if (!v) continue;
+
+        // ---- 通常描画 ----
+        RenderItem it {};
+        it.pass      = RenderPass::World;
+        it.layer     = mLayer;
+        it.drawOrder = mDrawOrder;
+
+        it.type     = RenderItemType::Mesh;
+        it.dispatch = GetDispatch(it.type);
+
+        it.topology     = PrimitiveTopology::Triangles;
+        it.geometry.ptr = v.get();
+        it.indexCount   = static_cast<int>(v->GetNumIndices());
+
+        it.shader   = renderer->GetShaderHandle("Mesh");   // ★旧と同じ Mesh shader
+        it.world    = worldMatrix;
+        it.viewProj = view * proj;
+
+        it.toon = mIsToon;
+
+        it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque);
+        it.depthTest  = true;
+        it.depthWrite = true;
+        it.cull       = CullMode::Back;
+        it.frontFace  = FrontFace::CCW;
+
+        // Material（旧：v->GetTextureID()で取ってたのと同じ）
+        auto mat = mMesh->GetMaterial(v->GetTextureID());
+        it.material = renderer->ToHandle(mat);
+
+        queue.Push(it);
+
+        // ---- アウトライン（旧 Draw の輪郭処理そのまま） ----
+        if (mContourFactor > 1.0f)
+        {
+            RenderItem o = it;
+
+            // わずかにスケールアップしたワールド行列（旧：scaleOutline * worldMatrix）
+            Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
+            o.world = scaleOutline * worldMatrix;
+
+            // glFrontFace(GL_CW) と同義（裏面だけ残す）
+            o.frontFace = FrontFace::CW;
+
+            // 色を Material 上書き（旧：mat->SetOverrideColor(true, mContourColor)）
+            o.overrideColor      = true;
+            o.overrideColorValue = mContourColor;
+
+            // 通常より先に描く（必要なら）
+            o.drawOrder = mDrawOrder - 1;
+
+            queue.Push(o);
+        }
     }
-    renderer->AddDrawObject();
 }
+void MeshComponent::GatherShadowItems(RenderQueue& out)
+{
+    if (!mIsVisible || !mEnableShadow || !mMesh) return;
+
+    auto* owner = GetOwner();
+    if (!owner) return;
+
+    auto* renderer = owner->GetApp()->GetRenderer();
+    if (!renderer) return;
+
+    // world
+    const Matrix4 world =
+        Matrix4::CreateFromQuaternion(mLocalRot) *
+        Matrix4::CreateTranslation(mLocalPos) *
+        Matrix4::CreateScale(mLocalScale) *
+        owner->GetRenderWorldTransform();
+
+    // submesh ごとに積む
+    auto& vaList = mMesh->GetVertexArray();
+    for (auto& va : vaList)
+    {
+        if (!va) continue;
+
+        RenderItem it{};
+        it.type      = RenderItemType::Mesh;       // Shadow専用Typeが無いならこれでOK
+        it.dispatch = GetDispatch(it.type);
+        
+        it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
+        it.layer     = GetLayer();
+        it.drawOrder = GetDrawOrder();
+
+        it.topology   = PrimitiveTopology::Triangles;
+        it.geometry   = GeometryHandle{ va.get() };
+        it.indexCount = (int)va->GetNumIndices();
+
+        // ★カスケードごとの lightVP は Renderer の Shadow描画側で上書きする方針
+        it.lightVP = renderer->GetLightSpaceMatrix(0); // 保険（0を入れておく）
+
+        it.world = world;
+
+        // states（深度のみ）
+        it.depthTest  = true;
+        it.depthWrite = true;
+        it.blend      = BlendMode::Opaque;
+        it.cull       = CullMode::Back;
+        it.frontFace  = FrontFace::CCW;
+
+        it.shader = renderer->GetShaderHandle("ShadowMesh");
+
+        out.Push(it);
+    }
+}
+
 } // namespace toy

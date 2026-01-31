@@ -14,13 +14,7 @@ SoundEffect::SoundEffect()
 
 SoundEffect::~SoundEffect()
 {
-#if defined(_DEBUG)
-    if (mBuffer != 0)
-    {
-        std::cerr << "[SoundEffect] Unload() not called\n";
-    }
-#endif
-
+    Unload();
 }
 
 bool SoundEffect::Load(const std::string& fileName, AssetManager* manager)

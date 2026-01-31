@@ -17,7 +17,7 @@ OutdoorStage::~OutdoorStage()
 void OutdoorStage::InitStage()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     mApp->GetRenderer()->SetPostEffect(effectDesc);
@@ -82,8 +82,8 @@ void OutdoorStage::InitStage()
     
  
     // 時間の設定
-    mApp->GetTimeOfDaySystem()->SetTimeScale(00.0f);
-    mApp->GetTimeOfDaySystem()->SetTime(17.0f, 30.0f);
+    mApp->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
+    mApp->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
 }
 
 void OutdoorStage::Update(float deltaTime)
@@ -325,5 +325,5 @@ void OutdoorStage::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::STORM);
 }
