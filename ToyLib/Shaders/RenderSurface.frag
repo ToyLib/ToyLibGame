@@ -1,52 +1,31 @@
 #version 410 core
 
-// ------------------------------------------------------------
-// Inputs / Outputs（現状に合わせる）
-// ------------------------------------------------------------
 in vec2 vUV;
 out vec4 outColor;
 
-// ------------------------------------------------------------
-// Textures
-// ------------------------------------------------------------
 uniform sampler2D uSurfaceTex;
 
-// ------------------------------------------------------------
-// Existing params（現状そのまま）
-// ------------------------------------------------------------
 uniform bool  uFlipX;
 uniform bool  uFlipY;
 
 uniform float uOpacity;  // 0..1
 uniform vec3  uTint;     // 乗算色
 
-// ------------------------------------------------------------
-// New params（追加）
-// ------------------------------------------------------------
 // 0: Monitor  1: Mirror  2: Water
 uniform int   uMode;
 
-// time（波/走査線で使用）
 uniform float uTime;
 
-// 共通：UV歪み強さ（0.0〜0.05くらいから）
-uniform float uDistortStrength;
+uniform float uDistortStrength;   // 0.0..0.05
+uniform float uScanlineStrength;  // 0..1
 
-// Monitor：走査線強度（0..1）
-uniform float uScanlineStrength;
-
-// Mirror：フレネル（0..1）を C++ から渡せるなら使う（未設定なら 0 でOK）
 uniform float uFresnel;
 uniform float uFresnelPow;
 
-// Water：波速度
 uniform float uWaveSpeed;
 
-uniform float uSwayStrength; // 0..0.02 くらい
-
+uniform float uSwayStrength;      // 0..0.02
 uniform float uSparkleStrength;
-
-// ------------------------------------------------------------
 
 vec2 ApplyFlip(vec2 uv)
 {
@@ -55,41 +34,42 @@ vec2 ApplyFlip(vec2 uv)
     return uv;
 }
 
-// wave: 0..1（あなたの w1*w2 でもOK）
+// wave: 0..1
 float softHighlight(vec2 uv, float t, float wave)
 {
-    // 波の山だけを拾う（帯になる）
     float crest = smoothstep(0.55, 0.95, wave);
 
-    // UV方向にゆっくり動く細い帯（“水面の筋”）
     float band = sin(uv.x * 6.0 + t * 0.6) * 0.5 + 0.5;
-    band *= sin(uv.y * 5.0 - t * 0.5) * 0.5 + 0.5; // 0..1
+    band *= sin(uv.y * 5.0 - t * 0.5) * 0.5 + 0.5;
 
-    // 急峻すぎると粒状になるので滑らかに
     band = smoothstep(0.45, 0.85, band);
 
-    // fwidthで解像度に応じて“ぼかし幅”を増やす（チラつき抑制）
     float fw = fwidth(band);
     band = smoothstep(0.45 - fw, 0.85 + fw, band);
 
-    // crest と band を掛けて、波の山にだけ上品に乗せる
     return crest * band;
 }
+
+// 小さなヘルパー：サンプルを安全に（境界付近のチラつき抑制）
+vec4 SampleSurface(vec2 uv)
+{
+    // 端の黒/クリア混入が気になるなら clamp を強める
+    uv = clamp(uv, vec2(0.001), vec2(0.999));
+    return texture(uSurfaceTex, uv);
+}
+
 void main()
 {
-    
     vec2 uv = ApplyFlip(vUV);
-    
 
     // ============================================================
-    // 0) Monitor（そのまま + うっすら走査線）
+    // 0) Monitor
     // ============================================================
     if (uMode == 0)
     {
-        vec4 c = texture(uSurfaceTex, uv);
+        vec4 c = SampleSurface(uv);
 
-        // scanline：雑に y 方向へ縞（強さは uScanlineStrength）
-        float sl = sin((uv.y + uTime * 0.4) * 800.0) * 0.5 + 0.5; // 0..1
+        float sl = sin((uv.y + uTime * 0.4) * 800.0) * 0.5 + 0.5;
         float k  = mix(1.0 - uScanlineStrength, 1.0, sl);
         c.rgb *= k;
 
@@ -100,21 +80,18 @@ void main()
     }
 
     // ============================================================
-    // 1) Mirror（微小歪み + フレネルで縁強調）
+    // 1) Mirror
     // ============================================================
     if (uMode == 1)
     {
-        // 微小な歪み（鏡面のゆらぎ）
         float n = sin(uv.x * 30.0 + uTime * 1.2) * sin(uv.y * 25.0 - uTime * 1.0);
         vec2 duv = uv + vec2(n, -n) * (uDistortStrength * 0.3);
 
-        vec4 c = texture(uSurfaceTex, duv);
+        vec4 c = SampleSurface(duv);
 
-        // Fresnel：C++から渡してるならそれを使う（0..1）
         float f = clamp(uFresnel, 0.0, 1.0);
         float edge = pow(f, max(uFresnelPow, 0.0001));
 
-        // 端が少し強く・中心は少し落とす、くらいの控えめ調整
         c.rgb = mix(c.rgb * 0.85, c.rgb * 1.15, edge);
 
         c.rgb *= uTint;
@@ -123,47 +100,86 @@ void main()
         return;
     }
 
+
     // ============================================================
-    // 2) Water（しっかり波歪み + ちょいキラ）
+    // 2) Water（うねり＋さざ波＋軽いキラ）
+    // ============================================================
+    // ============================================================
+    // 2) Water（空反射・ぼやけ重視）
     // ============================================================
     if (uMode == 2)
     {
-        float t = uTime * uWaveSpeed;
+        float t = uTime * 0.5;
 
-        // 先に “ゆらゆら” で uv を動かす
-        float swayX = sin(t * 0.7 + uv.y * 6.0) * (uSwayStrength * 0.6);
-        float swayY = cos(t * 0.6 + uv.x * 5.0) * (uSwayStrength * 0.4);
-        uv += vec2(swayX, swayY);
+        // --------------------------------------------
+        // (A) 大きなうねり（0..1）
+        // --------------------------------------------
+        float swell =
+            sin(vUV.x * 1.5 + t * 0.4) +
+            cos(vUV.y * 1.2 - t * 0.3);
+        swell = swell * 0.5 + 0.5;
 
-        // sway 後の uv で波を作る（模様も一緒に漂う）
-        float w1 = sin(uv.x * 25.0 + t) * 0.5 + 0.5;
-        float w2 = sin(uv.y * 18.0 - t * 1.2) * 0.5 + 0.5;
-        float wave = w1 * w2; // 0..1
+        // --------------------------------------------
+        // (B) かなり大きく流す（極端）
+        // --------------------------------------------
+        vec2 uv = ApplyFlip(vUV);
 
-        vec2 duv = uv + vec2(wave - 0.5, (1.0 - wave) - 0.5) * uDistortStrength;
+        uv += vec2(
+            sin(t * 0.3 + uv.y * 2.0),
+            cos(t * 0.25 + uv.x * 1.8)
+        ) * 0.412;
 
-        vec4 c = texture(uSurfaceTex, duv);
+        // --------------------------------------------
+        // (C) 歪み（極端）
+        // --------------------------------------------
+        vec2 blurDistort = vec2(
+            swell - 0.5,
+            (1.0 - swell) - 0.5
+        );
+        uv += blurDistort * 0.115;
 
-        float h = softHighlight(uv, t, wave);
-        float viewFactor = smoothstep(0.2, 0.8, abs(uv.y - 0.5) * 2.0);
+        // --------------------------------------------
+        // (C') 破綻防止：UVをループさせる（マンガ向き）
+        // --------------------------------------------
+        uv = fract(uv);
 
-        // またはもっとシンプルに
-        // float viewFactor = pow(1.0 - abs(uv.y - 0.5) * 2.0, 2.0);
+        // --------------------------------------------
+        // (D) 擬似ぼかし（極端だけど制御）
+        //     ※オフセットを一定ではなく、少しだけ波で変える
+        // --------------------------------------------
+        vec2 ofs = vec2(0.206, 0.206) * (0.7 + 0.6 * swell);
 
-        h *= viewFactor;
-        c.rgb += h * uSparkleStrength; // 0.05〜0.18くらい推奨（上品）
-        //c.rgb *= (1.0 + h * uSparkleStrength);
-        float sparkle = pow(wave, 8.0) * 0.25;
-        c.rgb += sparkle;
+        vec4 c = texture(uSurfaceTex, uv);
+        c += texture(uSurfaceTex, fract(uv + ofs));
+        c += texture(uSurfaceTex, fract(uv - ofs));
+        c += texture(uSurfaceTex, fract(uv + vec2(-ofs.x, ofs.y)));
+        c += texture(uSurfaceTex, fract(uv + vec2(ofs.x, -ofs.y)));
+        c *= 0.2;
 
+        // --------------------------------------------
+        // (E) 呼吸（控えめ）
+        // --------------------------------------------
+        float lightWave = smoothstep(0.25, 0.85, swell);
+        c.rgb *= mix(0.95, 1.05, lightWave);
+
+        // --------------------------------------------
+        // (F) 水色に溶かす
+        // --------------------------------------------
+        vec3 waterTint = vec3(0.85, 0.95, 1.05);
+        c.rgb = mix(c.rgb, c.rgb * waterTint, 0.35);
+
+        // --------------------------------------------
+        // (G) 既存反映
+        // --------------------------------------------
         c.rgb *= uTint;
         c.a   *= uOpacity;
+
         outColor = c;
         return;
     }
 
-    // fallback（現状と同じ）
-    vec4 c = texture(uSurfaceTex, uv);
+    // fallback
+    vec4 c = SampleSurface(uv);
     c.rgb *= uTint;
     c.a   *= uOpacity;
     outColor = c;
