@@ -352,7 +352,6 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
         it->second->SetActive();
         Matrix4 viewProj = Matrix4::CreateSimpleViewProj(mScreenWidth, mScreenHeight);
         it->second->SetMatrixUniform("uViewProj", viewProj);
-        glUseProgram(0);
     }
 }
 
