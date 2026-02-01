@@ -43,12 +43,16 @@ RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
 void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!IsVisible() || !mTexture)
+    {
         return;
+    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
+    {
         return;
-
+    }
+    
     RenderItem it;
     it.type = RenderItemType::Surface;
     it.pass = RenderPass::World;
@@ -95,10 +99,18 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     int mode = 3; // Plain は fallback（= 3 など “0..2以外”）
     switch (mMode)
     {
-        case SurfaceMode::Plain:   mode = 3; break; // fallback
-        case SurfaceMode::Monitor: mode = 0; break;
-        case SurfaceMode::Mirror:  mode = 1; break;
-        case SurfaceMode::Water:   mode = 2; break;
+        case SurfaceMode::Plain:
+            mode = 3;
+            break; // fallback
+        case SurfaceMode::Monitor:
+            mode = 0;
+            break;
+        case SurfaceMode::Mirror:
+            mode = 1;
+            break;
+        case SurfaceMode::Water:
+            mode = 2;
+            break;
     }
     it.surfaceMode = mode;
 

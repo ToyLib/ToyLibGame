@@ -210,13 +210,24 @@ void ParticleComponent::Update(float deltaTime)
 //======================================================================
 void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 {
-    if (mSkipDrawFrames > 0) { --mSkipDrawFrames; return; }
-    if (!mIsVisible || !mRunning) return;
-    if (!mInitialized || !mTexture || !mRenderShader) return;
-
+    if (mSkipDrawFrames > 0)
+    {
+        --mSkipDrawFrames;
+        return;
+    }
+    if (!mIsVisible || !mRunning)
+    {
+        return;
+    }
+    if (!mInitialized || !mTexture || !mRenderShader)
+    {
+        return;
+    }
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
@@ -275,8 +286,9 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 void ParticleComponent::InitIfNeeded()
 {
     if (mInitialized)
+    {
         return;
-
+    }
     InitQuadGeometry();
     InitUpdateVAO();
     InitRenderVAO();
@@ -287,12 +299,30 @@ void ParticleComponent::InitIfNeeded()
 
 void ParticleComponent::ReleaseGL()
 {
-    if (mUpdateVAO) glDeleteVertexArrays(1, &mUpdateVAO);
-    if (mRenderVAO) glDeleteVertexArrays(1, &mRenderVAO);
-    if (mQuadVBO)   glDeleteBuffers(1, &mQuadVBO);
-    if (mQuadIBO)   glDeleteBuffers(1, &mQuadIBO);
-    if (mParticleVBO_A) glDeleteBuffers(1, &mParticleVBO_A);
-    if (mParticleVBO_B) glDeleteBuffers(1, &mParticleVBO_B);
+    if (mUpdateVAO)
+    {
+        glDeleteVertexArrays(1, &mUpdateVAO);
+    }
+    if (mRenderVAO)
+    {
+        glDeleteVertexArrays(1, &mRenderVAO);
+    }
+    if (mQuadVBO)
+    {
+        glDeleteBuffers(1, &mQuadVBO);
+    }
+    if (mQuadIBO)
+    {
+        glDeleteBuffers(1, &mQuadIBO);
+    }
+    if (mParticleVBO_A)
+    {
+        glDeleteBuffers(1, &mParticleVBO_A);
+    }
+    if (mParticleVBO_B)
+    {
+        glDeleteBuffers(1, &mParticleVBO_B);
+    }
 
     mInitialized = false;
     mPingPong = false;
@@ -444,8 +474,14 @@ void ParticleComponent::ApplyModePresetIfNeeded()
 ParticleComponent::ParticleMode
 ParticleComponent::ParseModeString(const std::string& s)
 {
-    if (s == "Water" || s == "water") return ParticleMode::Water;
-    if (s == "Smoke" || s == "smoke") return ParticleMode::Smoke;
+    if (s == "Water" || s == "water")
+    {
+        return ParticleMode::Water;
+    }
+    if (s == "Smoke" || s == "smoke")
+    {
+        return ParticleMode::Smoke;
+    }
     return ParticleMode::Spark;
 }
 
@@ -493,9 +529,15 @@ void ParticleComponent::InitParticleBuffers(bool warmStart)
         }
     }
 
-    if (!mParticleVBO_A) glGenBuffers(1, &mParticleVBO_A);
-    if (!mParticleVBO_B) glGenBuffers(1, &mParticleVBO_B);
-
+    if (!mParticleVBO_A)
+    {
+        glGenBuffers(1, &mParticleVBO_A);
+    }
+    if (!mParticleVBO_B)
+    {
+        glGenBuffers(1, &mParticleVBO_B);
+    }
+    
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_A);
     glBufferData(GL_ARRAY_BUFFER,
                  static_cast<GLsizeiptr>(sizeof(Particle) * init.size()),

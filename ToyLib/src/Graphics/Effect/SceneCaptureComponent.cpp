@@ -71,8 +71,9 @@ void SceneCaptureComponent::SetViewProj(const Matrix4& view, const Matrix4& proj
 void SceneCaptureComponent::Update(float deltaTime)
 {
     if (!mDesc.enabled || !mRT)
+    {
         return;
-
+    }
     // 毎フレーム更新
     if (mDesc.updateHz <= 0.0f)
     {
@@ -100,13 +101,19 @@ void SceneCaptureComponent::Capture()
 {
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
+    {
         return;
+    }
 
     if (mCaptureMode == CaptureMode::Fixed)
+    {
         BuildFixedView();
+    }
     else
+    {
         BuildMirrorView();
-
+    }
+    
     // Renderer にリクエスト
     SceneCaptureRequest req;
     req.rt     = mRT;
@@ -149,8 +156,11 @@ void SceneCaptureComponent::BuildFixedView()
 void SceneCaptureComponent::BuildMirrorView()
 {
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
+    
     GetOwner()->ComputeWorldTransform();
 
     const Matrix4 mainInvView = renderer->GetInvViewMatrix();

@@ -47,17 +47,24 @@ WeatherDomeComponent::WeatherDomeComponent(Actor* owner, int drawOrder)
 //==============================================================
 void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
 {
-    if (!mIsVisible) return;
-
-    // 旧Draw版：if (!mSkyVAO || !mShader) return;
-    if (!mSkyVAO || !mShader) return;
-
+    if (!mIsVisible)
+    {
+        return;
+    }
+    if (!mSkyVAO || !mShader)
+    {
+        return;
+    }
     auto* app = GetOwner()->GetApp();
-    if (!app) return;
-
+    if (!app)
+    {
+        return;
+    }
     auto* renderer = app->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
     // 旧Draw版：invView から camPos 取得
     const Matrix4 invView = renderer->GetInvViewMatrix();
     const Vector3 camPos  = invView.GetTranslation();
@@ -161,7 +168,10 @@ Vector3 WeatherDomeComponent::GetSkyColor(float time)
     
     // time: 0.0〜1.0 を想定（0:00〜24:00）
     time = fmodf(time, 1.0f);
-    if (time < 0.0f) time += 1.0f;
+    if (time < 0.0f)
+    {
+        time += 1.0f;
+    }
     
     // 日の出/日の入り（時間単位）
     const float sunriseHour  = 6.0f;   // 5:00
@@ -274,7 +284,10 @@ Vector3 WeatherDomeComponent::GetCloudColor(float time)
     Vector3 nightColor (0.16f, 0.18f, 0.26f);
     
     time = fmodf(time, 1.0f);
-    if (time < 0.0f) time += 1.0f;
+    if (time < 0.0f)
+    {
+        time += 1.0f;
+    }
     
     const float sunriseHour  = 5.0f;
     const float sunsetHour   = 18.0f;

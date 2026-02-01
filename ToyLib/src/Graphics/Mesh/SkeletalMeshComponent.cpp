@@ -76,9 +76,12 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
     //=========================================================
     for (auto& va : mMesh->GetVertexArray())
     {
-        if (!va) continue;
-
-        RenderItem it{};
+        if (!va)
+        {
+            continue;
+        }
+            
+        RenderItem it {};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);
         it.pass      = RenderPass::World;
@@ -144,17 +147,29 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
 
 void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
 {
-    if (!mIsVisible || !mEnableShadow || !mMesh || !mAnimPlayer) return;
-
+    if (!mIsVisible || !mEnableShadow || !mMesh || !mAnimPlayer)
+    {
+        return;
+    }
+    
     auto* owner = GetOwner();
-    if (!owner) return;
-
+    if (!owner)
+    {
+        return;
+    }
+    
     auto* renderer = owner->GetApp()->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
+    
     const auto& mats = mAnimPlayer->GetFinalMatrices();
-    if (mats.empty()) return;
-
+    if (mats.empty())
+    {
+        return;
+    }
+    
     const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
@@ -163,8 +178,11 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
 
     for (auto& va : mMesh->GetVertexArray())
     {
-        if (!va) continue;
-
+        if (!va)
+        {
+            continue;
+        }
+        
         RenderItem it{};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);

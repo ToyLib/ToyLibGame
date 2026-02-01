@@ -47,15 +47,19 @@ void SkyDomeComponent::Update(float /*deltaTime*/)
 void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
 {
     if (!mIsVisible)
+    {
         return;
+    }
 
     if (!mSkyVAO || !mShader)
+    {
         return;
-
+    }
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
+    {
         return;
-
+    }
     // カメラ位置に追従させる
     const Matrix4 invView = renderer->GetInvViewMatrix();
     const Vector3 camPos  = invView.GetTranslation();

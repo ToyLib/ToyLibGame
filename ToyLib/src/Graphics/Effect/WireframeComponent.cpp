@@ -26,15 +26,27 @@ WireframeComponent::WireframeComponent(Actor* owner,
 //------------------------------------------------------------
 void WireframeComponent::GatherRenderItems(RenderQueue& q)
 {
-    if (!mIsVisible) return;
-    if (!mVertexArray) return;
-
+    if (!mIsVisible)
+    {
+        return;
+    }
+    if (!mVertexArray)
+    {
+        return;
+    }
+    
     auto* app = GetOwner()->GetApp();
-    if (!app) return;
-
+    if (!app)
+    {
+        return;
+    }
+    
     auto* renderer = app->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
+    
     RenderItem it{};
     it.pass      = RenderPass::World;
     it.layer     = GetLayer();

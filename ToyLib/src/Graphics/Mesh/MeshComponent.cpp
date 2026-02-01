@@ -23,20 +23,35 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
 
 std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 {
-    if (!mMesh) return nullptr;
+    if (!mMesh)
+    {
+        return nullptr;
+    }
     auto& list = mMesh->GetVertexArray();
-    if (id < 0 || id >= (int)list.size()) return nullptr;
+    if (id < 0 || id >= (int)list.size())
+    {
+        return nullptr;
+    }
     return list[(size_t)id];
 }
 
 void MeshComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible) return;
-    if (!mMesh) return;
-
+    if (!mIsVisible)
+    {
+        return;
+    }
+    if (!mMesh)
+    {
+        return;
+    }
+    
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
+    
     // ワールド行列（旧 Draw と同じ）
     Matrix4 worldMatrix =
         Matrix4::CreateFromQuaternion(mLocalRot) *
@@ -52,8 +67,11 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
     auto vaList = mMesh->GetVertexArray();
     for (auto& v : vaList)
     {
-        if (!v) continue;
-
+        if (!v)
+        {
+            continue;
+        }
+        
         // ---- 通常描画 ----
         RenderItem it {};
         it.pass      = RenderPass::World;
@@ -110,14 +128,23 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
 }
 void MeshComponent::GatherShadowItems(RenderQueue& out)
 {
-    if (!mIsVisible || !mEnableShadow || !mMesh) return;
-
+    if (!mIsVisible || !mEnableShadow || !mMesh)
+    {
+        return;
+    }
+    
     auto* owner = GetOwner();
-    if (!owner) return;
-
+    if (!owner)
+    {
+        return;
+    }
+    
     auto* renderer = owner->GetApp()->GetRenderer();
-    if (!renderer) return;
-
+    if (!renderer)
+    {
+        return;
+    }
+    
     // world
     const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
@@ -129,8 +156,11 @@ void MeshComponent::GatherShadowItems(RenderQueue& out)
     auto& vaList = mMesh->GetVertexArray();
     for (auto& va : vaList)
     {
-        if (!va) continue;
-
+        if (!va)
+        {
+            continue;
+        }
+        
         RenderItem it{};
         it.type      = RenderItemType::Mesh;       // Shadow専用Typeが無いならこれでOK
         it.dispatch = GetDispatch(it.type);

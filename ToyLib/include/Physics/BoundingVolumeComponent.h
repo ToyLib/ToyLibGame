@@ -120,7 +120,7 @@ private:
     float mRadius {};
     
     // AABB から生成した 12枚のポリゴン（ローカル空間）
-    std::array<Polygon, kNumPolygons> mPolygons{};
+    std::array<Polygon, kNumPolygons> mPolygons;
     
     // デバッグ表示用のワイヤーフレーム（AABB 可視化）
     std::unique_ptr<class WireframeComponent> mWireframe;

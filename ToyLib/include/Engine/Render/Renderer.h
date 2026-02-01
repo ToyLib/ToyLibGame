@@ -15,17 +15,18 @@
 #include <vector>
 #include <algorithm>
 
-namespace toy {
+namespace toy
+{
 
 //==============================================================================
 // ScreenProjectResult
 //==============================================================================
 struct ScreenProjectResult
 {
-    bool    visible; // 画面内に投影されているか
-    Vector2 screen;  // スクリーン座標（0〜width / 0〜height）
-    Vector2 virtualScreen; // 仮想スクリーン座標
-    float   depth;   // 深度（0〜1）
+    bool    visible;        // 画面内に投影されているか
+    Vector2 screen;         // スクリーン座標（0〜width / 0〜height）
+    Vector2 virtualScreen;  // 仮想スクリーン座標
+    float   depth;          // 深度（0〜1）
 };
 
 //==============================================================================
@@ -47,9 +48,8 @@ struct UIScaleInfo
 };
 
 //==============================================================================
-// Capture Request
+// SceneCaptureRequest
 //==============================================================================
-
 struct SceneCaptureRequest
 {
     std::shared_ptr<class RenderTarget> rt;
@@ -63,9 +63,8 @@ struct SceneCaptureRequest
     bool drawOverlay { false }; // まず false 推奨
 };
 
-
 //==============================================================================
-// デバッグ用の情報
+// DebugInfo
 //==============================================================================
 struct DebugInfo
 {
@@ -96,7 +95,6 @@ public:
     //--------------------------------------------------------------------------
 
     void Draw();
-    //void DrawPass(bool drawUI);
 
     void DrawToRenderTarget(const std::shared_ptr<class RenderTarget>& rt,
                             const Matrix4& view,
@@ -104,7 +102,7 @@ public:
                             bool drawUI = false);
 
     //--------------------------------------------------------------------------
-    // クリア / デバッグ
+    // デバッグ / クリア
     //--------------------------------------------------------------------------
 
     void SetClearColor(const Vector3& color);
@@ -137,6 +135,7 @@ public:
     Matrix4 GetInvViewMatrix() const { return mInvView; }
 
     Matrix4 GetProjectionMatrix() const { return mProjectionMatrix; }
+
     void SetProjectionMatrix(const Matrix4& mat)
     {
         mProjectionMatrix = mat;
@@ -154,12 +153,6 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // シーンキャプチャーリクエスト
-    //--------------------------------------------------------------------------
-    
-    void RequestSceneCapture(const SceneCaptureRequest& req);
-    
-    //--------------------------------------------------------------------------
     // スクリーン / UI
     //--------------------------------------------------------------------------
 
@@ -176,6 +169,12 @@ public:
     void OnWindowResized(int pixelW, int pixelH);
 
     //--------------------------------------------------------------------------
+    // シーンキャプチャーリクエスト
+    //--------------------------------------------------------------------------
+
+    void RequestSceneCapture(const SceneCaptureRequest& req);
+
+    //--------------------------------------------------------------------------
     // VisualComponent 管理
     //--------------------------------------------------------------------------
 
@@ -187,9 +186,6 @@ public:
     //--------------------------------------------------------------------------
 
     void UnloadData();
-
-    //void RegisterSkyDome(class SkyDomeComponent* sky);
-    //class SkyDomeComponent* GetSkyDome() const { return mSkyDomeComp; }
 
     std::shared_ptr<class LightingManager> GetLightingManager() const
     {
@@ -252,17 +248,18 @@ public:
         std::shared_ptr<class TextFont> font);
 
     ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
-    
+
     //--------------------------------------------------------------------------
     // ポストエフェクト
     //--------------------------------------------------------------------------
-    
+
     void SetPostEffect(const PostEffectDesc& desc) { mPost = desc; }
     const PostEffectDesc& GetPostEffect() const { return mPost; }
-    
+
     //--------------------------------------------------------------------------
     // フェードパラメーター設定
     //--------------------------------------------------------------------------
+
     void SetFade(float alpha, const Vector3& color = Vector3(0,0,0))
     {
         mFadeAlpha  = std::clamp(alpha, 0.0f, 1.0f);
@@ -270,14 +267,16 @@ public:
         mEnableFade = (mFadeAlpha > 0.0f);
     }
 
-    
-    
+    //--------------------------------------------------------------------------
+    // Handle 変換
+    //--------------------------------------------------------------------------
+
     GeometryHandle GetSpriteQuadHandle() const;
     GeometryHandle GetSurfaceQuadHandle() const;
     ShaderHandle   GetShaderHandle(const std::string& name);
     TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
-    
+
 private:
     //--------------------------------------------------------------------------
     // SDL / OpenGL
@@ -302,13 +301,6 @@ private:
     Matrix4 mInvView    {};
     Matrix4 mProjectionMatrix {};
     Matrix4 mViewProjMatrix {};
-    
-    
-    //--------------------------------------------------------------------------
-    // キャプチャーリクエストのキュー
-    //--------------------------------------------------------------------------
-
-    std::vector<SceneCaptureRequest> mSceneCaptureQueue {};
 
     //--------------------------------------------------------------------------
     // 描画状態 / デバッグ
@@ -320,9 +312,16 @@ private:
     DebugInfo mDebugOnScreen {};
     DebugInfo mDebugRTT {};
     DebugInfo* mDebugActiveScreen = &mDebugOnScreen;
+
     void ChangeDebugOnScreen() { mDebugActiveScreen = &mDebugOnScreen; }
     void ChangeDebugRTT() { mDebugActiveScreen = &mDebugRTT; }
     void ResetDebugCounter() { mDebugOnScreen = mDebugRTT = {}; }
+
+    //--------------------------------------------------------------------------
+    // キャプチャーリクエストのキュー
+    //--------------------------------------------------------------------------
+
+    std::vector<SceneCaptureRequest> mSceneCaptureQueue {};
 
     //--------------------------------------------------------------------------
     // ライティング / シャドウ
@@ -349,19 +348,20 @@ private:
     //--------------------------------------------------------------------------
     // ポストエフェクト
     //--------------------------------------------------------------------------
+
     // メインシーン（ポスト用）RenderTarget
     std::shared_ptr<RenderTarget> mSceneRT ;
+
     // ポスト設定
     PostEffectDesc mPost {};
-
 
     //--------------------------------------------------------------------------
     // フェード
     //--------------------------------------------------------------------------
+
     float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
     Vector3 mFadeColor  { 0, 0, 0 };
     bool    mEnableFade { false };
-
 
     //--------------------------------------------------------------------------
     // ジオメトリ
@@ -397,23 +397,27 @@ private:
     bool LoadSettings(const std::string& filePath);
     bool InitializeShadowMapping();
 
-    
+    //--------------------------------------------------------------------------
     // OpenGL 切り離し準備
+    //--------------------------------------------------------------------------
+
     void DrawRenderQueue_World(const RenderQueue& items);
     void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
 
-    
-private:
-    
+    //--------------------------------------------------------------------------
+    // パス用キュー / 新 DrawPass
+    //--------------------------------------------------------------------------
+
     RenderQueue mQ_Sky;
     RenderQueue mQ_Object3D;
     RenderQueue mQ_Effect3D;
     RenderQueue mQ_OverlayScreen;
     RenderQueue mQ_UI;
+
     void BuildFrameQueues();
-    // 新DrawPass
+
     void BeginFrame();
     void RenderShadowPass();
     void RestoreAfterShadowPass();
@@ -425,18 +429,20 @@ private:
     void DrawUIPass();
     void EndFrame();
 
-private:
-
+    //--------------------------------------------------------------------------
+    // Camera Stack
+    //--------------------------------------------------------------------------
 
     struct CameraState
     {
         Matrix4 view, proj, viewProj, invView;
     };
+
     std::vector<CameraState> mCameraStack;
+
     void PushCameraState();
     void PopCameraState();
     void SetCameraState(const CameraState& s);
-    
 };
 
 } // namespace toy
