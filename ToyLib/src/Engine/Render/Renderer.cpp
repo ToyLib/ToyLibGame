@@ -159,7 +159,6 @@ bool Renderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
     // クリアカラーの初期設定
     //---------------------------------------------------------
     SetClearColor(mClearColor);
-    //mSkyDomeComp = nullptr;
 
     //---------------------------------------------------------
     // ビューポート＆射影行列など、サイズ依存の状態をまとめて更新

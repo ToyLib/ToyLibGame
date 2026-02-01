@@ -17,8 +17,6 @@
 
 namespace toy {
 
-class RenderTarget;
-
 //==============================================================================
 // ScreenProjectResult
 //==============================================================================
@@ -54,7 +52,7 @@ struct UIScaleInfo
 
 struct SceneCaptureRequest
 {
-    std::shared_ptr<RenderTarget> rt;
+    std::shared_ptr<class RenderTarget> rt;
     Matrix4 view { Matrix4::Identity };
     Matrix4 proj { Matrix4::Identity };
     bool drawUI { false };
@@ -63,23 +61,6 @@ struct SceneCaptureRequest
     bool drawSky { true };
     bool drawWorld { true };
     bool drawOverlay { false }; // まず false 推奨
-};
-
-
-struct FramebufferScope
-{
-    GLint prevFbo = 0;
-    GLint prevVp[4] {};
-    FramebufferScope()
-    {
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
-        glGetIntegerv(GL_VIEWPORT, prevVp);
-    }
-    ~FramebufferScope()
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFbo);
-        glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
-    }
 };
 
 
@@ -293,9 +274,8 @@ public:
     
     GeometryHandle GetSpriteQuadHandle() const;
     GeometryHandle GetSurfaceQuadHandle() const;
-
-    ShaderHandle GetShaderHandle(const std::string& name);
-    TextureHandle ToHandle(const std::shared_ptr<Texture>& tex) const;
+    ShaderHandle   GetShaderHandle(const std::string& name);
+    TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
     
 private:
@@ -374,10 +354,6 @@ private:
     // ポスト設定
     PostEffectDesc mPost {};
 
-    // ポスト描画
-
-    //void DrawWorldPass_NoUI();  // DrawPass(false) の代替（クリア含む）
-    //void DrawUIPass_Only();     // UIだけ（クリアなし）
 
     //--------------------------------------------------------------------------
     // フェード
