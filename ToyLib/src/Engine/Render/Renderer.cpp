@@ -1340,8 +1340,8 @@ bool Renderer::LoadShaders()
     //---------------------------------------------------------
     // パーティクル（Render用）
     //---------------------------------------------------------
-    vShaderName = mShaderPath + "ParticleGPU.vert";
-    fShaderName = mShaderPath + "ParticleGPU.frag";
+    vShaderName = mShaderPath + "Particle.vert";
+    fShaderName = mShaderPath + "Particle.frag";
     auto render = std::make_shared<Shader>();
     render->Load(vShaderName, fShaderName);
     mShaders["Particle"] = render;
