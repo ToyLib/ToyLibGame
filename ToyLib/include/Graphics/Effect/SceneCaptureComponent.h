@@ -14,6 +14,7 @@ enum class CaptureMode
 {
     Fixed,   // Actor基準の固定カメラ
     Mirror,  // 鏡：メインカメラを反射
+    Water    // 水面：
 };
 
 //==============================================================================
@@ -82,7 +83,7 @@ private:
 
     void BuildFixedView();
     void BuildMirrorView();
-
+    void BuildWaterView();
 private:
     Desc mDesc{};
 

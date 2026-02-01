@@ -137,7 +137,7 @@ void FieldScene::InitField()
     Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(-45.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=512, .height=512 });
+    capture->Init({.width=512, .height=512, .fov=360.0f });
     capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
@@ -150,18 +150,18 @@ void FieldScene::InitField()
 
     // 水面を出す
     auto waterActor = CreateActor<toy::Actor>();
-    waterActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
+    waterActor->SetPosition(Vector3(20.0f, -4.0f, 30.0f));
     waterActor->SetScale(1.0f);
-    q = Quaternion(Vector3::UnitY, Math::ToRadians(-90.0f));
+    q = Quaternion(Vector3::UnitX, Math::ToRadians(90.0f));
     waterActor->SetRotation(q);
     auto waterCapture = waterActor->CreateComponent<toy::SceneCaptureComponent>();
     waterCapture->Init({ .width = 512, .height = 512 });
-    waterCapture->SetCaptureMode(toy::CaptureMode::Mirror);
+    waterCapture->SetCaptureMode(toy::CaptureMode::Water);
 
     auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
-    waterComp->SetTexture(capture->GetColorTexture());
-    waterComp->SetScale(10.0f, 10.0f);
-    waterCapture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+    waterComp->SetTexture(waterCapture->GetColorTexture());
+    waterComp->SetScale(20.0f, 20.0f);
+    waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
     waterComp->SetFlip(true, true);
     waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
 

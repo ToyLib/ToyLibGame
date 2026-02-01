@@ -96,10 +96,7 @@ public:
 
     void Draw();
 
-    void DrawToRenderTarget(const std::shared_ptr<class RenderTarget>& rt,
-                            const Matrix4& view,
-                            const Matrix4& proj,
-                            bool drawUI = false);
+    void DrawToRenderTarget(const struct SceneCaptureRequest& req);
 
     //--------------------------------------------------------------------------
     // デバッグ / クリア

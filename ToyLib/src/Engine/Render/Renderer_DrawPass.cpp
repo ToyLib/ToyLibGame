@@ -619,7 +619,7 @@ void Renderer::Draw()
     // SceneCapture RTT
     for (const auto& req : mSceneCaptureQueue)
     {
-        DrawToRenderTarget(req.rt, req.view, req.proj, req.drawUI);
+        DrawToRenderTarget(req);
     }
     mSceneCaptureQueue.clear();
 
@@ -719,7 +719,82 @@ void Renderer::BuildFrameQueues()
 //=============================================================
 // DrawToRenderTarget
 //=============================================================
-void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
+void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
+{
+    if (!req.rt) return;
+
+    ChangeDebugRTT();
+
+    // ---- Save per-capture state ----
+    const Matrix4 prevView = mViewMatrix;
+    const Matrix4 prevProj = mProjectionMatrix;
+    const Matrix4 prevInvV = mInvView;
+
+    GLint prevFBO = 0;
+    GLint prevVP[4];
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+    glGetIntegerv(GL_VIEWPORT, prevVP);
+
+    // ---- Bind RT + viewport ----
+    req.rt->Bind();
+    glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
+
+    // ★Sky-only の場合は「色を毎回クリアしない」方が水面で破綻しにくい
+    //   （必要ならここを req側のフラグにしてもいい）
+    if (req.drawWorld || req.drawOverlay || req.drawUI)
+    {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+    else
+    {
+        glClear(GL_DEPTH_BUFFER_BIT);
+    }
+
+    // ---- Override camera ----
+    mViewMatrix       = req.view;
+    mProjectionMatrix = req.proj;
+    mInvView          = req.view;
+    mInvView.Invert();
+
+    // ---- Shadow for this capture ----
+    // ★Worldを描かないなら Shadow も不要（重い＆副作用の元）
+    if (req.drawWorld)
+    {
+        RenderShadowPass();
+
+        // RestoreAfterShadowPass() が画面VPに戻すので、RTに戻す
+        RestoreAfterShadowPass();
+        req.rt->Bind();
+        glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
+    }
+    else
+    {
+        // Sky-only のときも念のため、RT側の描画状態に寄せる
+        glDisable(GL_STENCIL_TEST);
+    }
+
+    // ---- Draw scene into RT ----
+    BuildFrameQueues();
+
+    if (req.drawSky)     DrawSkyPass();
+    if (req.drawWorld)   DrawWorldPass();
+    if (req.drawOverlay) DrawOverlayScreenPass();
+    if (req.drawUI)      DrawUIPass();
+
+    DrawFadePass();
+
+    // ---- Restore camera ----
+    mViewMatrix       = prevView;
+    mProjectionMatrix = prevProj;
+    mInvView          = prevInvV;
+
+    // ---- Restore FBO + viewport ----
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
+
+    ChangeDebugOnScreen();
+}
+/*void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
                                   const Matrix4& view,
                                   const Matrix4& proj,
                                   bool drawUI)
@@ -762,5 +837,6 @@ void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
 
     ChangeDebugOnScreen();
 }
+*/
 
 } // namespace toy
