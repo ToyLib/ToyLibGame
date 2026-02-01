@@ -97,16 +97,16 @@ void FieldScene::InitField()
     {
         for (int j = 0; j < 5; ++j)
         {
-            DeployBrick(Vector3(-80 + 15*j/2 + 10*i*1.5, 20, 20 + 5*j*1.5));
+            DeployBrick(Vector3(-80 + 15 * j / 2 + 10 * i * 1.5, 20, 20 + 5 * j * 1.5));
         }
     }
 
     for (int i = 0; i < 12; ++i)
     {
-        DeployBrick(Vector3(0, -3+i*2, -20 + i*4));
+        DeployBrick(Vector3(0, -3 + i * 2, -20 + i * 4));
 
     }
-    
+
     // 木（ビルボード）
     auto treeActor = CreateActor<toy::Actor>();
     treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
@@ -116,7 +116,7 @@ void FieldScene::InitField()
     treeBillboard->SetVisible(true);
     treeActor->CreateComponent<toy::GravityComponent>();
     auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
-    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100,200,4));
+    treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100, 200, 4));
     treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
     // シャドウ用スプライト
     auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
@@ -128,7 +128,7 @@ void FieldScene::InitField()
     shadow->SetGroundLift(1.15f);
     shadow->SetGridDiv(4);              // まずは4で十分
     shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
-    
+
     
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();
@@ -146,6 +146,24 @@ void FieldScene::InitField()
     capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
     mirrorComp->SetFlip(true, true);
     mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
+
+
+    // 水面を出す
+    auto waterActor = CreateActor<toy::Actor>();
+    waterActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
+    waterActor->SetScale(1.0f);
+    q = Quaternion(Vector3::UnitY, Math::ToRadians(-90.0f));
+    waterActor->SetRotation(q);
+    auto waterCapture = waterActor->CreateComponent<toy::SceneCaptureComponent>();
+    waterCapture->Init({ .width = 512, .height = 512 });
+    waterCapture->SetCaptureMode(toy::CaptureMode::Mirror);
+
+    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
+    waterComp->SetTexture(capture->GetColorTexture());
+    waterComp->SetScale(10.0f, 10.0f);
+    waterCapture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+    waterComp->SetFlip(true, true);
+    waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
 
 }
 
