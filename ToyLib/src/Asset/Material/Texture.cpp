@@ -12,6 +12,9 @@
 
 namespace toy {
 
+// 最適化用の識別子
+GLuint Texture::sCurrentTextureID = 0;
+
 //============================================================
 // コンストラクタ / デストラクタ
 //============================================================
@@ -483,9 +486,15 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
 //============================================================
 void Texture::SetActive(int unit)
 {
+    if (sCurrentTextureID == mTextureID)
+    {
+        return;
+    }
     
     glActiveTexture(GL_TEXTURE0 + unit);
     glBindTexture(GL_TEXTURE_2D, mTextureID);
+    
+    sCurrentTextureID = mTextureID;
 }
 
 //============================================================

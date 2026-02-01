@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Utils/MathUtil.h" // Vector3
+#include "glad/glad.h"
 #include <string>
 
 namespace toy {
@@ -100,7 +101,9 @@ private:
     //--------------------------------------------------------------------------
 
     // OpenGL テクスチャ ID
-    unsigned int mTextureID {};
+    GLuint mTextureID {};
+    static GLuint sCurrentTextureID;
+    
 
     // サイズ
     int mWidth {};
