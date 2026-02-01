@@ -86,7 +86,7 @@ private:
     GLuint mFragShaderID    {};   // フラグメントシェーダ
     GLuint mShaderProgramID {};   // リンク済みプログラム
     
-    static GLuint sCurrentShaderID;
+    static GLuint sCurrentShaderID; // 同値スキップ用
     
     
     //---------------------------------------------------------

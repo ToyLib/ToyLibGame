@@ -12,8 +12,8 @@
 
 namespace toy {
 
-// 最適化用の識別子
-GLuint Texture::sCurrentTextureID = 0;
+// 同値スキップ用
+unsigned int Texture::sCurrentTextureID = 0;
 
 //============================================================
 // コンストラクタ / デストラクタ

@@ -398,6 +398,7 @@ void VertexArray::Unload()
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    
     // ★作成した本数だけ消す（ここが重要）
     if (mNumVBO > 0)
     {
