@@ -223,7 +223,7 @@ bool DispatchBillboard(Renderer&,
 //============================================================
 // GPUParticle
 //============================================================
-bool DispatchGPUParticle(Renderer&,
+bool DispatchParticle(Renderer&,
                          const RenderItem& it,
                          RenderPass pass,
                          int)
@@ -375,7 +375,7 @@ RenderItem::DispatchFn GetDispatch(RenderItemType type)
         case RenderItemType::Mesh:         return &DispatchMesh;
         case RenderItemType::SkinnedMesh:  return &DispatchSkinnedMesh;
         case RenderItemType::Billboard:    return &DispatchBillboard;
-        case RenderItemType::GPUParticle:  return &DispatchGPUParticle;
+        case RenderItemType::Particle:     return &DispatchParticle;
         case RenderItemType::SkyDome:      return &DispatchSkyDome;
         case RenderItemType::Overlay:      return &DispatchOverlay;
         case RenderItemType::Debug:        return &DispatchDebug;

@@ -79,7 +79,7 @@ void Renderer::ApplyState_GL(const RenderItem& it)
 GeometryHandle Renderer::GetSpriteQuadHandle() const
 {
     GeometryHandle h;
-    h.ptr = mSpriteVerts.get();       // 既存の共通SpriteVertsを使う
+    h.ptr = mSpriteQuad.get();       // 既存の共通SpriteVertsを使う
     return h;
 }
 GeometryHandle Renderer::GetSurfaceQuadHandle() const
@@ -117,7 +117,7 @@ MaterialHandle Renderer::ToHandle(const std::shared_ptr<Material>& mat) const
 // ----------------------------------------
 inline bool ValidateGeometryForDraw(const RenderItem& it)
 {
-    const bool isGPUParticle = (it.type == RenderItemType::GPUParticle);
+    const bool isGPUParticle = (it.type == RenderItemType::Particle);
 
     if (!isGPUParticle)
     {
@@ -163,7 +163,7 @@ inline void SetCommonUniforms(Renderer& r,
 // ----------------------------------------
 inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
 {
-    if (it.type == RenderItemType::GPUParticle)
+    if (it.type == RenderItemType::Particle)
     {
         glBindVertexArray(it.gpuVAO);
         glDrawElementsInstanced(GL_TRIANGLES,

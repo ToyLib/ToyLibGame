@@ -149,7 +149,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     if (!renderer || !mShader)
         return;
     
-    auto vao = renderer->GetSpriteVerts();
+    auto vao = renderer->GetSpriteQuad();
     if (!vao)
         return;
     

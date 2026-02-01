@@ -21,7 +21,7 @@ enum class RenderItemType
     Mesh,
     SkinnedMesh,
     Billboard,
-    GPUParticle,
+    Particle,
     SkyDome,
     Overlay,
     Debug,

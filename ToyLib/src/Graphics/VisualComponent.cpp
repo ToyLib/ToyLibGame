@@ -24,7 +24,7 @@ VisualComponent::VisualComponent(Actor* owner, int drawOrder, VisualLayer layer)
 
     // デフォルトの頂点配列（スプライト用クアッド）
     //   - Particle, Sprite, Overlay などが共通して使う
-    mVertexArray = renderer->GetSpriteVerts();
+    mVertexArray = renderer->GetSpriteQuad();
 }
 
 VisualComponent::~VisualComponent()

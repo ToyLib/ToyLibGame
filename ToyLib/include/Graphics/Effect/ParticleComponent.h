@@ -12,7 +12,7 @@ class Texture;
 class Shader;
 class RenderQueue;
 
-class GPUParticleComponent : public VisualComponent
+class ParticleComponent : public VisualComponent
 {
 public:
     enum class ParticleMode
@@ -48,8 +48,8 @@ public:
     };
 
 public:
-    GPUParticleComponent(class Actor* owner, int drawOrder = 20);
-    ~GPUParticleComponent();
+    ParticleComponent(class Actor* owner, int drawOrder = 20);
+    ~ParticleComponent();
 
     void Update(float deltaTime) override;
     void SetTexture(std::shared_ptr<Texture> tex) override;

@@ -222,9 +222,9 @@ public:
     // 共通ジオメトリ
     //--------------------------------------------------------------------------
 
-    std::shared_ptr<class VertexArray> GetSpriteVerts() const
+    std::shared_ptr<class VertexArray> GetSpriteQuad() const
     {
-        return mSpriteVerts;
+        return mSpriteQuad;
     }
 
     std::shared_ptr<class VertexArray> GetFullScreenQuad() const
@@ -234,7 +234,7 @@ public:
 
     std::shared_ptr<class VertexArray> GetParticleQuad() const
     {
-        return mSpriteVerts;
+        return mSpriteQuad;
     }
 
     std::shared_ptr<class VertexArray> GetSurfaceQuad() const
@@ -368,7 +368,7 @@ private:
     //--------------------------------------------------------------------------
 
     std::shared_ptr<class VertexArray> mFullScreenQuad;
-    std::shared_ptr<class VertexArray> mSpriteVerts;
+    std::shared_ptr<class VertexArray> mSpriteQuad;
     std::shared_ptr<class VertexArray> mSurfaceQuad;
 
     void CreateFullScreenQuad();

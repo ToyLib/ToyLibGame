@@ -204,7 +204,7 @@ void Renderer::Shutdown()
 
     // VAO/VBO 等（デストラクタで glDelete* するならここで current 必須）
     mFullScreenQuad.reset();
-    mSpriteVerts.reset();
+    mSpriteQuad.reset();
     mSurfaceQuad.reset();
 }
 
@@ -492,7 +492,7 @@ void Renderer::DrawWorldPass()
         {
             const bool isOverlay =
                 (it.type == RenderItemType::Billboard) ||
-                (it.type == RenderItemType::GPUParticle);
+                (it.type == RenderItemType::Particle);
 
             if (isOverlay)
             {
@@ -971,7 +971,7 @@ void Renderer::CreateSpriteVerts()
         0, 3, 2
     };
 
-    mSpriteVerts = std::make_shared<VertexArray>(
+    mSpriteQuad = std::make_shared<VertexArray>(
         (float*)vertices, 4,
         (unsigned int*)indices, 6
     );
@@ -1323,14 +1323,7 @@ bool Renderer::LoadShaders()
     //---------------------------------------------------------
     // パーティクル
     //---------------------------------------------------------
-    vShaderName = mShaderPath + "Billboard.vert";
-    fShaderName = mShaderPath + "Particle.frag";
-    mShaders["Particle"] = std::make_shared<Shader>();
-    if (!mShaders["Particle"]->Load(vShaderName.c_str(), fShaderName.c_str()))
-    {
-        return false;
-    }
-
+ 
     //---------------------------------------------------------
     // GPUパーティクル（Update用：Transform Feedback）
     //---------------------------------------------------------
@@ -1345,13 +1338,13 @@ bool Renderer::LoadShaders()
     mShaders["ParticleUpdate"] = update;
 
     //---------------------------------------------------------
-    // GPUパーティクル（Render用）
+    // パーティクル（Render用）
     //---------------------------------------------------------
     vShaderName = mShaderPath + "ParticleGPU.vert";
     fShaderName = mShaderPath + "ParticleGPU.frag";
     auto render = std::make_shared<Shader>();
     render->Load(vShaderName, fShaderName);
-    mShaders["ParticleGPU"] = render;
+    mShaders["Particle"] = render;
 
     //---------------------------------------------------------
     // ソリッドカラー（ワイヤーフレーム／デバッグ用など）

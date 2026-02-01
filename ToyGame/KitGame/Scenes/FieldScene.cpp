@@ -241,7 +241,7 @@ void FieldScene::DeployFire(Vector3 pos)
 
     // Component
     auto* particle = particleActorGPU
-        ->CreateComponent<toy::GPUParticleComponent>();
+        ->CreateComponent<toy::ParticleComponent>();
 
     particle->SetTexture(
         GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
@@ -249,13 +249,13 @@ void FieldScene::DeployFire(Vector3 pos)
     //==============================
     // Desc で全設定
     //==============================
-    toy::GPUParticleComponent::Desc desc;
+    toy::ParticleComponent::Desc desc;
 
     // --- 基本 ---
     desc.maxParticles   = 10;        // 旧 num
     desc.particleLife   = 0.6f;       // 旧 partLife
     desc.size           = 5.5f;       // 旧 size
-    desc.mode           = toy::GPUParticleComponent::ParticleMode::Smoke;
+    desc.mode           = toy::ParticleComponent::ParticleMode::Smoke;
 
     // --- エミッタ ---
     desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル

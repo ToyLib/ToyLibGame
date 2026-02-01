@@ -1,4 +1,4 @@
-#include "Graphics/Effect/GPUParticleComponent.h"
+#include "Graphics/Effect/ParticleComponent.h"
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
@@ -22,17 +22,17 @@
 namespace toy {
 
 //======================================================================
-// GPU particle data
+// particle data
 //======================================================================
 
-struct GPUParticle
+struct Particle
 {
     float px, py, pz;
     float vx, vy, vz;
     float life;
 };
 
-static_assert(sizeof(GPUParticle) == sizeof(float) * 7, "GPUParticle layout");
+static_assert(sizeof(Particle) == sizeof(float) * 7, "Particle layout");
 
 // quad geometry (pos3 + normal3 + uv2)
 static const float kQuadVerts[4 * 8] =
@@ -53,7 +53,7 @@ static const unsigned int kQuadIndices[6] =
 // ctor / dtor
 //======================================================================
 
-GPUParticleComponent::GPUParticleComponent(Actor* owner, int drawOrder)
+ParticleComponent::ParticleComponent(Actor* owner, int drawOrder)
     : VisualComponent(owner, drawOrder)
 {
     mLayer = VisualLayer::Effect3D;
@@ -61,13 +61,13 @@ GPUParticleComponent::GPUParticleComponent(Actor* owner, int drawOrder)
     if (auto* r = GetOwner()->GetApp()->GetRenderer())
     {
         mUpdateShader = r->GetShader("ParticleUpdate");
-        mRenderShader = r->GetShader("ParticleGPU");
+        mRenderShader = r->GetShader("Particle");
     }
 
     mRunning = false;
 }
 
-GPUParticleComponent::~GPUParticleComponent()
+ParticleComponent::~ParticleComponent()
 {
     ReleaseGL();
 }
@@ -76,12 +76,12 @@ GPUParticleComponent::~GPUParticleComponent()
 // Public API
 //======================================================================
 
-void GPUParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
+void ParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
 {
     mTexture = std::move(tex);
 }
 
-void GPUParticleComponent::Init(const Desc& desc)
+void ParticleComponent::Init(const Desc& desc)
 {
     const bool needRebuild =
         (!mInitialized) || (mDesc.maxParticles != desc.maxParticles);
@@ -110,7 +110,7 @@ void GPUParticleComponent::Init(const Desc& desc)
     InitParticleBuffers(mDesc.warmStart);
 }
 
-bool GPUParticleComponent::InitFromFile(const std::string& filePath)
+bool ParticleComponent::InitFromFile(const std::string& filePath)
 {
     std::ifstream file(filePath);
     if (!file.is_open())
@@ -145,18 +145,18 @@ bool GPUParticleComponent::InitFromFile(const std::string& filePath)
     return true;
 }
 
-void GPUParticleComponent::Start()
+void ParticleComponent::Start()
 {
     mRunning   = true;
     mIsVisible = true;
 }
 
-void GPUParticleComponent::Stop()
+void ParticleComponent::Stop()
 {
     mRunning = false;
 }
 
-void GPUParticleComponent::Reset()
+void ParticleComponent::Reset()
 {
     mPendingHardReset = true;
     mSkipDrawFrames   = 2;
@@ -168,7 +168,7 @@ void GPUParticleComponent::Reset()
 // Update
 //======================================================================
 
-void GPUParticleComponent::Update(float deltaTime)
+void ParticleComponent::Update(float deltaTime)
 {
     if (mPendingHardReset)
     {
@@ -208,7 +208,7 @@ void GPUParticleComponent::Update(float deltaTime)
 //======================================================================
 // RenderQueue
 //======================================================================
-void GPUParticleComponent::GatherRenderItems(RenderQueue& outQueue)
+void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 {
     if (mSkipDrawFrames > 0) { --mSkipDrawFrames; return; }
     if (!mIsVisible || !mRunning) return;
@@ -235,8 +235,8 @@ void GPUParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     it.pass      = RenderPass::World;
     it.layer     = VisualLayer::Effect3D;
     it.drawOrder = GetDrawOrder();
-    it.type      = RenderItemType::GPUParticle;
-    it.dispatch = GetDispatch(it.type);
+    it.type      = RenderItemType::Particle;
+    it.dispatch  = GetDispatch(it.type);
     
     it.depthTest  = true;
     it.depthWrite = false;
@@ -272,7 +272,7 @@ void GPUParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 // GL init / update
 //======================================================================
 
-void GPUParticleComponent::InitIfNeeded()
+void ParticleComponent::InitIfNeeded()
 {
     if (mInitialized)
         return;
@@ -285,7 +285,7 @@ void GPUParticleComponent::InitIfNeeded()
     mPingPong = false;
 }
 
-void GPUParticleComponent::ReleaseGL()
+void ParticleComponent::ReleaseGL()
 {
     if (mUpdateVAO) glDeleteVertexArrays(1, &mUpdateVAO);
     if (mRenderVAO) glDeleteVertexArrays(1, &mRenderVAO);
@@ -298,7 +298,7 @@ void GPUParticleComponent::ReleaseGL()
     mPingPong = false;
 }
 
-void GPUParticleComponent::InitQuadGeometry()
+void ParticleComponent::InitQuadGeometry()
 {
     glGenBuffers(1, &mQuadVBO);
     glBindBuffer(GL_ARRAY_BUFFER, mQuadVBO);
@@ -312,12 +312,12 @@ void GPUParticleComponent::InitQuadGeometry()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void GPUParticleComponent::InitUpdateVAO()
+void ParticleComponent::InitUpdateVAO()
 {
     glGenVertexArrays(1, &mUpdateVAO);
 }
 
-void GPUParticleComponent::InitRenderVAO()
+void ParticleComponent::InitRenderVAO()
 {
     glGenVertexArrays(1, &mRenderVAO);
     glBindVertexArray(mRenderVAO);
@@ -336,7 +336,7 @@ void GPUParticleComponent::InitRenderVAO()
     glBindVertexArray(0);
 }
 
-void GPUParticleComponent::UpdateParticlesGPU(float deltaTime)
+void ParticleComponent::UpdateParticlesGPU(float deltaTime)
 {
     const unsigned int src = CurrentSrcVBO();
     const unsigned int dst = CurrentDstVBO();
@@ -388,46 +388,46 @@ void GPUParticleComponent::UpdateParticlesGPU(float deltaTime)
 // Attribute bind / helpers
 //======================================================================
 
-void GPUParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
+void ParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
-    const GLsizei stride = sizeof(GPUParticle);
+    const GLsizei stride = sizeof(Particle);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, px));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, px));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, vx));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, vx));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, life));
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, life));
 }
 
-void GPUParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
+void ParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
-    const GLsizei stride = sizeof(GPUParticle);
+    const GLsizei stride = sizeof(Particle);
 
     glEnableVertexAttribArray(3);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, px));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, px));
     glVertexAttribDivisor(3, 1);
 
     glEnableVertexAttribArray(4);
-    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(GPUParticle, life));
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, life));
     glVertexAttribDivisor(4, 1);
 }
 
-unsigned int GPUParticleComponent::CurrentSrcVBO() const
+unsigned int ParticleComponent::CurrentSrcVBO() const
 {
     return mPingPong ? mParticleVBO_B : mParticleVBO_A;
 }
 
-unsigned int GPUParticleComponent::CurrentDstVBO() const
+unsigned int ParticleComponent::CurrentDstVBO() const
 {
     return mPingPong ? mParticleVBO_A : mParticleVBO_B;
 }
 
-void GPUParticleComponent::ApplyModePresetIfNeeded()
+void ParticleComponent::ApplyModePresetIfNeeded()
 {
     if (mDesc.mode == ParticleMode::Water)
     {
@@ -441,21 +441,21 @@ void GPUParticleComponent::ApplyModePresetIfNeeded()
     }
 }
 
-GPUParticleComponent::ParticleMode
-GPUParticleComponent::ParseModeString(const std::string& s)
+ParticleComponent::ParticleMode
+ParticleComponent::ParseModeString(const std::string& s)
 {
     if (s == "Water" || s == "water") return ParticleMode::Water;
     if (s == "Smoke" || s == "smoke") return ParticleMode::Smoke;
     return ParticleMode::Spark;
 }
 
-void GPUParticleComponent::InitParticleBuffers(bool warmStart)
+void ParticleComponent::InitParticleBuffers(bool warmStart)
 {
     InitIfNeeded();
 
     const uint32_t N = mDesc.maxParticles;
 
-    std::vector<GPUParticle> init;
+    std::vector<Particle> init;
     init.resize(N);
 
     std::mt19937 rng(1337u);
@@ -498,13 +498,13 @@ void GPUParticleComponent::InitParticleBuffers(bool warmStart)
 
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_A);
     glBufferData(GL_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(sizeof(GPUParticle) * init.size()),
+                 static_cast<GLsizeiptr>(sizeof(Particle) * init.size()),
                  init.data(),
                  GL_STREAM_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, mParticleVBO_B);
     glBufferData(GL_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(sizeof(GPUParticle) * init.size()),
+                 static_cast<GLsizeiptr>(sizeof(Particle) * init.size()),
                  init.data(),
                  GL_STREAM_DRAW);
 
