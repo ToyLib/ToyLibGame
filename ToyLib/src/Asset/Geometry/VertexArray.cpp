@@ -6,6 +6,9 @@
 
 namespace toy {
 
+// 同値スキップ
+unsigned int VertexArray::sCurrentVAO = 0;
+
 //--------------------------------------------------------------
 // 内部：安全初期化
 //--------------------------------------------------------------
@@ -424,7 +427,12 @@ void VertexArray::Unload()
 //==============================================================
 void VertexArray::SetActive()
 {
+    if (sCurrentVAO == mVertexBufferID)
+    {
+        return;
+    }
     glBindVertexArray(mVertexBufferID);
+    sCurrentVAO = mVertexBufferID;
 }
 
 } // namespace toy

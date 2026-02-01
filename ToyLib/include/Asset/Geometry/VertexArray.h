@@ -121,6 +121,8 @@ private:
     //-----------------------------------------------
     unsigned int mVertexBufferID { 0 }; // VAO
     unsigned int mIndexBufferID  { 0 }; // EBO/IBO
+    
+    static unsigned int sCurrentVAO;
 
     //-----------------------------------------------
     // マテリアルインデックスとして使う TextureID
