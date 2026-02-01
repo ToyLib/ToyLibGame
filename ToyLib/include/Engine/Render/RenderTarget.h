@@ -4,25 +4,41 @@
 
 namespace toy {
 
+class Texture; // forward decl
+
 //==============================================================================
 // RenderTarget
 //------------------------------------------------------------------------------
 // ・オフスクリーン描画用の簡易 RenderTarget
 // ・Color Texture + Depth Renderbuffer を内部に保持
 // ・SceneCapture / ポストエフェクト / 鏡描画などで使用
+//
+// 注意：GLリソース解放は「GLコンテキストが current」の状態で行う必要があるため、
+//       デストラクタで自動 Unload() は行わない（Renderer::Shutdown 等で管理する）
 //==============================================================================
 class RenderTarget
 {
 public:
     RenderTarget() = default;
+    ~RenderTarget() = default;
+
+    // GL リソースの二重解放を避けるためコピー禁止
+    RenderTarget(const RenderTarget&)            = delete;
+    RenderTarget& operator=(const RenderTarget&) = delete;
+
+    // 必要なら後で move 対応してもOK（今は安全側で禁止でも良い）
+    RenderTarget(RenderTarget&&)            = delete;
+    RenderTarget& operator=(RenderTarget&&) = delete;
+
     //--------------------------------------------------------------------------
-    // 初期化
+    // Create
     //--------------------------------------------------------------------------
     // ・指定サイズで FBO / ColorTex / DepthRBO を生成
+    // ・成功したら true
     bool Create(int w, int h);
 
     //--------------------------------------------------------------------------
-    // バインド制御
+    // Bind / Unbind
     //--------------------------------------------------------------------------
     // ・この RenderTarget を描画先に設定
     void Bind();
@@ -30,35 +46,40 @@ public:
     static void Unbind();
 
     //--------------------------------------------------------------------------
-    // 出力取得
+    // Outputs
     //--------------------------------------------------------------------------
-    std::shared_ptr<class Texture> GetColorTexture() const { return mColorTex; }
+    std::shared_ptr<Texture> GetColorTexture() const { return mColorTex; }
 
     //--------------------------------------------------------------------------
-    // サイズ取得
+    // Size
     //--------------------------------------------------------------------------
     int GetWidth()  const { return mW; }
     int GetHeight() const { return mH; }
 
+    //--------------------------------------------------------------------------
+    // Unload
+    //--------------------------------------------------------------------------
+    // ・FBO / RBO / ColorTex を解放
+    // ・呼び出し側で GL context current を保証すること
     void Unload();
 
 private:
     //--------------------------------------------------------------------------
-    // GL リソース
+    // GL resources
     //--------------------------------------------------------------------------
-    unsigned int mFBO      { 0 }; // Framebuffer Object
-    unsigned int mDepthRBO { 0 }; // Depth Renderbuffer
+    unsigned int mFBO      = 0; // Framebuffer Object
+    unsigned int mDepthRBO = 0; // Depth Renderbuffer
 
     //--------------------------------------------------------------------------
-    // サイズ
+    // Size
     //--------------------------------------------------------------------------
-    int mW {};
-    int mH {};
+    int mW = 0;
+    int mH = 0;
 
     //--------------------------------------------------------------------------
-    // カラーバッファ
+    // Color buffer
     //--------------------------------------------------------------------------
-    std::shared_ptr<Texture> mColorTex {};
+    std::shared_ptr<Texture> mColorTex;
 };
 
 } // namespace toy

@@ -1,10 +1,10 @@
 // Engine/Render/RenderItem.h
 #pragma once
 
-#include "Utils/MathUtil.h"
 #include "Engine/Render/RenderEnums.h"
 #include "Engine/Render/RenderHandles.h"
 #include "Engine/Render/VisualLayer.h"
+#include "Utils/MathUtil.h"
 
 #include <cstddef>
 
@@ -27,6 +27,7 @@ enum class RenderItemType
     Debug,
     Surface
 };
+
 //==============================================================
 // RenderItem
 //  - Renderer が「描画1単位」として処理するデータ
@@ -40,23 +41,24 @@ struct RenderItem
     RenderPass  pass      = RenderPass::World;
     VisualLayer layer     = VisualLayer::Object3D;
     int         drawOrder = 0;
-    
-    using DispatchFn = bool(*)(Renderer& r,
-                                  const RenderItem& it,
-                                  RenderPass pass,
-                                  int cascadeIndex);
+
+    using DispatchFn = bool(*)(
+        Renderer&        r,
+        const RenderItem& it,
+        RenderPass       pass,
+        int              cascadeIndex);
 
     DispatchFn dispatch = nullptr;
 
-    RenderItemType type   = RenderItemType::Sprite;
+    RenderItemType type = RenderItemType::Sprite;
 
     //==========================================================
     // Geometry
     //==========================================================
     PrimitiveTopology topology    = PrimitiveTopology::Triangles;
     GeometryHandle    geometry    {};
-    int               indexCount  = 0;   // glDrawElements 用
-    int               vertexCount = 0;   // glDrawArrays 用
+    int               indexCount  = 0; // glDrawElements 用
+    int               vertexCount = 0; // glDrawArrays 用
 
     //==========================================================
     // Render state
@@ -66,23 +68,23 @@ struct RenderItem
     bool       depthWrite = true;
     bool       toon       = false;
 
-    CullMode   cull       = CullMode::Back;
-    FrontFace  frontFace  = FrontFace::CCW;
+    CullMode   cull      = CullMode::Back;
+    FrontFace  frontFace = FrontFace::CCW;
 
     //==========================================================
     // Shader / material / texture
     //==========================================================
-    ShaderHandle   shader   {};
-    MaterialHandle material {};
-    TextureHandle  texture  {};
+    ShaderHandle   shader      {};
+    MaterialHandle material    {};
+    TextureHandle  texture     {};
     int            textureUnit = 0;
 
     //==========================================================
     // Contour
     //==========================================================
-    bool overrideColor  = false;
-    Vector3 overrideColorValue { Vector3(0.0f, 0.0f, 0.0f) };
-    
+    bool    overrideColor      = false;
+    Vector3 overrideColorValue = Vector3(0.0f, 0.0f, 0.0f);
+
     //==========================================================
     // Transforms
     //==========================================================
@@ -118,8 +120,8 @@ struct RenderItem
     //==========================================================
     // SkyDome / WeatherDome params
     //==========================================================
-    float skyTime        = 0.0f;   // 雲アニメ等（0..1）
-    float skyTimeOfDay   = 0.0f;   // 1日（0..1）
+    float skyTime        = 0.0f; // 雲アニメ等（0..1）
+    float skyTimeOfDay   = 0.0f; // 1日（0..1）
     int   skyWeatherType = 0;
 
     Vector3 skySunDir        = Vector3::UnitY;
@@ -149,19 +151,17 @@ struct RenderItem
     float   overlayFlareIntensity = 0.0f;
     Vector2 overlaySunPos         = Vector2::Zero;
     Vector3 overlayFlareColor     = Vector3(1.0f, 0.9f, 0.7f);
-    
+
     //==========================================================
     // Surface
     //==========================================================
     float   surfaceOpacity = 1.0f;
-    Vector3 surfaceTint    = Vector3(1,1,1);
+    Vector3 surfaceTint    = Vector3(1.0f, 1.0f, 1.0f);
     bool    surfaceFlipX   = false;
     bool    surfaceFlipY   = false;
-    int     surfaceMode    = 0;     // enum 化してもOK
+    int     surfaceMode    = 0;   // enum 化してもOK
     float   time           = 0.0f;
-    
 };
-
 
 RenderItem::DispatchFn GetDispatch(RenderItemType type);
 

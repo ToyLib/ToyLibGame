@@ -7,87 +7,115 @@
 
 namespace toy {
 
-
 void RenderTarget::Unload()
 {
-    if (mDepthRBO)
+    // 呼び出し側で GL context current を保証すること
+    if (mDepthRBO != 0)
     {
         glDeleteRenderbuffers(1, &mDepthRBO);
+        mDepthRBO = 0;
     }
-    if (mFBO)
+    if (mFBO != 0)
     {
         glDeleteFramebuffers(1, &mFBO);
+        mFBO = 0;
     }
-    mDepthRBO = 0;
-    mFBO = 0;
-    mColorTex.reset();
+
+    // Texture が GL resource を持つなら、ここで Unload する方が安全
+    // （Texture::Unload がある前提。無ければ reset だけでOK）
+    if (mColorTex)
+    {
+        // mColorTex->Unload();
+        mColorTex.reset();
+    }
+
+    mW = 0;
+    mH = 0;
 }
 
 //==============================================================================
-// RenderTarget : 初期化
+// Create
 //------------------------------------------------------------------------------
 bool RenderTarget::Create(int w, int h)
 {
-    // サイズ保持
-    mW = w;
-    mH = h;
-
-    //----------------------------------------------------------
-    // Framebuffer Object
-    //----------------------------------------------------------
-    glGenFramebuffers(1, &mFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
-
-    //----------------------------------------------------------
-    // Color Attachment（RGBA8 テクスチャ）
-    //----------------------------------------------------------
-    mColorTex = std::make_shared<Texture>();
-    mColorTex->CreateRenderColorRGBA8(w, h);
-
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER,
-        GL_COLOR_ATTACHMENT0,
-        GL_TEXTURE_2D,
-        mColorTex->GetTextureID(),
-        0
-    );
-
-    //----------------------------------------------------------
-    // Depth / Stencil Renderbuffer
-    //----------------------------------------------------------
-    glGenRenderbuffers(1, &mDepthRBO);
-    glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
-    glRenderbufferStorage(
-        GL_RENDERBUFFER,
-        GL_DEPTH24_STENCIL8,
-        w,
-        h
-    );
-
-    glFramebufferRenderbuffer(
-        GL_FRAMEBUFFER,
-        GL_DEPTH_STENCIL_ATTACHMENT,
-        GL_RENDERBUFFER,
-        mDepthRBO
-    );
-
-    //----------------------------------------------------------
-    // 完成チェック
-    //----------------------------------------------------------
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    if (w <= 0 || h <= 0)
     {
-        std::cerr << "[RenderTarget] FBO incomplete\n";
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        std::cerr << "[RenderTarget] Create failed: invalid size "
+                  << w << "x" << h << "\n";
         return false;
     }
 
-    // デフォルトに戻す
+    // 既に作られている場合は作り直す（リーク防止）
+    if (mFBO != 0 || mDepthRBO != 0 || mColorTex)
+    {
+        Unload();
+    }
+
+    mW = w;
+    mH = h;
+
+    // 失敗時は必ず Unload して戻る
+    auto fail = [&](const char* msg)
+    {
+        std::cerr << "[RenderTarget] " << msg << "\n";
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        Unload();
+        return false;
+    };
+
+    // ---------------------------------------------------------
+    // FBO
+    // ---------------------------------------------------------
+    glGenFramebuffers(1, &mFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
+
+    // ---------------------------------------------------------
+    // Color attachment (RGBA8)
+    // ---------------------------------------------------------
+    mColorTex = std::make_shared<Texture>();
+    mColorTex->CreateRenderColorRGBA8(w, h);
+    if (!mColorTex)
+    {
+        std::cerr << "CreateRenderColorRGBA8 failed" << std::endl;
+        return false;
+    }
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D,
+                           mColorTex->GetTextureID(),
+                           0);
+
+    // ---------------------------------------------------------
+    // Depth/Stencil RBO
+    // ---------------------------------------------------------
+    glGenRenderbuffers(1, &mDepthRBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, mDepthRBO);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                              GL_DEPTH_STENCIL_ATTACHMENT,
+                              GL_RENDERBUFFER,
+                              mDepthRBO);
+
+    // ---------------------------------------------------------
+    // Check complete
+    // ---------------------------------------------------------
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE)
+    {
+        return fail("FBO incomplete");
+    }
+
+    // 戻す
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
 }
 
 //==============================================================================
-// バインド
+// Bind
 //------------------------------------------------------------------------------
 void RenderTarget::Bind()
 {
@@ -96,7 +124,7 @@ void RenderTarget::Bind()
 }
 
 //==============================================================================
-// アンバインド
+// Unbind
 //------------------------------------------------------------------------------
 void RenderTarget::Unbind()
 {

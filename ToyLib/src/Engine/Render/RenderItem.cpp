@@ -1,28 +1,34 @@
 // Engine/Render/RenderItem.cpp
 #include "Engine/Render/RenderItem.h"
 
-#include "Engine/Render/Renderer.h"
-#include "Engine/Render/LightingManager.h"
+#include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Material.h"
 #include "Asset/Material/Texture.h"
-#include "Asset/Geometry/VertexArray.h"
+#include "Engine/Render/LightingManager.h"
+#include "Engine/Render/Renderer.h"
 #include "Engine/Render/Shader.h"
 
 namespace toy {
 
-
 //============================================================
 // Sprite
 //============================================================
-bool DispatchSprite(Renderer& r,
-                    const RenderItem& it,
-                    RenderPass pass,
-                    int)
+static bool DispatchSprite(Renderer&,
+                           const RenderItem& it,
+                           RenderPass pass,
+                           int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
+
     sh->SetVectorUniform("uSpriteColor", it.color);
     sh->SetFloatUniform ("uSpriteAlpha", it.alpha);
 
@@ -36,25 +42,32 @@ bool DispatchSprite(Renderer& r,
     {
         sh->SetBooleanUniform("uUseTexture", false);
     }
+
     return false;
 }
 
 //============================================================
 // Mesh
 //============================================================
-bool DispatchMesh(Renderer& r,
-                  const RenderItem& it,
-                  RenderPass pass,
-                  int)
+static bool DispatchMesh(Renderer& r,
+                         const RenderItem& it,
+                         RenderPass pass,
+                         int)
 {
     if (pass != RenderPass::World)
+    {
         return false;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
 
     if (r.GetLightingManager())
     {
-        Matrix4 view = r.GetViewMatrix();
+        const Matrix4 view = r.GetViewMatrix();
         r.GetLightingManager()->ApplyToShader(sh, view);
     }
 
@@ -78,9 +91,6 @@ bool DispatchMesh(Renderer& r,
     // ----------------------------
     if (it.material.ptr)
     {
-        // RenderItem に以下がある想定：
-        // bool    overrideColor;
-        // Vector3 overrideColorValue;
         if (it.overrideColor)
         {
             it.material.ptr->SetOverrideColor(true, it.overrideColorValue);
@@ -99,22 +109,22 @@ bool DispatchMesh(Renderer& r,
 //============================================================
 // SkinnedMesh
 //============================================================
-bool DispatchSkinnedMesh(Renderer& r,
-                         const RenderItem& it,
-                         RenderPass pass,
-                         int)
+static bool DispatchSkinnedMesh(Renderer& r,
+                                const RenderItem& it,
+                                RenderPass pass,
+                                int)
 {
     auto* sh = it.shader.ptr;
-    if (!sh) return true; // 何もしない（安全弁）
+    if (!sh)
+    {
+        return true; // 何もしない（安全弁）
+    }
 
     //============================================================
-    // Shadow pass は別シェーダ（ShadowSkinned）側でやる想定
+    // Shadow pass（通常は ShadowSkinned 側で処理する想定）
     //============================================================
     if (pass == RenderPass::Shadow)
     {
-        // ここに来るなら shadow 用の最低限だけ入れる（運用次第）
-        // ただし今の設計だと Shadow は別 Dispatch / 別 Shader のはずなので通常は通らない。
-        // 念のため World と Palette だけは送る。
         sh->SetMatrixUniform("uWorldTransform", it.world);
 
         if (it.matrixPalette && it.paletteCount > 0)
@@ -134,18 +144,17 @@ bool DispatchSkinnedMesh(Renderer& r,
         return false;
     }
 
-    // 行列（★必須：輪郭でも world が変わる）
     sh->SetMatrixUniform("uWorldTransform", it.world);
     sh->SetMatrixUniform("uViewProj",       it.viewProj);
 
     // ライティング
     if (r.GetLightingManager())
     {
-        Matrix4 view = r.GetViewMatrix();
+        const Matrix4 view = r.GetViewMatrix();
         r.GetLightingManager()->ApplyToShader(sh, view);
     }
 
-    // シャドウ（輪郭は基本いらないので、overrideColor じゃない時だけ）
+    // シャドウ（輪郭は不要なので overrideColor でスキップ）
     if (!it.overrideColor)
     {
         if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
@@ -162,12 +171,9 @@ bool DispatchSkinnedMesh(Renderer& r,
         sh->SetFloatUniform("uShadowBias",    0.005f);
     }
 
-    // toon flag
     sh->SetBooleanUniform("uUseToon", it.toon);
 
-    //============================================================
-    // Material bind（★overrideColor 反映→bind→戻す）
-    //============================================================
+    // Material bind（overrideColor 反映→bind→戻す）
     if (it.material.ptr)
     {
         if (it.overrideColor)
@@ -183,7 +189,7 @@ bool DispatchSkinnedMesh(Renderer& r,
         }
     }
 
-    // matrix palette（World/Shadow どっちでも必要）
+    // matrix palette
     if (it.matrixPalette && it.paletteCount > 0)
     {
         sh->SetMatrixUniforms("uMatrixPalette",
@@ -191,21 +197,27 @@ bool DispatchSkinnedMesh(Renderer& r,
                               static_cast<unsigned int>(it.paletteCount));
     }
 
-    // false = DrawDefaultGeometry に流す
-    return false;
+    return false; // DrawDefaultGeometry に流す
 }
+
 //============================================================
 // Billboard
 //============================================================
-bool DispatchBillboard(Renderer&,
-                       const RenderItem& it,
-                       RenderPass pass,
-                       int)
+static bool DispatchBillboard(Renderer&,
+                              const RenderItem& it,
+                              RenderPass pass,
+                              int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
 
     if (it.texture.ptr)
     {
@@ -217,21 +229,28 @@ bool DispatchBillboard(Renderer&,
     {
         sh->SetBooleanUniform("uUseTexture", false);
     }
+
     return false;
 }
 
 //============================================================
 // GPUParticle
 //============================================================
-bool DispatchParticle(Renderer&,
-                         const RenderItem& it,
-                         RenderPass pass,
-                         int)
+static bool DispatchParticle(Renderer&,
+                             const RenderItem& it,
+                             RenderPass pass,
+                             int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
 
     sh->SetVectorUniform("uCameraRight", it.cameraRight);
     sh->SetVectorUniform("uCameraUp",    it.cameraUp);
@@ -248,28 +267,37 @@ bool DispatchParticle(Renderer&,
     {
         sh->SetBooleanUniform("uUseTexture", false);
     }
+
     return false;
 }
 
 //============================================================
 // SkyDome（完全自前描画）
 //============================================================
-bool DispatchSkyDome(Renderer& r,
-                     const RenderItem& it,
-                     RenderPass pass,
-                     int)
+static bool DispatchSkyDome(Renderer& r,
+                            const RenderItem& it,
+                            RenderPass pass,
+                            int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh || !it.geometry.ptr)
+    {
+        return true;
+    }
 
     if (it.useMVP)
+    {
         sh->SetMatrixUniform("uMVP", it.mvp);
+    }
 
-    sh->SetFloatUniform("uTime", it.skyTime);
+    sh->SetFloatUniform("uTime",        it.skyTime);
     sh->SetIntUniform  ("uWeatherType", it.skyWeatherType);
-    sh->SetFloatUniform("uTimeOfDay", it.skyTimeOfDay);
+    sh->SetFloatUniform("uTimeOfDay",   it.skyTimeOfDay);
 
     sh->SetVectorUniform("uSunDir",        it.skySunDir);
     sh->SetVectorUniform("uMoonDir",       it.skyMoonDir);
@@ -281,21 +309,27 @@ bool DispatchSkyDome(Renderer& r,
 
     r.AddDrawCall();
     r.AddDrawObject();
-    return true;
+    return true; // ここで描いたので Default を抑止
 }
 
 //============================================================
 // Overlay（フルスクリーン系）
 //============================================================
-bool DispatchOverlay(Renderer& r,
-                     const RenderItem& it,
-                     RenderPass pass,
-                     int)
+static bool DispatchOverlay(Renderer& r,
+                            const RenderItem& it,
+                            RenderPass pass,
+                            int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh || !it.geometry.ptr)
+    {
+        return true;
+    }
 
     sh->SetFloatUniform("uTime", it.overlayTime);
 
@@ -320,27 +354,45 @@ bool DispatchOverlay(Renderer& r,
 //============================================================
 // Debug
 //============================================================
-bool DispatchDebug(Renderer&,
-                   const RenderItem& it,
-                   RenderPass pass,
-                   int)
+static bool DispatchDebug(Renderer&,
+                          const RenderItem& it,
+                          RenderPass pass,
+                          int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
-    it.shader.ptr->SetVectorUniform("uSolColor", it.color);
+    auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
+
+    sh->SetVectorUniform("uSolColor", it.color);
     return false;
 }
 
+//============================================================
+// Surface
+//============================================================
 static bool DispatchSurface(Renderer& r,
                             const RenderItem& it,
                             RenderPass pass,
                             int)
 {
     if (pass != RenderPass::World)
+    {
         return true; // 描かない
+    }
 
     auto* sh = it.shader.ptr;
+    if (!sh)
+    {
+        return true;
+    }
+
     sh->SetActive();
 
     // 行列（Surface用は分解してる前提）
@@ -349,12 +401,12 @@ static bool DispatchSurface(Renderer& r,
     sh->SetMatrixUniform("uProj",  r.GetProjectionMatrix());
 
     // パラメータ
-    sh->SetBooleanUniform("uFlipX", it.surfaceFlipX);
-    sh->SetBooleanUniform("uFlipY", it.surfaceFlipY);
+    sh->SetBooleanUniform("uFlipX",   it.surfaceFlipX);
+    sh->SetBooleanUniform("uFlipY",   it.surfaceFlipY);
     sh->SetFloatUniform  ("uOpacity", it.surfaceOpacity);
-    sh->SetVectorUniform ("uTint", it.surfaceTint);
-    sh->SetIntUniform    ("uMode", it.surfaceMode);
-    sh->SetFloatUniform  ("uTime", it.time);
+    sh->SetVectorUniform ("uTint",    it.surfaceTint);
+    sh->SetIntUniform    ("uMode",    it.surfaceMode);
+    sh->SetFloatUniform  ("uTime",    it.time);
 
     // テクスチャ
     if (it.texture.ptr)
@@ -363,26 +415,27 @@ static bool DispatchSurface(Renderer& r,
         sh->SetIntUniform("uSurfaceTex", it.textureUnit);
     }
 
-    return false; // ★通常の DrawDefaultGeometry に流す
+    return false; // DrawDefaultGeometry に流す
 }
 
-
+//============================================================
+// Dispatch selector
+//============================================================
 RenderItem::DispatchFn GetDispatch(RenderItemType type)
 {
     switch (type)
     {
-        case RenderItemType::Sprite:       return &DispatchSprite;
-        case RenderItemType::Mesh:         return &DispatchMesh;
-        case RenderItemType::SkinnedMesh:  return &DispatchSkinnedMesh;
-        case RenderItemType::Billboard:    return &DispatchBillboard;
-        case RenderItemType::Particle:     return &DispatchParticle;
-        case RenderItemType::SkyDome:      return &DispatchSkyDome;
-        case RenderItemType::Overlay:      return &DispatchOverlay;
-        case RenderItemType::Debug:        return &DispatchDebug;
-        case RenderItemType::Surface:      return &DispatchSurface;
-        default:                           return nullptr;
+        case RenderItemType::Sprite:      return &DispatchSprite;
+        case RenderItemType::Mesh:        return &DispatchMesh;
+        case RenderItemType::SkinnedMesh: return &DispatchSkinnedMesh;
+        case RenderItemType::Billboard:   return &DispatchBillboard;
+        case RenderItemType::Particle:    return &DispatchParticle;
+        case RenderItemType::SkyDome:     return &DispatchSkyDome;
+        case RenderItemType::Overlay:     return &DispatchOverlay;
+        case RenderItemType::Debug:       return &DispatchDebug;
+        case RenderItemType::Surface:     return &DispatchSurface;
+        default:                          return nullptr;
     }
 }
-
 
 } // namespace toy
