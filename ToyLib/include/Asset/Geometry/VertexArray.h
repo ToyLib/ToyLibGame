@@ -121,7 +121,7 @@ private:
     //-----------------------------------------------
     unsigned int mVertexBufferID { 0 }; // VAO
     unsigned int mIndexBufferID  { 0 }; // EBO/IBO
-    
+    // VAO 同値スキップ用
     static unsigned int sCurrentVAO;
 
     //-----------------------------------------------
