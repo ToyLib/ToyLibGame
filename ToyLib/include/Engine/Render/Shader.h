@@ -86,6 +86,8 @@ private:
     GLuint mFragShaderID    {};   // フラグメントシェーダ
     GLuint mShaderProgramID {};   // リンク済みプログラム
     
+    static GLuint sCurrentShaderID;
+    
     
     //---------------------------------------------------------
     // 内部ヘルパー関数

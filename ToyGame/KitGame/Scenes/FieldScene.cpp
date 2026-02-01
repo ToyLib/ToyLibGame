@@ -79,11 +79,11 @@ void FieldScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
-    /*
+    
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
     mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
-     */
+    
 }
 
 void FieldScene::InitField()

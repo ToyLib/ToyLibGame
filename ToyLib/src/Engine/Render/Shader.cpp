@@ -2,6 +2,9 @@
 
 namespace toy {
 
+// スタティックメンバ初期化
+GLuint Shader::sCurrentShaderID = 0;
+
 //=============================================================
 // シェーダープログラム読み込み／セットアップ
 //=============================================================
@@ -102,7 +105,12 @@ void Shader::Unload()
 // このシェーダープログラムを OpenGL にバインド
 void Shader::SetActive()
 {
+    if (sCurrentShaderID == mShaderProgramID)
+    {
+        return;
+    }
     glUseProgram(mShaderProgramID);
+    sCurrentShaderID = mShaderProgramID;
 }
 
 
