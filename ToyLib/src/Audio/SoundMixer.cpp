@@ -146,13 +146,22 @@ void SoundMixer::SetSoundEnable(bool enable)
     mSoundEnabled = enable;
 }
 
-void SoundMixer::SetVolume(float volume)
+void SoundMixer::SetBgmVolume(float volume)
 {
-    mVolume = std::clamp(volume, 0.0f, 1.0f);
+    mBgmVolume = std::clamp(volume, 0.0f, 1.0f);
 
     if (mBgmSource != 0)
     {
-        alSourcef(mBgmSource, AL_GAIN, mVolume);
+        alSourcef(mBgmSource, AL_GAIN, mBgmVolume * mMasterVolume);
+    }
+}
+void SoundMixer::SetMasterVolume(float volume)
+{
+    mMasterVolume = std::clamp(volume, 0.0f, 1.0f);
+
+    if (mBgmSource != 0)
+    {
+        alSourcef(mBgmSource, AL_GAIN, mBgmVolume * mMasterVolume);
     }
 }
 
@@ -213,7 +222,7 @@ void SoundMixer::PlayBGM()
         alSourceQueueBuffers(mBgmSource, 1, &mBgmBuffers[i]);
     }
 
-    alSourcef(mBgmSource, AL_GAIN, mVolume);
+    alSourcef(mBgmSource, AL_GAIN, mBgmVolume);
     alSourcePlay(mBgmSource);
     mBgmPlaying = true;
 }
@@ -250,7 +259,7 @@ void SoundMixer::PlaySoundEffect(const std::string& fileName)
     alGenSources(1, &src);
 
     alSourcei(src, AL_BUFFER, se->GetBuffer());
-    alSourcef(src, AL_GAIN, mVolume);
+    alSourcef(src, AL_GAIN, mBgmVolume);
     alSource3f(src, AL_POSITION, 0, 0, 0);   // 現状は 2D 的に原点固定
     alSourcef(src, AL_ROLLOFF_FACTOR, 0.0f); // 距離減衰なし
 

@@ -3,6 +3,7 @@
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
+#include "Audio/SoundMixer.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Audio/SoundEffect.h"
 #include "Engine/Render/Renderer.h"
@@ -78,9 +79,10 @@ void SoundComponent::Play()
         alSourcef(mSource, AL_ROLLOFF_FACTOR,    1.0f);   // 減衰の強さ
     }
 
+    float mixerVolume = app->GetSoundMixer()->GetMasterVolume();
     // バッファ・ボリューム・ループ設定
     alSourcei(mSource, AL_BUFFER, sound->GetBuffer());
-    alSourcef(mSource, AL_GAIN, mVolume);
+    alSourcef(mSource, AL_GAIN, mVolume * mixerVolume);
     alSourcei(mSource, AL_LOOPING, mIsLoop ? AL_TRUE : AL_FALSE);
 
     // 現在の Actor 位置を OpenAL ソースに反映

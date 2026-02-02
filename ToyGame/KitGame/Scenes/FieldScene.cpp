@@ -28,14 +28,14 @@ void FieldScene::InitScene()
     // BGM
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.mp3");
     GetApp()->GetSoundMixer()->PlayBGM();
-    GetApp()->GetSoundMixer()->SetVolume(0.1);
+    GetApp()->GetSoundMixer()->SetBgmVolume(0.1f);
+    GetApp()->GetSoundMixer()->SetMasterVolume(0.0f);
 
     InitField();
 
 
     CreateActor<PlayerActor>();
-    //CreateActor<RPGCharacter>();
-    
+   
     // エネミー
     for (int i = 0; i < 10; ++i)
     {
@@ -243,7 +243,7 @@ void FieldScene::DeployFire(Vector3 pos)
     auto fireSound = fireActor->CreateComponent<toy::SoundComponent>();
     fireSound->SetSound("Field/fire.wav");
     fireSound->SetLoop(true);
-    fireSound->SetVolume(0.5f);
+    fireSound->SetVolume(1.0f);
     fireSound->Enable3DSound(true);
     fireSound->Play();
     

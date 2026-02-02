@@ -29,8 +29,9 @@ public:
     void SetBGMEnable(bool enable);
     void SetSoundEnable(bool enable);
     
-    // 全体ボリューム（0.0〜1.0 を想定）
-    void SetVolume(float volume);
+    // BGMボリューム（0.0〜1.0 を想定）
+    void SetBgmVolume(float volume);
+    void SetMasterVolume(float volume);
     
     // BGM 読み込み＆制御
     bool LoadBGM(const std::string& fileName);
@@ -44,6 +45,8 @@ public:
     //  - BGM のストリーミング更新
     //  - カメラ位置（invViewMatrix）からリスナー位置・向きを更新
     void Update(float deltaTime, const Matrix4& invViewMatrix);
+    
+    float GetMasterVolume() const { return mMasterVolume; }
     
 private:
     // OpenAL 初期化/終了
@@ -80,7 +83,8 @@ private:
     // 共通設定（ミュート系／音量）
     bool  mBgmEnabled   { true };                      // BGM 全体の ON/OFF
     bool  mSoundEnabled { true };                      // 効果音 全体の ON/OFF
-    float mVolume       { 1.0f };                      // 全体ボリューム
+    float mBgmVolume       { 1.0f };                      // BGM全体ボリューム
+    float mMasterVolume    { 1.0f };
 };
 
 } // namespace toy
