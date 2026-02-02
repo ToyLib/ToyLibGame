@@ -78,7 +78,7 @@ void main()
     // 1) Monitor
     // ============================================================
     if (uMode == 1)
- /*   {
+    {
         vec4 c = SampleSurface(uv);
 
         float sl = sin((uv.y + uTime * 0.4) * 800.0) * 0.5 + 0.5;
@@ -90,7 +90,7 @@ void main()
         outColor = c;
         return;
     }
-    */
+    /*
     {
         // ---- (A) 横方向の歪み（強め）
         vec2 uvM = uv;
@@ -139,7 +139,7 @@ void main()
         outColor = c;
         return;
     }
-    
+*/
 /*    {
         vec2 uvM = uv;
 
