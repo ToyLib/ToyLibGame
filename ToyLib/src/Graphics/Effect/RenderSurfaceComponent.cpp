@@ -87,7 +87,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.depthTest  = true;
     it.depthWrite = true;
     it.cull       = CullMode::Back;
-    it.blend      = BlendMode::Opaque;
+    it.blend      = BlendMode::Alpha;
 
     //====================
     // Surface params
