@@ -11,7 +11,7 @@ uniform bool  uFlipY;
 uniform float uOpacity;  // 0..1
 uniform vec3  uTint;     // 乗算色
 
-// 0: Monitor  1: Mirror  2: Water
+// 0: Plain  1: Monitor  2: Mirror  3: Water
 uniform int   uMode;
 
 uniform float uTime;
@@ -63,9 +63,21 @@ void main()
     vec2 uv = ApplyFlip(vUV);
 
     // ============================================================
-    // 0) Monitor
+    // 0) Plain（味付けなし：Flip + Sample + Tint/Opacityのみ）
     // ============================================================
     if (uMode == 0)
+    {
+        vec4 c = SampleSurface(uv);
+        c.rgb *= uTint;
+        c.a   *= uOpacity;
+        outColor = c;
+        return;
+    }
+
+    // ============================================================
+    // 1) Monitor
+    // ============================================================
+    if (uMode == 1)
     {
         vec4 c = SampleSurface(uv);
 
@@ -80,9 +92,9 @@ void main()
     }
 
     // ============================================================
-    // 1) Mirror
+    // 2) Mirror
     // ============================================================
-    if (uMode == 1)
+    if (uMode == 2)
     {
         float n = sin(uv.x * 30.0 + uTime * 1.2) * sin(uv.y * 25.0 - uTime * 1.0);
         vec2 duv = uv + vec2(n, -n) * (uDistortStrength * 0.3);
@@ -100,14 +112,10 @@ void main()
         return;
     }
 
-
     // ============================================================
-    // 2) Water（うねり＋さざ波＋軽いキラ）
+    // 3) Water（空反射・ぼやけ重視）
     // ============================================================
-    // ============================================================
-    // 2) Water（空反射・ぼやけ重視）
-    // ============================================================
-    if (uMode == 2)
+    if (uMode == 3)
     {
         float t = uTime * 0.5;
 
@@ -122,11 +130,11 @@ void main()
         // --------------------------------------------
         // (B) かなり大きく流す（極端）
         // --------------------------------------------
-        vec2 uv = ApplyFlip(vUV);
+        vec2 uv2 = ApplyFlip(vUV);
 
-        uv += vec2(
-            sin(t * 0.3 + uv.y * 2.0),
-            cos(t * 0.25 + uv.x * 1.8)
+        uv2 += vec2(
+            sin(t * 0.3 + uv2.y * 2.0),
+            cos(t * 0.25 + uv2.x * 1.8)
         ) * 0.412;
 
         // --------------------------------------------
@@ -136,24 +144,23 @@ void main()
             swell - 0.5,
             (1.0 - swell) - 0.5
         );
-        uv += blurDistort * 0.115;
+        uv2 += blurDistort * 0.115;
 
         // --------------------------------------------
         // (C') 破綻防止：UVをループさせる（マンガ向き）
         // --------------------------------------------
-        uv = fract(uv);
+        uv2 = fract(uv2);
 
         // --------------------------------------------
         // (D) 擬似ぼかし（極端だけど制御）
-        //     ※オフセットを一定ではなく、少しだけ波で変える
         // --------------------------------------------
         vec2 ofs = vec2(0.206, 0.206) * (0.7 + 0.6 * swell);
 
-        vec4 c = texture(uSurfaceTex, uv);
-        c += texture(uSurfaceTex, fract(uv + ofs));
-        c += texture(uSurfaceTex, fract(uv - ofs));
-        c += texture(uSurfaceTex, fract(uv + vec2(-ofs.x, ofs.y)));
-        c += texture(uSurfaceTex, fract(uv + vec2(ofs.x, -ofs.y)));
+        vec4 c = texture(uSurfaceTex, uv2);
+        c += texture(uSurfaceTex, fract(uv2 + ofs));
+        c += texture(uSurfaceTex, fract(uv2 - ofs));
+        c += texture(uSurfaceTex, fract(uv2 + vec2(-ofs.x, ofs.y)));
+        c += texture(uSurfaceTex, fract(uv2 + vec2(ofs.x, -ofs.y)));
         c *= 0.2;
 
         // --------------------------------------------

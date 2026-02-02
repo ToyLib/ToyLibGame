@@ -96,20 +96,20 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.surfaceTint    = mTint;
     it.surfaceFlipX   = mFlipX;
     it.surfaceFlipY   = mFlipY;
-    int mode = 3; // Plain は fallback（= 3 など “0..2以外”）
+    int mode = 0; // Plain は fallback
     switch (mMode)
     {
         case SurfaceMode::Plain:
-            mode = 3;
+            mode = 0;
             break; // fallback
         case SurfaceMode::Monitor:
-            mode = 0;
-            break;
-        case SurfaceMode::Mirror:
             mode = 1;
             break;
-        case SurfaceMode::Water:
+        case SurfaceMode::Mirror:
             mode = 2;
+            break;
+        case SurfaceMode::Water:
+            mode = 3;
             break;
     }
     it.surfaceMode = mode;
