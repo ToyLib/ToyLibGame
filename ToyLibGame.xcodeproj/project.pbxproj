@@ -56,7 +56,7 @@
 		7EDCE8F52ED72FC00069EE3D /* ToyGame */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
-				KitGame/TitleScene.cpp = sourcecode.cpp.cpp;
+				KitGame/Scenes/TitleScene.cpp = sourcecode.cpp.cpp;
 			};
 			path = ToyGame;
 			sourceTree = "<group>";

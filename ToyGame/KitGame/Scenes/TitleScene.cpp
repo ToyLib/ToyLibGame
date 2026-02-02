@@ -1,7 +1,7 @@
 #include "TitleScene.h"
 #include "ToyLib.h"
-#include "Scenes/FieldScene.h"
-#include "Scenes/StageScene.h"
+#include "FieldScene.h"
+#include "StageScene.h"
 
 TitleScene::TitleScene()
     : toy::kit::IScene()

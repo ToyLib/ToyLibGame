@@ -2,6 +2,7 @@
 #include "Engine/Core/ApplicationEntry.h"
 #include "ToyLib.h"
 #include "Scenes/FieldScene.h"
+#include "Scenes/TitleScene.h"
 
 
 GameApp::GameApp()

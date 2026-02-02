@@ -111,7 +111,7 @@ void FieldScene::InitField()
     auto treeActor = CreateActor<toy::Actor>();
     treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
     treeActor->SetScale(0.02);
-    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>(200);
+    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>();
     treeBillboard->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/tree.png"));
     treeBillboard->SetVisible(true);
     treeActor->CreateComponent<toy::GravityComponent>();

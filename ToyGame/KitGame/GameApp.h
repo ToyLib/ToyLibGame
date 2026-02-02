@@ -1,6 +1,5 @@
 #include "Engine/Core/Application.h"
 #include "KitCore/GameFlow.h"
-#include "TitleScene.h"
 
 class GameApp : public toy::Application
 {
