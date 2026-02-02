@@ -15,10 +15,10 @@ namespace toy {
 
 enum class SurfaceMode
 {
-    Plain,
-    Monitor,
-    Mirror,
-    Water
+    Plain   = 0,
+    Monitor = 1,
+    Mirror  = 2,
+    Water   = 3
 };
 
 //==============================================================================

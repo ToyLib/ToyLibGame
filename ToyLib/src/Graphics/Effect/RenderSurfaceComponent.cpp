@@ -86,7 +86,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     //====================
     it.depthTest  = true;
     it.depthWrite = true;
-    it.cull       = CullMode::Back;
+    it.cull       = CullMode::None;
     it.blend      = BlendMode::Alpha;
 
     //====================

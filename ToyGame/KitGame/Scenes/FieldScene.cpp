@@ -20,8 +20,8 @@ void FieldScene::InitScene()
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(8.0f, 30.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(100.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
 
    
     
@@ -134,10 +134,10 @@ void FieldScene::InitField()
     auto mirrorActor = CreateActor<toy::Actor>();
     mirrorActor->SetPosition(Vector3(-20.0f, 0.0f, 15.0f));
     mirrorActor->SetScale(1.0f);
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(-45.0f));
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
     mirrorActor->SetRotation(q);
     auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=512, .height=512, .fov=360.0f });
+    capture->Init({.width=512, .height=512 });
     capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
@@ -145,12 +145,12 @@ void FieldScene::InitField()
     mirrorComp->SetScale(10.0f, 10.0f);
     capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
     mirrorComp->SetFlip(true, true);
-    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
 
 
     // 水面を出す
     auto waterActor = CreateActor<toy::Actor>();
-    waterActor->SetPosition(Vector3(20.0f, -4.0f, 30.0f));
+    waterActor->SetPosition(Vector3(20.0f, -4.0f, 40.0f));
     waterActor->SetScale(1.0f);
     q = Quaternion(Vector3::UnitX, Math::ToRadians(90.0f));
     waterActor->SetRotation(q);
@@ -158,12 +158,13 @@ void FieldScene::InitField()
     waterCapture->Init({ .width = 512, .height = 512 });
     waterCapture->SetCaptureMode(toy::CaptureMode::Water);
 
-    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
+    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>(1000);
     waterComp->SetTexture(waterCapture->GetColorTexture());
-    waterComp->SetScale(20.0f, 20.0f);
+    waterComp->SetScale(40.0f, 40.0f);
     waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
     waterComp->SetFlip(true, true);
     waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
+    waterComp->SetOpacity(0.7f);
 
 }
 

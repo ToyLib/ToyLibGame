@@ -407,6 +407,8 @@ static bool DispatchSurface(Renderer& r,
     sh->SetVectorUniform ("uTint",    it.surfaceTint);
     sh->SetIntUniform    ("uMode",    it.surfaceMode);
     sh->SetFloatUniform  ("uTime",    it.time);
+    sh->SetFloatUniform  ("uScanlineStrength", it.scanlineStrength);
+    
 
     // テクスチャ
     if (it.texture.ptr)
