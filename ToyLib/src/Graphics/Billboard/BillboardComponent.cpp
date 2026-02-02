@@ -80,6 +80,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
     it.shader = renderer->GetShaderHandle("Mesh");  // Phong
     it.viewProj = view * proj;
     it.world    = world;
+    it.layer    = mLayer;
 
     // ★Rendererの共通Quadを使う（設計維持）
     it.geometry = renderer->GetSpriteQuadHandle();  // すでにある想定

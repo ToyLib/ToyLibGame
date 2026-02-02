@@ -181,7 +181,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     // render state（元の用途＝足元影/リングを想定）
     it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
     it.depthTest  = true;
-    it.depthWrite = false;                 // ←足元板は基本 OFF（必要なら外から変更する設計でもOK）
+    it.depthWrite = true;                 // ←足元板は基本 OFF（必要なら外から変更する設計でもOK）
     it.cull       = CullMode::None;        // 両面見せるほうが安全
     it.frontFace  = FrontFace::CCW;
     

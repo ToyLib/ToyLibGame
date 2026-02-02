@@ -20,7 +20,7 @@ class RenderQueue;
 class SpriteComponent : public VisualComponent
 {
 public:
-    SpriteComponent(class Actor* a, int drawOrder,
+    SpriteComponent(class Actor* a, int drawOrder = 100,
                     VisualLayer layer = VisualLayer::UI);
 
     ~SpriteComponent() override = default;

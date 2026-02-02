@@ -63,7 +63,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.geometry = renderer->GetSurfaceQuadHandle();
     it.indexCount  = 6;   // ★ 必須（SurfaceQuad は EBO 6 前提）
     it.vertexCount = 0;
-    it.shader   = renderer->GetShaderHandle("RenderSurface");
+    it.shader.ptr   = mShader.get();
 
     //====================
     // Transform
@@ -87,7 +87,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.depthTest  = true;
     it.depthWrite = true;
     it.cull       = CullMode::Back;
-    it.blend      = BlendMode::Alpha;
+    it.blend      = BlendMode::Opaque;
 
     //====================
     // Surface params

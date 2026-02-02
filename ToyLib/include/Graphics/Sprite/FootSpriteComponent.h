@@ -24,7 +24,7 @@ class FootSpriteComponent : public VisualComponent
 public:
     FootSpriteComponent(class Actor* owner,
                         int drawOrder = 10,
-                        VisualLayer layer = VisualLayer::Effect3D);
+                        VisualLayer layer = VisualLayer::Object3D);
 
     virtual ~FootSpriteComponent() = default;
 
