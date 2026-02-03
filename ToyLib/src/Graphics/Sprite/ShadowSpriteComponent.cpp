@@ -138,7 +138,7 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.blend      = BlendMode::Alpha;   // 通常アルファ
     it.depthTest  = true;
     it.depthWrite = false;              // 影は depth write しない（重なりで破綻しにくい）
-    it.cull       = CullMode::None;
+    it.cull       = CullMode::Back;
     it.frontFace  = FrontFace::CCW;
 
     // sprite uniforms

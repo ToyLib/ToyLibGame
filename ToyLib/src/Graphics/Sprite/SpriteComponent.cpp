@@ -93,7 +93,7 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
     // UIスプライトの基本state
     it.depthTest  = false;
     it.depthWrite = false;
-    it.cull       = CullMode::None;
+    it.cull       = CullMode::Back;
     it.frontFace  = FrontFace::CCW;
     it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
 

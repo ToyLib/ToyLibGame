@@ -426,7 +426,7 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
     it.depthTest  = true;
     it.depthWrite = false;
-    it.cull       = CullMode::None;
+    it.cull       = CullMode::Back;
     it.frontFace  = FrontFace::CCW;
 
     it.texture     = renderer->ToHandle(mTexture);

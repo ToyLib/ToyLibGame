@@ -92,7 +92,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.depthWrite = false;
     it.blend      = BlendMode::Opaque;
 
-    it.cull      = CullMode::None; // ★旧Drawの glDisable(GL_CULL_FACE) と一致
+    it.cull      = CullMode::Front; // ★旧Drawの glDisable(GL_CULL_FACE) と一致
     it.frontFace = FrontFace::CCW; // 一応保持
 
     it.shader.ptr   = mShader.get();

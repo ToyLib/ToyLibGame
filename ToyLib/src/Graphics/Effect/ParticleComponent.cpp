@@ -252,8 +252,8 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
-    it.cull       = CullMode::None;
-    it.frontFace  = FrontFace::CCW;
+    it.cull       = CullMode::Front;
+    it.frontFace  = FrontFace::CW;
 
     it.shader.ptr  = mRenderShader.get();
     it.texture.ptr = mTexture.get();
