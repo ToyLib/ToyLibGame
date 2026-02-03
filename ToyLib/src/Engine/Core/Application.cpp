@@ -522,9 +522,7 @@ void Application::UpdateFrame()
     stats.ActorCount         = static_cast<int>(mActors.size());
     stats.ColliderCount      = mPhysWorld ? static_cast<int>(mPhysWorld->GetColliderCount()) : 0;
     stats.DrawCallCount      = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
-    stats.DrawObjectCount    = mRenderer  ? mRenderer->GetDrawObjectCount() : 0;
     stats.OffDrawCallCount   = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;
-    stats.OffDrawObjectCount = mRenderer  ? mRenderer->GetDrawRTTObjectCount() : 0;
     stats.ScreenW            = mScreenWidth;
     stats.ScreenH            = mScreenHeight;
 

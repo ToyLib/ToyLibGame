@@ -154,7 +154,6 @@ inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
                                 it.instanceCount);
         glBindVertexArray(0);
         r.AddDrawCall();
-        r.AddDrawObject();
         return;
     }
 
@@ -174,7 +173,6 @@ inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
         glDrawArrays(mode, 0, it.vertexCount);
 
     r.AddDrawCall();
-    r.AddDrawObject();
 }
 
 } // unnamed namespace

@@ -68,7 +68,6 @@ struct SceneCaptureRequest
 //==============================================================================
 struct DebugInfo
 {
-    unsigned int drawObjectCount {};
     unsigned int drawCallCount   {};
 };
 
@@ -112,9 +111,6 @@ public:
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
 
-    void AddDrawObject() { ++mDebugActiveScreen->drawObjectCount; }
-    unsigned int GetDrawObjectCount() const { return mDebugOnScreen.drawObjectCount; }
-    unsigned int GetDrawRTTObjectCount() const { return mDebugRTT.drawObjectCount; }
 
     //--------------------------------------------------------------------------
     // カメラ / ビュー

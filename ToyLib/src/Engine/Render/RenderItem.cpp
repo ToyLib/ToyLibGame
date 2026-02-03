@@ -308,7 +308,6 @@ static bool DispatchSkyDome(Renderer& r,
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     r.AddDrawCall();
-    r.AddDrawObject();
     return true; // ここで描いたので Default を抑止
 }
 
@@ -347,7 +346,6 @@ static bool DispatchOverlay(Renderer& r,
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     r.AddDrawCall();
-    r.AddDrawObject();
     return true;
 }
 
