@@ -20,8 +20,8 @@ void FieldScene::InitScene()
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(100.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(00.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(18.0f, 0.0f);
 
    
     
