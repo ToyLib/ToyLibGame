@@ -792,49 +792,6 @@ void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     ChangeDebugOnScreen();
 }
-/*void Renderer::DrawToRenderTarget(const std::shared_ptr<RenderTarget>& rt,
-                                  const Matrix4& view,
-                                  const Matrix4& proj,
-                                  bool drawUI)
-{
-    if (!rt) return;
 
-    ChangeDebugRTT();
-
-    const Matrix4 prevView = mViewMatrix;
-    const Matrix4 prevProj = mProjectionMatrix;
-
-    GLint prevVP[4];
-    glGetIntegerv(GL_VIEWPORT, prevVP);
-
-    rt->Bind();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    mViewMatrix       = view;
-    mProjectionMatrix = proj;
-
-    RenderShadowPass();
-
-    // RestoreAfterShadowPass() が画面viewportに戻すので、RTに戻す
-    RestoreAfterShadowPass();
-    rt->Bind();
-
-    BuildFrameQueues();
-
-    DrawSkyPass();
-    DrawWorldPass();
-    DrawOverlayScreenPass();
-    if (drawUI) DrawUIPass();
-    DrawFadePass();
-
-    mViewMatrix       = prevView;
-    mProjectionMatrix = prevProj;
-
-    RenderTarget::Unbind();
-    glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
-
-    ChangeDebugOnScreen();
-}
-*/
 
 } // namespace toy
