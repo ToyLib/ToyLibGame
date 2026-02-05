@@ -37,24 +37,50 @@ namespace toy {
 //----------------------------------------
 // 共通：RenderQueue draw
 //----------------------------------------
-void Renderer::DrawRenderQueue_World(const RenderQueue& queue)
+void Renderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
 {
-    for (const auto& it : queue.Items())
+    const auto& items = mFrame.items;
+
+    for (uint32_t idx : bucket)
     {
+        if (idx >= items.size()) continue;
+
+        const RenderItem& it = items[idx];
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
         DrawItem_GL(it, RenderPass::World, -1);
     }
 }
 
-void Renderer::DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex)
+
+void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex)
 {
-    for (const auto& it : queue.Items())
+    if (bucket.empty())
     {
+        return;
+    }
+
+    const auto& items = mFrame.items;
+
+    for (uint32_t idx : bucket)
+    {
+        if (idx >= items.size())
+        {
+            continue; // 安全弁
+        }
+
+        const RenderItem& it = items[idx];
+
+        // Shadowで描かないもの（UIなど）を除外したいならここで弾く
+        // ※ bucket側で分けてるなら不要
+        if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+        {
+            continue;
+        }
+
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
         DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
     }
 }
-
 //----------------------------------------
 // State apply
 //----------------------------------------
@@ -286,35 +312,8 @@ void Renderer::RenderShadowPass()
         Matrix4 lightVP = lightView * lightProj;
         mLightSpaceMatrix[i] = lightVP;
 
-        Frustum shadowFrustum = BuildFrustumFromMatrix(lightVP);
-
-        RenderQueue queue;
-
-        for (auto* vc : mVisualComps)
-        {
-            if (!vc || !vc->GetEnableShadow() || !vc->IsVisible())
-            {
-                continue;
-            }
-
-            Actor* owner = vc->GetOwner();
-            if (owner)
-            {
-                auto bv = owner->GetComponent<BoundingVolumeComponent>();
-                if (bv)
-                {
-                    Cube aabb = bv->GetWorldAABB();
-                    if (!FrustumIntersectsAABB(shadowFrustum, aabb))
-                    {
-                        continue;
-                    }
-                }
-            }
-
-            vc->GatherShadowItems(queue);
-        }
-
-        DrawRenderQueue_Shadow(queue, i);
+        // ★ここで bucket を描くだけ
+        DrawBucket_Shadow(mBuckets.shadowCaster, i);
     }
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -346,7 +345,7 @@ void Renderer::RestoreAfterShadowPass()
 //=============================================================
 void Renderer::DrawSkyPass()
 {
-    if (mQ_Sky.Items().empty()) return;
+    if (mBuckets.sky.empty()) return;
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -355,8 +354,8 @@ void Renderer::DrawSkyPass()
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
 
-    mQ_Sky.Sort();
-    DrawRenderQueue_World(mQ_Sky);
+    // 事前に BuildFrameQueues() で分類＆ソート済み
+    DrawBucket_World(mBuckets.sky);
 
     glDepthMask(GL_TRUE);
 
@@ -372,15 +371,6 @@ void Renderer::DrawWorldPass()
 {
     // 2) WORLD OPAQUE
     {
-        RenderQueue worldOpaqueQueue;
-        for (const auto& it : mQ_Object3D.Items())
-        {
-            if (it.blend == BlendMode::Opaque)
-            {
-                worldOpaqueQueue.Push(it);
-            }
-        }
-
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
 
@@ -390,8 +380,8 @@ void Renderer::DrawWorldPass()
 
         glDisable(GL_BLEND);
 
-        worldOpaqueQueue.Sort();
-        DrawRenderQueue_World(worldOpaqueQueue);
+        // 事前に BuildFrameQueues() で分類＆ソート済み
+        DrawBucket_World(mBuckets.worldOpaque);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -399,15 +389,6 @@ void Renderer::DrawWorldPass()
 
     // 3) WORLD EFFECT (PRE)
     {
-        RenderQueue effectPreQueue;
-        for (const auto& it : mQ_Effect3D.Items())
-        {
-            const bool isPre =
-                (it.type == RenderItemType::Sprite) ||
-                (it.type == RenderItemType::Debug);
-            if (isPre) effectPreQueue.Push(it);
-        }
-
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
 
@@ -416,8 +397,7 @@ void Renderer::DrawWorldPass()
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        effectPreQueue.Sort();
-        DrawRenderQueue_World(effectPreQueue);
+        DrawBucket_World(mBuckets.effectPre);
 
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
@@ -427,23 +407,13 @@ void Renderer::DrawWorldPass()
 
     // 4) WORLD TRANSPARENT
     {
-        RenderQueue transparentQueue;
-        for (const auto& it : mQ_Object3D.Items())
-        {
-            if (it.blend != BlendMode::Opaque)
-            {
-                transparentQueue.Push(it);
-            }
-        }
-
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        transparentQueue.Sort();
-        DrawRenderQueue_World(transparentQueue);
+        DrawBucket_World(mBuckets.worldTransparent);
 
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
@@ -453,15 +423,6 @@ void Renderer::DrawWorldPass()
 
     // 5) WORLD EFFECT (OVERLAY)
     {
-        RenderQueue effectOverlayQueue;
-        for (const auto& it : mQ_Effect3D.Items())
-        {
-            const bool isOverlay =
-                (it.type == RenderItemType::Billboard) ||
-                (it.type == RenderItemType::Particle);
-            if (isOverlay) effectOverlayQueue.Push(it);
-        }
-
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
 
@@ -470,8 +431,7 @@ void Renderer::DrawWorldPass()
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        effectOverlayQueue.Sort();
-        DrawRenderQueue_World(effectOverlayQueue);
+        DrawBucket_World(mBuckets.effectOverlay);
 
         glDepthMask(GL_TRUE);
         glEnable(GL_CULL_FACE);
@@ -482,7 +442,7 @@ void Renderer::DrawWorldPass()
 
 void Renderer::DrawOverlayScreenPass()
 {
-    if (mQ_OverlayScreen.Items().empty()) return;
+    if (mBuckets.overlayScreen.empty()) return;
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -491,8 +451,8 @@ void Renderer::DrawOverlayScreenPass()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    mQ_OverlayScreen.Sort();
-    DrawRenderQueue_World(mQ_OverlayScreen);
+    // 事前に BuildFrameQueues() で分類＆ソート済み
+    DrawBucket_World(mBuckets.overlayScreen);
 
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
@@ -525,7 +485,7 @@ void Renderer::DrawFadePass()
 
 void Renderer::DrawUIPass()
 {
-    if (mQ_UI.Items().empty()) return;
+    if (mBuckets.ui.empty()) return;
 
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -534,8 +494,8 @@ void Renderer::DrawUIPass()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    mQ_UI.Sort();
-    DrawRenderQueue_World(mQ_UI);
+    // 事前に BuildFrameQueues() で分類＆ソート済み
+    DrawBucket_World(mBuckets.ui);
 
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
@@ -648,27 +608,24 @@ void Renderer::Draw()
 //=============================================================
 void Renderer::BuildFrameQueues()
 {
-    mQ_Sky.Clear();
-    mQ_Object3D.Clear();
-    mQ_Effect3D.Clear();
-    mQ_OverlayScreen.Clear();
-    mQ_UI.Clear();
+    mFrame.Clear();
+    mBuckets.Clear();
 
-    const Matrix4 view = GetViewMatrix();
-    const Matrix4 proj = GetProjectionMatrix();
-    const Matrix4 vp   = view * proj;
-
+    // frustum cull（今のまま：カメラVPでの可視判定）
+    const Matrix4 vp = GetViewMatrix() * GetProjectionMatrix();
     const Frustum fr = BuildFrustumFromMatrix(vp);
 
-    RenderQueue tmp;
+    RenderQueue tmpRender;
+    RenderQueue tmpShadow;
 
     for (auto* vc : mVisualComps)
     {
-        if (!vc) continue;
-        if (!vc->IsVisible()) continue;
+        if (!vc || !vc->IsVisible()) continue;
 
+        // -----------------------------
+        // (A) カメラ frustum cull（今のまま）
+        // -----------------------------
         const VisualLayer layer = vc->GetLayer();
-
         const bool shouldCull =
             (layer == VisualLayer::Object3D) ||
             (layer == VisualLayer::Effect3D);
@@ -690,28 +647,193 @@ void Renderer::BuildFrameQueues()
             }
         }
 
-        tmp.Clear();
-        vc->GatherRenderItems(tmp);
-
-        for (const auto& it : tmp.Items())
+        // -----------------------------
+        // (B) Shadow items を先に積む（★統合）
+        // -----------------------------
+        if (vc->GetEnableShadow())
         {
+            tmpShadow.Clear();
+            vc->GatherShadowItems(tmpShadow);
+
+            for (const auto& it : tmpShadow.Items())
+            {
+                // ★ここで pass=Shadow の RenderItem を積む想定
+                const uint32_t idx = mFrame.Push(it);
+                mBuckets.shadowCaster.push_back(idx);
+            }
+        }
+
+        // -----------------------------
+        // (C) 通常 items（World/UI/Overlay...）
+        // -----------------------------
+        tmpRender.Clear();
+        vc->GatherRenderItems(tmpRender);
+
+        for (const auto& it : tmpRender.Items())
+        {
+            const uint32_t idx = mFrame.Push(it);
+
+            // ★もし RenderItems 側にも pass=Shadow が紛れたらここで拾う（安全弁）
+            if (it.pass == RenderPass::Shadow)
+            {
+                mBuckets.shadowCaster.push_back(idx);
+                continue;
+            }
+
+            // ここで “1回だけ分類”
             if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
             {
-                mQ_UI.Push(it);
+                mBuckets.ui.push_back(idx);
                 continue;
             }
 
             switch (it.layer)
             {
-                case VisualLayer::Sky:           mQ_Sky.Push(it); break;
-                case VisualLayer::Object3D:      mQ_Object3D.Push(it); break;
-                case VisualLayer::Effect3D:      mQ_Effect3D.Push(it); break;
-                case VisualLayer::OverlayScreen: mQ_OverlayScreen.Push(it); break;
-                case VisualLayer::UI:            mQ_UI.Push(it); break;
-                default:                         mQ_Object3D.Push(it); break;
+                case VisualLayer::Sky:
+                    mBuckets.sky.push_back(idx);
+                    break;
+
+                case VisualLayer::OverlayScreen:
+                    mBuckets.overlayScreen.push_back(idx);
+                    break;
+
+                case VisualLayer::Object3D:
+                    if (it.blend == BlendMode::Opaque)
+                        mBuckets.worldOpaque.push_back(idx);
+                    else
+                        mBuckets.worldTransparent.push_back(idx);
+                    break;
+
+                case VisualLayer::Effect3D:
+                {
+                    const bool isPre =
+                        (it.type == RenderItemType::Sprite) ||
+                        (it.type == RenderItemType::Debug);
+                    if (isPre) mBuckets.effectPre.push_back(idx);
+                    else       mBuckets.effectOverlay.push_back(idx);
+                    break;
+                }
+
+                default:
+                    // とりあえず Object3D 扱い
+                    if (it.blend == BlendMode::Opaque)
+                        mBuckets.worldOpaque.push_back(idx);
+                    else
+                        mBuckets.worldTransparent.push_back(idx);
+                    break;
             }
         }
     }
+
+    // -----------------------------
+    // (D) Sort：bucket の index を並び替える（mFrame を参照）
+    // -----------------------------
+    SortBucket(mBuckets.sky);
+    SortBucket(mBuckets.worldOpaque);
+    SortBucket(mBuckets.effectPre);
+    SortBucket(mBuckets.worldTransparent);
+    SortBucket(mBuckets.effectOverlay);
+    SortBucket(mBuckets.overlayScreen);
+    SortBucket(mBuckets.ui);
+
+    // ★Shadow は専用 sort が無難（今は no-op でもOK）
+    SortBucket_Shadow(mBuckets.shadowCaster);
+}
+
+void Renderer::SortBucket(std::vector<uint32_t>& bucket)
+{
+    if (bucket.size() <= 1)
+    {
+        return;
+    }
+
+    auto& items = mFrame.items;
+
+    std::stable_sort(
+        bucket.begin(),
+        bucket.end(),
+        [&items](uint32_t ia, uint32_t ib)
+        {
+            // 範囲外は末尾へ（安全弁）
+            const bool aValid = (ia < items.size());
+            const bool bValid = (ib < items.size());
+            if (aValid != bValid) return aValid;   // valid が先
+            if (!aValid && !bValid) return false;  // 両方invalidなら順序維持
+
+            const RenderItem& a = items[ia];
+            const RenderItem& b = items[ib];
+
+            // 1) RenderPass（enum順）
+            if (a.pass != b.pass)
+            {
+                return a.pass < b.pass;
+            }
+
+            // 2) VisualLayer（enum順）
+            if (a.layer != b.layer)
+            {
+                return a.layer < b.layer;
+            }
+
+            // 3) BlendMode：Opaque を先に（Z確定）
+            const bool aOpaque = (a.blend == BlendMode::Opaque);
+            const bool bOpaque = (b.blend == BlendMode::Opaque);
+            if (aOpaque != bOpaque)
+            {
+                return aOpaque; // true(opaque) が先
+            }
+
+            // 4) DrawOrder
+            if (a.drawOrder != b.drawOrder)
+            {
+                return a.drawOrder < b.drawOrder;
+            }
+
+            // 5) 完全一致：stable_sort で投入順維持
+            return false;
+        }
+    );
+}
+void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
+{
+    auto& items = mFrame.Items();
+
+    std::stable_sort(
+        bucket.begin(),
+        bucket.end(),
+        [&](uint32_t a, uint32_t b)
+        {
+            const RenderItem& A = items[a];
+            const RenderItem& B = items[b];
+
+            // 0) 念のため：Shadow以外が混ざってたら後ろへ
+            const bool aShadow = (A.pass == RenderPass::Shadow);
+            const bool bShadow = (B.pass == RenderPass::Shadow);
+            if (aShadow != bShadow) return aShadow; // trueが先
+
+            // 1) shader でまとめる（SetActive削減）
+            if (A.shader.ptr != B.shader.ptr)
+            {
+                return A.shader.ptr < B.shader.ptr;
+            }
+
+            // 2) geometry でまとめる（VAO bind削減）
+            if (A.type != RenderItemType::Particle) // Particleはshadow描かない想定なら無視でもOK
+            {
+                if (A.geometry.ptr != B.geometry.ptr)
+                {
+                    return A.geometry.ptr < B.geometry.ptr;
+                }
+            }
+
+            // 3) Skinned の palette 有無で軽くまとめる（任意）
+            const bool aSkinned = (A.type == RenderItemType::SkinnedMesh);
+            const bool bSkinned = (B.type == RenderItemType::SkinnedMesh);
+            if (aSkinned != bSkinned) return aSkinned; // skinned先（or逆でもOK）
+
+            return false; // stable_sortに任せる
+        }
+    );
 }
 
 //=============================================================

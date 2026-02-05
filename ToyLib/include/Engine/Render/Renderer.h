@@ -63,6 +63,53 @@ struct SceneCaptureRequest
     bool drawOverlay { false }; // まず false 推奨
 };
 
+struct FrameRenderList
+{
+    std::vector<RenderItem> items;
+
+    void Clear()
+    {
+        items.clear();
+    }
+
+    uint32_t Push(const RenderItem& it)
+    {
+        items.emplace_back(it);
+        return (uint32_t)(items.size() - 1);
+    }
+    const std::vector<RenderItem>& Items() const { return items; }
+          std::vector<RenderItem>& Items()       { return items; }
+
+};
+struct FrameBuckets
+{
+    // World
+    std::vector<uint32_t> worldOpaque;
+    std::vector<uint32_t> worldTransparent;
+    std::vector<uint32_t> effectPre;
+    std::vector<uint32_t> effectOverlay;
+
+    // Other passes
+    std::vector<uint32_t> sky;
+    std::vector<uint32_t> overlayScreen;
+    std::vector<uint32_t> ui;
+    
+    std::vector<uint32_t> shadowCaster;
+
+    void Clear()
+    {
+        worldOpaque.clear();
+        worldTransparent.clear();
+        effectPre.clear();
+        effectOverlay.clear();
+        sky.clear();
+        overlayScreen.clear();
+        ui.clear();
+        
+        shadowCaster.clear();
+    }
+};
+
 //==============================================================================
 // DebugInfo
 //==============================================================================
@@ -394,22 +441,22 @@ private:
     // OpenGL 切り離し準備
     //--------------------------------------------------------------------------
 
-    void DrawRenderQueue_World(const RenderQueue& items);
-    void DrawRenderQueue_Shadow(const RenderQueue& queue, int cascadeIndex);
+    void DrawBucket_World(const std::vector<uint32_t>& bucket);
+    void DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex);
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
 
     //--------------------------------------------------------------------------
-    // パス用キュー / 新 DrawPass
+    //  DrawPass
     //--------------------------------------------------------------------------
 
-    RenderQueue mQ_Sky;
-    RenderQueue mQ_Object3D;
-    RenderQueue mQ_Effect3D;
-    RenderQueue mQ_OverlayScreen;
-    RenderQueue mQ_UI;
-
+    FrameRenderList mFrame;
+    FrameRenderList mShadowFrame;
+    FrameBuckets    mBuckets;
+    
     void BuildFrameQueues();
+    void SortBucket(std::vector<uint32_t>& bucket);
+    void SortBucket_Shadow(std::vector<uint32_t>& bucket);
 
     void BeginFrame();
     void RenderShadowPass();
