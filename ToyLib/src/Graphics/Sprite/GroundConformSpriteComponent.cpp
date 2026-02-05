@@ -393,24 +393,43 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible)
+    {
         return;
+    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer || !mShader)
+    {
         return;
+    }
+
+    if (!mTexture)
+    {
+        return;
+    }
 
     PreDraw();
 
     if (!mGridVAO)
+    {
         return;
+    }
 
-    RenderItem it;
+    // ----------------------------------------------------------
+    // Payload（Billboard tint/alpha 用）
+    // ----------------------------------------------------------
+    BillboardPayload bp {};
+    bp.color = mTint;   // 無ければ Vector3(1,1,1) でOK
+    bp.alpha = mAlpha;  // 無ければ 1.0f でOK
+    const uint32_t payloadIndex = queue.PushBillboardPayload(bp);
+
+    RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = mLayer;
     it.drawOrder = mDrawOrder;
 
-    it.type      = RenderItemType::Billboard;
-    it.dispatch  = GetDispatch(it.type);
+    it.type     = RenderItemType::Billboard;
+    it.dispatch = GetDispatch(it.type);
 
     it.topology     = PrimitiveTopology::Triangles;
     it.geometry.ptr = mGridVAO.get();
@@ -431,6 +450,8 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
+
+    it.payloadIndex = payloadIndex;
 
     queue.Push(it);
 }

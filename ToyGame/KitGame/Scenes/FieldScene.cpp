@@ -21,7 +21,7 @@ void FieldScene::InitScene()
     
     // 時間の設定
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(00.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(18.0f, 0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(14.0f, 0.0f);
 
    
     
@@ -179,7 +179,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::RAIN);
 }
 
 

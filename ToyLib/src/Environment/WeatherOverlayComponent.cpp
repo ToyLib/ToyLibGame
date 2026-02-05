@@ -26,34 +26,36 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
+
     auto* app = GetOwner()->GetApp();
     if (!app)
     {
         return;
     }
+
     auto* renderer = app->GetRenderer();
     auto* phys     = app->GetPhysWorld();
     if (!renderer || !phys)
     {
         return;
     }
-    
+
     // 最新のスクリーンサイズ
     const float screenW = renderer->GetScreenWidth();
     const float screenH = renderer->GetScreenHeight();
 
-    //==========================
+    //==========================================================
     // 1) レンズフレア可視判定（旧 Draw そのまま）
-    //==========================
-    float  flareIntensity = 0.0f;
+    //==========================================================
+    float   flareIntensity = 0.0f;
     Vector2 sunUv(0.0f, 0.0f);
 
     if (mSunDir.y < 0.0f)
     {
-        Vector3 camPos      = renderer->GetCameraPosition();
-        Vector3 sunWorldPos = camPos - mSunDir * 200.0f;
+        const Vector3 camPos      = renderer->GetCameraPosition();
+        const Vector3 sunWorldPos = camPos - mSunDir * 200.0f;
 
-        ScreenProjectResult sc = renderer->WorldToScreen(sunWorldPos);
+        const ScreenProjectResult sc = renderer->WorldToScreen(sunWorldPos);
 
         if (sc.visible)
         {
@@ -63,12 +65,12 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
             Vector3 dirCamToSun = Vector3::Normalize(sunWorldPos - camPos);
 
             const float startOffset = 20.0f;
-            Vector3 rayOrigin = camPos + dirCamToSun * startOffset;
+            const Vector3 rayOrigin = camPos + dirCamToSun * startOffset;
 
-            float maxDist = (sunWorldPos - rayOrigin).Length();
+            const float maxDist = (sunWorldPos - rayOrigin).Length();
 
             RaycastHit hit;
-            bool hitSomething = phys->Raycast(
+            const bool hitSomething = phys->Raycast(
                 rayOrigin,
                 dirCamToSun,
                 maxDist,
@@ -83,47 +85,56 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
         }
     }
 
-    //==========================
-    // 2) RenderItem 化
-    //==========================
-    RenderItem it;
-    it.pass      = RenderPass::World;                 // ★Overlay は UI/Overlay パスへ
+    //==========================================================
+    // 2) Payload（Overlay params）
+    //==========================================================
+    OverlayPayload op {};
+    op.time = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+
+    op.rainAmount = mRainAmount;
+    op.fogAmount  = mFogAmount;
+    op.snowAmount = mSnowAmount;
+
+    op.resolution = Vector2(screenW, screenH);
+
+    op.flareIntensity = flareIntensity;
+    op.sunPos         = sunUv;
+    op.flareColor     = Vector3(1.0f, 0.9f, 0.7f);
+
+    const uint32_t payloadIndex = outQueue.PushOverlayPayload(op);
+
+    //==========================================================
+    // 3) RenderItem
+    //==========================================================
+    RenderItem it {};
+    it.pass      = RenderPass::World;                 // ※現状の描画パス設計に合わせる
     it.layer     = VisualLayer::OverlayScreen;
     it.drawOrder = GetDrawOrder();
+
     it.type      = RenderItemType::Overlay;
     it.dispatch  = GetDispatch(it.type);
 
-    // 旧 Draw の GL state を RenderItem state に変換（ロジック変更なし）
+    // state（旧 Draw 相当）
     it.depthTest  = false;
     it.depthWrite = false;
-    it.blend      = BlendMode::Alpha;              // 通常はアルファ
 
-    // フレアがある時だけ加算
+    it.blend = BlendMode::Alpha;
     if (flareIntensity > 0.0f)
     {
         it.blend = BlendMode::Additive;
     }
 
     it.cull      = CullMode::None;
+    it.frontFace = FrontFace::CCW; // 念のため（未指定でもいい）
 
+    // shader / geometry
     it.shader.ptr   = mShader.get();
     it.geometry.ptr = mVertexArray.get();
     it.indexCount   = mVertexArray->GetNumIndices();
 
-    // uniforms（旧 Draw のまま）
-    it.overlayTime = static_cast<float>(SDL_GetTicks()) / 1000.0f;
-
-    it.overlayRainAmount = mRainAmount;
-    it.overlayFogAmount  = mFogAmount;
-    it.overlaySnowAmount = mSnowAmount;
-
-    it.overlayResolution = Vector2(screenW, screenH);
-
-    it.overlayFlareIntensity = flareIntensity;
-    it.overlaySunPos         = sunUv;
-    it.overlayFlareColor     = Vector3(1.0f, 0.9f, 0.7f);
+    // payload
+    it.payloadIndex = payloadIndex;
 
     outQueue.Push(it);
 }
-
 } // namespace toy

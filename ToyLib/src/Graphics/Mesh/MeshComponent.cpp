@@ -37,23 +37,19 @@ std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 
 void MeshComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible)
+    if (!mIsVisible || !mMesh)
     {
         return;
     }
-    if (!mMesh)
-    {
-        return;
-    }
-    
+
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    
+
     // ワールド行列（旧 Draw と同じ）
-    Matrix4 worldMatrix =
+    const Matrix4 worldMatrix =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
@@ -62,6 +58,7 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
     // 共有：ビュー・プロジェクション
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 viewProj = view * proj;
 
     // サブメッシュごとに積む（Materialが違うため）
     auto vaList = mMesh->GetVertexArray();
@@ -71,7 +68,7 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         {
             continue;
         }
-        
+
         // ---- 通常描画 ----
         RenderItem it {};
         it.pass      = RenderPass::World;
@@ -85,9 +82,9 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         it.geometry.ptr = v.get();
         it.indexCount   = static_cast<int>(v->GetNumIndices());
 
-        it.shader   = renderer->GetShaderHandle("Mesh");   // ★旧と同じ Mesh shader
+        it.shader   = renderer->GetShaderHandle("Mesh");
         it.world    = worldMatrix;
-        it.viewProj = view * proj;
+        it.viewProj = viewProj;
 
         it.toon = mIsToon;
 
@@ -97,62 +94,55 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
-        // Material（旧：v->GetTextureID()で取ってたのと同じ）
         auto mat = mMesh->GetMaterial(v->GetTextureID());
         it.material = renderer->ToHandle(mat);
 
         queue.Push(it);
 
-        // ---- アウトライン（旧 Draw の輪郭処理そのまま） ----
+        // ---- アウトライン ----
         if (mContourFactor > 1.0f)
         {
             RenderItem o = it;
 
-            // わずかにスケールアップしたワールド行列（旧：scaleOutline * worldMatrix）
-            Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
+            const Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
             o.world = scaleOutline * worldMatrix;
 
-            // glFrontFace(GL_CW) と同義（裏面だけ残す）
             o.frontFace = FrontFace::CW;
 
-            // 色を Material 上書き（旧：mat->SetOverrideColor(true, mContourColor)）
             o.overrideColor      = true;
             o.overrideColorValue = mContourColor;
 
-            // 通常より先に描く（必要なら）
             o.drawOrder = mDrawOrder - 1;
 
             queue.Push(o);
         }
     }
 }
-void MeshComponent::GatherShadowItems(RenderQueue& out)
+void MeshComponent::GatherShadowItems(RenderQueue& queue)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh)
     {
         return;
     }
-    
+
     auto* owner = GetOwner();
     if (!owner)
     {
         return;
     }
-    
+
     auto* renderer = owner->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    
-    // world
+
     const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
         owner->GetRenderWorldTransform();
 
-    // submesh ごとに積む
     auto& vaList = mMesh->GetVertexArray();
     for (auto& va : vaList)
     {
@@ -160,25 +150,21 @@ void MeshComponent::GatherShadowItems(RenderQueue& out)
         {
             continue;
         }
-        
-        RenderItem it{};
-        it.type      = RenderItemType::Mesh;       // Shadow専用Typeが無いならこれでOK
-        it.dispatch = GetDispatch(it.type);
-        
-        it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
+
+        RenderItem it {};
+        it.pass      = RenderPass::Shadow;
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();
 
-        it.topology   = PrimitiveTopology::Triangles;
-        it.geometry   = GeometryHandle{ va.get() };
-        it.indexCount = (int)va->GetNumIndices();
+        it.type     = RenderItemType::Mesh;
+        it.dispatch = GetDispatch(it.type);
 
-        // ★カスケードごとの lightVP は Renderer の Shadow描画側で上書きする方針
-        it.lightVP = renderer->GetLightSpaceMatrix(0); // 保険（0を入れておく）
+        it.topology     = PrimitiveTopology::Triangles;
+        it.geometry.ptr = va.get();
+        it.indexCount   = static_cast<int>(va->GetNumIndices());
 
         it.world = world;
 
-        // states（深度のみ）
         it.depthTest  = true;
         it.depthWrite = true;
         it.blend      = BlendMode::Opaque;
@@ -187,7 +173,7 @@ void MeshComponent::GatherShadowItems(RenderQueue& out)
 
         it.shader = renderer->GetShaderHandle("ShadowMesh");
 
-        out.Push(it);
+        queue.Push(it);
     }
 }
 

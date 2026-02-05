@@ -51,6 +51,9 @@ struct RenderItem
     DispatchFn dispatch { nullptr };
     
     RenderItemType type { RenderItemType::Sprite };
+    static constexpr uint32_t kInvalidPayload = 0xFFFFFFFF;
+
+    uint32_t payloadIndex { kInvalidPayload };
     
     //==========================================================
     // Geometry

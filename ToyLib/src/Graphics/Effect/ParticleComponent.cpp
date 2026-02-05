@@ -223,62 +223,77 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
+
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
     }
+
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
 
+    // camera right / up
     Vector3 camRight(view.mat[0][0], view.mat[1][0], view.mat[2][0]);
     Vector3 camUp   (view.mat[0][1], view.mat[1][1], view.mat[2][1]);
     camRight.Normalize();
     camUp.Normalize();
 
-    // ★重要：mRenderVAO に instance attrs を張り直す（srcVBOが毎フレーム変わるため）
+    // ★instance attribute 更新（既存挙動維持）
     glBindVertexArray(mRenderVAO);
     BindInstanceAttributes(CurrentSrcVBO());
     glBindVertexArray(0);
 
-    RenderItem it;
+    //==================================================
+    // Particle payload
+    //==================================================
+    ParticlePayload pp {};
+    pp.cameraRight     = camRight;
+    pp.cameraUp        = camUp;
+    pp.particleLifeMax = mDesc.particleLife;
+    pp.particleSize    = mDesc.size;
+
+    const uint32_t payloadIndex = outQueue.PushParticlePayload(pp);
+
+    //==================================================
+    // RenderItem
+    //==================================================
+    RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = VisualLayer::Effect3D;
     it.drawOrder = GetDrawOrder();
-    it.type      = RenderItemType::Particle;
-    it.dispatch  = GetDispatch(it.type);
-    
+
+    it.type     = RenderItemType::Particle;
+    it.dispatch = GetDispatch(it.type);
+
+    // state
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
     it.cull       = CullMode::Front;
     it.frontFace  = FrontFace::CW;
 
+    // shader / texture
     it.shader.ptr  = mRenderShader.get();
     it.texture.ptr = mTexture.get();
     it.textureUnit = 0;
 
+    // transforms
     it.world    = Matrix4::Identity;
     it.viewProj = viewProj;
 
-    // uniforms
-    it.cameraRight     = camRight;
-    it.cameraUp        = camUp;
-    it.particleLifeMax = mDesc.particleLife;
-    it.particleSize    = mDesc.size;
-
-    // ★ここが本体：Renderer はこれを bind して instanced draw する
+    // instanced draw
     it.gpuVAO        = mRenderVAO;
     it.instanceCount = static_cast<int>(mDesc.maxParticles);
 
-    // indexCount は 6（quad）
     it.topology   = PrimitiveTopology::Triangles;
-    it.indexCount = 6;
+    it.indexCount = 6; // quad
+
+    it.payloadIndex = payloadIndex;
 
     outQueue.Push(it);
 }
-
 //======================================================================
 // GL init / update
 //======================================================================

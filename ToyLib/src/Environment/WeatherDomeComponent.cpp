@@ -55,6 +55,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
+
     auto* app = GetOwner()->GetApp();
     if (!app)
     {
@@ -65,35 +66,60 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-    // 旧Draw版：invView から camPos 取得
+
+    // cam pos
     const Matrix4 invView = renderer->GetInvViewMatrix();
     const Vector3 camPos  = invView.GetTranslation();
 
-    // 旧Draw版：model = Scale(200) * Translate(camPos)
     const Matrix4 world =
         Matrix4::CreateScale(200.0f) *
         Matrix4::CreateTranslation(camPos);
 
-    // 旧Draw版：mvp = model * view * proj
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
 
-    RenderItem it;
+    // ----------------------------------------------------------
+    // payload（旧Drawのuniform群）
+    // ----------------------------------------------------------
+    SkyDomePayload sky {};
+
+    const float sec = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+    sky.skyTime = std::fmod(sec, 60.0f) / 60.0f;
+
+    sky.skyTimeOfDay     = std::fmod(mTime, 1.0f);
+    sky.skyWeatherType   = static_cast<int>(mWeatherType);
+    sky.skySunDir        = mSunDir;
+    sky.skyMoonDir       = mMoonDir;
+    sky.skyRawSkyColor   = mRawSkyColor;
+    sky.skyRawCloudColor = mRawCloudColor;
+
+    // 旧互換：uMVP を必ず渡す
+    sky.useMVP = true;
+    sky.mvp    = world * view * proj;
+
+    const uint32_t payloadIndex = outQueue.PushSkyDomePayload(sky);
+
+    // ----------------------------------------------------------
+    // RenderItem
+    // ----------------------------------------------------------
+    RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = VisualLayer::Sky;
     it.drawOrder = GetDrawOrder();
+
     it.type      = RenderItemType::SkyDome;
     it.dispatch  = GetDispatch(it.type);
 
-    // 旧Draw版：glDisable(CULL), glDepthMask(FALSE)
-    // → RenderItem に「状態」として持たせる（Renderer側で反映）
+    // 旧Draw寄せ：Depth write off
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = BlendMode::Opaque;
 
-    it.cull      = CullMode::Front; // ★旧Drawの glDisable(GL_CULL_FACE) と一致
-    it.frontFace = FrontFace::CCW; // 一応保持
+    // ※あなたのコメントと実装がズレてたので「意図優先」で直す：
+    // 旧Draw: glDisable(GL_CULL_FACE) に合わせるなら None。
+    it.cull      = CullMode::None;
+    it.frontFace = FrontFace::CCW;
 
     it.shader.ptr   = mShader.get();
     it.geometry.ptr = mSkyVAO.get();
@@ -104,27 +130,10 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.topology   = PrimitiveTopology::Triangles;
     it.indexCount = mSkyVAO->GetNumIndices();
 
-    // 旧Draw版：uTime = (ticks/60sec) 0..1
-    const float sec = static_cast<float>(SDL_GetTicks()) / 1000.0f;
-    it.skyTime = std::fmod(sec, 60.0f) / 60.0f;
-
-    // 旧Draw版：uTimeOfDay / uWeatherType / uSunDir / uMoonDir / uRawSkyColor / uRawCloudColor
-    it.skyTimeOfDay     = std::fmod(mTime, 1.0f);
-    it.skyWeatherType   = static_cast<int>(mWeatherType);
-    it.skySunDir        = mSunDir;
-    it.skyMoonDir       = mMoonDir;
-    it.skyRawSkyColor   = mRawSkyColor;
-    it.skyRawCloudColor = mRawCloudColor;
-    
-    // ★旧Draw互換：uMVP を必ず渡す
-    it.useMVP = true;
-    it.mvp    = world * view * proj;   // = model * view * proj（旧Drawそのまま）
-
-    it.texture.ptr = nullptr;
+    it.payloadIndex = payloadIndex;
 
     outQueue.Push(it);
 }
-
 //======================================
 // SmoothStep
 //  - 標準的な smoothstep(edge0, edge1, x)

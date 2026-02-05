@@ -48,18 +48,30 @@ void SkeletalMeshComponent::SetMesh(std::shared_ptr<Mesh> mesh)
     }
 }
 
-void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
+void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible || !mMesh || !mAnimPlayer) return;
+    if (!mIsVisible || !mMesh || !mAnimPlayer)
+    {
+        return;
+    }
 
     auto* owner = GetOwner();
-    if (!owner) return;
+    if (!owner)
+    {
+        return;
+    }
 
     auto* renderer = owner->GetApp()->GetRenderer();
-    if (!renderer) return;
+    if (!renderer)
+    {
+        return;
+    }
 
     const auto& mats = mAnimPlayer->GetFinalMatrices();
-    if (mats.empty()) return;
+    if (mats.empty())
+    {
+        return;
+    }
 
     const Matrix4 view     = renderer->GetViewMatrix();
     const Matrix4 proj     = renderer->GetProjectionMatrix();
@@ -72,7 +84,7 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
         owner->GetRenderWorldTransform();
 
     //=========================================================
-    // 1) 通常メッシュ
+    // World pass
     //=========================================================
     for (auto& va : mMesh->GetVertexArray())
     {
@@ -80,22 +92,23 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
         {
             continue;
         }
-            
+
         RenderItem it {};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);
+
         it.pass      = RenderPass::World;
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();
 
-        it.topology   = PrimitiveTopology::Triangles;
-        it.geometry   = GeometryHandle{ va.get() };
-        it.indexCount = (int)va->GetNumIndices();
+        it.topology     = PrimitiveTopology::Triangles;
+        it.geometry.ptr = va.get();
+        it.indexCount   = static_cast<int>(va->GetNumIndices());
 
         // states
         it.depthTest  = true;
         it.depthWrite = true;
-        it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque;
+        it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque);
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
@@ -112,64 +125,64 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& out)
 
         // matrix palette
         it.matrixPalette = mats.data();
-        it.paletteCount  = (int)mats.size();
+        it.paletteCount  = mats.size();
 
-        out.Push(it);
+        queue.Push(it);
 
         //=====================================================
-        // 2) 輪郭（アウトライン）
-        //   - mContourFactor > 1.0f のときだけ
-        //   - CW にして「裏面」を描く
-        //   - overrideColor で塗りつぶし色にする
+        // Outline
         //=====================================================
         if (mContourFactor > 1.0f)
         {
-            RenderItem ol = it; // まずコピーして差分だけ変える
+            RenderItem ol = it;
 
             ol.depthTest  = true;
-            ol.depthWrite = false;              // お好み：輪郭は深度を書かない方が無難
-            ol.blend      = BlendMode::Opaque;  // 輪郭は基本不透明
-            ol.cull       = CullMode::Back;     // CWにした上で Back を消す＝表が出る（旧glFrontFace(CW)想定）
-            ol.frontFace  = FrontFace::CW;
+            ol.depthWrite = false;
+            ol.blend      = BlendMode::Opaque;
 
-            // ★スケールアップ
+            // glFrontFace(GL_CW) 相当
+            ol.cull      = CullMode::Back;
+            ol.frontFace = FrontFace::CW;
+
             const Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
             ol.world = scaleOutline * world;
 
-            // ★色上書き（DispatchSkinnedMesh が SetOverrideColor→Bind→解除 する想定）
             ol.overrideColor      = true;
             ol.overrideColorValue = mContourColor;
 
-            out.Push(ol);
+            // 必要なら通常より先に描く（任意）
+            // ol.drawOrder = GetDrawOrder() - 1;
+
+            queue.Push(ol);
         }
     }
 }
 
-void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
+void SkeletalMeshComponent::GatherShadowItems(RenderQueue& queue)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh || !mAnimPlayer)
     {
         return;
     }
-    
+
     auto* owner = GetOwner();
     if (!owner)
     {
         return;
     }
-    
+
     auto* renderer = owner->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    
+
     const auto& mats = mAnimPlayer->GetFinalMatrices();
     if (mats.empty())
     {
         return;
     }
-    
+
     const Matrix4 world =
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
@@ -182,26 +195,24 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
         {
             continue;
         }
-        
-        RenderItem it{};
+
+        RenderItem it {};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);
-        it.pass      = RenderPass::Shadow;         // ★Shadowパスへ
+
+        it.pass      = RenderPass::Shadow;
         it.layer     = GetLayer();
         it.drawOrder = GetDrawOrder();
 
-        it.topology   = PrimitiveTopology::Triangles;
-        it.geometry   = GeometryHandle{ va.get() };
-        it.indexCount = (int)va->GetNumIndices();
+        it.topology     = PrimitiveTopology::Triangles;
+        it.geometry.ptr = va.get();
+        it.indexCount   = static_cast<int>(va->GetNumIndices());
 
         it.world = world;
 
-        // ★カスケードごとの lightVP は Renderer の Shadow描画側で上書きする方針
-        it.lightVP = renderer->GetLightSpaceMatrix(0); // 保険（0を入れておく）
-
-        // palette
+        // palette（ShadowSkinned 用）
         it.matrixPalette = mats.data();
-        it.paletteCount  = (int)mats.size();
+        it.paletteCount  = mats.size();
 
         // state（深度のみ）
         it.depthTest  = true;
@@ -212,8 +223,7 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueue& out)
 
         it.shader = renderer->GetShaderHandle("ShadowSkinned");
 
-        out.Push(it);
+        queue.Push(it);
     }
 }
-
 } // namespace toy

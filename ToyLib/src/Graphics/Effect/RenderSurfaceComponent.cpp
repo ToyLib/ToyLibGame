@@ -47,83 +47,93 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
         return;
     }
 
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    auto* owner = GetOwner();
+    if (!owner)
+    {
+        return;
+    }
+
+    auto* app = owner->GetApp();
+    if (!app)
+    {
+        return;
+    }
+
+    auto* renderer = app->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    
-    RenderItem it;
+
+    //====================
+    // Surface payload
+    //====================
+    SurfacePayload sp {};
+    sp.opacity = mOpacity;
+    sp.tint    = mTint;
+    sp.flipX   = mFlipX;
+    sp.flipY   = mFlipY;
+
+    int mode = 0; // Plain fallback
+    switch (mMode)
+    {
+        case SurfaceMode::Plain:   mode = 0; break;
+        case SurfaceMode::Monitor: mode = 1; break;
+        case SurfaceMode::Mirror:  mode = 2; break;
+        case SurfaceMode::Water:   mode = 3; break;
+        default:                   mode = 0; break;
+    }
+    sp.mode = mode;
+
+    // 時間（関数名 typo っぽいので元を尊重）
+    sp.time = app->GetTimeSconds();
+
+    const uint32_t payloadIndex = queue.PushSurfacePayload(sp);
+
+    //====================
+    // RenderItem
+    //====================
+    RenderItem it {};
     it.type = RenderItemType::Surface;
     it.pass = RenderPass::World;
 
-    //====================
+    // layer / order（Surface がどこに属するかは今の挙動踏襲）
+    it.layer     = GetLayer();
+    it.drawOrder = GetDrawOrder();
+
     // Geometry / Shader
-    //====================
-    it.geometry = renderer->GetSurfaceQuadHandle();
+    it.geometry    = renderer->GetSurfaceQuadHandle();
     it.indexCount  = 6;   // ★ 必須（SurfaceQuad は EBO 6 前提）
     it.vertexCount = 0;
-    it.shader.ptr   = mShader.get();
 
-    //====================
+    // できれば Handle 化したいが、今は最小変更で維持
+    it.shader.ptr = mShader.get();
+
     // Transform
-    //====================
-    GetOwner()->ComputeWorldTransform();
+    owner->ComputeWorldTransform();
 
     Matrix4 sc = Matrix4::CreateScale(mScaleX, mScaleY, 1.0f);
-    it.world   = sc * GetOwner()->GetWorldTransform();
+    it.world   = sc * owner->GetWorldTransform();
 
     it.viewProj = renderer->GetViewProjMatrix();
 
-    //====================
     // Texture
-    //====================
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
 
-    //====================
     // State
-    //====================
     it.depthTest  = true;
     it.depthWrite = true;
     it.cull       = CullMode::Back;
     it.frontFace  = FrontFace::CCW;
     it.blend      = BlendMode::Alpha;
 
-    //====================
-    // Surface params
-    //====================
-    it.surfaceOpacity = mOpacity;
-    it.surfaceTint    = mTint;
-    it.surfaceFlipX   = mFlipX;
-    it.surfaceFlipY   = mFlipY;
-    int mode = 0; // Plain は fallback
-    switch (mMode)
-    {
-        case SurfaceMode::Plain:
-            mode = 0;
-            break; // fallback
-        case SurfaceMode::Monitor:
-            mode = 1;
-            break;
-        case SurfaceMode::Mirror:
-            mode = 2;
-            break;
-        case SurfaceMode::Water:
-            mode = 3;
-            break;
-    }
-    it.surfaceMode = mode;
+    // Payload
+    it.payloadIndex = payloadIndex;
 
-    // 時間
-    it.time = GetOwner()->GetApp()->GetTimeSconds();
-
-    //====================
     // Dispatch
-    //====================
     it.dispatch = GetDispatch(it.type);
 
     queue.Push(it);
 }
-
 } // namespace toy

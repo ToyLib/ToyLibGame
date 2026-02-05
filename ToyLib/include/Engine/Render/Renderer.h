@@ -322,7 +322,38 @@ public:
     ShaderHandle   GetShaderHandle(const std::string& name);
     TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
-
+    
+    
+    const SpritePayload& GetSpritePayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetSpritePayload(idx);
+    }
+    const BillboardPayload& GetBillboardPayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetBillboardPayload(idx);
+    }
+    const DebugPayload& GetDebugPayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetDebugPayload(idx);
+    }
+    const SurfacePayload& GetSurfacePayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetSurfacePayload(idx);
+    }
+    const ParticlePayload& GetParticlePayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetParticlePayload(idx);
+    }
+    const OverlayPayload& GetOverlayPayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetOverlayPayload(idx);
+    }
+    const SkyDomePayload& GetSkyDomePayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetSkyDomePayload(idx);
+    }
+    
+    
 private:
     //--------------------------------------------------------------------------
     // SDL / OpenGL

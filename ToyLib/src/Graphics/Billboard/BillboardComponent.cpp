@@ -21,23 +21,37 @@ BillboardComponent::BillboardComponent(Actor* a, int drawOrder, VisualLayer laye
 //----------------------------------------------------------------------
 void BillboardComponent::GatherRenderItems(RenderQueue& out)
 {
-    if (!mIsVisible || !mTexture) return;
+    if (!mIsVisible || !mTexture)
+    {
+        return;
+    }
 
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
+    auto* owner    = GetOwner();
+    auto* renderer = owner ? owner->GetApp()->GetRenderer() : nullptr;
+    if (!renderer)
+    {
+        return;
+    }
 
-    // カメラ行列
+    //--------------------------------------------------------------------------
+    // Camera matrices
+    //--------------------------------------------------------------------------
+
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
 
-    // Actor ワールド位置（元コードに合わせる）
-    const Matrix4 actorWorld = GetOwner()->GetWorldTransform();
-    const Vector3 pos = actorWorld.GetTranslation();
+    //--------------------------------------------------------------------------
+    // World position / camera position
+    //--------------------------------------------------------------------------
 
-    // カメラ位置（invView から）
-    const Vector3 cameraPos = renderer->GetInvViewMatrix().GetTranslation();
+    const Matrix4 actorWorld = owner->GetWorldTransform();
+    const Vector3 pos        = actorWorld.GetTranslation();
+    const Vector3 cameraPos  = renderer->GetInvViewMatrix().GetTranslation();
 
-    // 水平 billboard（元コード通り）
+    //--------------------------------------------------------------------------
+    // Horizontal billboard rotation (Y-axis)
+    //--------------------------------------------------------------------------
+
     Vector3 toCamera = pos - cameraPos;
     toCamera.y = 0.0f;
 
@@ -50,52 +64,74 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
         toCamera.Normalize();
     }
 
-    const float angle = std::atan2f(toCamera.x, toCamera.z);
-    const Matrix4 rotY = Matrix4::CreateRotationY(angle);
+    const float   angle = std::atan2f(toCamera.x, toCamera.z);
+    const Matrix4 rotY  = Matrix4::CreateRotationY(angle);
 
-    // スケール（元コード：mScale * ownerScale、かつ texture size を掛ける）
-    const float scale = mScale * GetOwner()->GetScale();
+    //--------------------------------------------------------------------------
+    // Scale (mScale * ownerScale) * texture size
+    //--------------------------------------------------------------------------
+
+    const float scale = mScale * owner->GetScale();
 
     const Matrix4 scaleMat = Matrix4::CreateScale(
         mTexture->GetWidth()  * scale,
         mTexture->GetHeight() * scale,
-        1.0f
-    );
+        1.0f);
 
     const Matrix4 translate = Matrix4::CreateTranslation(pos);
 
-    // ★元コードの world 掛け順を維持
+    // Keep original multiplication order
     const Matrix4 world = scaleMat * rotY * translate;
 
-    // （元コードにあった副作用：Owner 回転反映）
-    // これが必要なら残す（挙動合わせ優先なら残してOK）
+    // Keep original side effect (owner rotation update)
     {
-        Quaternion q = Quaternion(Vector3::UnitY, angle);
-        GetOwner()->SetRotation(q);
+        Quaternion q(Vector3::UnitY, angle);
+        owner->SetRotation(q);
     }
 
+    //--------------------------------------------------------------------------
+    // Payload (Billboard)
+    //  - Mesh shader前提なので payload は「必要になったら増やす」でOK
+    //--------------------------------------------------------------------------
+
+    BillboardPayload bp{};
+    // bp.color / bp.alpha を使う設計にするならここで詰める
+    // bp.color = ...
+    // bp.alpha = ...
+
+    const uint32_t payloadIndex = out.PushBillboardPayload(bp);
+
+    //--------------------------------------------------------------------------
+    // RenderItem
+    //--------------------------------------------------------------------------
+
     RenderItem it{};
-    it.type = RenderItemType::Billboard;                 // 「Meshとして出す」を維持
-    it.dispatch = GetDispatch(it.type);
-    it.shader = renderer->GetShaderHandle("Mesh");  // Phong
+    it.type      = RenderItemType::Billboard;
+    it.dispatch  = GetDispatch(it.type);
+    it.layer     = mLayer;
+    it.drawOrder = mDrawOrder; // あれば。無いならこの行は削除
+
+    it.shader   = renderer->GetShaderHandle("Mesh"); // Phong前提
     it.viewProj = view * proj;
     it.world    = world;
-    it.layer    = mLayer;
 
-    // ★Rendererの共通Quadを使う（設計維持）
-    it.geometry = renderer->GetSpriteQuadHandle();  // すでにある想定
+    // Common quad
+    it.geometry   = renderer->GetSpriteQuadHandle();
     it.indexCount = 6;
 
-    // ★Materialが無いなら texture を直接渡す（最小変更）
-    it.texture = renderer->ToHandle(mTexture);
+    // Texture (no Material)
+    it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
 
-    // state（元 Draw の想定に近い）
+    // Payload link
+    it.payloadIndex = payloadIndex;
+
+    // Render state
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
 
-    // 板ポリは片面カリングで消えやすいので、元挙動に近い“見える”を優先
+    // Visibility priority for a single quad
     it.cull      = CullMode::Front;
     it.frontFace = FrontFace::CW;
 

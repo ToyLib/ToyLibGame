@@ -50,17 +50,18 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-
     if (!mSkyVAO || !mShader)
     {
         return;
     }
+
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    // カメラ位置に追従させる
+
+    // カメラ位置に追従
     const Matrix4 invView = renderer->GetInvViewMatrix();
     const Vector3 camPos  = invView.GetTranslation();
 
@@ -72,21 +73,21 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     const Matrix4 proj = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
 
-    RenderItem it;
+    RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = mLayer;
     it.drawOrder = GetDrawOrder();
     it.type      = RenderItemType::SkyDome;
     it.dispatch  = GetDispatch(it.type);
 
-    // Sky の定番ステート
+    // Sky定番
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = BlendMode::Opaque;
-    it.cull       = CullMode::Front;      // ★ 内側を描く
+    it.cull       = CullMode::Front; // 内側
     it.frontFace  = FrontFace::CCW;
 
-    it.shader.ptr  = mShader.get();
+    it.shader.ptr   = mShader.get();
     it.geometry.ptr = mSkyVAO.get();
 
     it.world    = world;
@@ -95,9 +96,9 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.topology   = PrimitiveTopology::Triangles;
     it.indexCount = mSkyVAO->GetNumIndices();
 
-    // SkyDome の中身（uniform）は派生で埋める
-    // ベースは何も入れない（安全なデフォルト）
+    // payload無し（安全デフォルト）
+    it.payloadIndex = RenderItem::kInvalidPayload;
+
     outQueue.Push(it);
 }
-
 } // namespace toy

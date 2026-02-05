@@ -104,10 +104,9 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
         return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer || !mShader)
+    if (!renderer)
         return;
 
-    // ここで必要なら再構築（ライトYaw/Stretch反映込み）
     PreDraw();
 
     if (!mGridVAO)
@@ -115,38 +114,35 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     RenderItem it;
     it.pass      = RenderPass::World;
-    it.layer     = mLayer;          // Effect3D
+    it.layer     = mLayer;
     it.drawOrder = mDrawOrder;
 
-    // ★Sprite扱い（Spriteシェーダ互換：uSpriteColor/uSpriteAlpha）
-    it.type      = RenderItemType::Sprite;
-    it.dispatch  = GetDispatch(it.type);
+    it.type     = RenderItemType::Sprite;
+    it.dispatch = GetDispatch(it.type);
 
-    it.topology    = PrimitiveTopology::Triangles;
+    it.topology     = PrimitiveTopology::Triangles;
     it.geometry.ptr = mGridVAO.get();
-    it.indexCount  = static_cast<int>(mGridVAO->GetNumIndices());
+    it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
     it.shader = renderer->GetShaderHandle("Sprite");
 
-    // transforms：頂点がワールドなので Identity
-    const Matrix4 view = renderer->GetViewMatrix();
-    const Matrix4 proj = renderer->GetProjectionMatrix();
-    it.viewProj = view * proj;
+    it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
     it.world    = Matrix4::Identity;
 
-    // state：影
-    it.blend      = BlendMode::Alpha;   // 通常アルファ
+    it.blend      = BlendMode::Alpha;
     it.depthTest  = true;
-    it.depthWrite = false;              // 影は depth write しない（重なりで破綻しにくい）
+    it.depthWrite = false;
     it.cull       = CullMode::Back;
     it.frontFace  = FrontFace::CCW;
 
-    // sprite uniforms
-    it.color = mTint;
-    it.alpha = mAlpha;
-
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
+
+    // payload (Sprite uniform)
+    SpritePayload sp;
+    sp.color = mTint;
+    sp.alpha = mAlpha;
+    it.payloadIndex = queue.PushSpritePayload(sp);
 
     queue.Push(it);
 }

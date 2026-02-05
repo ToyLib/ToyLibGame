@@ -13,7 +13,7 @@ namespace toy {
 //============================================================
 // Sprite
 //============================================================
-static bool DispatchSprite(Renderer&,
+static bool DispatchSprite(Renderer& r,
                            const RenderItem& it,
                            RenderPass pass,
                            int)
@@ -29,8 +29,21 @@ static bool DispatchSprite(Renderer&,
         return true;
     }
 
-    sh->SetVectorUniform("uSpriteColor", it.color);
-    sh->SetFloatUniform ("uSpriteAlpha", it.alpha);
+    // Payload優先（なければ旧メンバ）
+    Vector3 color = Vector3::Zero;
+    float   alpha = 1.0f;
+
+    // 例：payloadIndexが有効なときだけ使う、みたいなルールにする
+    // （0番が常に有効payloadになる設計なら、この条件は別のフラグに）
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const SpritePayload& sp = r.GetSpritePayload(it.payloadIndex);
+        color = sp.color;
+        alpha = sp.alpha;
+    }
+
+    sh->SetVectorUniform("uSpriteColor", color);
+    sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
     if (it.texture.ptr)
     {
@@ -45,7 +58,6 @@ static bool DispatchSprite(Renderer&,
 
     return false;
 }
-
 //============================================================
 // Mesh
 //============================================================
@@ -203,21 +215,31 @@ static bool DispatchSkinnedMesh(Renderer& r,
 //============================================================
 // Billboard
 //============================================================
-static bool DispatchBillboard(Renderer&,
+static bool DispatchBillboard(Renderer& r,
                               const RenderItem& it,
                               RenderPass pass,
                               int)
 {
     if (pass == RenderPass::Shadow)
-    {
         return true;
-    }
 
     auto* sh = it.shader.ptr;
     if (!sh)
-    {
         return true;
+
+    Vector3 color = Vector3(1.0f, 1.0f, 1.0f);
+    float   alpha = 1.0f;
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const BillboardPayload& bp = r.GetBillboardPayload(it.payloadIndex);
+        color = bp.color;
+        alpha = bp.alpha;
     }
+
+    // もし billboard shader が色/αを受けるなら
+    // sh->SetVectorUniform("uSpriteColor", color);
+    // sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
     if (it.texture.ptr)
     {
@@ -236,7 +258,7 @@ static bool DispatchBillboard(Renderer&,
 //============================================================
 // GPUParticle
 //============================================================
-static bool DispatchParticle(Renderer&,
+static bool DispatchParticle(Renderer& r,
                              const RenderItem& it,
                              RenderPass pass,
                              int)
@@ -252,23 +274,32 @@ static bool DispatchParticle(Renderer&,
         return true;
     }
 
-    sh->SetVectorUniform("uCameraRight", it.cameraRight);
-    sh->SetVectorUniform("uCameraUp",    it.cameraUp);
-    sh->SetFloatUniform ("uLifeMax",     it.particleLifeMax);
-    sh->SetFloatUniform ("uSize",        it.particleSize);
+    Vector3 camRight(1,0,0);
+    Vector3 camUp   (0,1,0);
+    float   lifeMax = 1.0f;
+    float   size    = 1.0f;
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const ParticlePayload& pp = r.GetParticlePayload(it.payloadIndex);
+        camRight = pp.cameraRight;
+        camUp    = pp.cameraUp;
+        lifeMax  = pp.particleLifeMax;
+        size     = pp.particleSize;
+    }
+
+    sh->SetVectorUniform("uCameraRight", camRight);
+    sh->SetVectorUniform("uCameraUp",    camUp);
+    sh->SetFloatUniform ("uLifeMax",      lifeMax);
+    sh->SetFloatUniform ("uSize",         size);
 
     if (it.texture.ptr)
     {
         it.texture.ptr->SetActive(it.textureUnit);
         sh->SetTextureUniform("uTexture", it.textureUnit);
-        sh->SetBooleanUniform("uUseTexture", true);
-    }
-    else
-    {
-        sh->SetBooleanUniform("uUseTexture", false);
     }
 
-    return false;
+    return false; // instanced draw に流す
 }
 
 //============================================================
@@ -290,27 +321,37 @@ static bool DispatchSkyDome(Renderer& r,
         return true;
     }
 
-    if (it.useMVP)
+    // payload（無ければデフォルトで安全）
+    SkyDomePayload sky {};
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
-        sh->SetMatrixUniform("uMVP", it.mvp);
+        sky = r.GetSkyDomePayload(it.payloadIndex);
     }
 
-    sh->SetFloatUniform("uTime",        it.skyTime);
-    sh->SetIntUniform  ("uWeatherType", it.skyWeatherType);
-    sh->SetFloatUniform("uTimeOfDay",   it.skyTimeOfDay);
+    if (sky.useMVP)
+    {
+        sh->SetMatrixUniform("uMVP", sky.mvp);
+    }
 
-    sh->SetVectorUniform("uSunDir",        it.skySunDir);
-    sh->SetVectorUniform("uMoonDir",       it.skyMoonDir);
-    sh->SetVectorUniform("uRawSkyColor",   it.skyRawSkyColor);
-    sh->SetVectorUniform("uRawCloudColor", it.skyRawCloudColor);
+    sh->SetFloatUniform("uTime",        sky.skyTime);
+    sh->SetIntUniform  ("uWeatherType", sky.skyWeatherType);
+    sh->SetFloatUniform("uTimeOfDay",   sky.skyTimeOfDay);
+
+    sh->SetVectorUniform("uSunDir",        sky.skySunDir);
+    sh->SetVectorUniform("uMoonDir",       sky.skyMoonDir);
+    sh->SetVectorUniform("uRawSkyColor",   sky.skyRawSkyColor);
+    sh->SetVectorUniform("uRawCloudColor", sky.skyRawCloudColor);
+
+    // もし fog uniform があるなら
+    // sh->SetVectorUniform("uFogColor", sky.skyFogColor);
+    // sh->SetFloatUniform ("uFogDensity", sky.skyFogDensity);
 
     it.geometry.ptr->SetActive();
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     r.AddDrawCall();
-    return true; // ここで描いたので Default を抑止
+    return true; // ここで描いた
 }
-
 //============================================================
 // Overlay（フルスクリーン系）
 //============================================================
@@ -330,17 +371,26 @@ static bool DispatchOverlay(Renderer& r,
         return true;
     }
 
-    sh->SetFloatUniform("uTime", it.overlayTime);
+    // ---- payload ----
+    OverlayPayload op {};
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        // Renderer側に GetOverlayPayload を持たせてる前提なら r.GetOverlayPayload()
+        // RenderQueueに持たせてる前提なら r.GetRenderQueue().GetOverlayPayload() 等に差し替えてOK
+        op = r.GetOverlayPayload(it.payloadIndex);
+    }
 
-    sh->SetFloatUniform("uRainAmount", it.overlayRainAmount);
-    sh->SetFloatUniform("uFogAmount",  it.overlayFogAmount);
-    sh->SetFloatUniform("uSnowAmount", it.overlaySnowAmount);
+    sh->SetFloatUniform("uTime", op.time);
 
-    sh->SetVector2Uniform("uResolution", it.overlayResolution);
+    sh->SetFloatUniform("uRainAmount", op.rainAmount);
+    sh->SetFloatUniform("uFogAmount",  op.fogAmount);
+    sh->SetFloatUniform("uSnowAmount", op.snowAmount);
 
-    sh->SetFloatUniform  ("uFlareIntensity", it.overlayFlareIntensity);
-    sh->SetVector2Uniform("uSunPos",         it.overlaySunPos);
-    sh->SetVectorUniform ("uFlareColor",     it.overlayFlareColor);
+    sh->SetVector2Uniform("uResolution", op.resolution);
+
+    sh->SetFloatUniform  ("uFlareIntensity", op.flareIntensity);
+    sh->SetVector2Uniform("uSunPos",         op.sunPos);
+    sh->SetVectorUniform ("uFlareColor",     op.flareColor);
 
     it.geometry.ptr->SetActive();
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
@@ -348,11 +398,10 @@ static bool DispatchOverlay(Renderer& r,
     r.AddDrawCall();
     return true;
 }
-
 //============================================================
 // Debug
 //============================================================
-static bool DispatchDebug(Renderer&,
+static bool DispatchDebug(Renderer& r,
                           const RenderItem& it,
                           RenderPass pass,
                           int)
@@ -368,10 +417,21 @@ static bool DispatchDebug(Renderer&,
         return true;
     }
 
-    sh->SetVectorUniform("uSolColor", it.color);
+    Vector3 color = Vector3(1.0f, 1.0f, 1.0f);
+    float   alpha = 1.0f;
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const DebugPayload& dp = r.GetDebugPayload(it.payloadIndex);
+        color = dp.color;
+        alpha = dp.alpha;
+    }
+
+    sh->SetVectorUniform("uSolColor", color);
+    // sh->SetFloatUniform("uAlpha", alpha); // 必要なら
+
     return false;
 }
-
 //============================================================
 // Surface
 //============================================================
@@ -382,7 +442,7 @@ static bool DispatchSurface(Renderer& r,
 {
     if (pass != RenderPass::World)
     {
-        return true; // 描かない
+        return true;
     }
 
     auto* sh = it.shader.ptr;
@@ -398,15 +458,31 @@ static bool DispatchSurface(Renderer& r,
     sh->SetMatrixUniform("uView",  r.GetViewMatrix());
     sh->SetMatrixUniform("uProj",  r.GetProjectionMatrix());
 
-    // パラメータ
-    sh->SetBooleanUniform("uFlipX",   it.surfaceFlipX);
-    sh->SetBooleanUniform("uFlipY",   it.surfaceFlipY);
-    sh->SetFloatUniform  ("uOpacity", it.surfaceOpacity);
-    sh->SetVectorUniform ("uTint",    it.surfaceTint);
-    sh->SetIntUniform    ("uMode",    it.surfaceMode);
-    sh->SetFloatUniform  ("uTime",    it.time);
-    sh->SetFloatUniform  ("uScanlineStrength", it.scanlineStrength);
-    
+    // payload
+    bool    flipX   = false;
+    bool    flipY   = false;
+    float   opacity = 1.0f;
+    Vector3 tint    = Vector3(1.0f, 1.0f, 1.0f);
+    int     mode    = 0;
+    float   time    = 0.0f;
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const SurfacePayload& sp = r.GetSurfacePayload(it.payloadIndex);
+        flipX   = sp.flipX;
+        flipY   = sp.flipY;
+        opacity = sp.opacity;
+        tint    = sp.tint;
+        mode    = sp.mode;
+        time    = sp.time;
+    }
+
+    sh->SetBooleanUniform("uFlipX",   flipX);
+    sh->SetBooleanUniform("uFlipY",   flipY);
+    sh->SetFloatUniform  ("uOpacity", opacity);
+    sh->SetVectorUniform ("uTint",    tint);
+    sh->SetIntUniform    ("uMode",    mode);
+    sh->SetFloatUniform  ("uTime",    time);
 
     // テクスチャ
     if (it.texture.ptr)

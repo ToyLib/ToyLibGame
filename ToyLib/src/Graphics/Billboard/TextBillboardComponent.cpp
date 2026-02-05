@@ -68,21 +68,43 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
     }
 
     if (!mFont || mText.empty() || !mTexture)
+    {
         return;
+    }
 
     auto* app = GetOwner()->GetApp();
     if (!app)
+    {
         return;
+    }
 
     auto* renderer = app->GetRenderer();
     if (!renderer)
+    {
         return;
+    }
 
-    RenderItem it{};
-    it.type      = RenderItemType::Billboard;
-    it.dispatch = GetDispatch(it.type);
+    //==========================================================
+    // Payload（Billboard 用：tint / alpha）
+    //  - 文字は基本 “白” でテクスチャ色をそのまま出す
+    //  - 透過はテクスチャの alpha を使う前提（必要なら mAlpha 等に差し替え）
+    //==========================================================
+    BillboardPayload bp {};
+    bp.color = Vector3(1.0f, 1.0f, 1.0f);
+    bp.alpha = 1.0f;
+
+    const uint32_t payloadIndex = out.PushBillboardPayload(bp);
+
+    //==========================================================
+    // RenderItem
+    //==========================================================
+    RenderItem it {};
+    it.type       = RenderItemType::Billboard;
+    it.dispatch   = GetDispatch(it.type);
+    it.payloadIndex = payloadIndex;
+
     it.pass      = RenderPass::World;
-    it.layer     = GetLayer();          // Effect3D
+    it.layer     = GetLayer();      // Effect3D
     it.drawOrder = GetDrawOrder();
 
     // geometry（共通板ポリ）
@@ -99,25 +121,29 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
     //----------------------------------------------------------
     // Billboard 向き計算（Y固定・XZ回転）
     //----------------------------------------------------------
-    Matrix4 actorWorld = GetOwner()->GetWorldTransform();
-    Vector3 pos = actorWorld.GetTranslation();
+    const Matrix4 actorWorld = GetOwner()->GetWorldTransform();
+    const Vector3 pos = actorWorld.GetTranslation();
 
-    Matrix4 invView = renderer->GetInvViewMatrix();
-    Vector3 camPos  = invView.GetTranslation();
+    const Matrix4 invView = renderer->GetInvViewMatrix();
+    const Vector3 camPos  = invView.GetTranslation();
 
     Vector3 toCamera = pos - camPos;
     toCamera.y = 0.0f;
 
     if (toCamera.LengthSq() < 1.0e-6f)
+    {
         toCamera = Vector3::UnitZ;
+    }
     else
+    {
         toCamera.Normalize();
+    }
 
-    float angle = atan2f(toCamera.x, toCamera.z);
+    const float angle = std::atan2f(toCamera.x, toCamera.z);
 
-    float scale = GetScale() * GetOwner()->GetScale();
+    const float scale = GetScale() * GetOwner()->GetScale();
 
-    Matrix4 world =
+    const Matrix4 world =
         Matrix4::CreateScale(
             mTexture->GetWidth()  * scale,
             mTexture->GetHeight() * scale,
@@ -126,21 +152,23 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
         Matrix4::CreateRotationY(angle) *
         Matrix4::CreateTranslation(pos);
 
-    it.world    = world;
-    it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
+    it.world = world;
+
+    const Matrix4 view = renderer->GetViewMatrix();
+    const Matrix4 proj = renderer->GetProjectionMatrix();
+    it.viewProj = view * proj;
 
     //----------------------------------------------------------
     // Render State（旧 Draw() 挙動寄せ）
     //----------------------------------------------------------
     it.depthTest  = true;
-    it.depthWrite = false;                 // ★重要：透過
+    it.depthWrite = false;   // 透過
     it.blend      = BlendMode::Alpha;
     it.cull       = CullMode::None;
     it.frontFace  = FrontFace::CCW;
 
     out.Push(it);
 }
-
 //==============================================================
 // Texture 更新
 //==============================================================

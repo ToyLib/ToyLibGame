@@ -143,58 +143,84 @@ Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
     if (!mIsVisible)
+    {
         return;
-    
+    }
+
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     if (!renderer || !mShader)
+    {
         return;
-    
-    auto vao = renderer->GetSpriteQuad();
-    if (!vao)
+    }
+
+    if (!mTexture)
+    {
         return;
-    
+    }
+
+    // 共通Quad（VAO）チェック（ハンドルで描くなら厳密には不要だが安全弁）
+    if (!renderer->GetSpriteQuad())
+    {
+        return;
+    }
+
+    // 必要なら内部パラメータ更新
     PreDraw();
-    
-    RenderItem it;
+
+    //==========================================================
+    // Payload（Unlit の tint/alpha 用：後方互換）
+    //==========================================================
+    SpritePayload sp {};
+    sp.color = mTint;   // もし FootSprite が tint を持ってないなら (1,1,1) 固定にしてOK
+    sp.alpha = mAlpha;  // 同上：無いなら 1.0f
+
+    const uint32_t payloadIndex = queue.PushSpritePayload(sp);
+
+    //==========================================================
+    // RenderItem
+    //==========================================================
+    RenderItem it {};
     it.pass      = RenderPass::World;
-    it.layer     = mLayer;          // Effect3D をそのまま通す
+    it.layer     = mLayer;       // Effect3D をそのまま通す
     it.drawOrder = mDrawOrder;
-    
-    // 3D板ポリなので Billboard 扱い（メッシュ扱いでもOKだが texture/unlit を分けやすい）
-    it.type      = RenderItemType::Billboard;
-    it.dispatch  = GetDispatch(it.type);
-    
+
+    // 3D板ポリ（Billboard 扱い：dispatch で texture/tint を流す想定）
+    it.type     = RenderItemType::Billboard;
+    it.dispatch = GetDispatch(it.type);
+
     // geometry
     it.topology   = PrimitiveTopology::Triangles;
-    it.geometry   = renderer->GetSpriteQuadHandle(); // 既存共通quad
+    it.geometry   = renderer->GetSpriteQuadHandle();
     it.indexCount = 6;
-    
-    // shader
+
+    // shader（Unlit 前提）
     it.shader = renderer->GetShaderHandle("Unlit");
-    
-    // transforms（row-vector 規約：view * proj）
+
+    // transforms（ToyLib: row-vector規約なら view*proj でOK）
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
     it.viewProj = view * proj;
     it.world    = BuildWorldMatrix();
-    
-    // render state（元の用途＝足元影/リングを想定）
+
+    // render state（足元影/リング用途の“安全寄り”）
     it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
     it.depthTest  = true;
-    it.depthWrite = true;                 // ←足元板は基本 OFF（必要なら外から変更する設計でもOK）
-    it.cull       = CullMode::Back;        // 両面見せるほうが安全
+    it.depthWrite = false;              // ★足元板は基本 false 推奨
+    it.cull       = CullMode::None;     // ★両面見せるなら None が素直
     it.frontFace  = FrontFace::CCW;
-    
+
     // texture
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
-    
-    // ※Unlit 側の tint/alpha 等を “RenderItem に持たせてない” 前提なので、
-    //   透明はテクスチャのαを使う運用（元の挙動を壊さない最小移行）
-    //   どうしても tint/alpha を使いたい場合は RenderItem 拡張 or Material 化で後で対応。
-    
+
+    // payload index（0が有効問題を避けるなら “有効フラグ/INVALID値” が必要）
+    // ここでは「0も有効」として扱うので、RenderItem 側は:
+    //   payloadIndex = kInvalidPayloadIndex (例: 0xFFFFFFFF) を初期値にして、
+    //   それ以外なら有効、が安全。
+    it.payloadIndex = payloadIndex;
+
     queue.Push(it);
-    
+
     PostDraw();
 }
 

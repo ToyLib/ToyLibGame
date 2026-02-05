@@ -83,12 +83,23 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
 
     const Matrix4 viewProj = Matrix4::CreateSimpleViewProj(sw, sh);
 
+    // ----------------------------
+    // Payload（Sprite 専用）を先に積む
+    // ----------------------------
+    SpritePayload sp;
+    sp.color = mColor;
+    sp.alpha = mAlpha;
+    const uint32_t payloadIdx = out.PushSpritePayload(sp);
+
+    // ----------------------------
     // RenderItem
+    // ----------------------------
     RenderItem it;
-    it.type      = RenderItemType::Sprite;
-    it.dispatch  = GetDispatch(it.type);
-    it.layer     = GetLayer();
-    it.drawOrder = GetDrawOrder();
+    it.type        = RenderItemType::Sprite;
+    it.dispatch    = GetDispatch(it.type);
+    it.layer       = GetLayer();
+    it.drawOrder   = GetDrawOrder();
+    it.payloadIndex = payloadIdx;
 
     // UIスプライトの基本state
     it.depthTest  = false;
@@ -101,15 +112,13 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
     it.geometry   = renderer->GetSpriteQuadHandle();
     it.indexCount = 6;
 
-    it.shader  = renderer->GetShaderHandle("Sprite");
-    it.world   = world;
+    it.shader   = renderer->GetShaderHandle("Sprite");
+    it.world    = world;
     it.viewProj = viewProj;
 
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
 
-    it.color = mColor;
-    it.alpha = mAlpha;
 
     out.Push(it);
 }

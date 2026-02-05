@@ -34,54 +34,67 @@ void WireframeComponent::GatherRenderItems(RenderQueue& q)
     {
         return;
     }
-    
-    auto* app = GetOwner()->GetApp();
+
+    auto* owner = GetOwner();
+    if (!owner)
+    {
+        return;
+    }
+
+    auto* app = owner->GetApp();
     if (!app)
     {
         return;
     }
-    
+
     auto* renderer = app->GetRenderer();
     if (!renderer)
     {
         return;
     }
-    
-    RenderItem it{};
+
+    // ----------------------------------------------------------
+    // Debug payload（線の色/α）
+    // ----------------------------------------------------------
+    DebugPayload dp {};
+    dp.color = mColor;
+    dp.alpha = 1.0f;
+
+    const uint32_t payloadIndex = q.PushDebugPayload(dp);
+
+    // ----------------------------------------------------------
+    // RenderItem
+    // ----------------------------------------------------------
+    RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = GetLayer();
     it.drawOrder = GetDrawOrder();
 
-    // 新パス上の種別：Debug（ワイヤーフレーム扱い）
-    it.type = RenderItemType::Debug;
+    it.type     = RenderItemType::Debug;
     it.dispatch = GetDispatch(it.type);
-    
-    // geometry
-    it.geometry.ptr  = mVertexArray.get();
-    it.topology      = PrimitiveTopology::Lines;
-    it.vertexCount   = mVertexArray->GetNumVerts(); // ★DrawArrays 用
-    it.indexCount    = 0;                           // ★DrawElements しない
 
-    // shader
-    it.shader.ptr = renderer->GetShader("Solid").get();
+    // geometry（lines + DrawArrays）
+    it.geometry.ptr = mVertexArray.get();
+    it.topology     = PrimitiveTopology::Lines;
+    it.vertexCount  = static_cast<int>(mVertexArray->GetNumVerts());
+    it.indexCount   = 0;
+
+    // shader（ハンドルで統一）
+    it.shader = renderer->GetShaderHandle("Solid");
 
     // transforms
-    it.world   = GetOwner()->GetWorldTransform();
+    it.world    = owner->GetWorldTransform();
     it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
 
-    // color/alpha
-    it.color = mColor;
-    it.alpha = 1.0f;
-
-    // state（旧 Draw() に寄せる）
-    it.blend      = BlendMode::Alpha;  // 旧はブレンド有効が多い（不要なら Opaque に）
+    // state（旧 Draw 寄せ）
+    it.blend      = BlendMode::Alpha;   // 不要なら Opaque にしてOK
     it.depthTest  = true;
-    it.depthWrite = true;              // ★旧は glDepthMask 触ってないので “書く” 寄り
-    it.cull       = CullMode::None;    // 線はカリングしない方が安全
+    it.depthWrite = true;
+    it.cull       = CullMode::None;
     it.frontFace  = FrontFace::CCW;
 
-    // toon は無関係
-    it.toon = false;
+    // payload
+    it.payloadIndex = payloadIndex;
 
     q.Push(it);
 }

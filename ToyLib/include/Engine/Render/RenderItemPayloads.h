@@ -2,74 +2,80 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
-#include <cstddef>
 #include <cstdint>
+#include <cstddef>
 
-namespace toy {
+namespace toy
+{
 
-//--------------------------------------------------------------
-// Sprite
-//--------------------------------------------------------------
+//==============================================================
+// SpritePayload
+//==============================================================
 struct SpritePayload
 {
     Vector3 color { 1.0f, 1.0f, 1.0f };
     float   alpha { 1.0f };
 };
 
-//--------------------------------------------------------------
-// Mesh
-// いま RenderItem にある “Contour/OverrideColor” は Mesh/Skinned だけっぽいのでここへ
-//--------------------------------------------------------------
+//==============================================================
+// MeshPayload
+//  - 今は Mesh 固有というより「Material側に寄せたい」ものが多いので最小。
+//==============================================================
 struct MeshPayload
 {
-    bool    overrideColor      { false };
+    bool    overrideColor { false };
     Vector3 overrideColorValue { 0.0f, 0.0f, 0.0f };
+
+    bool    toon { false };
 };
 
-//--------------------------------------------------------------
-// SkinnedMesh
-//--------------------------------------------------------------
+//==============================================================
+// SkinnedMeshPayload
+//==============================================================
 struct SkinnedMeshPayload
 {
-    // Material override
-    bool    overrideColor      { false };
-    Vector3 overrideColorValue { 0.0f, 0.0f, 0.0f };
-
-    // Skinning
     const Matrix4* matrixPalette { nullptr };
     size_t         paletteCount  { 0 };
+
+    bool    overrideColor { false };
+    Vector3 overrideColorValue { 0.0f, 0.0f, 0.0f };
+
+    bool toon { false };
 };
 
-//--------------------------------------------------------------
-// Billboard
-//--------------------------------------------------------------
+//==============================================================
+// BillboardPayload
+//  - 今は特別なuniformが少ないので空でもOK。将来拡張用。
+//==============================================================
+
 struct BillboardPayload
 {
-    // 現状 Billboard 専用が “実は無い” なら空でもOK（とりあえず枠だけ）
-    // 将来: billboard params etc.
+    // 今の DispatchBillboard は texture は RenderItem 側の handle を見てるので、
+    // payload に持たせなくてもOK。
+    // 将来的に色/アルファや特殊パラメータが増えるならここに追加。
+    Vector3 color { 1.0f, 1.0f, 1.0f };
+    float   alpha { 1.0f };
 };
 
-//--------------------------------------------------------------
-// Particle (GPU particle)
-//--------------------------------------------------------------
+//==============================================================
+// ParticlePayload (GPU instancing)
+//==============================================================
 struct ParticlePayload
 {
-    unsigned int gpuVAO        { 0 };
-    int          instanceCount { 0 };
+    Vector3 cameraRight;
+    Vector3 cameraUp;
 
-    Vector3 cameraRight     { 1.0f, 0.0f, 0.0f };
-    Vector3 cameraUp        { 0.0f, 1.0f, 0.0f };
-    float   particleLifeMax { 1.0f };
-    float   particleSize    { 1.0f };
+    float particleLifeMax { 1.0f };
+    float particleSize    { 1.0f };
 };
 
-//--------------------------------------------------------------
-// SkyDome
-//--------------------------------------------------------------
+//==============================================================
+// SkyDomePayload
+//==============================================================
 struct SkyDomePayload
 {
-    float skyTime        { 0.0f };
-    float skyTimeOfDay   { 0.0f };
+    float skyTime        { 0.0f }; // 雲アニメ等（0..1）
+    float skyTimeOfDay   { 0.0f }; // 1日（0..1）
     int   skyWeatherType { 0 };
 
     Vector3 skySunDir        { Vector3::UnitY };
@@ -80,50 +86,51 @@ struct SkyDomePayload
     Vector3 skyFogColor   { Vector3::Zero };
     float   skyFogDensity { 0.0f };
 
-    // MVP直指定（SkyDome互換）
+    // MVP 直指定（旧 WeatherDome 互換）
     Matrix4 mvp    { Matrix4::Identity };
     bool    useMVP { false };
 };
 
-//--------------------------------------------------------------
-// Overlay
-//--------------------------------------------------------------
+
+//==============================================================
+// OverlayPayload
+//==============================================================
 struct OverlayPayload
 {
-    float   overlayTime { 0.0f };
+    float   time { 0.0f };
 
-    float   overlayRainAmount { 0.0f };
-    float   overlayFogAmount  { 0.0f };
-    float   overlaySnowAmount { 0.0f };
+    float   rainAmount { 0.0f };
+    float   fogAmount  { 0.0f };
+    float   snowAmount { 0.0f };
 
-    Vector2 overlayResolution { Vector2::Zero };
+    Vector2 resolution { 0.0f, 0.0f };
 
     // flare
-    float   overlayFlareIntensity { 0.0f };
-    Vector2 overlaySunPos         { Vector2::Zero };
-    Vector3 overlayFlareColor     { 1.0f, 0.9f, 0.7f };
+    float   flareIntensity { 0.0f };
+    Vector2 sunPos         { 0.0f, 0.0f };
+    Vector3 flareColor     { 1.0f, 0.9f, 0.7f };
 };
 
-//--------------------------------------------------------------
-// Debug
-//--------------------------------------------------------------
+//==============================================================
+// DebugPayload
+//==============================================================
 struct DebugPayload
 {
-    Vector3 color { 1.0f, 1.0f, 1.0f }; // uSolColor 用
+    Vector3 color { 1.0f, 1.0f, 1.0f };
+    float   alpha { 1.0f };
 };
 
-//--------------------------------------------------------------
-// Surface
-//--------------------------------------------------------------
+//==============================================================
+// SurfacePayload
+//==============================================================
 struct SurfacePayload
 {
-    float   surfaceOpacity    { 1.0f };
-    Vector3 surfaceTint       { 1.0f, 1.0f, 1.0f };
-    bool    surfaceFlipX      { false };
-    bool    surfaceFlipY      { false };
-    int     surfaceMode       { 0 };
-    float   time              { 0.0f };
-    float   scanlineStrength  { 1.0f };
+    float   opacity { 1.0f };
+    Vector3 tint    { 1.0f, 1.0f, 1.0f };
+    bool    flipX   { false };
+    bool    flipY   { false };
+    int     mode    { 0 };
+    float   time    { 0.0f };
 };
 
 } // namespace toy
