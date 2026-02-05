@@ -46,7 +46,7 @@ void Renderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
     // NOTE:
     //  - FrameRenderList の公開インターフェースが Items() なら本来は Items() を使うべき。
     //  - ここでは既存実装に合わせて mFrame.items を参照している（構造体が public である前提）。
-    const auto& items = mFrame.Items();
+    const auto& items = mRenderQueue.Items();
 
     for (uint32_t idx : bucket)
     {
@@ -70,7 +70,7 @@ void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascad
         return;
     }
 
-    const auto& items = mFrame.Items();
+    const auto& items = mRenderQueue.Items();
 
     for (uint32_t idx : bucket)
     {
@@ -651,7 +651,7 @@ void Renderer::Draw()
 
 void Renderer::BuildFrameQueues()
 {
-    mFrame.Clear();
+    mRenderQueue.Clear();
     mBuckets.Clear();
 
     // frustum cull（カメラ VP での可視判定）
@@ -706,7 +706,7 @@ void Renderer::BuildFrameQueues()
                 // NOTE:
                 //  - ここでは pass=Shadow の RenderItem を積む想定。
                 //  - pass を書き換えたりはしない（既存挙動に依存）。
-                const uint32_t idx = mFrame.Push(it);
+                const uint32_t idx = mRenderQueue.Push(it);
                 mBuckets.shadowCaster.push_back(idx);
             }
         }
@@ -719,7 +719,7 @@ void Renderer::BuildFrameQueues()
 
         for (const auto& it : tmpRender.Items())
         {
-            const uint32_t idx = mFrame.Push(it);
+            const uint32_t idx = mRenderQueue.Push(it);
 
             // safety: RenderItems 側にも pass=Shadow が混ざっていた場合
             if (it.pass == RenderPass::Shadow)
@@ -801,7 +801,7 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
         return;
     }
 
-    auto& items = mFrame.Items();
+    auto& items = mRenderQueue.Items();
 
     std::stable_sort(
         bucket.begin(),
@@ -852,7 +852,7 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
 void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
 {
 
-    auto& items = mFrame.Items();
+    auto& items = mRenderQueue.Items();
 
     std::stable_sort(
         bucket.begin(),

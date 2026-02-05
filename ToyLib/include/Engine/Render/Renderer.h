@@ -82,37 +82,6 @@ struct SceneCaptureRequest
 };
 
 //==============================================================================
-// FrameRenderList
-//  - 1フレーム分の RenderItem 集約領域
-//  - bucket は items の index (uint32_t) を保持する
-//
-// NOTE（名残指摘）:
-//  - .cpp 側で mFrame.items へ直接アクセスしている箇所があるため、
-//    items は public である前提になっている。
-//    今後 private 化するなら、.cpp を Items() ベースへ統一が必要。
-//==============================================================================
-struct FrameRenderList
-{
-    void Clear()
-    {
-        items.clear();
-    }
-
-    uint32_t Push(const RenderItem& it)
-    {
-        items.emplace_back(it);
-        return static_cast<uint32_t>(items.size() - 1);
-    }
-
-    const std::vector<RenderItem>& Items() const { return items; }
-          std::vector<RenderItem>& Items()       { return items; }
-
-private:
-    std::vector<RenderItem> items;
-
-};
-
-//==============================================================================
 // FrameBuckets
 //  - mFrame.items の index を用途別に分類したもの
 //==============================================================================
@@ -489,7 +458,7 @@ private:
     // DrawPass
     //--------------------------------------------------------------------------
 
-    FrameRenderList mFrame;
+    RenderQueue     mRenderQueue;
     FrameBuckets    mBuckets;
 
     void BuildFrameQueues();

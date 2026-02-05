@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Engine/Render/RenderItem.h"
+#include "Engine/Render/RenderItemPayloads.h"
 
 namespace toy {
 
@@ -19,9 +20,10 @@ public:
     // Item management
     //--------------------------------------------------------------------------
 
-    void Push(const RenderItem& item)
+    uint32_t Push(const RenderItem& item)
     {
         mItems.emplace_back(item);
+        return static_cast<uint32_t>(mItems.size() - 1);
     }
 
     void Clear()
