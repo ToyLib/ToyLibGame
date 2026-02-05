@@ -1,25 +1,39 @@
 #pragma once
 
+//==============================================================================
+// Renderer.h
+//  - Renderer core interface
+//  - Frame collection (BuildFrameQueues) + bucketed passes
+//  - Shadow / World / Overlay / UI / Post / Fade
+//==============================================================================
+
+// Engine / Utils
 #include "Utils/MathUtil.h"
+
+// Render
 #include "Engine/Render/PostEffect.h"
+#include "Engine/Render/RenderQueue.h"
 #include "Engine/Render/VisualLayer.h"
+
+// GL
 #include "glad/glad.h"
 
-#include "Engine/Render/RenderQueue.h"
-
+// SDL
 #include <SDL3/SDL.h>
 
+// Std
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <algorithm>
 
 namespace toy
 {
 
 //==============================================================================
 // ScreenProjectResult
+//  - WorldToScreen() の結果
 //==============================================================================
 struct ScreenProjectResult
 {
@@ -31,6 +45,7 @@ struct ScreenProjectResult
 
 //==============================================================================
 // UIScaleInfo
+//  - 論理(仮想)解像度→実スクリーンへのスケーリング情報
 //==============================================================================
 struct UIScaleInfo
 {
@@ -49,24 +64,35 @@ struct UIScaleInfo
 
 //==============================================================================
 // SceneCaptureRequest
+//  - Draw() 前に積んでおき、RenderTarget へ描画する要求
 //==============================================================================
 struct SceneCaptureRequest
 {
     std::shared_ptr<class RenderTarget> rt;
+
     Matrix4 view { Matrix4::Identity };
     Matrix4 proj { Matrix4::Identity };
+
     bool drawUI { false };
 
     // 将来拡張
-    bool drawSky { true };
-    bool drawWorld { true };
+    bool drawSky     { true };
+    bool drawWorld   { true };
     bool drawOverlay { false }; // まず false 推奨
 };
 
+//==============================================================================
+// FrameRenderList
+//  - 1フレーム分の RenderItem 集約領域
+//  - bucket は items の index (uint32_t) を保持する
+//
+// NOTE（名残指摘）:
+//  - .cpp 側で mFrame.items へ直接アクセスしている箇所があるため、
+//    items は public である前提になっている。
+//    今後 private 化するなら、.cpp を Items() ベースへ統一が必要。
+//==============================================================================
 struct FrameRenderList
 {
-    std::vector<RenderItem> items;
-
     void Clear()
     {
         items.clear();
@@ -75,12 +101,21 @@ struct FrameRenderList
     uint32_t Push(const RenderItem& it)
     {
         items.emplace_back(it);
-        return (uint32_t)(items.size() - 1);
+        return static_cast<uint32_t>(items.size() - 1);
     }
+
     const std::vector<RenderItem>& Items() const { return items; }
           std::vector<RenderItem>& Items()       { return items; }
 
+private:
+    std::vector<RenderItem> items;
+
 };
+
+//==============================================================================
+// FrameBuckets
+//  - mFrame.items の index を用途別に分類したもの
+//==============================================================================
 struct FrameBuckets
 {
     // World
@@ -93,7 +128,8 @@ struct FrameBuckets
     std::vector<uint32_t> sky;
     std::vector<uint32_t> overlayScreen;
     std::vector<uint32_t> ui;
-    
+
+    // Shadow caster (RenderPass::Shadow)
     std::vector<uint32_t> shadowCaster;
 
     void Clear()
@@ -105,7 +141,6 @@ struct FrameBuckets
         sky.clear();
         overlayScreen.clear();
         ui.clear();
-        
         shadowCaster.clear();
     }
 };
@@ -115,7 +150,7 @@ struct FrameBuckets
 //==============================================================================
 struct DebugInfo
 {
-    unsigned int drawCallCount   {};
+    unsigned int drawCallCount {};
 };
 
 //==============================================================================
@@ -128,7 +163,7 @@ public:
     virtual ~Renderer();
 
     //--------------------------------------------------------------------------
-    // 初期化 / 終了
+    // Initialize / Shutdown
     //--------------------------------------------------------------------------
 
     bool Initialize(SDL_Window* window, SDL_GLContext glContext);
@@ -137,15 +172,14 @@ public:
     SDL_Window* GetSDLWindow() const { return mWindow; }
 
     //--------------------------------------------------------------------------
-    // 描画
+    // Main draw
     //--------------------------------------------------------------------------
 
     void Draw();
-
     void DrawToRenderTarget(const struct SceneCaptureRequest& req);
 
     //--------------------------------------------------------------------------
-    // デバッグ / クリア
+    // Clear / Debug
     //--------------------------------------------------------------------------
 
     void SetClearColor(const Vector3& color);
@@ -158,9 +192,8 @@ public:
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
 
-
     //--------------------------------------------------------------------------
-    // カメラ / ビュー
+    // Camera / View
     //--------------------------------------------------------------------------
 
     void SetViewMatrix(const Matrix4& view)
@@ -193,13 +226,13 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // スクリーン / UI
+    // Screen / UI
     //--------------------------------------------------------------------------
 
-    float GetScreenWidth() const { return mScreenWidth; }
+    float GetScreenWidth()  const { return mScreenWidth; }
     float GetScreenHeight() const { return mScreenHeight; }
 
-    float GetVirtualWidth() const { return mVirtualWidth; }
+    float GetVirtualWidth()  const { return mVirtualWidth; }
     float GetVirtualHeight() const { return mVirtualHeight; }
 
     void SetVirtualResolution(float w, float h);
@@ -209,20 +242,20 @@ public:
     void OnWindowResized(int pixelW, int pixelH);
 
     //--------------------------------------------------------------------------
-    // シーンキャプチャーリクエスト
+    // Scene capture request
     //--------------------------------------------------------------------------
 
     void RequestSceneCapture(const SceneCaptureRequest& req);
 
     //--------------------------------------------------------------------------
-    // VisualComponent 管理
+    // VisualComponent management
     //--------------------------------------------------------------------------
 
     void AddVisualComp(class VisualComponent* comp);
     void RemoveVisualComp(class VisualComponent* comp);
 
     //--------------------------------------------------------------------------
-    // リソース / 補助
+    // Resources / helpers
     //--------------------------------------------------------------------------
 
     void UnloadData();
@@ -235,7 +268,7 @@ public:
     std::shared_ptr<class Shader> GetShader(const std::string& name);
 
     //--------------------------------------------------------------------------
-    // シャドウマップ（CSM）
+    // Shadow mapping (CSM)
     //--------------------------------------------------------------------------
 
     Matrix4 GetLightSpaceMatrix(int cascadeIndex) const
@@ -255,7 +288,7 @@ public:
     void SetCascadeBlend(float f) { mCascadeBlend = f; }
 
     //--------------------------------------------------------------------------
-    // 共通ジオメトリ
+    // Common geometry
     //--------------------------------------------------------------------------
 
     std::shared_ptr<class VertexArray> GetSpriteQuad() const
@@ -270,6 +303,9 @@ public:
 
     std::shared_ptr<class VertexArray> GetParticleQuad() const
     {
+        // NOTE（名残指摘）:
+        //  - ParticleQuad が SpriteQuad を返している（意図ならOK）
+        //  - 将来的に専用 Quad を作るならここを差し替える
         return mSpriteQuad;
     }
 
@@ -279,7 +315,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // テキスト / 2D補助
+    // Text / 2D helper
     //--------------------------------------------------------------------------
 
     std::shared_ptr<class Texture> CreateTextTexture(
@@ -290,14 +326,14 @@ public:
     ScreenProjectResult WorldToScreen(const Vector3& worldPos) const;
 
     //--------------------------------------------------------------------------
-    // ポストエフェクト
+    // Post effect
     //--------------------------------------------------------------------------
 
     void SetPostEffect(const PostEffectDesc& desc) { mPost = desc; }
     const PostEffectDesc& GetPostEffect() const { return mPost; }
 
     //--------------------------------------------------------------------------
-    // フェードパラメーター設定
+    // Fade
     //--------------------------------------------------------------------------
 
     void SetFade(float alpha, const Vector3& color = Vector3(0,0,0))
@@ -308,11 +344,12 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // Handle 変換
+    // Handle conversion
     //--------------------------------------------------------------------------
 
     GeometryHandle GetSpriteQuadHandle() const;
     GeometryHandle GetSurfaceQuadHandle() const;
+
     ShaderHandle   GetShaderHandle(const std::string& name);
     TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
@@ -327,44 +364,44 @@ private:
     float         mWindowDisplayScale { 1.0f };
 
     //--------------------------------------------------------------------------
-    // スクリーン / カメラ
+    // Screen / Camera
     //--------------------------------------------------------------------------
 
-    float   mScreenWidth {};
-    float   mScreenHeight {};
-    float   mVirtualWidth {};
+    float   mScreenWidth   {};
+    float   mScreenHeight  {};
+    float   mVirtualWidth  {};
     float   mVirtualHeight {};
 
     float   mPerspectiveFOV { 45.0f };
 
-    Matrix4 mViewMatrix {};
-    Matrix4 mInvView    {};
+    Matrix4 mViewMatrix       {};
+    Matrix4 mInvView          {};
     Matrix4 mProjectionMatrix {};
-    Matrix4 mViewProjMatrix {};
+    Matrix4 mViewProjMatrix   {};
 
     //--------------------------------------------------------------------------
-    // 描画状態 / デバッグ
+    // Debug / Colors
     //--------------------------------------------------------------------------
 
     Vector3 mClearColor { Vector3(0.2f, 0.5f, 0.8f) };
     Vector3 mWireColor  { Vector3(1.0f, 1.0f, 1.0f) };
 
-    DebugInfo mDebugOnScreen {};
-    DebugInfo mDebugRTT {};
+    DebugInfo  mDebugOnScreen {};
+    DebugInfo  mDebugRTT {};
     DebugInfo* mDebugActiveScreen = &mDebugOnScreen;
 
     void ChangeDebugOnScreen() { mDebugActiveScreen = &mDebugOnScreen; }
-    void ChangeDebugRTT() { mDebugActiveScreen = &mDebugRTT; }
-    void ResetDebugCounter() { mDebugOnScreen = mDebugRTT = {}; }
+    void ChangeDebugRTT()      { mDebugActiveScreen = &mDebugRTT; }
+    void ResetDebugCounter()   { mDebugOnScreen = mDebugRTT = {}; }
 
     //--------------------------------------------------------------------------
-    // キャプチャーリクエストのキュー
+    // Scene capture queue
     //--------------------------------------------------------------------------
 
     std::vector<SceneCaptureRequest> mSceneCaptureQueue {};
 
     //--------------------------------------------------------------------------
-    // ライティング / シャドウ
+    // Lighting / Shadow
     //--------------------------------------------------------------------------
 
     std::shared_ptr<class LightingManager> mLightingManager;
@@ -373,6 +410,7 @@ private:
     float mShadowFar         { 100.0f };
     float mShadowOrthoWidth  { 100.0f };
     float mShadowOrthoHeight { 100.0f };
+
     int   mShadowFBOWidth    { 4096 };
     int   mShadowFBOHeight   { 4096 };
 
@@ -386,25 +424,25 @@ private:
     float mCascadeBlend  { 6.0f };
 
     //--------------------------------------------------------------------------
-    // ポストエフェクト
+    // Post effect
     //--------------------------------------------------------------------------
 
     // メインシーン（ポスト用）RenderTarget
-    std::shared_ptr<RenderTarget> mSceneRT ;
+    std::shared_ptr<RenderTarget> mSceneRT;
 
     // ポスト設定
     PostEffectDesc mPost {};
 
     //--------------------------------------------------------------------------
-    // フェード
+    // Fade
     //--------------------------------------------------------------------------
 
-    float   mFadeAlpha  { 0.0f };     // 0=表示, 1=完全暗転
+    float   mFadeAlpha  { 0.0f }; // 0=表示, 1=完全暗転
     Vector3 mFadeColor  { 0, 0, 0 };
     bool    mEnableFade { false };
 
     //--------------------------------------------------------------------------
-    // ジオメトリ
+    // Geometry
     //--------------------------------------------------------------------------
 
     std::shared_ptr<class VertexArray> mFullScreenQuad;
@@ -416,7 +454,7 @@ private:
     void CreateSurfaceQuad();
 
     //--------------------------------------------------------------------------
-    // シェーダ
+    // Shaders
     //--------------------------------------------------------------------------
 
     std::string mShaderPath { "ToyLib/Shaders/" };
@@ -425,35 +463,35 @@ private:
     bool LoadShaders();
 
     //--------------------------------------------------------------------------
-    // Visual
+    // Visual components
     //--------------------------------------------------------------------------
 
     std::vector<class VisualComponent*> mVisualComps;
 
     //--------------------------------------------------------------------------
-    // 内部初期化
+    // Internal init
     //--------------------------------------------------------------------------
 
     bool LoadSettings(const std::string& filePath);
     bool InitializeShadowMapping();
 
     //--------------------------------------------------------------------------
-    // OpenGL 切り離し準備
+    // OpenGL dispatch helpers (DrawPass layer)
     //--------------------------------------------------------------------------
 
     void DrawBucket_World(const std::vector<uint32_t>& bucket);
     void DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex);
+
     void ApplyState_GL(const RenderItem& it);
     void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
 
     //--------------------------------------------------------------------------
-    //  DrawPass
+    // DrawPass
     //--------------------------------------------------------------------------
 
     FrameRenderList mFrame;
-    FrameRenderList mShadowFrame;
     FrameBuckets    mBuckets;
-    
+
     void BuildFrameQueues();
     void SortBucket(std::vector<uint32_t>& bucket);
     void SortBucket_Shadow(std::vector<uint32_t>& bucket);
@@ -461,21 +499,26 @@ private:
     void BeginFrame();
     void RenderShadowPass();
     void RestoreAfterShadowPass();
+
     void DrawSkyPass();
     void DrawWorldPass();
     void DrawOverlayScreenPass();
     void DrawFadePass();
     void DrawPostEffectPass();
     void DrawUIPass();
+
     void EndFrame();
 
     //--------------------------------------------------------------------------
-    // Camera Stack
+    // Camera stack
     //--------------------------------------------------------------------------
 
     struct CameraState
     {
-        Matrix4 view, proj, viewProj, invView;
+        Matrix4 view;
+        Matrix4 proj;
+        Matrix4 viewProj;
+        Matrix4 invView;
     };
 
     std::vector<CameraState> mCameraStack;

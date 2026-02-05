@@ -30,27 +30,38 @@
 #include "glad/glad.h"
 
 // Std
+#include <algorithm>
 #include <iostream>
 
 namespace toy {
 
-//----------------------------------------
-// 共通：RenderQueue draw
-//----------------------------------------
+//==============================================================================
+// Bucket draw helpers
+//  - bucket は mFrame.items の index 配列
+//  - DrawPass は bucket を走査して、対応する RenderItem を描画する
+//==============================================================================
+
 void Renderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
 {
-    const auto& items = mFrame.items;
+    // NOTE:
+    //  - FrameRenderList の公開インターフェースが Items() なら本来は Items() を使うべき。
+    //  - ここでは既存実装に合わせて mFrame.items を参照している（構造体が public である前提）。
+    const auto& items = mFrame.Items();
 
     for (uint32_t idx : bucket)
     {
-        if (idx >= items.size()) continue;
+        // safety
+        if (idx >= items.size())
+        {
+            continue;
+        }
 
         const RenderItem& it = items[idx];
+
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
         DrawItem_GL(it, RenderPass::World, -1);
     }
 }
-
 
 void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex)
 {
@@ -59,19 +70,20 @@ void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascad
         return;
     }
 
-    const auto& items = mFrame.items;
+    const auto& items = mFrame.Items();
 
     for (uint32_t idx : bucket)
     {
+        // safety
         if (idx >= items.size())
         {
-            continue; // 安全弁
+            continue;
         }
 
         const RenderItem& it = items[idx];
 
-        // Shadowで描かないもの（UIなど）を除外したいならここで弾く
-        // ※ bucket側で分けてるなら不要
+        // Shadow で描かないもの（UIなど）を除外したいならここで弾く
+        // ※ bucket 側で分離しているなら不要だが、安全弁として残している
         if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
         {
             continue;
@@ -81,18 +93,23 @@ void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascad
         DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
     }
 }
-//----------------------------------------
-// State apply
-//----------------------------------------
+
+//==============================================================================
+// GL state apply
+//  - RenderItem が要求する描画状態を OpenGL に反映
+//==============================================================================
+
 void Renderer::ApplyState_GL(const RenderItem& it)
 {
-    // depth
+    // depth test
     if (it.depthTest) glEnable(GL_DEPTH_TEST);
     else             glDisable(GL_DEPTH_TEST);
 
+    // depth func
     if (it.type == RenderItemType::SkyDome) glDepthFunc(GL_LEQUAL);
     else                                   glDepthFunc(GL_LESS);
 
+    // depth write
     glDepthMask(it.depthWrite ? GL_TRUE : GL_FALSE);
 
     // blend
@@ -121,12 +138,14 @@ void Renderer::ApplyState_GL(const RenderItem& it)
     // front face
     glFrontFace(it.frontFace == FrontFace::CCW ? GL_CCW : GL_CW);
 
+    // color mask (default)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
-//----------------------------------------
-// helpers（このcpp内限定）
-//----------------------------------------
+//==============================================================================
+// Helpers (cpp internal)
+//==============================================================================
+
 namespace {
 
 inline bool ValidateGeometryForDraw(const RenderItem& it)
@@ -136,6 +155,7 @@ inline bool ValidateGeometryForDraw(const RenderItem& it)
     if (!isParticle)
     {
         if (!it.geometry.ptr) return false;
+
         const bool hasElements = (it.indexCount  > 0);
         const bool hasArrays   = (it.vertexCount > 0);
         if (!hasElements && !hasArrays) return false;
@@ -143,8 +163,11 @@ inline bool ValidateGeometryForDraw(const RenderItem& it)
     else
     {
         if (it.gpuVAO == 0 || it.instanceCount <= 0 || it.indexCount <= 0)
+        {
             return false;
+        }
     }
+
     return true;
 }
 
@@ -173,12 +196,16 @@ inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
     if (it.type == RenderItemType::Particle)
     {
         glBindVertexArray(it.gpuVAO);
-        glDrawElementsInstanced(GL_TRIANGLES,
-                                it.indexCount,
-                                GL_UNSIGNED_INT,
-                                nullptr,
-                                it.instanceCount);
+
+        glDrawElementsInstanced(
+            GL_TRIANGLES,
+            it.indexCount,
+            GL_UNSIGNED_INT,
+            nullptr,
+            it.instanceCount);
+
         glBindVertexArray(0);
+
         r.AddDrawCall();
         return;
     }
@@ -194,18 +221,23 @@ inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
     }
 
     if (it.indexCount > 0)
+    {
         glDrawElements(mode, it.indexCount, GL_UNSIGNED_INT, nullptr);
+    }
     else
+    {
         glDrawArrays(mode, 0, it.vertexCount);
+    }
 
     r.AddDrawCall();
 }
 
 } // unnamed namespace
 
-//----------------------------------------
+//==============================================================================
 // DrawItem_GL
-//----------------------------------------
+//==============================================================================
+
 void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
     if (!ValidateGeometryForDraw(it)) return;
@@ -226,9 +258,10 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
     DrawDefaultGeometry_GL(*this, it);
 }
 
-//=============================================================
+//==============================================================================
 // Frame begin/end
-//=============================================================
+//==============================================================================
+
 void Renderer::BeginFrame()
 {
     const bool usePost = (mPost.type != PostEffectType::None);
@@ -242,6 +275,7 @@ void Renderer::BeginFrame()
             mSceneRT = std::make_shared<RenderTarget>();
             mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight);
         }
+
         mSceneRT->Bind();
     }
     else
@@ -253,6 +287,7 @@ void Renderer::BeginFrame()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -261,9 +296,10 @@ void Renderer::EndFrame()
     SDL_GL_SwapWindow(mWindow);
 }
 
-//=============================================================
+//==============================================================================
 // Shadow pass
-//=============================================================
+//==============================================================================
+
 void Renderer::RenderShadowPass()
 {
     GLint prevFBO = 0;
@@ -274,9 +310,11 @@ void Renderer::RenderShadowPass()
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
@@ -290,6 +328,7 @@ void Renderer::RenderShadowPass()
         mShadowOrthoWidth,
         mShadowOrthoWidth * 4.0f
     };
+
     const float orthoH[kShadowCascadeCount] =
     {
         mShadowOrthoHeight,
@@ -300,19 +339,19 @@ void Renderer::RenderShadowPass()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
         glViewport(0, 0, (GLsizei)mShadowFBOWidth, (GLsizei)mShadowFBOHeight);
+
         glClear(GL_DEPTH_BUFFER_BIT);
 
         Matrix4 lightProj = Matrix4::CreateOrtho(
             orthoW[i],
             orthoH[i],
             mShadowNear,
-            mShadowFar
-        );
+            mShadowFar);
 
         Matrix4 lightVP = lightView * lightProj;
         mLightSpaceMatrix[i] = lightVP;
 
-        // ★ここで bucket を描くだけ
+        // bucket を描くだけ（BuildFrameQueues() 側で caster を集約済み）
         DrawBucket_Shadow(mBuckets.shadowCaster, i);
     }
 
@@ -340,9 +379,10 @@ void Renderer::RestoreAfterShadowPass()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-//=============================================================
+//==============================================================================
 // Individual passes
-//=============================================================
+//==============================================================================
+
 void Renderer::DrawSkyPass()
 {
     if (mBuckets.sky.empty()) return;
@@ -354,7 +394,7 @@ void Renderer::DrawSkyPass()
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
 
-    // 事前に BuildFrameQueues() で分類＆ソート済み
+    // BuildFrameQueues() で分類＆ソート済み
     DrawBucket_World(mBuckets.sky);
 
     glDepthMask(GL_TRUE);
@@ -380,7 +420,6 @@ void Renderer::DrawWorldPass()
 
         glDisable(GL_BLEND);
 
-        // 事前に BuildFrameQueues() で分類＆ソート済み
         DrawBucket_World(mBuckets.worldOpaque);
 
         glEnable(GL_BLEND);
@@ -451,7 +490,6 @@ void Renderer::DrawOverlayScreenPass()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // 事前に BuildFrameQueues() で分類＆ソート済み
     DrawBucket_World(mBuckets.overlayScreen);
 
     glEnable(GL_DEPTH_TEST);
@@ -467,6 +505,7 @@ void Renderer::DrawFadePass()
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -494,11 +533,11 @@ void Renderer::DrawUIPass()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // 事前に BuildFrameQueues() で分類＆ソート済み
     DrawBucket_World(mBuckets.ui);
 
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
@@ -530,7 +569,7 @@ void Renderer::DrawPostEffectPass()
         case PostEffectType::CRT:
             sh->SetIntUniform("uPostType", static_cast<int>(mPost.type));
             sh->SetFloatUniform("uIntensity", mPost.intensity);
-            sh->SetFloatUniform("uTime",  SDL_GetTicks());
+            sh->SetFloatUniform("uTime", SDL_GetTicks());
             sh->SetIntUniform("uFlipY", 0);
             break;
 
@@ -567,9 +606,10 @@ void Renderer::DrawPostEffectPass()
     glEnable(GL_DEPTH_TEST);
 }
 
-//=============================================================
+//==============================================================================
 // Main Draw
-//=============================================================
+//==============================================================================
+
 void Renderer::Draw()
 {
     ResetDebugCounter();
@@ -603,15 +643,18 @@ void Renderer::Draw()
     EndFrame();
 }
 
-//=============================================================
+//==============================================================================
 // BuildFrameQueues
-//=============================================================
+//  - VisualComponent から RenderItem を回収し、mFrame.items に集約
+//  - 同時に index bucket に分類し、DrawPass では bucket を走査して描画する
+//==============================================================================
+
 void Renderer::BuildFrameQueues()
 {
     mFrame.Clear();
     mBuckets.Clear();
 
-    // frustum cull（今のまま：カメラVPでの可視判定）
+    // frustum cull（カメラ VP での可視判定）
     const Matrix4 vp = GetViewMatrix() * GetProjectionMatrix();
     const Frustum fr = BuildFrustumFromMatrix(vp);
 
@@ -620,11 +663,14 @@ void Renderer::BuildFrameQueues()
 
     for (auto* vc : mVisualComps)
     {
-        if (!vc || !vc->IsVisible()) continue;
+        if (!vc || !vc->IsVisible())
+        {
+            continue;
+        }
 
-        // -----------------------------
-        // (A) カメラ frustum cull（今のまま）
-        // -----------------------------
+        // ---------------------------------------------
+        // (A) カメラ frustum cull（Object3D / Effect3D）
+        // ---------------------------------------------
         const VisualLayer layer = vc->GetLayer();
         const bool shouldCull =
             (layer == VisualLayer::Object3D) ||
@@ -647,9 +693,9 @@ void Renderer::BuildFrameQueues()
             }
         }
 
-        // -----------------------------
-        // (B) Shadow items を先に積む（★統合）
-        // -----------------------------
+        // ---------------------------------------------
+        // (B) Shadow items（統合）
+        // ---------------------------------------------
         if (vc->GetEnableShadow())
         {
             tmpShadow.Clear();
@@ -657,15 +703,17 @@ void Renderer::BuildFrameQueues()
 
             for (const auto& it : tmpShadow.Items())
             {
-                // ★ここで pass=Shadow の RenderItem を積む想定
+                // NOTE:
+                //  - ここでは pass=Shadow の RenderItem を積む想定。
+                //  - pass を書き換えたりはしない（既存挙動に依存）。
                 const uint32_t idx = mFrame.Push(it);
                 mBuckets.shadowCaster.push_back(idx);
             }
         }
 
-        // -----------------------------
-        // (C) 通常 items（World/UI/Overlay...）
-        // -----------------------------
+        // ---------------------------------------------
+        // (C) 通常 items（World / UI / Overlay...）
+        // ---------------------------------------------
         tmpRender.Clear();
         vc->GatherRenderItems(tmpRender);
 
@@ -673,20 +721,21 @@ void Renderer::BuildFrameQueues()
         {
             const uint32_t idx = mFrame.Push(it);
 
-            // ★もし RenderItems 側にも pass=Shadow が紛れたらここで拾う（安全弁）
+            // safety: RenderItems 側にも pass=Shadow が混ざっていた場合
             if (it.pass == RenderPass::Shadow)
             {
                 mBuckets.shadowCaster.push_back(idx);
                 continue;
             }
 
-            // ここで “1回だけ分類”
+            // UI は pass/layer どちらでも拾う
             if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
             {
                 mBuckets.ui.push_back(idx);
                 continue;
             }
 
+            // layer + blend/type で 1 回だけ分類
             switch (it.layer)
             {
                 case VisualLayer::Sky:
@@ -709,6 +758,7 @@ void Renderer::BuildFrameQueues()
                     const bool isPre =
                         (it.type == RenderItemType::Sprite) ||
                         (it.type == RenderItemType::Debug);
+
                     if (isPre) mBuckets.effectPre.push_back(idx);
                     else       mBuckets.effectOverlay.push_back(idx);
                     break;
@@ -725,9 +775,9 @@ void Renderer::BuildFrameQueues()
         }
     }
 
-    // -----------------------------
-    // (D) Sort：bucket の index を並び替える（mFrame を参照）
-    // -----------------------------
+    // ---------------------------------------------
+    // (D) Sort: bucket の index を並び替える（mFrame を参照）
+    // ---------------------------------------------
     SortBucket(mBuckets.sky);
     SortBucket(mBuckets.worldOpaque);
     SortBucket(mBuckets.effectPre);
@@ -736,9 +786,13 @@ void Renderer::BuildFrameQueues()
     SortBucket(mBuckets.overlayScreen);
     SortBucket(mBuckets.ui);
 
-    // ★Shadow は専用 sort が無難（今は no-op でもOK）
+    // Shadow は専用 sort（必要ならまとめる）
     SortBucket_Shadow(mBuckets.shadowCaster);
 }
+
+//==============================================================================
+// Bucket sort
+//==============================================================================
 
 void Renderer::SortBucket(std::vector<uint32_t>& bucket)
 {
@@ -747,7 +801,7 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
         return;
     }
 
-    auto& items = mFrame.items;
+    auto& items = mFrame.Items();
 
     std::stable_sort(
         bucket.begin(),
@@ -758,7 +812,7 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
             const bool aValid = (ia < items.size());
             const bool bValid = (ib < items.size());
             if (aValid != bValid) return aValid;   // valid が先
-            if (!aValid && !bValid) return false;  // 両方invalidなら順序維持
+            if (!aValid && !bValid) return false;  // 両方 invalid なら順序維持
 
             const RenderItem& a = items[ia];
             const RenderItem& b = items[ib];
@@ -775,12 +829,12 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
                 return a.layer < b.layer;
             }
 
-            // 3) BlendMode：Opaque を先に（Z確定）
+            // 3) BlendMode：Opaque を先に（Z 確定）
             const bool aOpaque = (a.blend == BlendMode::Opaque);
             const bool bOpaque = (b.blend == BlendMode::Opaque);
             if (aOpaque != bOpaque)
             {
-                return aOpaque; // true(opaque) が先
+                return aOpaque;
             }
 
             // 4) DrawOrder
@@ -794,8 +848,10 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
         }
     );
 }
+
 void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
 {
+
     auto& items = mFrame.Items();
 
     std::stable_sort(
@@ -806,19 +862,19 @@ void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
             const RenderItem& A = items[a];
             const RenderItem& B = items[b];
 
-            // 0) 念のため：Shadow以外が混ざってたら後ろへ
+            // 0) 念のため：Shadow 以外が混ざっていたら後ろへ
             const bool aShadow = (A.pass == RenderPass::Shadow);
             const bool bShadow = (B.pass == RenderPass::Shadow);
-            if (aShadow != bShadow) return aShadow; // trueが先
+            if (aShadow != bShadow) return aShadow;
 
-            // 1) shader でまとめる（SetActive削減）
+            // 1) shader でまとめる（SetActive 削減）
             if (A.shader.ptr != B.shader.ptr)
             {
                 return A.shader.ptr < B.shader.ptr;
             }
 
-            // 2) geometry でまとめる（VAO bind削減）
-            if (A.type != RenderItemType::Particle) // Particleはshadow描かない想定なら無視でもOK
+            // 2) geometry でまとめる（VAO bind 削減）
+            if (A.type != RenderItemType::Particle)
             {
                 if (A.geometry.ptr != B.geometry.ptr)
                 {
@@ -826,19 +882,20 @@ void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
                 }
             }
 
-            // 3) Skinned の palette 有無で軽くまとめる（任意）
+            // 3) Skinned をまとめる（任意）
             const bool aSkinned = (A.type == RenderItemType::SkinnedMesh);
             const bool bSkinned = (B.type == RenderItemType::SkinnedMesh);
-            if (aSkinned != bSkinned) return aSkinned; // skinned先（or逆でもOK）
+            if (aSkinned != bSkinned) return aSkinned;
 
-            return false; // stable_sortに任せる
+            return false; // stable_sort に任せる（投入順維持）
         }
     );
 }
 
-//=============================================================
+//==============================================================================
 // DrawToRenderTarget
-//=============================================================
+//==============================================================================
+
 void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
     if (!req.rt) return;
@@ -859,8 +916,7 @@ void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     req.rt->Bind();
     glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
 
-    // ★Sky-only の場合は「色を毎回クリアしない」方が水面で破綻しにくい
-    //   （必要ならここを req側のフラグにしてもいい）
+    // Sky-only の場合は「色を毎回クリアしない」方が水面で破綻しにくい
     if (req.drawWorld || req.drawOverlay || req.drawUI)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -873,23 +929,23 @@ void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     // ---- Override camera ----
     mViewMatrix       = req.view;
     mProjectionMatrix = req.proj;
-    mInvView          = req.view;
+
+    mInvView = req.view;
     mInvView.Invert();
 
     // ---- Shadow for this capture ----
-    // ★Worldを描かないなら Shadow も不要（重い＆副作用の元）
     if (req.drawWorld)
     {
         RenderShadowPass();
 
-        // RestoreAfterShadowPass() が画面VPに戻すので、RTに戻す
+        // RestoreAfterShadowPass() が画面 VP に戻すので、RT に戻す
         RestoreAfterShadowPass();
         req.rt->Bind();
         glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
     }
     else
     {
-        // Sky-only のときも念のため、RT側の描画状態に寄せる
+        // Sky-only のときも念のため、RT 側の描画状態に寄せる
         glDisable(GL_STENCIL_TEST);
     }
 
@@ -914,6 +970,5 @@ void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     ChangeDebugOnScreen();
 }
-
 
 } // namespace toy
