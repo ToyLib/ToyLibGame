@@ -15,7 +15,6 @@ EnemyActor::EnemyActor(toy::Application* a)
     meshComp->SetYawOffset(Math::ToRadians(180.0f));
     meshComp->SetToonRender(true);
     meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
-    meshComp->SetContourFactor(1.01f);
     
 
     
