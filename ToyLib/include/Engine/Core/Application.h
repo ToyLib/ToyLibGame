@@ -72,6 +72,9 @@ public:
     void SetVisibleDebuWire(const bool b)    { mVisibleDebugWire = b; }
 
     
+    SDL_Window* GetSDLWindow() const { return mWindow; }
+    const SDL_GLContext GetGLContext() const { return mGLContext; }
+    
 protected:
     //-----------------------------------------
     // ゲーム側でオーバーライドするフック関数

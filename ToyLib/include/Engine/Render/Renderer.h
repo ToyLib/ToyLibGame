@@ -135,7 +135,7 @@ public:
     // Initialize / Shutdown
     //--------------------------------------------------------------------------
 
-    bool Initialize(SDL_Window* window, SDL_GLContext glContext);
+    bool Initialize(const class Application* app);
     void Shutdown();
 
     SDL_Window* GetSDLWindow() const { return mWindow; }

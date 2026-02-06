@@ -138,7 +138,7 @@ bool Application::Initialize()
     }
 
     // Renderer 初期化（）
-    if (!mRenderer->Initialize(mWindow, mGLContext))
+    if (!mRenderer->Initialize(this))
     {
         std::cerr << "[Application] Renderer::Initialize failed." << std::endl;
         return false;

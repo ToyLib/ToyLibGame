@@ -12,6 +12,8 @@
 
 #include "Engine/Render/Renderer.h"
 
+#include "Engine/Core/Application.h"
+
 // Engine / Render
 #include "Engine/Render/LightingManager.h"
 #include "Engine/Render/RenderTarget.h"
@@ -55,10 +57,10 @@ IRenderer::~IRenderer()
 //=============================================================
 // 初期化／終了処理
 //=============================================================
-bool IRenderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
+bool IRenderer::Initialize(const Application* app)
 {
-    mWindow    = window;      // 非所有
-    mGLContext = glContext;   // 非所有
+    mWindow    = app->GetSDLWindow();      // 非所有
+    mGLContext = app->GetGLContext();   // 非所有
 
     // VSync
     SDL_GL_SetSwapInterval(1);
