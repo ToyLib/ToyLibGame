@@ -25,7 +25,7 @@ Application::Application()
     : mIsFullScreen(true)
     , mEnableDebug(false)
 {
-    mRenderer      = std::make_unique<Renderer>();
+    mRenderer      = std::make_unique<IRenderer>();
     mInputSys      = std::make_unique<InputSystem>();
     mPhysWorld     = std::make_unique<PhysWorld>();
     mAssetManager  = std::make_unique<AssetManager>();

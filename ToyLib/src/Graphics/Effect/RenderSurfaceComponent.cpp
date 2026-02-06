@@ -73,6 +73,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     sp.tint    = mTint;
     sp.flipX   = mFlipX;
     sp.flipY   = mFlipY;
+    sp.scanlineStrength = mScanlineStrength;
 
     int mode = 0; // Plain fallback
     switch (mMode)

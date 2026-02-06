@@ -10,7 +10,6 @@
 
 namespace toy {
 
-class Renderer;
 
 //==============================================================
 // RenderItemType
@@ -43,7 +42,7 @@ struct RenderItem
     int         drawOrder { 0 };
     
     using DispatchFn = bool(*)(
-                               Renderer&        r,
+                               class IRenderer&  r,
                                const RenderItem& it,
                                RenderPass       pass,
                                int              cascadeIndex);

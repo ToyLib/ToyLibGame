@@ -131,6 +131,7 @@ struct SurfacePayload
     bool    flipY   { false };
     int     mode    { 0 };
     float   time    { 0.0f };
+    float   scanlineStrength { 0.5f };
 };
 
 } // namespace toy

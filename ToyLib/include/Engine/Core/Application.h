@@ -43,7 +43,7 @@ public:
     //-----------------------------------------
     // システム取得
     //-----------------------------------------
-    class Renderer*        GetRenderer()        const { return mRenderer.get(); }
+    class IRenderer*       GetRenderer()        const { return mRenderer.get(); }
     class PhysWorld*       GetPhysWorld()       const { return mPhysWorld.get(); }
     class AssetManager*    GetAssetManager()    const { return mAssetManager.get(); }
     class AssetManager*    GetSysAssetManager() const { return mSystemAssetManager.get(); }
@@ -126,7 +126,7 @@ private:
     //-----------------------------------------
     // サブシステム
     //-----------------------------------------
-    std::unique_ptr<class Renderer>        mRenderer;
+    std::unique_ptr<class IRenderer>       mRenderer;
     std::unique_ptr<class InputSystem>     mInputSys;
     std::unique_ptr<class PhysWorld>       mPhysWorld;
     std::unique_ptr<class AssetManager>    mAssetManager;

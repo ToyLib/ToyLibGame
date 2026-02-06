@@ -14,7 +14,7 @@
 
 namespace toy {
 
-bool Renderer::LoadShaders()
+bool IRenderer::LoadShaders()
 {
     std::string vShaderName;
     std::string fShaderName;
@@ -149,7 +149,7 @@ bool Renderer::LoadShaders()
     return true;
 }
 
-std::shared_ptr<Shader> Renderer::GetShader(const std::string& name)
+std::shared_ptr<Shader> IRenderer::GetShader(const std::string& name)
 {
     auto itr = mShaders.find(name);
     return (itr != mShaders.end()) ? itr->second : nullptr;

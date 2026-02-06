@@ -13,7 +13,7 @@ namespace toy {
 //============================================================
 // Sprite
 //============================================================
-static bool DispatchSprite(Renderer& r,
+static bool DispatchSprite(IRenderer& r,
                            const RenderItem& it,
                            RenderPass pass,
                            int)
@@ -61,7 +61,7 @@ static bool DispatchSprite(Renderer& r,
 //============================================================
 // Mesh
 //============================================================
-static bool DispatchMesh(Renderer& r,
+static bool DispatchMesh(IRenderer& r,
                          const RenderItem& it,
                          RenderPass pass,
                          int)
@@ -121,7 +121,7 @@ static bool DispatchMesh(Renderer& r,
 //============================================================
 // SkinnedMesh
 //============================================================
-static bool DispatchSkinnedMesh(Renderer& r,
+static bool DispatchSkinnedMesh(IRenderer& r,
                                 const RenderItem& it,
                                 RenderPass pass,
                                 int)
@@ -215,7 +215,7 @@ static bool DispatchSkinnedMesh(Renderer& r,
 //============================================================
 // Billboard
 //============================================================
-static bool DispatchBillboard(Renderer& r,
+static bool DispatchBillboard(IRenderer& r,
                               const RenderItem& it,
                               RenderPass pass,
                               int)
@@ -258,7 +258,7 @@ static bool DispatchBillboard(Renderer& r,
 //============================================================
 // GPUParticle
 //============================================================
-static bool DispatchParticle(Renderer& r,
+static bool DispatchParticle(IRenderer& r,
                              const RenderItem& it,
                              RenderPass pass,
                              int)
@@ -305,7 +305,7 @@ static bool DispatchParticle(Renderer& r,
 //============================================================
 // SkyDome（完全自前描画）
 //============================================================
-static bool DispatchSkyDome(Renderer& r,
+static bool DispatchSkyDome(IRenderer& r,
                             const RenderItem& it,
                             RenderPass pass,
                             int)
@@ -355,7 +355,7 @@ static bool DispatchSkyDome(Renderer& r,
 //============================================================
 // Overlay（フルスクリーン系）
 //============================================================
-static bool DispatchOverlay(Renderer& r,
+static bool DispatchOverlay(IRenderer& r,
                             const RenderItem& it,
                             RenderPass pass,
                             int)
@@ -401,7 +401,7 @@ static bool DispatchOverlay(Renderer& r,
 //============================================================
 // Debug
 //============================================================
-static bool DispatchDebug(Renderer& r,
+static bool DispatchDebug(IRenderer& r,
                           const RenderItem& it,
                           RenderPass pass,
                           int)
@@ -435,7 +435,7 @@ static bool DispatchDebug(Renderer& r,
 //============================================================
 // Surface
 //============================================================
-static bool DispatchSurface(Renderer& r,
+static bool DispatchSurface(IRenderer& r,
                             const RenderItem& it,
                             RenderPass pass,
                             int)
@@ -465,6 +465,7 @@ static bool DispatchSurface(Renderer& r,
     Vector3 tint    = Vector3(1.0f, 1.0f, 1.0f);
     int     mode    = 0;
     float   time    = 0.0f;
+    float  scanlineStrength = 1.0f;
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
@@ -475,6 +476,7 @@ static bool DispatchSurface(Renderer& r,
         tint    = sp.tint;
         mode    = sp.mode;
         time    = sp.time;
+        scanlineStrength = sp.scanlineStrength;
     }
 
     sh->SetBooleanUniform("uFlipX",   flipX);
@@ -483,6 +485,7 @@ static bool DispatchSurface(Renderer& r,
     sh->SetVectorUniform ("uTint",    tint);
     sh->SetIntUniform    ("uMode",    mode);
     sh->SetFloatUniform  ("uTime",    time);
+    sh->SetFloatUniform  ("uScanlineStrength", scanlineStrength);
 
     // テクスチャ
     if (it.texture.ptr)

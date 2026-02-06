@@ -125,11 +125,11 @@ struct DebugInfo
 //==============================================================================
 // Renderer
 //==============================================================================
-class Renderer
+class IRenderer
 {
 public:
-    Renderer();
-    virtual ~Renderer();
+    IRenderer();
+    virtual ~IRenderer();
 
     //--------------------------------------------------------------------------
     // Initialize / Shutdown

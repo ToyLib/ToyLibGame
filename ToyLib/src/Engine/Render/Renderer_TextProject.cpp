@@ -20,7 +20,7 @@ namespace toy {
 //=============================================================
 // テキスト → テクスチャ生成（SDL3_ttf）改行対応
 //=============================================================
-std::shared_ptr<Texture> Renderer::CreateTextTexture(
+std::shared_ptr<Texture> IRenderer::CreateTextTexture(
     const std::string& text,
     const Vector3& color,
     std::shared_ptr<TextFont> font)
@@ -179,7 +179,7 @@ std::shared_ptr<Texture> Renderer::CreateTextTexture(
 //=============================================================
 // World → Screen
 //=============================================================
-ScreenProjectResult Renderer::WorldToScreen(const Vector3& worldPos) const
+ScreenProjectResult IRenderer::WorldToScreen(const Vector3& worldPos) const
 {
     ScreenProjectResult result{};
     result.visible = false;

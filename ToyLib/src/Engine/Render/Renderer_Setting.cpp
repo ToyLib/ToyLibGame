@@ -11,7 +11,7 @@ namespace toy {
 //   - Renderer_Settings.json などから描画関連の初期設定を読み込む
 //   - ウィンドウタイトル／解像度／FOV／クリアカラー／フォグ／シャドウ等
 //=============================================================
-bool Renderer::LoadSettings(const std::string& filePath)
+bool IRenderer::LoadSettings(const std::string& filePath)
 {
     //---------------------------------------------------------
     // ファイルオープン

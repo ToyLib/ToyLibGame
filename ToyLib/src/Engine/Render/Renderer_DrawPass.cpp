@@ -39,7 +39,7 @@ namespace toy {
 //  - 各 Pass は bucket を走査して対応する RenderItem を描画する
 //==============================================================================
 
-void Renderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
+void IRenderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
 {
     const auto& items = mRenderQueue.Items();
 
@@ -57,7 +57,7 @@ void Renderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
     }
 }
 
-void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex)
+void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex)
 {
     if (bucket.empty())
     {
@@ -91,7 +91,7 @@ void Renderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascad
 //  - RenderItem が要求する描画状態を OpenGL に反映
 //==============================================================================
 
-void Renderer::ApplyState_GL(const RenderItem& it)
+void IRenderer::ApplyState_GL(const RenderItem& it)
 {
     // depth test
     if (it.depthTest) glEnable(GL_DEPTH_TEST);
@@ -170,7 +170,7 @@ inline bool ValidateGeometryForDraw(const RenderItem& it)
     return true;
 }
 
-inline void SetCommonUniforms(Renderer& r,
+inline void SetCommonUniforms(IRenderer& r,
                              const RenderItem& it,
                              RenderPass pass,
                              int cascadeIndex)
@@ -190,7 +190,7 @@ inline void SetCommonUniforms(Renderer& r,
     }
 }
 
-inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
+inline void DrawDefaultGeometry_GL(IRenderer& r, const RenderItem& it)
 {
     if (it.type == RenderItemType::Particle)
     {
@@ -237,7 +237,7 @@ inline void DrawDefaultGeometry_GL(Renderer& r, const RenderItem& it)
 // DrawItem_GL
 //==============================================================================
 
-void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex)
+void IRenderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
     if (!ValidateGeometryForDraw(it)) return;
 
@@ -261,7 +261,7 @@ void Renderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeInd
 // Frame begin/end
 //==============================================================================
 
-void Renderer::BeginFrame()
+void IRenderer::BeginFrame()
 {
     const bool usePost = (mPost.type != PostEffectType::None);
 
@@ -290,7 +290,7 @@ void Renderer::BeginFrame()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::EndFrame()
+void IRenderer::EndFrame()
 {
     SDL_GL_SwapWindow(mWindow);
 }
@@ -299,7 +299,7 @@ void Renderer::EndFrame()
 // Shadow pass
 //==============================================================================
 
-void Renderer::RenderShadowPass()
+void IRenderer::RenderShadowPass()
 {
     GLint prevFBO = 0;
     GLint prevVP[4];
@@ -359,7 +359,7 @@ void Renderer::RenderShadowPass()
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
 
-void Renderer::RestoreAfterShadowPass()
+void IRenderer::RestoreAfterShadowPass()
 {
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -382,7 +382,7 @@ void Renderer::RestoreAfterShadowPass()
 // Individual passes
 //==============================================================================
 
-void Renderer::DrawSkyPass()
+void IRenderer::DrawSkyPass()
 {
     if (mBuckets.sky.empty()) return;
 
@@ -405,7 +405,7 @@ void Renderer::DrawSkyPass()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Renderer::DrawWorldPass()
+void IRenderer::DrawWorldPass()
 {
     // 2) WORLD OPAQUE
     {
@@ -477,7 +477,7 @@ void Renderer::DrawWorldPass()
     }
 }
 
-void Renderer::DrawOverlayScreenPass()
+void IRenderer::DrawOverlayScreenPass()
 {
     if (mBuckets.overlayScreen.empty()) return;
 
@@ -498,7 +498,7 @@ void Renderer::DrawOverlayScreenPass()
     glFrontFace(GL_CCW);
 }
 
-void Renderer::DrawFadePass()
+void IRenderer::DrawFadePass()
 {
     if (!mEnableFade) return;
 
@@ -521,7 +521,7 @@ void Renderer::DrawFadePass()
     glDisable(GL_BLEND);
 }
 
-void Renderer::DrawUIPass()
+void IRenderer::DrawUIPass()
 {
     if (mBuckets.ui.empty()) return;
 
@@ -542,7 +542,7 @@ void Renderer::DrawUIPass()
     glFrontFace(GL_CCW);
 }
 
-void Renderer::DrawPostEffectPass()
+void IRenderer::DrawPostEffectPass()
 {
     if (!mSceneRT) return;
 
@@ -609,7 +609,7 @@ void Renderer::DrawPostEffectPass()
 // Main Draw
 //==============================================================================
 
-void Renderer::Draw()
+void IRenderer::Draw()
 {
     ResetDebugCounter();
 
@@ -648,7 +648,7 @@ void Renderer::Draw()
 //  - 同時に bucket に分類し、DrawPass では bucket を走査して描画する
 //==============================================================================
 
-void Renderer::BuildFrameQueues()
+void IRenderer::BuildFrameQueues()
 {
     mRenderQueue.Clear();
     mBuckets.Clear();
@@ -789,7 +789,7 @@ void Renderer::BuildFrameQueues()
 // Bucket sort
 //==============================================================================
 
-void Renderer::SortBucket(std::vector<uint32_t>& bucket)
+void IRenderer::SortBucket(std::vector<uint32_t>& bucket)
 {
     if (bucket.size() <= 1)
     {
@@ -832,7 +832,7 @@ void Renderer::SortBucket(std::vector<uint32_t>& bucket)
     );
 }
 
-void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
+void IRenderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
 {
     auto& items = mRenderQueue.Items();
 
@@ -875,7 +875,7 @@ void Renderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
 // DrawToRenderTarget
 //==============================================================================
 
-void Renderer::DrawToRenderTarget(const SceneCaptureRequest& req)
+void IRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
     if (!req.rt) return;
 

@@ -41,13 +41,13 @@ namespace toy {
 //=============================================================
 // コンストラクタ／デストラクタ
 //=============================================================
-Renderer::Renderer()
+IRenderer::IRenderer()
 {
     mLightingManager = std::make_shared<LightingManager>();
     LoadSettings("ToyLib/Settings/Renderer_Settings.json");
 }
 
-Renderer::~Renderer()
+IRenderer::~IRenderer()
 {
     // 実処理は Shutdown() 側で行う前提
 }
@@ -55,7 +55,7 @@ Renderer::~Renderer()
 //=============================================================
 // 初期化／終了処理
 //=============================================================
-bool Renderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
+bool IRenderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
 {
     mWindow    = window;      // 非所有
     mGLContext = glContext;   // 非所有
@@ -112,7 +112,7 @@ bool Renderer::Initialize(SDL_Window* window, SDL_GLContext glContext)
     return true;
 }
 
-void Renderer::Shutdown()
+void IRenderer::Shutdown()
 {
     // current を保証（できなければ何もしない）
     if (!mWindow || !mGLContext) return;
@@ -145,7 +145,7 @@ void Renderer::Shutdown()
 //=============================================================
 // カメラ切り替え
 //=============================================================
-void Renderer::PushCameraState()
+void IRenderer::PushCameraState()
 {
     CameraState s{};
     s.view     = mViewMatrix;
@@ -155,14 +155,14 @@ void Renderer::PushCameraState()
     mCameraStack.push_back(s);
 }
 
-void Renderer::SetCameraState(const CameraState& s)
+void IRenderer::SetCameraState(const CameraState& s)
 {
     mViewMatrix       = s.view;
     mProjectionMatrix = s.proj;
     mInvView          = s.invView;
 }
 
-void Renderer::PopCameraState()
+void IRenderer::PopCameraState()
 {
     if (mCameraStack.empty()) return;
     const CameraState s = mCameraStack.back();
@@ -173,7 +173,7 @@ void Renderer::PopCameraState()
 //=============================================================
 // シーンキャプチャーリクエスト
 //=============================================================
-void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
+void IRenderer::RequestSceneCapture(const SceneCaptureRequest& req)
 {
     if (!req.rt) return;
     mSceneCaptureQueue.push_back(req);
@@ -182,7 +182,7 @@ void Renderer::RequestSceneCapture(const SceneCaptureRequest& req)
 //=============================================================
 // VisualComponent 管理
 //=============================================================
-void Renderer::AddVisualComp(VisualComponent* comp)
+void IRenderer::AddVisualComp(VisualComponent* comp)
 {
     auto iter = mVisualComps.begin();
     for (; iter != mVisualComps.end(); ++iter)
@@ -195,7 +195,7 @@ void Renderer::AddVisualComp(VisualComponent* comp)
     mVisualComps.insert(iter, comp);
 }
 
-void Renderer::RemoveVisualComp(VisualComponent* comp)
+void IRenderer::RemoveVisualComp(VisualComponent* comp)
 {
     auto iter = std::find(mVisualComps.begin(), mVisualComps.end(), comp);
     if (iter != mVisualComps.end())
@@ -207,7 +207,7 @@ void Renderer::RemoveVisualComp(VisualComponent* comp)
 //=============================================================
 // 共通ジオメトリ
 //=============================================================
-void Renderer::CreateSpriteVerts()
+void IRenderer::CreateSpriteVerts()
 {
     const float vertices[] =
     {
@@ -229,7 +229,7 @@ void Renderer::CreateSpriteVerts()
     );
 }
 
-void Renderer::CreateFullScreenQuad()
+void IRenderer::CreateFullScreenQuad()
 {
     float quadVerts[] =
     {
@@ -249,7 +249,7 @@ void Renderer::CreateFullScreenQuad()
     );
 }
 
-void Renderer::CreateSurfaceQuad()
+void IRenderer::CreateSurfaceQuad()
 {
     static const float pos[] =
     {
@@ -294,7 +294,7 @@ void Renderer::CreateSurfaceQuad()
 //=============================================================
 // データ解放
 //=============================================================
-void Renderer::UnloadData()
+void IRenderer::UnloadData()
 {
     mVisualComps.clear();
     if (mSceneRT)
@@ -306,7 +306,7 @@ void Renderer::UnloadData()
 //=============================================================
 // ウィンドウサイズ変更時
 //=============================================================
-void Renderer::OnWindowResized(int pixelW, int pixelH)
+void IRenderer::OnWindowResized(int pixelW, int pixelH)
 {
     if (pixelW <= 0 || pixelH <= 0) return;
 
@@ -358,13 +358,13 @@ void Renderer::OnWindowResized(int pixelW, int pixelH)
 //=============================================================
 // UI / Virtual 解像度関連
 //=============================================================
-void Renderer::SetVirtualResolution(float w, float h)
+void IRenderer::SetVirtualResolution(float w, float h)
 {
     mVirtualWidth  = w;
     mVirtualHeight = h;
 }
 
-UIScaleInfo Renderer::GetUIScaleInfo() const
+UIScaleInfo IRenderer::GetUIScaleInfo() const
 {
     UIScaleInfo info{};
     info.screenW = mScreenWidth;
@@ -386,7 +386,7 @@ UIScaleInfo Renderer::GetUIScaleInfo() const
 //=============================================================
 // シャドウマッピング
 //=============================================================
-bool Renderer::InitializeShadowMapping()
+bool IRenderer::InitializeShadowMapping()
 {
     glGenFramebuffers(kShadowCascadeCount, mShadowFBO);
 
@@ -423,27 +423,27 @@ bool Renderer::InitializeShadowMapping()
 //=============================================================
 // その他ユーティリティ
 //=============================================================
-void Renderer::SetClearColor(const Vector3& color)
+void IRenderer::SetClearColor(const Vector3& color)
 {
     mClearColor = color;
     glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
 }
 
-GeometryHandle Renderer::GetSpriteQuadHandle() const
+GeometryHandle IRenderer::GetSpriteQuadHandle() const
 {
     GeometryHandle h{};
     h.ptr = mSpriteQuad.get();
     return h;
 }
 
-GeometryHandle Renderer::GetSurfaceQuadHandle() const
+GeometryHandle IRenderer::GetSurfaceQuadHandle() const
 {
     GeometryHandle h{};
     h.ptr = mSurfaceQuad.get();
     return h;
 }
 
-ShaderHandle Renderer::GetShaderHandle(const std::string& name)
+ShaderHandle IRenderer::GetShaderHandle(const std::string& name)
 {
     ShaderHandle h{};
     auto sp = GetShader(name);
@@ -451,14 +451,14 @@ ShaderHandle Renderer::GetShaderHandle(const std::string& name)
     return h;
 }
 
-TextureHandle Renderer::ToHandle(const std::shared_ptr<Texture>& tex) const
+TextureHandle IRenderer::ToHandle(const std::shared_ptr<Texture>& tex) const
 {
     TextureHandle h{};
     h.ptr = tex.get();
     return h;
 }
 
-MaterialHandle Renderer::ToHandle(const std::shared_ptr<Material>& mat) const
+MaterialHandle IRenderer::ToHandle(const std::shared_ptr<Material>& mat) const
 {
     MaterialHandle h{};
     h.ptr = mat.get();

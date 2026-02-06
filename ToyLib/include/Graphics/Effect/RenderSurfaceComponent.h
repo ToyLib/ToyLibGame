@@ -38,6 +38,7 @@ public:
     void SetFlip(bool flipX, bool flipY) { mFlipX = flipX; mFlipY = flipY; }
     void SetOpacity(float a) { mOpacity = a; }
     void SetTint(const Vector3& tint) { mTint = tint; }
+    void SetScanlineStrength(float a) { mScanlineStrength = a; }
 
     void SetScale(float scX, float scY) { mScaleX = scX; mScaleY = scY; }
 
@@ -60,6 +61,8 @@ private:
 
     float   mOpacity { 1.0f };
     Vector3 mTint    { 1.0f, 1.0f, 1.0f };
+    
+    float mScanlineStrength { 1.0f };
 
     SurfaceMode mMode { SurfaceMode::Mirror };
 };
