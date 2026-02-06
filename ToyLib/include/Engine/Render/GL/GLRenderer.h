@@ -26,6 +26,9 @@ public:
 protected:
     bool InitializeShadowMapping() override;
     
+    void BeginFrame() override;
+    void EndFrame() override;
+    
 private:
     SDL_Window*   mWindow             { nullptr };
     SDL_GLContext mGLContext          { nullptr };

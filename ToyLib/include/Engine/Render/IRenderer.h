@@ -480,8 +480,8 @@ protected:
     void DrawBucket_World(const std::vector<uint32_t>& bucket);
     void DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex);
 
-    void ApplyState_GL(const RenderItem& it);
-    void DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex);
+    void ApplyState(const RenderItem& it);
+    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex);
 
     //--------------------------------------------------------------------------
     // DrawPass
@@ -494,7 +494,7 @@ protected:
     void SortBucket(std::vector<uint32_t>& bucket);
     void SortBucket_Shadow(std::vector<uint32_t>& bucket);
 
-    void BeginFrame();
+    virtual void BeginFrame() {};
     void RenderShadowPass();
     void RestoreAfterShadowPass();
 
@@ -505,7 +505,7 @@ protected:
     void DrawPostEffectPass();
     void DrawUIPass();
 
-    void EndFrame();
+    virtual void EndFrame() {};
 
     //--------------------------------------------------------------------------
     // Camera stack

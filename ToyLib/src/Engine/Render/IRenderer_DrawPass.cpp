@@ -53,7 +53,7 @@ void IRenderer::DrawBucket_World(const std::vector<uint32_t>& bucket)
         const RenderItem& it = items[idx];
 
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
-        DrawItem_GL(it, RenderPass::World, -1);
+        DrawItem(it, RenderPass::World, -1);
     }
 }
 
@@ -82,7 +82,7 @@ void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int casca
         }
 
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
-        DrawItem_GL(it, RenderPass::Shadow, cascadeIndex);
+        DrawItem(it, RenderPass::Shadow, cascadeIndex);
     }
 }
 
@@ -91,7 +91,7 @@ void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int casca
 //  - RenderItem が要求する描画状態を OpenGL に反映
 //==============================================================================
 
-void IRenderer::ApplyState_GL(const RenderItem& it)
+void IRenderer::ApplyState(const RenderItem& it)
 {
     // depth test
     if (it.depthTest) glEnable(GL_DEPTH_TEST);
@@ -237,11 +237,11 @@ inline void DrawDefaultGeometry_GL(IRenderer& r, const RenderItem& it)
 // DrawItem_GL
 //==============================================================================
 
-void IRenderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIndex)
+void IRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
     if (!ValidateGeometryForDraw(it)) return;
 
-    ApplyState_GL(it);
+    ApplyState(it);
 
     if (!it.shader.ptr) return;
     it.shader.ptr->SetActive();
@@ -257,43 +257,8 @@ void IRenderer::DrawItem_GL(const RenderItem& it, RenderPass pass, int cascadeIn
     DrawDefaultGeometry_GL(*this, it);
 }
 
-//==============================================================================
-// Frame begin/end
-//==============================================================================
 
-void IRenderer::BeginFrame()
-{
-    const bool usePost = (mPost.type != PostEffectType::None);
 
-    if (usePost)
-    {
-        if (!mSceneRT ||
-            mSceneRT->GetWidth()  != (int)mScreenWidth ||
-            mSceneRT->GetHeight() != (int)mScreenHeight)
-        {
-            mSceneRT = std::make_shared<RenderTarget>();
-            mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight);
-        }
-
-        mSceneRT->Bind();
-    }
-    else
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
-    }
-
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void IRenderer::EndFrame()
-{
-    SDL_GL_SwapWindow(mWindow);
-}
 
 //==============================================================================
 // Shadow pass
