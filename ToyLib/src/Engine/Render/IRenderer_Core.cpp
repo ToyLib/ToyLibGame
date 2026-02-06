@@ -1,5 +1,5 @@
 //==============================================================================
-// Renderer_Core.cpp
+// IRenderer_Core.cpp
 //  - ctor/dtor
 //  - Initialize/Shutdown
 //  - Camera stack / SceneCapture request

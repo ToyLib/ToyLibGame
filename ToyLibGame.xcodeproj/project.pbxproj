@@ -71,7 +71,7 @@
 				include/Graphics/Sprite/TextSpriteComponent.h = sourcecode.c.h;
 				include/Utils/StringUtil.h = sourcecode.c.h;
 				src/Engine/Debug/DebugOverlayActor.cpp = sourcecode.cpp.cpp;
-				src/Engine/Render/Renderer_DrawPass.cpp = sourcecode.cpp.cpp;
+				src/Engine/Render/IRenderer_DrawPass.cpp = sourcecode.cpp.cpp;
 			};
 			path = ToyLib;
 			sourceTree = "<group>";

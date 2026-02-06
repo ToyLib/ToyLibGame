@@ -1,5 +1,5 @@
 //==============================================================================
-// Renderer_DrawPass.cpp
+// IRenderer_DrawPass.cpp
 //  - RenderQueue draw helpers
 //  - GL state apply
 //  - Shadow / World / UI / Post passes
