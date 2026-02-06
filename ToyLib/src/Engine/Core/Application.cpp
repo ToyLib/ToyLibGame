@@ -1,6 +1,6 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Engine/Runtime/InputSystem.h"
 #include "Physics/PhysWorld.h"
 #include "Asset/AssetManager.h"

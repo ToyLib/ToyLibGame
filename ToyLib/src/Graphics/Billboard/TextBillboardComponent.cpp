@@ -4,7 +4,7 @@
 #include "Asset/Font/TextFont.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Asset/Material/Texture.h"
 
 namespace toy {

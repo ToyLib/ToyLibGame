@@ -4,7 +4,7 @@
 //  - WorldToScreen
 //==============================================================================
 
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 
 #include "Asset/Font/TextFont.h"
 #include "Asset/Material/Texture.h"

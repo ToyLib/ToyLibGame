@@ -10,7 +10,7 @@
 //  - Small utilities (handles, clear color, etc.)
 //==============================================================================
 
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 
 #include "Engine/Core/Application.h"
 

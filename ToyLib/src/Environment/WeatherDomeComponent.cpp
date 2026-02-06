@@ -4,7 +4,7 @@
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Engine/Render/RenderItem.h"
 #include "Engine/Render/RenderQueue.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"

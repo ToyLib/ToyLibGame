@@ -3,7 +3,7 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Render/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Physics/PhysWorld.h"
 #include "Utils/MathUtil.h"
 

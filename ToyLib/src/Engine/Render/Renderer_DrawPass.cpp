@@ -6,7 +6,7 @@
 //  - Draw(), BuildFrameQueues(), DrawToRenderTarget()
 //==============================================================================
 
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 
 // Engine / Render
 #include "Engine/Render/LightingManager.h"

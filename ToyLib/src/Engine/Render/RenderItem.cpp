@@ -5,7 +5,7 @@
 #include "Asset/Material/Material.h"
 #include "Asset/Material/Texture.h"
 #include "Engine/Render/LightingManager.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Engine/Render/Shader.h"
 
 namespace toy {

@@ -4,7 +4,7 @@
 //  - GetShader
 //==============================================================================
 
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 
 #include "Engine/Render/Shader.h"
 #include "glad/glad.h"

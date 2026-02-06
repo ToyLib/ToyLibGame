@@ -7,7 +7,7 @@
 #include "Asset/Geometry/Mesh.h"
 #include "Engine/Render/Shader.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/Renderer.h"
+#include "Engine/Render/IRenderer.h"
 #include "Asset/Material/Texture.h"
 #include "Engine/Debug/DebugWireframeComponent.h"
 

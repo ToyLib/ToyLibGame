@@ -1,7 +1,7 @@
 #pragma once
 
 //==============================================================================
-// Renderer.h
+// IRenderer.h
 //  - Renderer core interface
 //  - Frame collection (BuildFrameQueues) + bucketed passes
 //  - Shadow / World / Overlay / UI / Post / Fade
