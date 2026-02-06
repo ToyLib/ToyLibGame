@@ -1,6 +1,6 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
-#include "Engine/Render/IRenderer.h"
+#include "Engine/Render/GL/GLRenderer.h"
 #include "Engine/Runtime/InputSystem.h"
 #include "Physics/PhysWorld.h"
 #include "Asset/AssetManager.h"
@@ -25,7 +25,7 @@ Application::Application()
     : mIsFullScreen(true)
     , mEnableDebug(false)
 {
-    mRenderer      = std::make_unique<IRenderer>();
+    mRenderer      = std::make_unique<GLRenderer>();
     mInputSys      = std::make_unique<InputSystem>();
     mPhysWorld     = std::make_unique<PhysWorld>();
     mAssetManager  = std::make_unique<AssetManager>();
@@ -157,7 +157,7 @@ bool Application::Initialize()
     }
     
     // 入力システム初期化
-    mInputSys->Initialize(mRenderer->GetSDLWindow());
+    mInputSys->Initialize(mWindow);
     mInputSys->LoadButtonConfig("ToyLib/Settings/InputConfig.json");
 
     // 初回必要であれば起動時フルスクリーンに切り替え

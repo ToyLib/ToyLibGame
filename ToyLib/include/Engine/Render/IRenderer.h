@@ -135,10 +135,9 @@ public:
     // Initialize / Shutdown
     //--------------------------------------------------------------------------
 
-    bool Initialize(const class Application* app);
-    void Shutdown();
+    virtual bool Initialize(const class Application* app) { return false; }
+    virtual void Shutdown() {};
 
-    SDL_Window* GetSDLWindow() const { return mWindow; }
 
     //--------------------------------------------------------------------------
     // Main draw
@@ -208,7 +207,7 @@ public:
     UIScaleInfo GetUIScaleInfo() const;
 
     float GetWindowDisplayScale() const { return mWindowDisplayScale; }
-    void OnWindowResized(int pixelW, int pixelH);
+    virtual void OnWindowResized(int pixelW, int pixelH) {};
 
     //--------------------------------------------------------------------------
     // Scene capture request
@@ -227,7 +226,7 @@ public:
     // Resources / helpers
     //--------------------------------------------------------------------------
 
-    void UnloadData();
+    virtual void UnloadData() {};
 
     std::shared_ptr<class LightingManager> GetLightingManager() const
     {
@@ -354,13 +353,12 @@ public:
     }
     
     
-private:
+protected:
     //--------------------------------------------------------------------------
-    // SDL / OpenGL
+    // SDL
     //--------------------------------------------------------------------------
 
-    SDL_Window*   mWindow             { nullptr };
-    SDL_GLContext mGLContext          { nullptr };
+
     float         mWindowDisplayScale { 1.0f };
 
     //--------------------------------------------------------------------------
@@ -473,7 +471,7 @@ private:
     //--------------------------------------------------------------------------
 
     bool LoadSettings(const std::string& filePath);
-    bool InitializeShadowMapping();
+    virtual bool InitializeShadowMapping() { return false; }
 
     //--------------------------------------------------------------------------
     // OpenGL dispatch helpers (DrawPass layer)
