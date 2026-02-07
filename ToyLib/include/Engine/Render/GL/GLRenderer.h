@@ -24,11 +24,26 @@ public:
 
     
 protected:
+    void ApplyState(const RenderItem& it) override;
+    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
+    
     bool InitializeShadowMapping() override;
+    
+    void DrawToRenderTarget(const struct SceneCaptureRequest& req) override;
     
     void BeginFrame() override;
     void EndFrame() override;
     
+    void DrawShadowPass() override;
+    void RestoreAfterShadowPass() override;
+    
+    void DrawSkyPass() override;
+    void DrawWorldPass() override;
+    void DrawOverlayScreenPass() override;
+    void DrawFadePass() override;
+    void DrawPostEffectPass() override;
+    void DrawUIPass() override;
+
 private:
     SDL_Window*   mWindow             { nullptr };
     SDL_GLContext mGLContext          { nullptr };

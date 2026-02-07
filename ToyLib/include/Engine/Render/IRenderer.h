@@ -144,7 +144,7 @@ public:
     //--------------------------------------------------------------------------
 
     void Draw();
-    void DrawToRenderTarget(const struct SceneCaptureRequest& req);
+    virtual void DrawToRenderTarget(const struct SceneCaptureRequest& req) {};
 
     //--------------------------------------------------------------------------
     // Clear / Debug
@@ -480,8 +480,8 @@ protected:
     void DrawBucket_World(const std::vector<uint32_t>& bucket);
     void DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex);
 
-    void ApplyState(const RenderItem& it);
-    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex);
+    virtual void ApplyState(const RenderItem& it) {};
+    virtual void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) {};
 
     //--------------------------------------------------------------------------
     // DrawPass
@@ -494,16 +494,18 @@ protected:
     void SortBucket(std::vector<uint32_t>& bucket);
     void SortBucket_Shadow(std::vector<uint32_t>& bucket);
 
+    
     virtual void BeginFrame() {};
-    void RenderShadowPass();
-    void RestoreAfterShadowPass();
+    
+    virtual void DrawShadowPass() {};
+    virtual void RestoreAfterShadowPass() {};
 
-    void DrawSkyPass();
-    void DrawWorldPass();
-    void DrawOverlayScreenPass();
-    void DrawFadePass();
-    void DrawPostEffectPass();
-    void DrawUIPass();
+    virtual void DrawSkyPass() {};
+    virtual void DrawWorldPass() {};
+    virtual void DrawOverlayScreenPass() {};
+    virtual void DrawFadePass() {};
+    virtual void DrawPostEffectPass() {};
+    virtual void DrawUIPass() {};
 
     virtual void EndFrame() {};
 
