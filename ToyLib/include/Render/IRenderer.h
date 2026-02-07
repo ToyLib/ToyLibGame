@@ -233,7 +233,7 @@ public:
         return mLightingManager;
     }
 
-    std::shared_ptr<class Shader> GetShader(const std::string& name);
+    virtual std::shared_ptr<class Shader> GetShader(const std::string& name) { return nullptr; }
 
     //--------------------------------------------------------------------------
     // Shadow mapping (CSM)
@@ -456,9 +456,7 @@ protected:
     //--------------------------------------------------------------------------
 
     std::string mShaderPath { "ToyLib/Shaders/" };
-    std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
 
-    bool LoadShaders();
 
     //--------------------------------------------------------------------------
     // Visual components

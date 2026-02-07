@@ -1,10 +1,10 @@
 //==============================================================================
-// Renderer_Shader.cpp
+// GLRenderer_Shader.cpp
 //  - LoadShaders
 //  - GetShader
 //==============================================================================
 
-#include "Render/IRenderer.h"
+#include "Render/GL/GLRenderer.h"
 
 #include "Render/Shader.h"
 #include "glad/glad.h"
@@ -14,7 +14,7 @@
 
 namespace toy {
 
-bool IRenderer::LoadShaders()
+bool GLRenderer::LoadShaders()
 {
     std::string vShaderName;
     std::string fShaderName;
@@ -149,7 +149,7 @@ bool IRenderer::LoadShaders()
     return true;
 }
 
-std::shared_ptr<Shader> IRenderer::GetShader(const std::string& name)
+std::shared_ptr<Shader> GLRenderer::GetShader(const std::string& name)
 {
     auto itr = mShaders.find(name);
     return (itr != mShaders.end()) ? itr->second : nullptr;

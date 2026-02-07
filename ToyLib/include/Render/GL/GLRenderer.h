@@ -23,6 +23,9 @@ public:
     void OnWindowResized(int pixelW, int pixelH) override;
 
     
+    std::shared_ptr<class Shader> GetShader(const std::string& name) override;
+
+    
 protected:
     void ApplyState(const RenderItem& it) override;
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
@@ -47,6 +50,10 @@ protected:
 private:
     SDL_Window*   mWindow             { nullptr };
     SDL_GLContext mGLContext          { nullptr };
+    
+    std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
+    bool LoadShaders();
+
 };
 
 } // namespace toy
