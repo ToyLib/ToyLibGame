@@ -22,6 +22,7 @@ struct TextureHandle
 struct PipelineHandle
 {
     Shader*     ptrGLShader = nullptr;
+    bool IsValidGL() const { return ptrGLShader != nullptr; }
 };
 
 // ★追加：MaterialHandle

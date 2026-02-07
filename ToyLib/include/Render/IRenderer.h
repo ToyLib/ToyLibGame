@@ -15,8 +15,6 @@
 #include "Render/RenderQueue.h"
 #include "Render/VisualLayer.h"
 
-// GL
-#include "glad/glad.h"
 
 // SDL
 #include <SDL3/SDL.h>
@@ -412,7 +410,7 @@ protected:
 
     static constexpr int kShadowCascadeCount = 2;
 
-    GLuint  mShadowFBO[kShadowCascadeCount]        {};
+    uint32_t  mShadowFBO[kShadowCascadeCount]  {};
     Matrix4 mLightSpaceMatrix[kShadowCascadeCount] {};
     std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount];
 

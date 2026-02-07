@@ -327,13 +327,26 @@ void IRenderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
             // 0) safety: Shadow 以外が混入していたら後ろへ
             const bool aShadow = (A.pass == RenderPass::Shadow);
             const bool bShadow = (B.pass == RenderPass::Shadow);
-            if (aShadow != bShadow) return aShadow;
-
-            // 1) shader でまとめる（SetActive 削減）
-            if (A.pipeline.ptrGLShader != B.pipeline.ptrGLShader)
+            if (aShadow != bShadow)
             {
-                return A.pipeline.ptrGLShader < B.pipeline.ptrGLShader;
+                return aShadow;
             }
+            
+            // 1) shader でまとめる（SetActive 削減）
+            const bool aGL = A.pipeline.IsValidGL();
+            const bool bGL = B.pipeline.IsValidGL();
+            if (aGL != bGL)
+            {
+                return aGL; // GL 有効を前へ
+            }
+            if (aGL) // (= 両方GL)
+            {
+                if (A.pipeline.ptrGLShader != B.pipeline.ptrGLShader)
+                {
+                    return A.pipeline.ptrGLShader < B.pipeline.ptrGLShader;
+                }
+            }
+            
             // 2) geometry でまとめる（VAO bind 削減）
             if (A.type != RenderItemType::Particle)
             {
@@ -346,8 +359,11 @@ void IRenderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
             // 3) Skinned をまとめる（任意）
             const bool aSkinned = (A.type == RenderItemType::SkinnedMesh);
             const bool bSkinned = (B.type == RenderItemType::SkinnedMesh);
-            if (aSkinned != bSkinned) return aSkinned;
-
+            if (aSkinned != bSkinned)
+            {
+                return aSkinned;
+            }
+            
             return false; // stable_sort に任せる（投入順維持）
         }
     );
