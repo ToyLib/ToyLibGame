@@ -211,6 +211,7 @@ PipelineHandle GLRenderer::GetPipelineHandle(const std::string& name)
     PipelineHandle h{};
     auto sp = GetShader(name);
     h.ptrGLShader = sp.get();
+    h.backend = PipelineBackend::GL;
     return h;
 }
 
