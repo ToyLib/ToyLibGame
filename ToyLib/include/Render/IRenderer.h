@@ -150,7 +150,7 @@ public:
     // Clear / Debug
     //--------------------------------------------------------------------------
 
-    void SetClearColor(const Vector3& color);
+    virtual void SetClearColor(const Vector3& color);
     const Vector3& GetClearColor() const { return mClearColor; }
 
     void SetWireColor(const Vector3& color) { mWireColor = color; }

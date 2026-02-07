@@ -29,9 +29,6 @@
 #include "Physics/BoundingVolumeComponent.h"
 #include "Engine/Core/Actor.h"
 
-// GL
-#include "glad/glad.h"
-
 // Std
 #include <algorithm>
 #include <iostream>
@@ -244,7 +241,6 @@ UIScaleInfo IRenderer::GetUIScaleInfo() const
 void IRenderer::SetClearColor(const Vector3& color)
 {
     mClearColor = color;
-    glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
 }
 
 GeometryHandle IRenderer::GetSpriteQuadHandle() const

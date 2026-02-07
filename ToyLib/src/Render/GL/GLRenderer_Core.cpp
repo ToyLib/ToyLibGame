@@ -213,4 +213,11 @@ ShaderHandle GLRenderer::GetShaderHandle(const std::string& name)
     h.ptr = sp.get();
     return h;
 }
+
+void GLRenderer::SetClearColor(const Vector3& color)
+{
+    mClearColor = color;
+    glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
+}
+
 } // namespace toy

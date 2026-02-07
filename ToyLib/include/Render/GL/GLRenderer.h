@@ -26,6 +26,8 @@ public:
     std::shared_ptr<class Shader> GetShader(const std::string& name);
 
     ShaderHandle GetShaderHandle(const std::string& name) override;
+    
+    void SetClearColor(const Vector3& color) override;
 protected:
     void ApplyState(const RenderItem& it) override;
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
