@@ -3,7 +3,8 @@
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Render/IRenderer.h"
-#include "Render/Shader.h"
+#include "Render/GL/GLRenderer.h"
+#include "Render/GL/Shader.h"
 #include "Render/RenderQueue.h"
 #include "Render/RenderItem.h"
 
@@ -60,8 +61,9 @@ ParticleComponent::ParticleComponent(Actor* owner, int drawOrder)
 
     if (auto* r = GetOwner()->GetApp()->GetRenderer())
     {
-        mUpdateShader = r->GetShader("ParticleUpdate");
-        mRenderShader = r->GetShader("Particle");
+        mUpdatePipelineName = "ParticleUpdate";
+        mUpdateShader = r->GetShader(mUpdatePipelineName);
+        mPipelineName = "Particle";
     }
 
     mRunning = false;
@@ -219,7 +221,7 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-    if (!mInitialized || !mTexture || !mRenderShader)
+    if (!mInitialized || !mTexture)
     {
         return;
     }
@@ -271,11 +273,11 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
-    it.cull       = CullMode::Front;
-    it.frontFace  = FrontFace::CW;
+    it.cull       = CullMode::Back;
+    it.frontFace  = FrontFace::CCW;
 
     // shader / texture
-    it.shader.ptr  = mRenderShader.get();
+    it.shader      = renderer->GetShaderHandle(mPipelineName);
     it.texture.ptr = mTexture.get();
     it.textureUnit = 0;
 

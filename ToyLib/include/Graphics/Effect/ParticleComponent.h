@@ -9,7 +9,6 @@
 namespace toy {
 
 class Texture;
-class Shader;
 class RenderQueue;
 
 class ParticleComponent : public VisualComponent
@@ -89,7 +88,7 @@ private:
 private:
     std::shared_ptr<Texture> mTexture;
     std::shared_ptr<Shader>  mUpdateShader;
-    std::shared_ptr<Shader>  mRenderShader;
+    std::string mUpdatePipelineName;
 
     Desc  mDesc {};
     bool  mInitialized { false };

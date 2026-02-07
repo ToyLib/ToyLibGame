@@ -27,7 +27,7 @@
 // Engine Render
 //======================================
 #include "Render/IRenderer.h"
-#include "Render/Shader.h"
+#include "Render/GL/Shader.h"
 #include "Render/LightingManager.h"
 
 //======================================

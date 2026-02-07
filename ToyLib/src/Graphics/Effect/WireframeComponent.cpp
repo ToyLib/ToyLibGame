@@ -4,7 +4,6 @@
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Render/IRenderer.h"
-#include "Render/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
 
 namespace toy {

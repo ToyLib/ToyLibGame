@@ -1,5 +1,5 @@
 #include "Asset/Material/Material.h"
-#include "Render/Shader.h"
+#include "Render/GL/Shader.h"
 #include "Asset/Material/Texture.h"
 
 namespace toy {

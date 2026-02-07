@@ -6,7 +6,7 @@
 
 #include "Render/GL/GLRenderer.h"
 
-#include "Render/Shader.h"
+#include "Render/GL/Shader.h"
 #include "glad/glad.h"
 
 #include <memory>

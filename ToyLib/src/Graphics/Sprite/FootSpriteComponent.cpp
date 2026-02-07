@@ -3,7 +3,6 @@
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Render/IRenderer.h"
-#include "Render/Shader.h"
 #include "Render/RenderQueue.h"
 #include "Render/RenderItem.h"
 #include "Asset/Material/Texture.h"

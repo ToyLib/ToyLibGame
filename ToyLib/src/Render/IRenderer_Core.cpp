@@ -17,7 +17,7 @@
 // Engine / Render
 #include "Render/LightingManager.h"
 #include "Render/RenderTarget.h"
-#include "Render/Shader.h"
+#include "Render/GL/Shader.h"
 
 // Graphics
 #include "Graphics/VisualComponent.h"

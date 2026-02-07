@@ -21,7 +21,8 @@ SkyDomeComponent::SkyDomeComponent(Actor* owner, int drawOrder, VisualLayer laye
     // → Renderer側の描画パイプラインで SkyDomeComponent が呼ばれるようになる
         // スカイドーム描画用の基本シェーダ取得
     // 派生クラスがここに Uniform を詰めて描画する
-    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("SkyDome");
+    //mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("SkyDome");
+    mPipelineName = "SkyDome";
     
     auto light = GetOwner()->GetApp()->GetRenderer()->GetLightingManager();
     SetLightingManager(light);
@@ -87,7 +88,7 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.cull       = CullMode::Front; // 内側
     it.frontFace  = FrontFace::CCW;
 
-    it.shader.ptr   = mShader.get();
+    it.shader     = renderer->GetShaderHandle(mPipelineName);
     it.geometry.ptr = mSkyVAO.get();
 
     it.world    = world;
