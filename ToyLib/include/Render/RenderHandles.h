@@ -4,31 +4,34 @@
 
 namespace toy {
 
-class VertexArray;
-class Texture;
-class Shader;
-class Material;   // ★追加
+enum class PipelineBackend : uint8_t
+{
+    None = 0,
+    GL,
+    VK
+};
 
 struct GeometryHandle
 {
-    VertexArray* ptr = nullptr;
+    class VertexArray* ptr = nullptr;
 };
 
 struct TextureHandle
 {
-    Texture*    ptr = nullptr;
+    class Texture*    ptr = nullptr;
 };
 
 struct PipelineHandle
 {
-    Shader*     ptrGLShader = nullptr;
+    PipelineBackend backend { PipelineBackend::None };
+    class Shader*     ptrGLShader { nullptr };
     bool IsValidGL() const { return ptrGLShader != nullptr; }
 };
 
 // ★追加：MaterialHandle
 struct MaterialHandle
 {
-    Material* ptr = nullptr;
+    class Material* ptr = nullptr;
 };
 
 } // namespace toy
