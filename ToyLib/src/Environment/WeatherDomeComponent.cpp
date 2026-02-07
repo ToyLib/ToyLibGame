@@ -5,6 +5,7 @@
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
 #include "Render/IRenderer.h"
+#include "Render/GL/GLRenderer.h"
 #include "Render/RenderItem.h"
 #include "Render/RenderQueue.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
@@ -29,15 +30,7 @@ WeatherDomeComponent::WeatherDomeComponent(Actor* owner, int drawOrder)
     // 旧Draw版と同じ：半球メッシュ生成
     mSkyVAO = SkyDomeMeshGenerator::CreateSkyDomeVAO(32, 16, 1.0f);
 
-    // 旧Draw版と同じ：SkyDomeシェーダ取得
-    if (auto* app = GetOwner()->GetApp())
-    {
-        if (auto* r = app->GetRenderer())
-        {
-            mShader = r->GetShader("SkyDome");
-        }
-    }
-
+    mPipelineName = "SkyDome";
     // RegisterSkyDome は描画シーケンスに入ってない前提なので依存しない（＝ここでは触らない）
 }
 
@@ -51,7 +44,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-    if (!mSkyVAO || !mShader)
+    if (!mSkyVAO )
     {
         return;
     }
@@ -121,7 +114,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.cull      = CullMode::None;
     it.frontFace = FrontFace::CCW;
 
-    it.shader.ptr   = mShader.get();
+    it.shader       = renderer->GetShaderHandle(mPipelineName);
     it.geometry.ptr = mSkyVAO.get();
 
     it.world    = world;

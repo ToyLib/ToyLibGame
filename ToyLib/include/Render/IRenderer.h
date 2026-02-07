@@ -233,8 +233,6 @@ public:
         return mLightingManager;
     }
 
-    virtual std::shared_ptr<class Shader> GetShader(const std::string& name) { return nullptr; }
-
     //--------------------------------------------------------------------------
     // Shadow mapping (CSM)
     //--------------------------------------------------------------------------
@@ -318,7 +316,7 @@ public:
     GeometryHandle GetSpriteQuadHandle() const;
     GeometryHandle GetSurfaceQuadHandle() const;
 
-    ShaderHandle   GetShaderHandle(const std::string& name);
+    virtual ShaderHandle GetShaderHandle(const std::string& name) { ShaderHandle h; return h; }
     TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
     

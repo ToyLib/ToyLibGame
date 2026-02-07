@@ -262,13 +262,6 @@ GeometryHandle IRenderer::GetSurfaceQuadHandle() const
     return h;
 }
 
-ShaderHandle IRenderer::GetShaderHandle(const std::string& name)
-{
-    ShaderHandle h{};
-    auto sp = GetShader(name);
-    h.ptr = sp.get();
-    return h;
-}
 
 TextureHandle IRenderer::ToHandle(const std::shared_ptr<Texture>& tex) const
 {

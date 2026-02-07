@@ -205,4 +205,12 @@ bool GLRenderer::InitializeShadowMapping()
     return true;
 }
 
+
+ShaderHandle GLRenderer::GetShaderHandle(const std::string& name)
+{
+    ShaderHandle h{};
+    auto sp = GetShader(name);
+    h.ptr = sp.get();
+    return h;
+}
 } // namespace toy

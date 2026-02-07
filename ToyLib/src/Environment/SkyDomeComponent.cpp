@@ -30,15 +30,7 @@ SkyDomeComponent::SkyDomeComponent(Actor* owner, int drawOrder, VisualLayer laye
 }
 SkyDomeComponent::~SkyDomeComponent() = default;
 
-void SkyDomeComponent::SetSkyGeometry(std::unique_ptr<VertexArray> vao)
-{
-    mSkyVAO = std::move(vao);
-}
 
-void SkyDomeComponent::SetSkyShader(std::shared_ptr<Shader> shader)
-{
-    mShader = std::move(shader);
-}
 
 void SkyDomeComponent::Update(float /*deltaTime*/)
 {
@@ -51,7 +43,7 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-    if (!mSkyVAO || !mShader)
+    if (!mSkyVAO)
     {
         return;
     }

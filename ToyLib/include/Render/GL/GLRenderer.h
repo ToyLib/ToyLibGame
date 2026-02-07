@@ -23,9 +23,9 @@ public:
     void OnWindowResized(int pixelW, int pixelH) override;
 
     
-    std::shared_ptr<class Shader> GetShader(const std::string& name) override;
+    std::shared_ptr<class Shader> GetShader(const std::string& name);
 
-    
+    ShaderHandle GetShaderHandle(const std::string& name) override;
 protected:
     void ApplyState(const RenderItem& it) override;
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;

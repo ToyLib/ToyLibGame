@@ -59,7 +59,7 @@ GLParticleComponent::GLParticleComponent(Actor* owner, int drawOrder)
 {
     mLayer = VisualLayer::Effect3D;
 
-    if (auto* r = GetOwner()->GetApp()->GetRenderer())
+    if (auto* r = (GLRenderer*)GetOwner()->GetApp()->GetRenderer())
     {
         mUpdatePipelineName = "ParticleUpdate";
         mUpdateShader = r->GetShader(mUpdatePipelineName);
