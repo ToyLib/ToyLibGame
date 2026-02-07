@@ -238,8 +238,8 @@ static bool DispatchBillboard(IRenderer& r,
     }
 
     // もし billboard shader が色/αを受けるなら
-    // sh->SetVectorUniform("uSpriteColor", color);
-    // sh->SetFloatUniform ("uSpriteAlpha", alpha);
+    sh->SetVectorUniform("uSpriteColor", color);
+    sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
     if (it.texture.ptr)
     {
