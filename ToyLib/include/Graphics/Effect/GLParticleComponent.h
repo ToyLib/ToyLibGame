@@ -8,10 +8,8 @@
 
 namespace toy {
 
-class Texture;
-class RenderQueue;
 
-class ParticleComponent : public VisualComponent
+class GLParticleComponent : public VisualComponent
 {
 public:
     enum class ParticleMode
@@ -47,11 +45,11 @@ public:
     };
 
 public:
-    ParticleComponent(class Actor* owner, int drawOrder = 20);
-    ~ParticleComponent();
+    GLParticleComponent(class Actor* owner, int drawOrder = 20);
+    ~GLParticleComponent();
 
     void Update(float deltaTime) override;
-    void SetTexture(std::shared_ptr<Texture> tex) override;
+    void SetTexture(std::shared_ptr<class Texture> tex) override;
 
     void Init(const Desc& desc);
     bool InitFromFile(const std::string& filePath);
@@ -63,7 +61,7 @@ public:
     //==============================================================
     // RenderQueue 用
     //==============================================================
-    void GatherRenderItems(RenderQueue& outQueue) override;
+    void GatherRenderItems(class RenderQueue& outQueue) override;
 
 private:
     static ParticleMode ParseModeString(const std::string& s);

@@ -248,7 +248,7 @@ void OutdoorStage::DeployFire(const Vector3& pos)
 
     // Component
     auto* particle = particleActorGPU
-        ->CreateComponent<toy::ParticleComponent>();
+        ->CreateComponent<toy::GLParticleComponent>();
 
     particle->SetTexture(
         mApp->GetAssetManager()->GetTexture("fire.png"));
@@ -256,13 +256,13 @@ void OutdoorStage::DeployFire(const Vector3& pos)
     //==============================
     // Desc で全設定
     //==============================
-    toy::ParticleComponent::Desc desc;
+    toy::GLParticleComponent::Desc desc;
 
     // --- 基本 ---
     desc.maxParticles   = 100;        // 旧 num
     desc.particleLife   = 0.6f;       // 旧 partLife
     desc.size           = 5.5f;       // 旧 size
-    desc.mode           = toy::ParticleComponent::ParticleMode::Smoke;
+    desc.mode           = toy::GLParticleComponent::ParticleMode::Smoke;
 
     // --- エミッタ ---
     desc.emitterOffset  = Vector3(0.0f, 0.0f, 0.0f); // Actor ローカル

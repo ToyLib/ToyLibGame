@@ -493,19 +493,19 @@ protected:
     void SortBucket_Shadow(std::vector<uint32_t>& bucket);
 
     
-    virtual void BeginFrame() {};
+    virtual void BeginFrame() = 0;
     
-    virtual void DrawShadowPass() {};
-    virtual void RestoreAfterShadowPass() {};
+    virtual void DrawShadowPass() = 0;
+    virtual void RestoreAfterShadowPass() = 0;
 
-    virtual void DrawSkyPass() {};
-    virtual void DrawWorldPass() {};
-    virtual void DrawOverlayScreenPass() {};
-    virtual void DrawFadePass() {};
-    virtual void DrawPostEffectPass() {};
-    virtual void DrawUIPass() {};
+    virtual void DrawSkyPass() = 0;
+    virtual void DrawWorldPass() = 0;
+    virtual void DrawOverlayScreenPass() = 0;
+    virtual void DrawFadePass() = 0;
+    virtual void DrawPostEffectPass() = 0;
+    virtual void DrawUIPass() = 0;
 
-    virtual void EndFrame() {};
+    virtual void EndFrame() = 0;
 
     //--------------------------------------------------------------------------
     // Camera stack

@@ -1,4 +1,4 @@
-#include "Graphics/Effect/ParticleComponent.h"
+#include "Graphics/Effect/GLParticleComponent.h"
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
@@ -54,7 +54,7 @@ static const unsigned int kQuadIndices[6] =
 // ctor / dtor
 //======================================================================
 
-ParticleComponent::ParticleComponent(Actor* owner, int drawOrder)
+GLParticleComponent::GLParticleComponent(Actor* owner, int drawOrder)
     : VisualComponent(owner, drawOrder)
 {
     mLayer = VisualLayer::Effect3D;
@@ -69,7 +69,7 @@ ParticleComponent::ParticleComponent(Actor* owner, int drawOrder)
     mRunning = false;
 }
 
-ParticleComponent::~ParticleComponent()
+GLParticleComponent::~GLParticleComponent()
 {
     ReleaseGL();
 }
@@ -78,12 +78,12 @@ ParticleComponent::~ParticleComponent()
 // Public API
 //======================================================================
 
-void ParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
+void GLParticleComponent::SetTexture(std::shared_ptr<Texture> tex)
 {
     mTexture = std::move(tex);
 }
 
-void ParticleComponent::Init(const Desc& desc)
+void GLParticleComponent::Init(const Desc& desc)
 {
     const bool needRebuild =
         (!mInitialized) || (mDesc.maxParticles != desc.maxParticles);
@@ -112,7 +112,7 @@ void ParticleComponent::Init(const Desc& desc)
     InitParticleBuffers(mDesc.warmStart);
 }
 
-bool ParticleComponent::InitFromFile(const std::string& filePath)
+bool GLParticleComponent::InitFromFile(const std::string& filePath)
 {
     std::ifstream file(filePath);
     if (!file.is_open())
@@ -147,18 +147,18 @@ bool ParticleComponent::InitFromFile(const std::string& filePath)
     return true;
 }
 
-void ParticleComponent::Start()
+void GLParticleComponent::Start()
 {
     mRunning   = true;
     mIsVisible = true;
 }
 
-void ParticleComponent::Stop()
+void GLParticleComponent::Stop()
 {
     mRunning = false;
 }
 
-void ParticleComponent::Reset()
+void GLParticleComponent::Reset()
 {
     mPendingHardReset = true;
     mSkipDrawFrames   = 2;
@@ -170,7 +170,7 @@ void ParticleComponent::Reset()
 // Update
 //======================================================================
 
-void ParticleComponent::Update(float deltaTime)
+void GLParticleComponent::Update(float deltaTime)
 {
     if (mPendingHardReset)
     {
@@ -210,7 +210,7 @@ void ParticleComponent::Update(float deltaTime)
 //======================================================================
 // RenderQueue
 //======================================================================
-void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
+void GLParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 {
     if (mSkipDrawFrames > 0)
     {
@@ -300,7 +300,7 @@ void ParticleComponent::GatherRenderItems(RenderQueue& outQueue)
 // GL init / update
 //======================================================================
 
-void ParticleComponent::InitIfNeeded()
+void GLParticleComponent::InitIfNeeded()
 {
     if (mInitialized)
     {
@@ -314,7 +314,7 @@ void ParticleComponent::InitIfNeeded()
     mPingPong = false;
 }
 
-void ParticleComponent::ReleaseGL()
+void GLParticleComponent::ReleaseGL()
 {
     if (mUpdateVAO)
     {
@@ -345,7 +345,7 @@ void ParticleComponent::ReleaseGL()
     mPingPong = false;
 }
 
-void ParticleComponent::InitQuadGeometry()
+void GLParticleComponent::InitQuadGeometry()
 {
     glGenBuffers(1, &mQuadVBO);
     glBindBuffer(GL_ARRAY_BUFFER, mQuadVBO);
@@ -359,12 +359,12 @@ void ParticleComponent::InitQuadGeometry()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void ParticleComponent::InitUpdateVAO()
+void GLParticleComponent::InitUpdateVAO()
 {
     glGenVertexArrays(1, &mUpdateVAO);
 }
 
-void ParticleComponent::InitRenderVAO()
+void GLParticleComponent::InitRenderVAO()
 {
     glGenVertexArrays(1, &mRenderVAO);
     glBindVertexArray(mRenderVAO);
@@ -383,7 +383,7 @@ void ParticleComponent::InitRenderVAO()
     glBindVertexArray(0);
 }
 
-void ParticleComponent::UpdateParticlesGPU(float deltaTime)
+void GLParticleComponent::UpdateParticlesGPU(float deltaTime)
 {
     const unsigned int src = CurrentSrcVBO();
     const unsigned int dst = CurrentDstVBO();
@@ -435,7 +435,7 @@ void ParticleComponent::UpdateParticlesGPU(float deltaTime)
 // Attribute bind / helpers
 //======================================================================
 
-void ParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
+void GLParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
     const GLsizei stride = sizeof(Particle);
@@ -450,7 +450,7 @@ void ParticleComponent::BindUpdateAttributes(unsigned int srcVBO)
     glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void*)offsetof(Particle, life));
 }
 
-void ParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
+void GLParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
 {
     glBindBuffer(GL_ARRAY_BUFFER, srcVBO);
     const GLsizei stride = sizeof(Particle);
@@ -464,17 +464,17 @@ void ParticleComponent::BindInstanceAttributes(unsigned int srcVBO)
     glVertexAttribDivisor(4, 1);
 }
 
-unsigned int ParticleComponent::CurrentSrcVBO() const
+unsigned int GLParticleComponent::CurrentSrcVBO() const
 {
     return mPingPong ? mParticleVBO_B : mParticleVBO_A;
 }
 
-unsigned int ParticleComponent::CurrentDstVBO() const
+unsigned int GLParticleComponent::CurrentDstVBO() const
 {
     return mPingPong ? mParticleVBO_A : mParticleVBO_B;
 }
 
-void ParticleComponent::ApplyModePresetIfNeeded()
+void GLParticleComponent::ApplyModePresetIfNeeded()
 {
     if (mDesc.mode == ParticleMode::Water)
     {
@@ -488,8 +488,8 @@ void ParticleComponent::ApplyModePresetIfNeeded()
     }
 }
 
-ParticleComponent::ParticleMode
-ParticleComponent::ParseModeString(const std::string& s)
+GLParticleComponent::ParticleMode
+GLParticleComponent::ParseModeString(const std::string& s)
 {
     if (s == "Water" || s == "water")
     {
@@ -502,7 +502,7 @@ ParticleComponent::ParseModeString(const std::string& s)
     return ParticleMode::Spark;
 }
 
-void ParticleComponent::InitParticleBuffers(bool warmStart)
+void GLParticleComponent::InitParticleBuffers(bool warmStart)
 {
     InitIfNeeded();
 
