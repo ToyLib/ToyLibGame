@@ -2,8 +2,8 @@
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/LightingManager.h"
+#include "Render/IRenderer.h"
+#include "Render/LightingManager.h"
 
 namespace toy {
 

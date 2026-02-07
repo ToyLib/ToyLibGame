@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Render/VisualLayer.h"
+#include "Render/VisualLayer.h"
 #include "Engine/Core/Component.h"
 #include "Asset/Material/Texture.h"   // 既存 SetTexture を維持したいなら
 #include <memory>

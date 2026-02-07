@@ -1,5 +1,5 @@
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/LightingManager.h"
+#include "Render/IRenderer.h"
+#include "Render/LightingManager.h"
 #include "Utils/JsonHelper.h"
 #include <fstream>
 #include <iostream>

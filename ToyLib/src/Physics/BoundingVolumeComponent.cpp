@@ -5,9 +5,9 @@
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/Mesh.h"
-#include "Engine/Render/Shader.h"
+#include "Render/Shader.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 #include "Asset/Material/Texture.h"
 #include "Engine/Debug/DebugWireframeComponent.h"
 

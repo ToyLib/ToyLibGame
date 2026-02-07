@@ -1,8 +1,8 @@
-// Engine/Render/RenderQueue.h
+// Render/RenderQueue.h
 #pragma once
 
-#include "Engine/Render/RenderItem.h"
-#include "Engine/Render/RenderItemPayloads.h"
+#include "Render/RenderItem.h"
+#include "Render/RenderItemPayloads.h"
 
 #include <vector>
 #include <cstdint>

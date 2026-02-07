@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 #include <SDL3/SDL.h>
 
 namespace toy

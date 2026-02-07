@@ -4,11 +4,11 @@
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/RenderItem.h"
-#include "Engine/Render/RenderQueue.h"
+#include "Render/IRenderer.h"
+#include "Render/RenderItem.h"
+#include "Render/RenderQueue.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
-#include "Engine/Render/LightingManager.h"
+#include "Render/LightingManager.h"
 #include "Asset/Geometry/VertexArray.h"
 
 #include <SDL3/SDL.h>

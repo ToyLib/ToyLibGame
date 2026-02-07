@@ -1,4 +1,4 @@
-// Engine/Render/RenderItemPayloads.h
+// Render/RenderItemPayloads.h
 #pragma once
 
 #include "Utils/MathUtil.h"

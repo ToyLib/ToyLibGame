@@ -10,14 +10,14 @@
 //  - Small utilities (handles, clear color, etc.)
 //==============================================================================
 
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 
 #include "Engine/Core/Application.h"
 
 // Engine / Render
-#include "Engine/Render/LightingManager.h"
-#include "Engine/Render/RenderTarget.h"
-#include "Engine/Render/Shader.h"
+#include "Render/LightingManager.h"
+#include "Render/RenderTarget.h"
+#include "Render/Shader.h"
 
 // Graphics
 #include "Graphics/VisualComponent.h"

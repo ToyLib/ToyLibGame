@@ -1,7 +1,7 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/CameraManager.h"
 #include "Engine/Core/Actor.h"
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 #include "Engine/Core/Application.h"
 
 namespace toy {

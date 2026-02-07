@@ -1,5 +1,5 @@
-#include "Engine/Render/LightingManager.h"
-#include "Engine/Render/Shader.h"
+#include "Render/LightingManager.h"
+#include "Render/Shader.h"
 #include "Graphics/Light/PointLightComponent.h"
 
 #include <algorithm>

@@ -1,4 +1,4 @@
-// Engine/Render/RenderHandles.h
+// Render/RenderHandles.h
 #pragma once
 #include <cstdint>
 

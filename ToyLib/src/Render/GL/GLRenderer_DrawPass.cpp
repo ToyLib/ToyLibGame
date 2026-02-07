@@ -1,7 +1,7 @@
-#include "Engine/Render/GL/GLRenderer.h"
-#include "Engine/Render/RenderTarget.h"
-#include "Engine/Render/LightingManager.h"
-#include "Engine/Render/Shader.h"
+#include "Render/GL/GLRenderer.h"
+#include "Render/RenderTarget.h"
+#include "Render/LightingManager.h"
+#include "Render/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Texture.h"
 

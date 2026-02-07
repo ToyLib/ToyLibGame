@@ -9,8 +9,8 @@
 //------------------------------------------------------------------------------
 // Engine / Render
 //------------------------------------------------------------------------------
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/RenderTarget.h"
+#include "Render/IRenderer.h"
+#include "Render/RenderTarget.h"
 
 //------------------------------------------------------------------------------
 // Asset

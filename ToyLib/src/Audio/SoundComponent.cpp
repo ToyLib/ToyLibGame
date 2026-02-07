@@ -6,7 +6,7 @@
 #include "Audio/SoundMixer.h"
 #include "Asset/AssetManager.h"
 #include "Asset/Audio/SoundEffect.h"
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 #include "Utils/MathUtil.h"
 #include <iostream>
 

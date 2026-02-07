@@ -1,9 +1,9 @@
-// Engine/Render/RenderItem.h
+// Render/RenderItem.h
 #pragma once
 
-#include "Engine/Render/RenderEnums.h"
-#include "Engine/Render/RenderHandles.h"
-#include "Engine/Render/VisualLayer.h"
+#include "Render/RenderEnums.h"
+#include "Render/RenderHandles.h"
+#include "Render/VisualLayer.h"
 #include "Utils/MathUtil.h"
 
 #include <cstddef>

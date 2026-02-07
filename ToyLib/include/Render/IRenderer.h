@@ -11,9 +11,9 @@
 #include "Utils/MathUtil.h"
 
 // Render
-#include "Engine/Render/PostEffect.h"
-#include "Engine/Render/RenderQueue.h"
-#include "Engine/Render/VisualLayer.h"
+#include "Render/PostEffect.h"
+#include "Render/RenderQueue.h"
+#include "Render/VisualLayer.h"
 
 // GL
 #include "glad/glad.h"

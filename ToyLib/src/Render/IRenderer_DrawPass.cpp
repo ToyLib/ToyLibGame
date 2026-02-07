@@ -6,11 +6,11 @@
 //  - Draw(), BuildFrameQueues(), DrawToRenderTarget()
 //==============================================================================
 
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 
 // Engine / Render
-#include "Engine/Render/LightingManager.h"
-#include "Engine/Render/RenderTarget.h"
+#include "Render/LightingManager.h"
+#include "Render/RenderTarget.h"
 
 
 // Geometry / Visual

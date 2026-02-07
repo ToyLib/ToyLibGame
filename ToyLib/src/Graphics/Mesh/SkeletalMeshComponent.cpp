@@ -6,9 +6,9 @@
 #include "Asset/Material/Material.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/RenderItem.h"
-#include "Engine/Render/RenderQueue.h"
+#include "Render/IRenderer.h"
+#include "Render/RenderItem.h"
+#include "Render/RenderQueue.h"
 
 namespace toy {
 

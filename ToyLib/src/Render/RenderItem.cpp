@@ -1,12 +1,12 @@
-// Engine/Render/RenderItem.cpp
-#include "Engine/Render/RenderItem.h"
+// Render/RenderItem.cpp
+#include "Render/RenderItem.h"
 
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Material.h"
 #include "Asset/Material/Texture.h"
-#include "Engine/Render/LightingManager.h"
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/Shader.h"
+#include "Render/LightingManager.h"
+#include "Render/IRenderer.h"
+#include "Render/Shader.h"
 
 namespace toy {
 

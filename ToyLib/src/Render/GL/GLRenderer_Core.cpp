@@ -1,8 +1,8 @@
-#include "Engine/Render/GL/GLRenderer.h"
+#include "Render/GL/GLRenderer.h"
 #include "Engine/Core/Application.h"
-#include "Engine/Render/Shader.h"
+#include "Render/Shader.h"
 #include "Asset/Material/Texture.h"
-#include "Engine/Render/RenderTarget.h"
+#include "Render/RenderTarget.h"
 
 #include <iostream>
 

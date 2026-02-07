@@ -1,4 +1,4 @@
-// Engine/Render/RenderEnums.h
+// Render/RenderEnums.h
 #pragma once
 
 namespace toy {

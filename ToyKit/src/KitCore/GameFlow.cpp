@@ -1,7 +1,7 @@
 #include "KitCore/GameFlow.h"
 #include "KitCore/IScene.h"
 #include "Engine/Runtime/InputSystem.h"
-#include "Engine/Render/IRenderer.h"
+#include "Render/IRenderer.h"
 #include "Engine/Core/Application.h"
 
 namespace toy::kit {

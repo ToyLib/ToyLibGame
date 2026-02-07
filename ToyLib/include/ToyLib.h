@@ -26,9 +26,9 @@
 //======================================
 // Engine Render
 //======================================
-#include "Engine/Render/IRenderer.h"
-#include "Engine/Render/Shader.h"
-#include "Engine/Render/LightingManager.h"
+#include "Render/IRenderer.h"
+#include "Render/Shader.h"
+#include "Render/LightingManager.h"
 
 //======================================
 // Asset

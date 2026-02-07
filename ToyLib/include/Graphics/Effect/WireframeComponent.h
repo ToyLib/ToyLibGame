@@ -2,7 +2,7 @@
 #pragma once
 
 #include "Graphics/VisualComponent.h"
-#include "Engine/Render/RenderQueue.h"
+#include "Render/RenderQueue.h"
 
 #include <memory>
 
