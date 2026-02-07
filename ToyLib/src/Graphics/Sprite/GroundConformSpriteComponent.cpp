@@ -392,16 +392,10 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 //------------------------------------------------------------------------------
 void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible)
-    {
-        return;
-    }
+    if (!mIsVisible) return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer || !mShader)
-    {
-        return;
-    }
+    if (!renderer) return;
 
     if (!mTexture)
     {
@@ -435,7 +429,7 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.geometry.ptr = mGridVAO.get();
     it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
-    it.shader = renderer->GetShaderHandle("Unlit");
+    it.shader = renderer->GetShaderHandle(mPipelineName);
 
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();

@@ -50,7 +50,7 @@ public:
     int  GetDrawOrder() const { return mDrawOrder; }
     void SetDrawOrder(int order) { mDrawOrder = order; }
 
-    void SetShader(std::shared_ptr<class Shader> shader) { mShader = shader; }
+    //void SetShader(std::shared_ptr<class Shader> shader) { mShader = shader; }
     void SetLightingManager(std::shared_ptr<LightingManager> light) { mLightingManager = light; }
 
     bool GetEnableShadow() const { return mEnableShadow; }
@@ -62,7 +62,8 @@ public:
 protected:
     // 旧方式で使っているもの（Sprite/Meshが依存してるので当面残す）
     std::shared_ptr<class Texture>         mTexture;
-    std::shared_ptr<class Shader>          mShader;
+    std::string mPipelineName;
+    
     std::shared_ptr<class LightingManager> mLightingManager;
     std::shared_ptr<class VertexArray>     mVertexArray;
 

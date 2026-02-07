@@ -13,19 +13,14 @@ WeatherOverlayComponent::WeatherOverlayComponent(Actor* a, int drawOrder, Visual
     : VisualComponent(a, drawOrder, layer)
 {
     auto renderer   = GetOwner()->GetApp()->GetRenderer();
-    mShader         = renderer->GetShader("WeatherOverlay");
+    mPipelineName   = "WeatherOverlay";
     mVertexArray    = renderer->GetFullScreenQuad();
 }
 void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
 {
-    if (!mIsVisible)
-    {
-        return;
-    }
-    if (!mShader || !mVertexArray)
-    {
-        return;
-    }
+    if (!mIsVisible) return;
+    //if (!mShader || !mVertexArray)
+    if (!mVertexArray) return;
 
     auto* app = GetOwner()->GetApp();
     if (!app)
@@ -128,7 +123,7 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
     it.frontFace = FrontFace::CCW; // 念のため（未指定でもいい）
 
     // shader / geometry
-    it.shader.ptr   = mShader.get();
+    it.shader       = renderer->GetShaderHandle(mPipelineName);
     it.geometry.ptr = mVertexArray.get();
     it.indexCount   = mVertexArray->GetNumIndices();
 

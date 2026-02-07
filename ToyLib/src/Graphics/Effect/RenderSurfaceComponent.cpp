@@ -34,7 +34,7 @@ RenderSurfaceComponent::RenderSurfaceComponent(Actor* owner, int drawOrder)
     // 置物の板ポリ：ビルボードなし、通常 3D と同じ扱い
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
     mVertexArray   = renderer->GetSurfaceQuad();
-    mShader        = renderer->GetShader("RenderSurface");
+    mPipelineName  = "RenderSurface";
 }
 
 //==============================================================================
@@ -108,7 +108,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.vertexCount = 0;
 
     // できれば Handle 化したいが、今は最小変更で維持
-    it.shader.ptr = mShader.get();
+    it.shader  = renderer->GetShaderHandle(mPipelineName);
 
     // Transform
     owner->ComputeWorldTransform();

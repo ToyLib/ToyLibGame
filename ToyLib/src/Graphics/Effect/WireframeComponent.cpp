@@ -18,7 +18,7 @@ WireframeComponent::WireframeComponent(Actor* owner,
     : VisualComponent(owner, drawOrder, layer)
 {
     // 単色描画（デバッグ用）
-    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Solid");
+    mPipelineName = "Solid";
 }
 
 //------------------------------------------------------------
@@ -80,7 +80,7 @@ void WireframeComponent::GatherRenderItems(RenderQueue& q)
     it.indexCount   = 0;
 
     // shader（ハンドルで統一）
-    it.shader = renderer->GetShaderHandle("Solid");
+    it.shader = renderer->GetShaderHandle(mPipelineName);
 
     // transforms
     it.world    = owner->GetWorldTransform();

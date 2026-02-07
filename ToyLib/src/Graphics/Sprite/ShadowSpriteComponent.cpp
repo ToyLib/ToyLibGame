@@ -18,8 +18,9 @@ ShadowSpriteComponent::ShadowSpriteComponent(Actor* owner, int drawOrder)
     : GroundConformSpriteComponent(owner, drawOrder, VisualLayer::Effect3D)
 {
     // 旧実装互換：Sprite シェーダ（uSpriteColor/uSpriteAlpha）
-    mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Sprite");
-
+    // mShader = GetOwner()->GetApp()->GetRenderer()->GetShader("Sprite");
+    mPipelineName = "Sprite";
+    
     // 影用のテクスチャを自前生成（現状再現）
     auto tex = std::make_shared<Texture>();
     tex->CreateAlphaCircle(256, 0.5f, 0.3f, Vector3(0.0f, 0.0f, 0.0f), 0.8f);
@@ -124,7 +125,7 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.geometry.ptr = mGridVAO.get();
     it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
-    it.shader = renderer->GetShaderHandle("Sprite");
+    it.shader = renderer->GetShaderHandle(mPipelineName);
 
     it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
     it.world    = Matrix4::Identity;

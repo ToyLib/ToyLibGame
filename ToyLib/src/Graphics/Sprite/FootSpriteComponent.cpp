@@ -63,10 +63,8 @@ FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLaye
     
     // Unlit（Phong互換uniform名がある前提）
     // ※新パスでは shader handle に積むだけなので、ここで取っておく
-    if (auto* r = owner->GetApp()->GetRenderer())
-    {
-        mShader = r->GetShader("Unlit");
-    }
+
+    mPipelineName = "Unlit";
 }
 
 void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
@@ -142,17 +140,11 @@ Matrix4 FootSpriteComponent::BuildWorldMatrix() const
 //------------------------------------------------------------------------------
 void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible)
-    {
-        return;
-    }
+    if (!mIsVisible) return;
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer || !mShader)
-    {
-        return;
-    }
-
+    if (!renderer) return;
+ 
     if (!mTexture)
     {
         return;
@@ -194,7 +186,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.indexCount = 6;
 
     // shader（Unlit 前提）
-    it.shader = renderer->GetShaderHandle("Unlit");
+    it.shader = renderer->GetShaderHandle(mPipelineName);
 
     // transforms（ToyLib: row-vector規約なら view*proj でOK）
     const Matrix4 view = renderer->GetViewMatrix();
