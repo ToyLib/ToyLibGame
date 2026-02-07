@@ -107,7 +107,7 @@ void RenderSurfaceComponent::GatherRenderItems(RenderQueue& queue)
     it.vertexCount = 0;
 
     // できれば Handle 化したいが、今は最小変更で維持
-    it.shader  = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     // Transform
     owner->ComputeWorldTransform();

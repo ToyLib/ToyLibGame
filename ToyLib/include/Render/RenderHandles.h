@@ -19,9 +19,9 @@ struct TextureHandle
     Texture*    ptr = nullptr;
 };
 
-struct ShaderHandle
+struct PipelineHandle
 {
-    Shader*     ptr = nullptr;
+    Shader*     ptrGLShader = nullptr;
 };
 
 // ★追加：MaterialHandle

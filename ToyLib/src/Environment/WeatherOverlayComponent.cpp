@@ -122,7 +122,7 @@ void WeatherOverlayComponent::GatherRenderItems(RenderQueue& outQueue)
     it.frontFace = FrontFace::CCW; // 念のため（未指定でもいい）
 
     // shader / geometry
-    it.shader       = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline     = renderer->GetPipelineHandle(mPipelineName);
     it.geometry.ptr = mVertexArray.get();
     it.indexCount   = mVertexArray->GetNumIndices();
 

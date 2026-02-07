@@ -185,7 +185,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.indexCount = 6;
 
     // shader（Unlit 前提）
-    it.shader = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     // transforms（ToyLib: row-vector規約なら view*proj でOK）
     const Matrix4 view = renderer->GetViewMatrix();

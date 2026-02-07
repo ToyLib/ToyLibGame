@@ -85,7 +85,7 @@ private:
 
 private:
     std::shared_ptr<Texture> mTexture;
-    std::shared_ptr<Shader>  mUpdateShader;
+    Shader*  mUpdateShader;
     std::string mUpdatePipelineName;
 
     Desc  mDesc {};

@@ -112,7 +112,7 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
     it.indexCount = 6;
 
     // shader
-    it.shader = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     // texture
     it.texture     = renderer->ToHandle(mTexture);

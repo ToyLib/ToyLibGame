@@ -113,7 +113,7 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
         it.frontFace  = FrontFace::CCW;
 
         // shader/material
-        it.shader   = renderer->GetShaderHandle("Skinned");
+        it.pipeline = renderer->GetPipelineHandle("Skinned");
         it.material = renderer->ToHandle(mMesh->GetMaterial(va->GetTextureID()));
 
         // transforms
@@ -221,7 +221,7 @@ void SkeletalMeshComponent::GatherShadowItems(RenderQueue& queue)
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
-        it.shader = renderer->GetShaderHandle("ShadowSkinned");
+        it.pipeline = renderer->GetPipelineHandle("ShadowSkinned");
 
         queue.Push(it);
     }

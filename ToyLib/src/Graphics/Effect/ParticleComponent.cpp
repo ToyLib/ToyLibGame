@@ -59,10 +59,10 @@ GLParticleComponent::GLParticleComponent(Actor* owner, int drawOrder)
 {
     mLayer = VisualLayer::Effect3D;
 
-    if (auto* r = (GLRenderer*)GetOwner()->GetApp()->GetRenderer())
+    if (auto* r = GetOwner()->GetApp()->GetRenderer())
     {
         mUpdatePipelineName = "ParticleUpdate";
-        mUpdateShader = r->GetShader(mUpdatePipelineName);
+        mUpdateShader = r->GetPipelineHandle(mUpdatePipelineName).ptrGLShader;
         mPipelineName = "Particle";
     }
 
@@ -277,7 +277,7 @@ void GLParticleComponent::GatherRenderItems(RenderQueue& outQueue)
     it.frontFace  = FrontFace::CCW;
 
     // shader / texture
-    it.shader      = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline    = renderer->GetPipelineHandle(mPipelineName);
     it.texture.ptr = mTexture.get();
     it.textureUnit = 0;
 

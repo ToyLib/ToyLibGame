@@ -80,7 +80,7 @@ void SkyDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     it.cull       = CullMode::Front; // 内側
     it.frontFace  = FrontFace::CCW;
 
-    it.shader     = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline   = renderer->GetPipelineHandle(mPipelineName);
     it.geometry.ptr = mSkyVAO.get();
 
     it.world    = world;

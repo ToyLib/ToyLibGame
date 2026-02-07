@@ -25,7 +25,7 @@ public:
     
     std::shared_ptr<class Shader> GetShader(const std::string& name);
 
-    ShaderHandle GetShaderHandle(const std::string& name) override;
+    PipelineHandle GetPipelineHandle(const std::string& name) override;
     
     void SetClearColor(const Vector3& color) override;
 protected:

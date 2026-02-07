@@ -330,8 +330,10 @@ void IRenderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
             if (aShadow != bShadow) return aShadow;
 
             // 1) shader でまとめる（SetActive 削減）
-            if (A.shader.ptr != B.shader.ptr) return A.shader.ptr < B.shader.ptr;
-
+            if (A.pipeline.ptrGLShader != B.pipeline.ptrGLShader)
+            {
+                return A.pipeline.ptrGLShader < B.pipeline.ptrGLShader;
+            }
             // 2) geometry でまとめる（VAO bind 削減）
             if (A.type != RenderItemType::Particle)
             {

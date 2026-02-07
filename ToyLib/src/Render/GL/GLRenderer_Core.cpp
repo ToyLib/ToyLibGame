@@ -206,11 +206,11 @@ bool GLRenderer::InitializeShadowMapping()
 }
 
 
-ShaderHandle GLRenderer::GetShaderHandle(const std::string& name)
+PipelineHandle GLRenderer::GetPipelineHandle(const std::string& name)
 {
-    ShaderHandle h{};
+    PipelineHandle h{};
     auto sp = GetShader(name);
-    h.ptr = sp.get();
+    h.ptrGLShader = sp.get();
     return h;
 }
 

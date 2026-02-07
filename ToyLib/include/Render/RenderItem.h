@@ -76,7 +76,7 @@ struct RenderItem
     //==========================================================
     // Shader / material / texture
     //==========================================================
-    ShaderHandle   shader      {};
+    PipelineHandle pipeline    {};
     MaterialHandle material    {};
     TextureHandle  texture     {};
     int            textureUnit { 0 };

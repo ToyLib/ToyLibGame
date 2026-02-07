@@ -316,7 +316,7 @@ public:
     GeometryHandle GetSpriteQuadHandle() const;
     GeometryHandle GetSurfaceQuadHandle() const;
 
-    virtual ShaderHandle GetShaderHandle(const std::string& name) { ShaderHandle h; return h; }
+    virtual PipelineHandle GetPipelineHandle(const std::string& name) { PipelineHandle h; return h; }
     TextureHandle  ToHandle(const std::shared_ptr<Texture>& tex) const;
     MaterialHandle ToHandle(const std::shared_ptr<Material>& mat) const;
     

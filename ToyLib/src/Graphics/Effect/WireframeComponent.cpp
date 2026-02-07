@@ -79,7 +79,7 @@ void WireframeComponent::GatherRenderItems(RenderQueue& q)
     it.indexCount   = 0;
 
     // shader（ハンドルで統一）
-    it.shader = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     // transforms
     it.world    = owner->GetWorldTransform();

@@ -112,7 +112,7 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
     it.geometry   = renderer->GetSpriteQuadHandle();
     it.indexCount = 6;
 
-    it.shader   = renderer->GetShaderHandle("Sprite");
+    it.pipeline = renderer->GetPipelineHandle("Sprite");
     it.world    = world;
     it.viewProj = viewProj;
 

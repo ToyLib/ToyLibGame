@@ -111,7 +111,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
     it.layer     = mLayer;
     it.drawOrder = mDrawOrder; // あれば。無いならこの行は削除
 
-    it.shader   = renderer->GetShaderHandle("Mesh"); // Phong前提
+    it.pipeline = renderer->GetPipelineHandle("Mesh"); // Phong前提
     it.viewProj = view * proj;
     it.world    = world;
 

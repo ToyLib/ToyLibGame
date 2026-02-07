@@ -99,7 +99,7 @@ inline void SetCommonUniforms(IRenderer& r,
                              RenderPass pass,
                              int cascadeIndex)
 {
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh) return;
 
     if (pass == RenderPass::World || pass == RenderPass::UI)
@@ -167,8 +167,8 @@ void GLRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
     ApplyState(it);
 
-    if (!it.shader.ptr) return;
-    it.shader.ptr->SetActive();
+    if (!it.pipeline.ptrGLShader) return;
+    it.pipeline.ptrGLShader->SetActive();
 
     SetCommonUniforms(*this, it, pass, cascadeIndex);
 

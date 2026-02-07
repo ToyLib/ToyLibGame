@@ -125,7 +125,7 @@ void ShadowSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.geometry.ptr = mGridVAO.get();
     it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
-    it.shader = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
     it.world    = Matrix4::Identity;

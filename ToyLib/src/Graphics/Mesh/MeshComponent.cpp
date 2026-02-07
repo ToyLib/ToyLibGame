@@ -82,7 +82,7 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         it.geometry.ptr = v.get();
         it.indexCount   = static_cast<int>(v->GetNumIndices());
 
-        it.shader   = renderer->GetShaderHandle("Mesh");
+        it.pipeline = renderer->GetPipelineHandle("Mesh");
         it.world    = worldMatrix;
         it.viewProj = viewProj;
 
@@ -171,7 +171,7 @@ void MeshComponent::GatherShadowItems(RenderQueue& queue)
         it.cull       = CullMode::Back;
         it.frontFace  = FrontFace::CCW;
 
-        it.shader = renderer->GetShaderHandle("ShadowMesh");
+        it.pipeline = renderer->GetPipelineHandle("ShadowMesh");
 
         queue.Push(it);
     }

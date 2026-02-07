@@ -23,7 +23,7 @@ static bool DispatchSprite(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true;
@@ -71,7 +71,7 @@ static bool DispatchMesh(IRenderer& r,
         return false;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true;
@@ -126,7 +126,7 @@ static bool DispatchSkinnedMesh(IRenderer& r,
                                 RenderPass pass,
                                 int)
 {
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true; // 何もしない（安全弁）
@@ -223,7 +223,7 @@ static bool DispatchBillboard(IRenderer& r,
     if (pass == RenderPass::Shadow)
         return true;
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
         return true;
 
@@ -268,7 +268,7 @@ static bool DispatchParticle(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true;
@@ -315,7 +315,7 @@ static bool DispatchSkyDome(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh || !it.geometry.ptr)
     {
         return true;
@@ -365,7 +365,7 @@ static bool DispatchOverlay(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh || !it.geometry.ptr)
     {
         return true;
@@ -411,7 +411,7 @@ static bool DispatchDebug(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true;
@@ -445,7 +445,7 @@ static bool DispatchSurface(IRenderer& r,
         return true;
     }
 
-    auto* sh = it.shader.ptr;
+    auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
         return true;

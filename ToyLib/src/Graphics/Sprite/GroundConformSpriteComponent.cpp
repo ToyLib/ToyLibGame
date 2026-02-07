@@ -428,7 +428,7 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.geometry.ptr = mGridVAO.get();
     it.indexCount   = static_cast<int>(mGridVAO->GetNumIndices());
 
-    it.shader = renderer->GetShaderHandle(mPipelineName);
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName);
 
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
