@@ -19,7 +19,9 @@ public:
     //   textureUnit … DiffuseMap を貼るスロット番号（通常 0）
     void BindToShader(std::shared_ptr<class Shader> shader,
                       int textureUnit = 0) const;
-    void BindToShader(class Shader* shader, int textureUnit = 0) const;
+
+    void BindToShader(class Shader* shader,
+                      int textureUnit = 0) const;
 
     //--- テクスチャ関連 ------------------------------------
     void SetDiffuseMap(std::shared_ptr<class Texture> tex)

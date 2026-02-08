@@ -1,5 +1,6 @@
 #include "Render/GL/GLRenderer.h"
 #include "Render/GL/GLRenderTarget.h"
+
 #include "Render/LightingManager.h"
 #include "Render/GL/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
@@ -9,7 +10,6 @@
 #include "glad/glad.h"
 
 namespace toy {
-
 
 //==============================================================================
 // GL state apply
@@ -161,7 +161,6 @@ inline void DrawDefaultGeometry_GL(IRenderer& r, const RenderItem& it)
 //==============================================================================
 // DrawItem
 //==============================================================================
-
 
 void GLRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
@@ -404,7 +403,6 @@ void GLRenderer::DrawWorldPass()
         glFrontFace(GL_CCW);
     }
 }
-
 void GLRenderer::DrawOverlayScreenPass()
 {
     if (mBuckets.overlayScreen.empty()) return;

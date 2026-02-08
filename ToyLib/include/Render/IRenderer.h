@@ -136,7 +136,6 @@ public:
     virtual bool Initialize(const class Application* app) { return false; }
     virtual void Shutdown() {};
 
-
     //--------------------------------------------------------------------------
     // Main draw
     //--------------------------------------------------------------------------
@@ -211,6 +210,7 @@ public:
     // Scene capture request
     //--------------------------------------------------------------------------
 
+    virtual std::shared_ptr<RenderTarget>  CreateRenderTarget() { return nullptr; }
     void RequestSceneCapture(const SceneCaptureRequest& req);
 
     //--------------------------------------------------------------------------
@@ -343,7 +343,6 @@ public:
     
 protected:
     //--------------------------------------------------------------------------
-    // SDL
     //--------------------------------------------------------------------------
 
 
@@ -512,6 +511,7 @@ protected:
     void PushCameraState();
     void PopCameraState();
     void SetCameraState(const CameraState& s);
+    
 };
 
 } // namespace toy

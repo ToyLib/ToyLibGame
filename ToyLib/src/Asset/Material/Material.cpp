@@ -15,14 +15,25 @@ Material::Material()
 // BindToShader()
 //   Shader に対してマテリアル情報を一括で反映させる。
 //--------------------------------------------------------------
+
+static std::shared_ptr<Texture> GetWhiteDummyTex()
+{
+    static std::shared_ptr<Texture> sWhite;
+    if (!sWhite)
+    {
+        sWhite = std::make_shared<Texture>();
+
+        // 1x1 RGBA white
+        const uint8_t white[4] = { 255, 255, 255, 255 };
+        sWhite->CreateFromPixels(white, 1, 1, true);
+    }
+    return sWhite;
+}
+
 void Material::BindToShader(Shader* shader, int textureUnit) const
 {
-    if (!shader)
-    {
-        return;
-    }
+    if (!shader) return;
 
-    // 単色化（override）を先に送る
     shader->SetBooleanUniform("uOverrideColor", mOverrideColor);
     shader->SetVectorUniform ("uUniformColor",  mUniformColor);
 
@@ -31,28 +42,16 @@ void Material::BindToShader(Shader* shader, int textureUnit) const
     shader->SetVectorUniform("uSpecColor",     mSpecularColor);
     shader->SetFloatUniform ("uSpecPower",     mShininess);
 
-    //==========================================================
-    // 重要：
-    //  - テクスチャが無いのに uUseTexture=true は危険
-    //  - overrideColor のときも基本はテクスチャ無効でよい
-    //==========================================================
-    const bool canUseTexture =
-        (mUseTexture && (mDiffuseMap != nullptr) && !mOverrideColor);
+    // ★重要：テクスチャ無しでも「必ず」有効テクスチャを bind する
+    auto tex = mDiffuseMap ? mDiffuseMap : GetWhiteDummyTex();
+    tex->SetActive(textureUnit);
+    shader->SetTextureUniform("uTexture", textureUnit);
 
-    if (canUseTexture)
-    {
-        mDiffuseMap->SetActive(textureUnit);
-        shader->SetTextureUniform("uTexture", textureUnit);
-    }
-    else
-    {
-        // ★ “テクスチャ無し” のときも、そのunitの2Dを明示的に外す
-        glActiveTexture(GL_TEXTURE0 + textureUnit);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-
+    // “使う/使わない”はシェーダ分岐用のフラグとして残してOK
+    const bool canUseTexture = (mUseTexture && (mDiffuseMap != nullptr) && !mOverrideColor);
     shader->SetBooleanUniform("uUseTexture", canUseTexture);
 }
+
 
 void Material::BindToShader(std::shared_ptr<Shader> shader, int textureUnit) const
 {

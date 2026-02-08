@@ -26,13 +26,13 @@ void TitleScene::InitScene()
     effectDesc.type = toy::PostEffectType::CRT;
     effectDesc.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
-    /*
+
     // テスト用スプライト
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     a->SetPosition(Vector3(100.0f, 100.0f,0));
-     */
+     
 }
 
 void TitleScene::UnloadScene()

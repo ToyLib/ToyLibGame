@@ -221,4 +221,10 @@ void GLRenderer::SetClearColor(const Vector3& color)
     glClearColor(mClearColor.x, mClearColor.y, mClearColor.z, 1.0f);
 }
 
+
+std::shared_ptr<RenderTarget>  GLRenderer::CreateRenderTarget()
+{
+    return std::make_shared<GLRenderTarget>();
+}
+
 } // namespace toy
