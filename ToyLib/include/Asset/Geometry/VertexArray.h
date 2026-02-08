@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
-#include <vector>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace toy {
 
@@ -10,10 +11,9 @@ struct Polygon;
 
 //-------------------------------------------
 // VertexArray
-// ・OpenGL の VAO/VBO/IBO をまとめて管理
-// ・メッシュ、スキンメッシュ、スプライトなど用途ごとに複数の
-//   コンストラクタを用意
-// ・衝突判定用に三角形(Polygon)リストも保持
+// ・CPU側：ポリゴン（物理用）を保持
+// ・GPU側：バックエンド実装（GL/VK）に委譲（SetActive/Unload）
+// ・公開インターフェースは変更しない
 //-------------------------------------------
 class VertexArray
 {
@@ -69,7 +69,7 @@ public:
     void Unload();
 
     //-----------------------------------------------
-    // 描画時に VAO を bind
+    // 描画時に VAO を bind（バックエンドへ委譲）
     //-----------------------------------------------
     void SetActive();
 
@@ -97,42 +97,28 @@ public:
 
 private:
     //=====================================================
-    // コピー禁止（AssetManager 経由の shared_ptr 前提）
+    // コピー禁止
     //=====================================================
     VertexArray(const VertexArray&) = delete;
     VertexArray& operator=(const VertexArray&) = delete;
 
-    // 頂点数・インデックス数
-    unsigned int mNumVerts    { 0 };
-    unsigned int mNumIndices  { 0 };
+private:
+    //=====================================================
+    // CPU側（物理用）
+    //=====================================================
+    unsigned int mNumVerts   { 0 };
+    unsigned int mNumIndices { 0 };
 
-    //-----------------------------------------------
-    // ★追加：実際に生成した VBO の本数（1/3/5）
-    //-----------------------------------------------
-    unsigned int mNumVBO      { 0 };
-
-    //-----------------------------------------------
-    // VBO 配列（最大 5 本：pos, normal, uv, boneID, weight）
-    //-----------------------------------------------
-    unsigned int mVertexBuffer[5] { 0, 0, 0, 0, 0 };
-
-    //-----------------------------------------------
-    // VAO / IBO
-    //-----------------------------------------------
-    unsigned int mVertexBufferID { 0 }; // VAO
-    unsigned int mIndexBufferID  { 0 }; // EBO/IBO
-    // VAO 同値スキップ用
-    static unsigned int sCurrentVAO;
-
-    //-----------------------------------------------
-    // マテリアルインデックスとして使う TextureID
-    //-----------------------------------------------
     unsigned int mTextureID { 0 };
 
-    //-----------------------------------------------
-    // 物理判定用の三角形リスト
-    //-----------------------------------------------
     std::vector<Polygon> mPolygons;
+
+    //-----------------------------------------------
+    // GPU側：バックエンド実装へ委譲
+    //  - GL 実装は追加ファイル側（GLVertexArrayBackend）
+    //  - VK 実装は後で追加できる
+    //-----------------------------------------------
+    std::unique_ptr<class IVertexArrayBackend> mBackend;
 
 private:
     //-----------------------------------------------
@@ -141,6 +127,12 @@ private:
     void CreatePolygons(const float* verts,
                         const unsigned int* indices,
                         unsigned int numIndices);
+
+    // ★追加：stride 指定版（pos が先頭にある前提）
+    void CreatePolygonsWithStride(const float* verts,
+                                  unsigned int strideFloats,
+                                  const unsigned int* indices,
+                                  unsigned int numIndices);
 };
 
 } // namespace toy
