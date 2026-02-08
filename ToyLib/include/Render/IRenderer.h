@@ -265,14 +265,6 @@ public:
         return mFullScreenQuad;
     }
 
-    std::shared_ptr<class VertexArray> GetParticleQuad() const
-    {
-        // NOTE（名残指摘）:
-        //  - ParticleQuad が SpriteQuad を返している（意図ならOK）
-        //  - 将来的に専用 Quad を作るならここを差し替える
-        return mSpriteQuad;
-    }
-
     std::shared_ptr<class VertexArray> GetSurfaceQuad() const
     {
         return mSurfaceQuad;
