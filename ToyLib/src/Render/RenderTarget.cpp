@@ -75,10 +75,13 @@ bool RenderTarget::Create(int w, int h)
     // ---------------------------------------------------------
     mColorTex = std::make_shared<Texture>();
     mColorTex->CreateRenderColorRGBA8(w, h);
-    if (!mColorTex)
+
+    // NOTE:
+    // - make_shared 直後なので mColorTex が null になることはない
+    // - GL側の生成に失敗したかどうかは TextureID で判定する
+    if (!mColorTex || mColorTex->GetTextureID() == 0)
     {
-        std::cerr << "CreateRenderColorRGBA8 failed" << std::endl;
-        return false;
+        return fail("CreateRenderColorRGBA8 failed");
     }
 
     glFramebufferTexture2D(GL_FRAMEBUFFER,
@@ -108,7 +111,9 @@ bool RenderTarget::Create(int w, int h)
         return fail("FBO incomplete");
     }
 
-    // 戻す
+    // ---------------------------------------------------------
+    // restore
+    // ---------------------------------------------------------
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;

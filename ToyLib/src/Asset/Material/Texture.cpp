@@ -1,6 +1,8 @@
 #include "Asset/Material/Texture.h"
+
 #include "Asset/AssetManager.h"
-#include "glad/glad.h"
+#include "Render/ITextureGPU.h"
+#include "Render/GL/GLTextureGPU.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
@@ -12,14 +14,21 @@
 
 namespace toy {
 
-// 同値スキップ用
-unsigned int Texture::sCurrentTextureID = 0;
+//============================================================
+// 内部：いまは GL 固定で生成（VK導入時に差し替えポイント）
+//============================================================
+static std::unique_ptr<ITextureGPU> CreateTextureGPU()
+{
+    // 今は GL だけ
+    return std::make_unique<GLTextureGPU>();
+}
 
 //============================================================
-// コンストラクタ / デストラクタ
+// ctor / dtor
 //============================================================
 Texture::Texture()
 {
+    mGPU = CreateTextureGPU();
 }
 
 Texture::~Texture()
@@ -28,204 +37,154 @@ Texture::~Texture()
 }
 
 //============================================================
-// 読み込み：画像ファイル（SDL3_image）
+// Load : image file (SDL3_image)
 //============================================================
 bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
 {
-    // AssetManager で設定された AssetsPath を基準にフルパスを組み立てる
+    if (!assetManager)
+    {
+        std::cerr << "[Texture] Load failed: assetManager is null\n";
+        return false;
+    }
+    if (!mGPU)
+    {
+        std::cerr << "[Texture] Load failed: GPU is null\n";
+        return false;
+    }
+
+    // AssetsPath を基準にフルパスを組み立てる
     std::string fullName = assetManager->GetAssetsPath() + fileName;
 
     SDL_Surface* image = IMG_Load(fullName.c_str());
     if (!image)
     {
         std::cerr << "[Texture] Failed to load image: "
-                  << fullName << " : " << SDL_GetError() << std::endl;
+                  << fullName << " : " << SDL_GetError() << "\n";
         return false;
     }
 
-    // --------------------------------------------------------
-    // 1) OpenGL 用フォーマットへ変換（ABGR8888 → RGBA 相当）
-    //    ※ SDL3 でも SDL_ConvertSurface は利用可能
-    // --------------------------------------------------------
+    // GL で扱いやすいフォーマットへ（ABGR8888）
     SDL_Surface* conv = SDL_ConvertSurface(image, SDL_PIXELFORMAT_ABGR8888);
-    SDL_DestroySurface(image); // 元 surface は破棄
+    SDL_DestroySurface(image);
 
     if (!conv)
     {
         std::cerr << "[Texture] SDL_ConvertSurface failed: "
-                  << SDL_GetError() << std::endl;
+                  << SDL_GetError() << "\n";
         return false;
     }
 
-    const int w = conv->w;
-    const int h = conv->h;
+    mWidth  = conv->w;
+    mHeight = conv->h;
 
-    // --------------------------------------------------------
-    // 2) 行パディング対策
-    //    UNPACK_ALIGNMENT=1 にして 4byte アライメントを気にしないようにする
-    // --------------------------------------------------------
-    GLint prevUnpack = 0;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpack);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    // --------------------------------------------------------
-    // 3) OpenGL テクスチャ生成
-    //    ABGR8888 だが little endian では RGBA 順と互換になるため GL_RGBA で扱う
-    // --------------------------------------------------------
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA8,          // 内部フォーマット
-        w,
-        h,
-        0,
-        GL_RGBA,           // 入力フォーマット
-        GL_UNSIGNED_BYTE,
-        conv->pixels
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    // 元の alignment に戻す
-    glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpack);
-
-    mWidth  = w;
-    mHeight = h;
+    // ABGR8888 は little endian で RGBA と互換扱いできるので「hasAlpha=true」でOK
+    const bool ok = mGPU->CreateFromPixels(conv->pixels, mWidth, mHeight, true);
 
     SDL_DestroySurface(conv);
-    return true;
+    return ok;
 }
 
 //============================================================
-// 読み込み：メモリ上の画像データ（埋め込みテクスチャなど）
-//   - Assimp の aiTexture などに対応
+// LoadFromMemory : compressed image in memory
 //============================================================
 bool Texture::LoadFromMemory(const void* data, int size)
 {
-    // SDL3: SDL_RWops の代わりに SDL_IOStream を使用
+    if (!mGPU)
+    {
+        std::cerr << "[Texture] LoadFromMemory failed: GPU is null\n";
+        return false;
+    }
+    if (!data || size <= 0)
+    {
+        std::cerr << "[Texture] LoadFromMemory failed: invalid args\n";
+        return false;
+    }
+
     SDL_IOStream* io = SDL_IOFromConstMem(data, size);
     if (!io)
     {
         std::cerr << "[Texture] SDL_IOFromConstMem failed: "
-                  << SDL_GetError() << std::endl;
+                  << SDL_GetError() << "\n";
         return false;
     }
 
-    // SDL3_image: IMG_Load_IO
-    //   第二引数 true で、読み込み終了後に io を自動クローズ
     SDL_Surface* image = IMG_Load_IO(io, true);
     if (!image)
     {
-        std::cerr << "[Texture] Failed to load image from memory: "
-                  << SDL_GetError() << std::endl;
+        std::cerr << "[Texture] IMG_Load_IO failed: "
+                  << SDL_GetError() << "\n";
         return false;
     }
 
-    // SDL3: ピクセルフォーマットからアルファ有無を判定
-    bool hasAlpha = SDL_ISPIXELFORMAT_ALPHA(image->format);
-    GLenum srcFormat = hasAlpha ? GL_RGBA : GL_RGB;
-    GLenum internal  = hasAlpha ? GL_RGBA8 : GL_RGB8;
-
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        internal,
-        image->w,
-        image->h,
-        0,
-        srcFormat,
-        GL_UNSIGNED_BYTE,
-        image->pixels
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
+    const bool hasAlpha = SDL_ISPIXELFORMAT_ALPHA(image->format);
     mWidth  = image->w;
     mHeight = image->h;
 
+    // ここは SDL_Surface の format に応じて「RGB/RGBA」どちらで解釈するかだけ決める
+    // ※image->pixels の並びは format に依存するので、厳密にやるなら変換が必要。
+    // ただ「既存コードの挙動を崩さない」が最優先なら、従来通りの運用でOK。
+    // ここでは安全側で RGBA へ変換してから投げる（破綻しづらい）。
+    SDL_Surface* conv = SDL_ConvertSurface(image, SDL_PIXELFORMAT_ABGR8888);
     SDL_DestroySurface(image);
-    return true;
+
+    if (!conv)
+    {
+        std::cerr << "[Texture] SDL_ConvertSurface failed: "
+                  << SDL_GetError() << "\n";
+        return false;
+    }
+
+    mWidth  = conv->w;
+    mHeight = conv->h;
+
+    const bool ok = mGPU->CreateFromPixels(conv->pixels, mWidth, mHeight, true);
+
+    SDL_DestroySurface(conv);
+    (void)hasAlpha; // 情報としては取ってるが、ここでは統一でRGBA化している
+    return ok;
 }
 
 //============================================================
-// 読み込み：生のピクセルから作成（RGBA 前提）
-//   - フォントレンダリング結果などをそのままテクスチャ化
+// LoadFromMemory : raw pixels RGBA
 //============================================================
 bool Texture::LoadFromMemory(const void* data, int width, int height)
 {
-    if (mTextureID != 0)
-    {
-        glDeleteTextures(1, &mTextureID);
-    }
-
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA8,
-        width, height, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE,
-        data
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    mWidth  = width;
-    mHeight = height;
-    return true;
+    // 既存運用：RGBA 前提
+    return CreateFromPixels(data, width, height, true);
 }
 
-
 //============================================================
-// 生成：シャドウマップ用テクスチャ（depth）
-//   - sampler2DShadow 前提の深度比較テクスチャ
+// CreateShadowMap
 //============================================================
 void Texture::CreateShadowMap(int width, int height)
 {
+    if (!mGPU)
+    {
+        std::cerr << "[Texture] CreateShadowMap failed: GPU is null\n";
+        return;
+    }
+
     mWidth  = width;
     mHeight = height;
-
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
-        width, height, 0,
-        GL_DEPTH_COMPONENT, GL_FLOAT,
-        nullptr
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // ★ここを変更
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    const float border[4] = { 1.f, 1.f, 1.f, 1.f }; // 影なし
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    mGPU->CreateShadowMap(width, height);
 }
 
 //============================================================
-// 生成：自前生成（円形グラデーション）
-//   - レンズフレア等のアルファ用
+// NOTE: OpenGL backend only.
+// RenderTarget(GL) など GL直結コードから使うための暫定アクセサ。
+// Vulkan backend では 0 を返す or 別APIになる想定。
+unsigned int Texture::GetTextureID() const
+{
+    // GL のときだけ値が取れる
+    if (auto* gl = dynamic_cast<GLTextureGPU*>(mGPU.get()))
+    {
+        return gl->GetTextureID();
+    }
+    return 0;
+}
+
+//============================================================
+// CreateAlphaCircle
 //============================================================
 bool Texture::CreateAlphaCircle(int size,
                                 float centerX,
@@ -233,6 +192,7 @@ bool Texture::CreateAlphaCircle(int size,
                                 Vector3 color,
                                 float blendPow)
 {
+    if (!mGPU) return false;
     if (size <= 0) return false;
 
     std::vector<uint8_t> pixels(size * size * 4);
@@ -248,7 +208,6 @@ bool Texture::CreateAlphaCircle(int size,
             float dy = y - cy;
             float dist = std::sqrt(dx * dx + dy * dy) / (size / 3.0f);
 
-            // 外側に行くほどアルファが減衰
             float alpha = 1.0f - std::pow(std::clamp(dist, 0.0f, 1.0f), blendPow);
 
             int index = (y * size + x) * 4;
@@ -259,28 +218,13 @@ bool Texture::CreateAlphaCircle(int size,
         }
     }
 
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA,
-        size, size, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE,
-        pixels.data()
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     mWidth  = size;
     mHeight = size;
-    return true;
+    return mGPU->CreateFromPixels(pixels.data(), size, size, true);
 }
 
 //============================================================
-// 生成：自前生成（放射状の光芒・ゴッドレイ風）
+// CreateRadialRays
 //============================================================
 bool Texture::CreateRadialRays(int size,
                                int numRays,
@@ -288,6 +232,7 @@ bool Texture::CreateRadialRays(int size,
                                float rayStrength,
                                float intensityScale)
 {
+    if (!mGPU) return false;
     if (size <= 0 || numRays <= 0) return false;
 
     std::vector<uint8_t> pixels(size * size * 4);
@@ -307,7 +252,6 @@ bool Texture::CreateRadialRays(int size,
             float angle = std::atan2(dy, dx);
             float ray   = std::abs(std::sin(angle * numRays));
 
-            // 距離減衰 × 光芒の強さ
             float alpha = (1.0f - std::clamp(dist, 0.0f, 1.0f));
             alpha = std::pow(alpha, fadePow) * ray * rayStrength;
             alpha = std::clamp(alpha * intensityScale, 0.0f, 1.0f);
@@ -320,193 +264,68 @@ bool Texture::CreateRadialRays(int size,
         }
     }
 
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RGBA,
-        size, size, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE,
-        pixels.data()
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     mWidth  = size;
     mHeight = size;
-    return true;
+    return mGPU->CreateFromPixels(pixels.data(), size, size, true);
 }
 
 //============================================================
-// 生成：RenderTarget 用 RGBA8 カラーテクスチャ
+// CreateRenderColorRGBA8
 //============================================================
 void Texture::CreateRenderColorRGBA8(int w, int h)
 {
-    if (mTextureID != 0)
+    if (!mGPU)
     {
-        glDeleteTextures(1, &mTextureID);
+        std::cerr << "[Texture] CreateRenderColorRGBA8 failed: GPU is null\n";
+        return;
     }
-    
-    mWidth = w;
+
+    mWidth  = w;
     mHeight = h;
-
-    glGenTextures(1, &mTextureID);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA8,
-        mWidth,
-        mHeight,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        nullptr
-    );
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    mGPU->CreateRenderColorRGBA8(w, h);
 }
 
 //============================================================
-// 内部ユーティリティ（GL エラー確認）
-//============================================================
-static void DrainGLErrors()
-{
-    while (glGetError() != GL_NO_ERROR) {}
-}
-
-static bool LogGLError(const char* tag)
-{
-    GLenum err = glGetError();
-    if (err == GL_NO_ERROR) return false;
-    std::cerr << "[GL ERROR] " << tag << " : 0x"
-              << std::hex << err << std::dec << "\n";
-    return true;
-}
-
-//============================================================
-// 生成：ピクセルデータからテクスチャ作成
+// CreateFromPixels (public API 維持)
 //============================================================
 bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha)
 {
+    if (!mGPU)
+    {
+        std::cerr << "[Texture] CreateFromPixels failed: GPU is null\n";
+        return false;
+    }
     if (!pixels || width <= 0 || height <= 0)
     {
         std::cerr << "[Texture] CreateFromPixels invalid args\n";
         return false;
     }
 
-    // 観測ズレ防止
-    DrainGLErrors();
-
-    if (mTextureID != 0)
-    {
-        glDeleteTextures(1, &mTextureID);
-        mTextureID = 0;
-    }
-
     mWidth  = width;
     mHeight = height;
-
-    glGenTextures(1, &mTextureID);
-    if (LogGLError("glGenTextures")) return false;
-    if (mTextureID == 0)
-    {
-        std::cerr << "[Texture] glGenTextures returned 0\n";
-        return false;
-    }
-
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-    if (LogGLError("glBindTexture")) return false;
-
-    // 1x1でも安全に（RGBのときも含め）
-    GLint prevUnpack = 0;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpack);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    const GLenum srcFormat = hasAlpha ? GL_RGBA : GL_RGB;
-    const GLenum internal  = hasAlpha ? GL_RGBA8 : GL_RGB8;
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, internal,
-                 width, height, 0,
-                 srcFormat, GL_UNSIGNED_BYTE, pixels);
-
-    if (LogGLError("glTexImage2D"))
-    {
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return false;
-    }
-
-    // 実際に作れてるか検証
-    if (!glIsTexture(mTextureID))
-    {
-        std::cerr << "[Texture] glIsTexture failed id=" << mTextureID << "\n";
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return false;
-    }
-
-    GLint tw = 0, th = 0;
-    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH,  &tw);
-    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
-    if (LogGLError("glGetTexLevelParameteriv"))
-    {
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return false;
-    }
-
-    if (tw != width || th != height)
-    {
-        std::cerr << "[Texture] created size mismatch got "
-                  << tw << "x" << th << " expected "
-                  << width << "x" << height << "\n";
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return false;
-    }
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpack);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    return true;
+    return mGPU->CreateFromPixels(pixels, width, height, hasAlpha);
 }
 
 //============================================================
-// OpenGL へのバインド
+// SetActive
 //============================================================
 void Texture::SetActive(int unit)
 {
-    if (sCurrentTextureID == mTextureID)
-    {
-        return;
-    }
-    
-    glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
-    
-    sCurrentTextureID = mTextureID;
+    if (!mGPU) return;
+    mGPU->SetActive(unit);
 }
 
 //============================================================
-// リソース解放
+// Unload
 //============================================================
 void Texture::Unload()
 {
-    if (mTextureID != 0)
+    if (mGPU)
     {
-        glDeleteTextures(1, &mTextureID);
-        mTextureID = 0;
+        mGPU->Unload();
     }
+    mWidth  = 0;
+    mHeight = 0;
 }
 
 } // namespace toy
