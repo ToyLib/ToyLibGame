@@ -11,6 +11,7 @@
 //------------------------------------------------------------------------------
 #include "Render/IRenderer.h"
 #include "Render/RenderTarget.h"
+#include "Render/GL/GLRenderTarget.h"
 
 //------------------------------------------------------------------------------
 // Asset
@@ -41,7 +42,7 @@ void SceneCaptureComponent::Init(const Desc& desc)
     mDesc.height = (mDesc.height > 0) ? mDesc.height : 1;
 
     // RenderTarget 作成
-    mRT = std::make_shared<RenderTarget>();
+    mRT = std::make_shared<GLRenderTarget>();
     mRT->Create(mDesc.width, mDesc.height);
 
     // 更新タイマー初期化

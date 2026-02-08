@@ -7,7 +7,7 @@
 
 namespace toy {
 
-unsigned int GLTextureGPU::sCurrentTextureID = 0;
+unsigned int GLTextureGPU::sCurrentTextureIDPerUnit[32] = {};
 
 GLTextureGPU::GLTextureGPU()
 {
@@ -174,22 +174,21 @@ void GLTextureGPU::CreateRenderColorRGBA8(int w, int h)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+
 void GLTextureGPU::SetActive(int unit)
 {
-    if (mTextureID == 0) return;
+    if (unit < 0 || unit >= 32) return;
 
-    if (sCurrentTextureID == mTextureID)
+    // ★ mTextureID==0 のときも「0をbindしてクリア」しておくのが安全
+    if (sCurrentTextureIDPerUnit[unit] == mTextureID)
     {
-        // ここで unit を無視する設計は「旧実装互換」だけど注意点あり：
-        // unit をまたいで同じテクスチャを貼る用途があるなら、
-        // sCurrentTextureID だけだとスキップしすぎる。
         return;
     }
 
     glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, mTextureID);
+    glBindTexture(GL_TEXTURE_2D, mTextureID); // mTextureID==0 なら unbind
 
-    sCurrentTextureID = mTextureID;
+    sCurrentTextureIDPerUnit[unit] = mTextureID;
 }
 
 void GLTextureGPU::Unload()
@@ -197,15 +196,20 @@ void GLTextureGPU::Unload()
     if (mTextureID != 0)
     {
         glDeleteTextures(1, &mTextureID);
-        if (sCurrentTextureID == mTextureID)
+
+        // ★消したIDがキャッシュに残ってたら全部クリア
+        for (int i = 0; i < 32; ++i)
         {
-            sCurrentTextureID = 0;
+            if (sCurrentTextureIDPerUnit[i] == mTextureID)
+            {
+                sCurrentTextureIDPerUnit[i] = 0;
+            }
         }
+
         mTextureID = 0;
     }
 
     mWidth  = 0;
     mHeight = 0;
 }
-
 } // namespace toy

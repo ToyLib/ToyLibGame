@@ -44,6 +44,12 @@ void Material::BindToShader(Shader* shader, int textureUnit) const
         mDiffuseMap->SetActive(textureUnit);
         shader->SetTextureUniform("uTexture", textureUnit);
     }
+    else
+    {
+        // ★ “テクスチャ無し” のときも、そのunitの2Dを明示的に外す
+        glActiveTexture(GL_TEXTURE0 + textureUnit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 
     shader->SetBooleanUniform("uUseTexture", canUseTexture);
 }

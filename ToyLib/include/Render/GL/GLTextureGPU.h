@@ -35,7 +35,8 @@ private:
     int mHeight { 0 };
 
     // 同値スキップ用（GL実装側に寄せる）
-    static unsigned int sCurrentTextureID;
+    
+    static unsigned int sCurrentTextureIDPerUnit[32];
 
 private:
     // internal helpers

@@ -1,84 +1,43 @@
+//======================================================================
+// RenderTarget.h
+//======================================================================
 #pragma once
 
 #include <memory>
 
 namespace toy {
 
-class Texture; // forward decl
+class Texture;
 
-//==============================================================================
-// RenderTarget
-//------------------------------------------------------------------------------
-// ・オフスクリーン描画用の簡易 RenderTarget
-// ・Color Texture + Depth Renderbuffer を内部に保持
-// ・SceneCapture / ポストエフェクト / 鏡描画などで使用
-//
-// 注意：GLリソース解放は「GLコンテキストが current」の状態で行う必要があるため、
-//       デストラクタで自動 Unload() は行わない（Renderer::Shutdown 等で管理する）
-//==============================================================================
+//==============================================================
+// RenderTarget (backend-agnostic base)
+//  - Create/Bind/Unbind の共通APIだけを提供
+//  - 実体は GLRenderTarget / VkRenderTarget に分離
+//==============================================================
 class RenderTarget
 {
 public:
-    RenderTarget() = default;
-    ~RenderTarget() = default;
+    virtual ~RenderTarget() = default;
 
-    // GL リソースの二重解放を避けるためコピー禁止
-    RenderTarget(const RenderTarget&)            = delete;
-    RenderTarget& operator=(const RenderTarget&) = delete;
+    virtual bool Create(int w, int h) = 0;
+    virtual void Unload() = 0;
 
-    // 必要なら後で move 対応してもOK（今は安全側で禁止でも良い）
-    RenderTarget(RenderTarget&&)            = delete;
-    RenderTarget& operator=(RenderTarget&&) = delete;
+    virtual void Bind() = 0;
+    virtual void Unbind() = 0;
 
-    //--------------------------------------------------------------------------
-    // Create
-    //--------------------------------------------------------------------------
-    // ・指定サイズで FBO / ColorTex / DepthRBO を生成
-    // ・成功したら true
-    bool Create(int w, int h);
-
-    //--------------------------------------------------------------------------
-    // Bind / Unbind
-    //--------------------------------------------------------------------------
-    // ・この RenderTarget を描画先に設定
-    void Bind();
-    // ・デフォルトのフレームバッファへ戻す
-    static void Unbind();
-
-    //--------------------------------------------------------------------------
-    // Outputs
-    //--------------------------------------------------------------------------
-    std::shared_ptr<Texture> GetColorTexture() const { return mColorTex; }
-
-    //--------------------------------------------------------------------------
-    // Size
-    //--------------------------------------------------------------------------
     int GetWidth()  const { return mW; }
     int GetHeight() const { return mH; }
 
-    //--------------------------------------------------------------------------
-    // Unload
-    //--------------------------------------------------------------------------
-    // ・FBO / RBO / ColorTex を解放
-    // ・呼び出し側で GL context current を保証すること
-    void Unload();
+    std::shared_ptr<Texture> GetColorTexture() const { return mColorTex; }
 
-private:
-    //--------------------------------------------------------------------------
-    // GL resources
-    //--------------------------------------------------------------------------
-    unsigned int mFBO      = 0; // Framebuffer Object
-    unsigned int mDepthRBO = 0; // Depth Renderbuffer
+protected:
+    int mW { 0 };
+    int mH { 0 };
 
-    //--------------------------------------------------------------------------
-    // Size
-    //--------------------------------------------------------------------------
-    int mW = 0;
-    int mH = 0;
-
-    //--------------------------------------------------------------------------
-    // Color buffer
-    //--------------------------------------------------------------------------
+    // NOTE:
+    // - ここは “結果として使えるテクスチャ” を返すために残す
+    // - VK版では VkTexture 的なものになる可能性があるので、
+    //   将来 Texture 自体を ITexture に寄せるなら差し替えやすい
     std::shared_ptr<Texture> mColorTex;
 };
 

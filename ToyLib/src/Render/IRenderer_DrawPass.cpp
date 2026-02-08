@@ -113,7 +113,6 @@ void IRenderer::Draw()
 
     if (mPost.type != PostEffectType::None)
     {
-        RenderTarget::Unbind();
         DrawPostEffectPass();
     }
 

@@ -2,7 +2,7 @@
 #include "Engine/Core/Application.h"
 #include "Render/GL/Shader.h"
 #include "Asset/Material/Texture.h"
-#include "Render/RenderTarget.h"
+#include "Render/GL/GLRenderTarget.h"
 
 #include <iostream>
 
@@ -134,12 +134,12 @@ void GLRenderer::OnWindowResized(int pixelW, int pixelH)
     // SceneRT（ポスト用）
     if (!mSceneRT)
     {
-        mSceneRT = std::make_shared<RenderTarget>();
+        mSceneRT = std::make_shared<GLRenderTarget>();
     }
     else
     {
         // 今は作り直し（理想は RenderTarget 側で resize）
-        mSceneRT = std::make_shared<RenderTarget>();
+        mSceneRT = std::make_shared<GLRenderTarget>();
     }
 
     if (mSceneRT && !mSceneRT->Create(pixelW, pixelH))

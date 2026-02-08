@@ -1,13 +1,24 @@
-#include "Render/RenderTarget.h"
-#include "Asset/Material/Texture.h"
+//======================================================================
+// GLRenderTarget.cpp
+//======================================================================
+#include "Render/GL/GLRenderTarget.h"
 
+#include "Asset/Material/Texture.h"
 #include "glad/glad.h"
 
 #include <iostream>
 
 namespace toy {
 
-void RenderTarget::Unload()
+GLRenderTarget::~GLRenderTarget()
+{
+    Unload();
+}
+
+//==============================================================================
+// Unload
+//------------------------------------------------------------------------------
+void GLRenderTarget::Unload()
 {
     // 呼び出し側で GL context current を保証すること
     if (mDepthRBO != 0)
@@ -21,10 +32,9 @@ void RenderTarget::Unload()
         mFBO = 0;
     }
 
-    // Texture が GL resource を持つなら、ここで Unload する方が安全
-    // （Texture::Unload がある前提。無ければ reset だけでOK）
     if (mColorTex)
     {
+        // Texture が GL resource を持つなら、ここで Unload してもOK
         // mColorTex->Unload();
         mColorTex.reset();
     }
@@ -36,11 +46,11 @@ void RenderTarget::Unload()
 //==============================================================================
 // Create
 //------------------------------------------------------------------------------
-bool RenderTarget::Create(int w, int h)
+bool GLRenderTarget::Create(int w, int h)
 {
     if (w <= 0 || h <= 0)
     {
-        std::cerr << "[RenderTarget] Create failed: invalid size "
+        std::cerr << "[GLRenderTarget] Create failed: invalid size "
                   << w << "x" << h << "\n";
         return false;
     }
@@ -54,10 +64,9 @@ bool RenderTarget::Create(int w, int h)
     mW = w;
     mH = h;
 
-    // 失敗時は必ず Unload して戻る
     auto fail = [&](const char* msg)
     {
-        std::cerr << "[RenderTarget] " << msg << "\n";
+        std::cerr << "[GLRenderTarget] " << msg << "\n";
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
         Unload();
@@ -76,9 +85,6 @@ bool RenderTarget::Create(int w, int h)
     mColorTex = std::make_shared<Texture>();
     mColorTex->CreateRenderColorRGBA8(w, h);
 
-    // NOTE:
-    // - make_shared 直後なので mColorTex が null になることはない
-    // - GL側の生成に失敗したかどうかは TextureID で判定する
     if (!mColorTex || mColorTex->GetTextureID() == 0)
     {
         return fail("CreateRenderColorRGBA8 failed");
@@ -111,9 +117,7 @@ bool RenderTarget::Create(int w, int h)
         return fail("FBO incomplete");
     }
 
-    // ---------------------------------------------------------
     // restore
-    // ---------------------------------------------------------
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
@@ -122,7 +126,7 @@ bool RenderTarget::Create(int w, int h)
 //==============================================================================
 // Bind
 //------------------------------------------------------------------------------
-void RenderTarget::Bind()
+void GLRenderTarget::Bind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, mFBO);
     glViewport(0, 0, mW, mH);
@@ -131,7 +135,7 @@ void RenderTarget::Bind()
 //==============================================================================
 // Unbind
 //------------------------------------------------------------------------------
-void RenderTarget::Unbind()
+void GLRenderTarget::Unbind()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

@@ -1,5 +1,5 @@
 #include "Render/GL/GLRenderer.h"
-#include "Render/RenderTarget.h"
+#include "Render/GL/GLRenderTarget.h"
 #include "Render/LightingManager.h"
 #include "Render/GL/Shader.h"
 #include "Asset/Geometry/VertexArray.h"
@@ -9,6 +9,7 @@
 #include "glad/glad.h"
 
 namespace toy {
+
 
 //==============================================================================
 // GL state apply
@@ -161,6 +162,7 @@ inline void DrawDefaultGeometry_GL(IRenderer& r, const RenderItem& it)
 // DrawItem
 //==============================================================================
 
+
 void GLRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
     if (!ValidateGeometryForDraw(it)) return;
@@ -196,7 +198,7 @@ void GLRenderer::BeginFrame()
             mSceneRT->GetWidth()  != (int)mScreenWidth ||
             mSceneRT->GetHeight() != (int)mScreenHeight)
         {
-            mSceneRT = std::make_shared<RenderTarget>();
+            mSceneRT = std::make_shared<GLRenderTarget>();
             mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight);
         }
 
@@ -402,6 +404,7 @@ void GLRenderer::DrawWorldPass()
         glFrontFace(GL_CCW);
     }
 }
+
 void GLRenderer::DrawOverlayScreenPass()
 {
     if (mBuckets.overlayScreen.empty()) return;
@@ -470,47 +473,74 @@ void GLRenderer::DrawPostEffectPass()
 {
     if (!mSceneRT) return;
 
-    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
-
-    
     auto sceneTex = mSceneRT->GetColorTexture();
     if (!sceneTex) return;
 
+    //========================================================
+    // 1) バックバッファへ戻す（重要）
+    //========================================================
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+
+    //========================================================
+    // 2) 画面全体に貼るだけなので、深度/ブレンドOFF
+    //========================================================
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
     auto sh = GetShader("PostEffect");
-    if (!sh) return;
+    if (!sh)
+    {
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        return;
+    }
 
     sh->SetActive();
 
+    //========================================================
+    // 3) 入力テクスチャ（SceneRTのカラー）
+    //========================================================
     sceneTex->SetActive(0);
     sh->SetTextureUniform("uSceneTex", 0);
 
+    // SDL_GetTicks() は ms なので seconds へ
+    const float timeSec = (float)SDL_GetTicks() * 0.001f;
+
+    //========================================================
+    // 4) Uniforms
+    //========================================================
     switch (mPost.type)
     {
         case PostEffectType::None:
         case PostEffectType::Sepia:
         case PostEffectType::CRT:
-            sh->SetIntUniform("uPostType", static_cast<int>(mPost.type));
+        {
+            sh->SetIntUniform("uPostType", (int)mPost.type);
             sh->SetFloatUniform("uIntensity", mPost.intensity);
-            sh->SetFloatUniform("uTime", SDL_GetTicks());
-            sh->SetIntUniform("uFlipY", 0);
-            break;
-
-        case PostEffectType::FeilyLand:
-            sh->SetIntUniform("uPostType", 3);
-            sh->SetFloatUniform("uIntensity", 1.0f);
-            sh->SetFloatUniform("uTime", SDL_GetTicks());
+            sh->SetFloatUniform("uTime", timeSec);
             sh->SetIntUniform("uFlipY", 0);
             sh->SetIntUniform("uUsePaperTex", 0);
             break;
+        }
+
+        case PostEffectType::FeilyLand:
+        {
+            sh->SetIntUniform("uPostType", 3);
+            sh->SetFloatUniform("uIntensity", 1.0f);
+            sh->SetFloatUniform("uTime", timeSec);
+            sh->SetIntUniform("uFlipY", 0);
+            sh->SetIntUniform("uUsePaperTex", 0);
+            break;
+        }
 
         case PostEffectType::Watercolor:
+        {
             sh->SetIntUniform("uPostType", 4);
             sh->SetFloatUniform("uIntensity", 1.0f);
-            sh->SetFloatUniform("uTime", SDL_GetTicks());
+            sh->SetFloatUniform("uTime", timeSec);
+            sh->SetIntUniform("uFlipY", 0);
 
             sh->SetIntUniform("uUsePaperTex", 1);
             if (mPost.paperTex)
@@ -520,14 +550,22 @@ void GLRenderer::DrawPostEffectPass()
             }
             else
             {
+                // paperTex 無い時は sceneTex を指す、などにしたいならここで0でもOK
                 sh->SetTextureUniform("uPaperTex", 0);
             }
             break;
+        }
     }
 
+    //========================================================
+    // 5) Fullscreen Quad
+    //========================================================
     mFullScreenQuad->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
+    //========================================================
+    // 6) 復帰（最低限）
+    //========================================================
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }
