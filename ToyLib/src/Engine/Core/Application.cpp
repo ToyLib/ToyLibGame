@@ -2,6 +2,7 @@
 #include "Engine/Core/Actor.h"
 #include "Render/GL/GLRenderer.h"
 #include "Render/VK/VKRenderer.h"
+#include "Render/RenderBackendState.h"
 #include "Engine/Runtime/InputSystem.h"
 #include "Physics/PhysWorld.h"
 #include "Asset/AssetManager.h"
@@ -96,7 +97,7 @@ bool Application::Initialize()
 
     Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
     
-    if (mBackEnd == RendererBackend::Vulkan)
+    if (RenderBackendState::Get().IsVK())
     {
         mRenderer = std::make_unique<VKRenderer>();
         windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;

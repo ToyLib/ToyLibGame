@@ -9,12 +9,6 @@
 
 namespace toy {
 
-enum class RendererBackend
-{
-    OpenGL,
-    Vulkan
-};
-
 
 class Application
 {
@@ -103,11 +97,6 @@ private:
     void UpdateFrame();
     void Draw();
 
-    //-----------------------------------------
-    // ウィンドウ／アプリ設定
-    //-----------------------------------------
-    RendererBackend mBackEnd { RendererBackend::OpenGL };
-    
     //-----------------------------------------
     // ウィンドウ／アプリ設定
     //-----------------------------------------

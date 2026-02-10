@@ -4,6 +4,8 @@
 #include "Render/ITextureGPU.h"
 #include "Render/GL/GLTextureGPU.h"
 
+#include "Render/RenderBackendState.h"
+
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
@@ -19,8 +21,12 @@ namespace toy {
 //============================================================
 static std::unique_ptr<ITextureGPU> CreateTextureGPU()
 {
-    // 今は GL だけ
-    return std::make_unique<GLTextureGPU>();
+    if (RenderBackendState::Get().IsGL())
+    {
+        // 今は GL だけ
+        return std::make_unique<GLTextureGPU>();
+    }
+    return nullptr;
 }
 
 //============================================================

@@ -19,16 +19,15 @@ struct FrameSync
     VkSemaphore imageAvailable { VK_NULL_HANDLE };
     VkSemaphore renderFinished { VK_NULL_HANDLE };
     VkFence     inFlight       { VK_NULL_HANDLE };
+    VkCommandBuffer cmd            { VK_NULL_HANDLE };
 
-    // ここから先で command buffer も持たせたくなる（後でOK）
-    // VkCommandBuffer cmd { VK_NULL_HANDLE };
 };
 
 class VKRenderer : public IRenderer
 {
 public:
     VKRenderer() {};
-    virtual ~VKRenderer() {};
+    virtual ~VKRenderer() {Shutdown();};
     
     
     //--------------------------------------------------------------------------
@@ -45,7 +44,7 @@ public:
     
     PipelineHandle GetPipelineHandle(const std::string& name) override {PipelineHandle h; return h;};
     
-    void SetClearColor(const Vector3& color) override {};
+    void SetClearColor(const Vector3& color) override {mClearColor = color;};
     
     std::shared_ptr<RenderTarget> CreateRenderTarget() override {return nullptr;};
     
@@ -57,8 +56,8 @@ protected:
     
     void DrawToRenderTarget(const struct SceneCaptureRequest& req) override {};
     
-    void BeginFrame() override {};
-    void EndFrame() override {};
+    void BeginFrame() override ;
+    void EndFrame() override ;
     
     void DrawShadowPass() override {};
     void RestoreAfterShadowPass() override {};
@@ -97,10 +96,19 @@ private:
     // フレーム同期（例: 2フレーム）
     std::vector<FrameSync> mFrames;
     uint32_t mFrameIndex { 0 }; // Draw/Present で回す用（後で使う）
+    std::vector<VkFramebuffer> mFramebuffers;
+
+    
+    VkRenderPass mRenderPass { VK_NULL_HANDLE };
+    
+    uint32_t mImageIndex { 0 };
     
     
     VkSurfaceFormatKHR mSwapchainFormat{};
     VkPresentModeKHR mPresentMode { VK_PRESENT_MODE_FIFO_KHR };
+    
+    bool CreateRenderPass();
+    bool CreateFramebuffers();
     
     std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
     bool LoadShaders() {return false;};

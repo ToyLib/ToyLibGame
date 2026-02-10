@@ -2,6 +2,7 @@
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Geometry/VertexArrayBackend.h"
 #include "Asset/Geometry/GL/GLVertexArrayBackend.h"
+#include "Render/RenderBackendState.h"
 
 #include <utility>
 
@@ -46,9 +47,12 @@ VertexArray::VertexArray(unsigned int numVerts,
     // 物理用：xyz 配列（stride=3）
     CreatePolygons(verts, indices, mNumIndices);
 
-    // GPU用：現状は GL
-    mBackend = std::make_unique<GLVertexArrayBackend>(
-        numVerts, verts, norms, uvs, numIndices, indices);
+    if (RenderBackendState::Get().IsGL())
+    {
+        // GPU用：現状は GL
+        mBackend = std::make_unique<GLVertexArrayBackend>(
+                                                          numVerts, verts, norms, uvs, numIndices, indices);
+    }
 }
 
 //==============================================================
@@ -67,9 +71,12 @@ VertexArray::VertexArray(const float* verts,
     // ★重要：8 float/vertex でも pos は先頭 (x,y,z) なので stride=8 で読める
     CreatePolygonsWithStride(verts, 8, indices, mNumIndices);
 
-    // GPU用：現状は GL
-    mBackend = std::make_unique<GLVertexArrayBackend>(
-        verts, numVerts, indices, numIndices);
+    if (RenderBackendState::Get().IsGL())
+    {
+        // GPU用：現状は GL
+        mBackend = std::make_unique<GLVertexArrayBackend>(
+                                                          verts, numVerts, indices, numIndices);
+    }
 }
 
 //==============================================================
@@ -89,9 +96,12 @@ VertexArray::VertexArray(const float* verts,
 
     // vec2-only はポリゴン生成しない（従来どおり）
 
-    // GPU用：現状は GL
-    mBackend = std::make_unique<GLVertexArrayBackend>(
-        verts, numVerts, indices, numIndices, true);
+    if (RenderBackendState::Get().IsGL())
+    {
+        // GPU用：現状は GL
+        mBackend = std::make_unique<GLVertexArrayBackend>(
+                                                          verts, numVerts, indices, numIndices, true);
+    }
 }
 
 //==============================================================

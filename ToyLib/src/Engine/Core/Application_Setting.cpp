@@ -1,5 +1,6 @@
 #include "Engine/Core/Application.h"
 #include "Utils/JsonHelper.h"
+#include "Render/RenderBackendState.h"
 #include <fstream>
 #include <iostream>
 
@@ -57,11 +58,11 @@ bool Application::LoadSettings(const std::string& filePath)
     JsonHelper::GetString(data, "renderer_backend", backend);
     if (backend == "VK")
     {
-        mBackEnd = RendererBackend::Vulkan;
+        RenderBackendState::Get().Set(RenderBackendType::Vulkan);
     }
     else
     {
-        mBackEnd = RendererBackend::OpenGL;
+        RenderBackendState::Get().Set(RenderBackendType::OpenGL);
     }
     
     //---------------------------------------------------------

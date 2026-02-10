@@ -7,8 +7,6 @@
 
 namespace toy {
 
-struct Polygon;
-
 //-------------------------------------------
 // VertexArray
 // ・CPU側：ポリゴン（物理用）を保持
@@ -88,12 +86,12 @@ public:
     //-----------------------------------------------
     // 三角形ポリゴン（ローカル）取得
     //-----------------------------------------------
-    const std::vector<Polygon>& GetPolygons() const { return mPolygons; }
+    const std::vector<struct Polygon>& GetPolygons() const { return mPolygons; }
 
     //-----------------------------------------------
     // 三角形ポリゴン（ワールド座標変換済み）を返す
     //-----------------------------------------------
-    std::vector<Polygon> GetWorldPolygons(const Matrix4& worldTransform) const;
+    std::vector<struct Polygon> GetWorldPolygons(const Matrix4& worldTransform) const;
 
 private:
     //=====================================================
