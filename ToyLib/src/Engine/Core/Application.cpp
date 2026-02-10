@@ -25,7 +25,6 @@ Application::Application()
     : mIsFullScreen(true)
     , mEnableDebug(false)
 {
-    mRenderer      = std::make_unique<GLRenderer>();
     mInputSys      = std::make_unique<InputSystem>();
     mPhysWorld     = std::make_unique<PhysWorld>();
     mAssetManager  = std::make_unique<AssetManager>();
@@ -74,6 +73,12 @@ bool Application::Initialize()
         mScreenHeight = 720;
     }
 
+    if (mBackEnd == RendererBackend::OpenGL)
+    {
+        mRenderer = std::make_unique<GLRenderer>();
+    }
+
+    
     // 起動時の論理ウィンドウサイズ
     mWindowedWidth  = mScreenWidth;
     mWindowedHeight = mScreenHeight;

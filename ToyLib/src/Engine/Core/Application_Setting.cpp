@@ -50,6 +50,21 @@ bool Application::LoadSettings(const std::string& filePath)
     JsonHelper::GetString(data, "asset_path", mSystemAssetPath);
     
     //---------------------------------------------------------
+    // アセットパス
+    //   "renderer_backend": "GL" "VK"
+    //---------------------------------------------------------
+    std::string backend;
+    JsonHelper::GetString(data, "renderer_backend", backend);
+    if (backend == "VK")
+    {
+        mBackEnd = RendererBackend::Vulkan;
+    }
+    else
+    {
+        mBackEnd = RendererBackend::OpenGL;
+    }
+    
+    //---------------------------------------------------------
     // ウィンドウサイズ、
     //   "screen": {
     //       "screen_width":    1280
