@@ -139,7 +139,7 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
         toCamera.Normalize();
     }
 
-    const float angle = std::atan2f(toCamera.x, toCamera.z);
+    const float angle = std::atan2(toCamera.x, toCamera.z);
 
     const float scale = GetScale() * GetOwner()->GetScale();
 

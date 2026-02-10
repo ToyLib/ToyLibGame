@@ -64,7 +64,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
         toCamera.Normalize();
     }
 
-    const float   angle = std::atan2f(toCamera.x, toCamera.z);
+    const float   angle = std::atan2(toCamera.x, toCamera.z);
     const Matrix4 rotY  = Matrix4::CreateRotationY(angle);
 
     //--------------------------------------------------------------------------
