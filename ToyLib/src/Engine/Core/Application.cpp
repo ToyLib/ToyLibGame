@@ -74,14 +74,7 @@ bool Application::Initialize()
         mScreenHeight = 720;
     }
 
-    if (mBackEnd == RendererBackend::Vulkan)
-    {
-        mRenderer = std::make_unique<VKRenderer>();
-    }
-    else
-    {
-        mRenderer = std::make_unique<GLRenderer>();
-    }
+
     
     // 起動時の論理ウィンドウサイズ
     mWindowedWidth  = mScreenWidth;
@@ -102,6 +95,18 @@ bool Application::Initialize()
     const int windowH = static_cast<int>(mWindowedHeight * contentScale);
 
     Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    
+    if (mBackEnd == RendererBackend::Vulkan)
+    {
+        mRenderer = std::make_unique<VKRenderer>();
+        windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+    }
+    else
+    {
+        mRenderer = std::make_unique<GLRenderer>();
+        windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+    }
+
 
     mWindow = SDL_CreateWindow(
         mApplicationTitle.c_str(),
