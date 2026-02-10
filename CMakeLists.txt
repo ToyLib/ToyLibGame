@@ -10,6 +10,15 @@ set(GAME_PATH  ToyGame)
 
 find_package(OpenGL REQUIRED)
 
+# ========================
+# Vulkan (always link)
+# ========================
+# 3OS すべてで Vulkan loader/headers が入っている前提で構成する。
+# - Windows: vcpkg (VulkanConfig.cmake)
+# - Linux  : apt (FindVulkan.cmake で拾える)
+# - macOS  : MoltenVK + vulkan-loader/headers を CMake が拾える状態（後述）
+find_package(Vulkan REQUIRED)
+
 # ToyLib のソース
 file(GLOB_RECURSE TOYLIB_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/src/*.cpp
@@ -55,10 +64,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # ========================
 # Linux: SDL3 fallback (system -> vendored source)
 #  - Linux のみで有効化
-#  - 期待する配置（例）:
-#      ToyLib/External/SDL3
-#      ToyLib/External/SDL3_image
-#      ToyLib/External/SDL3_ttf
 # ========================
 option(TOYLIB_LINUX_USE_VENDORED_SDL3 "Linux: use vendored SDL3 sources when system packages are not available" ON)
 
@@ -106,7 +111,6 @@ function(toy_linux_find_or_vendored_sdl3)
     if(NOT SDL3_image_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
         message(STATUS "Linux: SDL3_image not found. Falling back to vendored source: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}")
 
-        # SDL3_image: vendored dependencies を許可（足りない環境対策）
         set(SDLIMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_image" FORCE)
 
         toy_linux_add_subdirectory_if_exists(
@@ -133,7 +137,6 @@ function(toy_linux_find_or_vendored_sdl3)
     if(NOT SDL3_ttf_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
         message(STATUS "Linux: SDL3_ttf not found. Falling back to vendored source: ${TOYLIB_SDL3_TTF_SOURCE_DIR}")
 
-        # SDL3_ttf: vendored dependencies を許可（足りない環境対策）
         set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_ttf" FORCE)
 
         toy_linux_add_subdirectory_if_exists(
@@ -169,6 +172,9 @@ if(WIN32)
     find_package(assimp CONFIG REQUIRED)
     find_package(OpenAL CONFIG REQUIRED)  # openal-soft (vcpkg) 前提
 
+    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
+    # （vcpkg toolchain を使っている前提）
+
     # vcpkg
     set(VCPKG_ROOT "C:/Repos/vcpkg")
     set(VCPKG_TRIPLET "x64-windows")
@@ -199,6 +205,7 @@ if(WIN32)
 
     target_link_libraries(${PROJECT_NAME}
         OpenGL32
+        Vulkan::Vulkan
         SDL3::SDL3
         SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
@@ -216,6 +223,9 @@ if(WIN32)
     endif()
 
     # DLL コピー
+    # NOTE:
+    #  Vulkan loader (vulkan-1.dll) は通常 OS/SDK 側に入っているが、
+    #  “配布/別PCで確実に動かす” ならコピー戦略を別途検討（今は開発優先でOK）。
     set(DLL_FILES
         "${VCPKG_BIN_DIR}/SDL3.dll"
         "${VCPKG_BIN_DIR}/SDL3_image.dll"
@@ -243,21 +253,18 @@ if(WIN32)
 elseif(UNIX AND NOT APPLE)
     message(STATUS "Configuring for Linux build (APT/system packages + SDL3 source fallback)")
 
-    # Ubuntu/Debian なら基本これで入る想定:
-    #   sudo apt install libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
-    #                    libassimp-dev libopenal-dev libfmt-dev libmpg123-dev
-
     find_package(OpenGL REQUIRED)
+    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
 
     # SDL3: system -> source fallback（Linuxのみ）
     toy_linux_find_or_vendored_sdl3()
 
-    # Assimp / OpenAL / fmt は distro により提供形が違うので、ターゲットが無い場合も吸収
+    # Assimp / OpenAL / fmt
     find_package(assimp REQUIRED)
     find_package(OpenAL REQUIRED)
     find_package(fmt REQUIRED)
 
-    # mpg123 は pkg-config が一番確実（Ubuntu では libmpg123-dev + pkg-config）
+    # mpg123
     find_package(PkgConfig QUIET)
     if(PKG_CONFIG_FOUND)
         pkg_check_modules(MPG123 QUIET IMPORTED_TARGET mpg123)
@@ -266,7 +273,6 @@ elseif(UNIX AND NOT APPLE)
     if(TARGET PkgConfig::MPG123)
         set(MPG123_TARGET PkgConfig::MPG123)
     else()
-        # fallback: 従来どおり手動探索
         find_path(MPG123_INCLUDE_DIR
             NAMES mpg123.h
             PATHS
@@ -302,6 +308,7 @@ elseif(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
             OpenGL::GL
+            Vulkan::Vulkan
             SDL3::SDL3
             SDL3_image::SDL3_image
             SDL3_ttf::SDL3_ttf
@@ -312,13 +319,13 @@ elseif(UNIX AND NOT APPLE)
             ${MPG123_TARGET}
     )
 
-    # SDL3 は SDL_main を使わない設計ならこれを付けておくのが安全（ToyLib は Application で main 管理なので）
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
 
 elseif(APPLE)
     message(STATUS "Configuring for macOS build")
 
     find_package(OpenGL REQUIRED)
+    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
 
     # SDL3（Homebrew）
     find_package(SDL3        REQUIRED CONFIG HINTS /opt/homebrew/opt/sdl3)
@@ -358,6 +365,7 @@ elseif(APPLE)
 
     target_link_libraries(${PROJECT_NAME}
         OpenGL::GL
+        Vulkan::Vulkan
         SDL3::SDL3
         SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
@@ -384,7 +392,6 @@ set(SOURCE_ASSET_DIR        "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets")
 set(SOURCE_SETTINGS_DIR     "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings")
 set(SOURCE_SYSSETTINGS_DIR  "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings")
 
-# 実行ファイルのあるディレクトリを基準にコピー
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${SOURCE_SHADER_DIR}"

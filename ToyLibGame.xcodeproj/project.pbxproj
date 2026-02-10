@@ -346,6 +346,7 @@
 					"-lassimp",
 					"-lopenal",
 					"-lmpg123",
+					"-lvulkan",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "ToyLibCore/include/ToyLibGame-Bridging-Header.h";
@@ -379,6 +380,7 @@
 					"-lassimp",
 					"-lopenal",
 					"-lmpg123",
+					"-lvulkan",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "ToyLibCore/include/ToyLibGame-Bridging-Header.h";

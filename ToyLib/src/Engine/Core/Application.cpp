@@ -1,6 +1,7 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
 #include "Render/GL/GLRenderer.h"
+#include "Render/VK/VKRenderer.h"
 #include "Engine/Runtime/InputSystem.h"
 #include "Physics/PhysWorld.h"
 #include "Asset/AssetManager.h"
@@ -73,11 +74,14 @@ bool Application::Initialize()
         mScreenHeight = 720;
     }
 
-    if (mBackEnd == RendererBackend::OpenGL)
+    if (mBackEnd == RendererBackend::Vulkan)
+    {
+        mRenderer = std::make_unique<VKRenderer>();
+    }
+    else
     {
         mRenderer = std::make_unique<GLRenderer>();
     }
-
     
     // 起動時の論理ウィンドウサイズ
     mWindowedWidth  = mScreenWidth;

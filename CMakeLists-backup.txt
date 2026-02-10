@@ -52,6 +52,111 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/${GAME_PATH}
 )
 
+# ========================
+# Linux: SDL3 fallback (system -> vendored source)
+#  - Linux のみで有効化
+#  - 期待する配置（例）:
+#      ToyLib/External/SDL3
+#      ToyLib/External/SDL3_image
+#      ToyLib/External/SDL3_ttf
+# ========================
+option(TOYLIB_LINUX_USE_VENDORED_SDL3 "Linux: use vendored SDL3 sources when system packages are not available" ON)
+
+set(TOYLIB_EXTERNAL_DIR "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External" CACHE PATH "External dependencies root (ToyLib/External)")
+set(TOYLIB_SDL3_SOURCE_DIR       "${TOYLIB_EXTERNAL_DIR}/SDL3"       CACHE PATH "Path to SDL3 source dir")
+set(TOYLIB_SDL3_IMAGE_SOURCE_DIR "${TOYLIB_EXTERNAL_DIR}/SDL3_image" CACHE PATH "Path to SDL3_image source dir")
+set(TOYLIB_SDL3_TTF_SOURCE_DIR   "${TOYLIB_EXTERNAL_DIR}/SDL3_ttf"   CACHE PATH "Path to SDL3_ttf source dir")
+
+function(toy_linux_add_subdirectory_if_exists dir build_subdir out_var)
+    if(EXISTS "${dir}/CMakeLists.txt")
+        add_subdirectory("${dir}" "${build_subdir}" EXCLUDE_FROM_ALL)
+        set(${out_var} TRUE PARENT_SCOPE)
+    else()
+        set(${out_var} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
+function(toy_linux_find_or_vendored_sdl3)
+    # ---- SDL3 ----
+    find_package(SDL3 QUIET CONFIG)
+    if(NOT SDL3_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
+        message(STATUS "Linux: SDL3 not found. Falling back to vendored source: ${TOYLIB_SDL3_SOURCE_DIR}")
+        toy_linux_add_subdirectory_if_exists(
+            "${TOYLIB_SDL3_SOURCE_DIR}"
+            "${CMAKE_BINARY_DIR}/_deps/sdl3-build"
+            _ok_sdl3
+        )
+        if(NOT _ok_sdl3 OR NOT TARGET SDL3::SDL3)
+            message(FATAL_ERROR
+                "Linux: SDL3 not found.\n"
+                "  - Install system package (e.g. libsdl3-dev) OR\n"
+                "  - Put SDL3 sources at: ${TOYLIB_SDL3_SOURCE_DIR}\n"
+                "  - Or set -DTOYLIB_LINUX_USE_VENDORED_SDL3=OFF to disable fallback.\n"
+            )
+        endif()
+    elseif(NOT SDL3_FOUND)
+        message(FATAL_ERROR
+            "Linux: SDL3 not found. Install system package (e.g. libsdl3-dev)\n"
+            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+        )
+    endif()
+
+    # ---- SDL3_image ----
+    find_package(SDL3_image QUIET CONFIG)
+    if(NOT SDL3_image_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
+        message(STATUS "Linux: SDL3_image not found. Falling back to vendored source: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}")
+
+        # SDL3_image: vendored dependencies を許可（足りない環境対策）
+        set(SDLIMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_image" FORCE)
+
+        toy_linux_add_subdirectory_if_exists(
+            "${TOYLIB_SDL3_IMAGE_SOURCE_DIR}"
+            "${CMAKE_BINARY_DIR}/_deps/sdl3_image-build"
+            _ok_sdl3_image
+        )
+        if(NOT _ok_sdl3_image OR NOT TARGET SDL3_image::SDL3_image)
+            message(FATAL_ERROR
+                "Linux: SDL3_image not found.\n"
+                "  - Install system package (e.g. libsdl3-image-dev) OR\n"
+                "  - Put SDL3_image sources at: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}\n"
+            )
+        endif()
+    elseif(NOT SDL3_image_FOUND)
+        message(FATAL_ERROR
+            "Linux: SDL3_image not found. Install system package (e.g. libsdl3-image-dev)\n"
+            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+        )
+    endif()
+
+    # ---- SDL3_ttf ----
+    find_package(SDL3_ttf QUIET CONFIG)
+    if(NOT SDL3_ttf_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
+        message(STATUS "Linux: SDL3_ttf not found. Falling back to vendored source: ${TOYLIB_SDL3_TTF_SOURCE_DIR}")
+
+        # SDL3_ttf: vendored dependencies を許可（足りない環境対策）
+        set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_ttf" FORCE)
+
+        toy_linux_add_subdirectory_if_exists(
+            "${TOYLIB_SDL3_TTF_SOURCE_DIR}"
+            "${CMAKE_BINARY_DIR}/_deps/sdl3_ttf-build"
+            _ok_sdl3_ttf
+        )
+        if(NOT _ok_sdl3_ttf OR NOT TARGET SDL3_ttf::SDL3_ttf)
+            message(FATAL_ERROR
+                "Linux: SDL3_ttf not found.\n"
+                "  - Install system package (e.g. libsdl3-ttf-dev) OR\n"
+                "  - Put SDL3_ttf sources at: ${TOYLIB_SDL3_TTF_SOURCE_DIR}\n"
+                "  Note: SDL3_ttf may require freetype/harfbuzz dev packages or vendored deps.\n"
+            )
+        endif()
+    elseif(NOT SDL3_ttf_FOUND)
+        message(FATAL_ERROR
+            "Linux: SDL3_ttf not found. Install system package (e.g. libsdl3-ttf-dev)\n"
+            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+        )
+    endif()
+endfunction()
+
 #========================
 # プラットフォーム別設定
 #========================
@@ -136,7 +241,7 @@ if(WIN32)
     endforeach()
 
 elseif(UNIX AND NOT APPLE)
-    message(STATUS "Configuring for Linux build (APT/system packages)")
+    message(STATUS "Configuring for Linux build (APT/system packages + SDL3 source fallback)")
 
     # Ubuntu/Debian なら基本これで入る想定:
     #   sudo apt install libsdl3-dev libsdl3-image-dev libsdl3-ttf-dev \
@@ -144,10 +249,8 @@ elseif(UNIX AND NOT APPLE)
 
     find_package(OpenGL REQUIRED)
 
-    # APT 由来の config / cmake パッケージを使う（SDL3 は SDL3Config.cmake を提供）
-    find_package(SDL3       REQUIRED)
-    find_package(SDL3_image REQUIRED)
-    find_package(SDL3_ttf   REQUIRED)
+    # SDL3: system -> source fallback（Linuxのみ）
+    toy_linux_find_or_vendored_sdl3()
 
     # Assimp / OpenAL / fmt は distro により提供形が違うので、ターゲットが無い場合も吸収
     find_package(assimp REQUIRED)
@@ -196,9 +299,6 @@ elseif(UNIX AND NOT APPLE)
         set(MPG123_TARGET mpg123::mpg123)
     endif()
 
-    # Linux はターゲット伝播に任せる（SDL3::SDL3 等が include/lib を持つ）
-    # OpenAL の include なども target が持つので基本は不要
-
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
             OpenGL::GL
@@ -214,7 +314,6 @@ elseif(UNIX AND NOT APPLE)
 
     # SDL3 は SDL_main を使わない設計ならこれを付けておくのが安全（ToyLib は Application で main 管理なので）
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
-
 
 elseif(APPLE)
     message(STATUS "Configuring for macOS build")
