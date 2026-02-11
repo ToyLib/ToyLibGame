@@ -702,6 +702,9 @@ void VKRenderer::Shutdown()
     }
     mFramebuffers.clear();
 
+    // UIResources
+    DestroyUIResources();
+    
     // render pass
     if (mDevice && mRenderPass)
     {

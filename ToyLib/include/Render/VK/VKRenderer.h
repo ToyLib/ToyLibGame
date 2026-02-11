@@ -65,7 +65,7 @@ protected:
     void DrawOverlayScreenPass() override {}
     void DrawFadePass() override {}
     void DrawPostEffectPass() override {}
-    void DrawUIPass() override {}
+    void DrawUIPass() override;
 
 private:
     //--------------------------------------------------------------------------
@@ -125,6 +125,36 @@ private:
     std::vector<FrameSync>       mFrames;
     uint32_t                     mFrameIndex        { 0 };
     uint32_t                     mImageIndex        { 0 };
+    
+    //========================
+    // UI(Sprite) minimal
+    //========================
+    bool EnsureUIResources();
+    void DestroyUIResources();
+
+    bool mUiReady { false };
+
+    // pipeline
+    VkDescriptorSetLayout mUiSetLayout { VK_NULL_HANDLE };
+    VkDescriptorPool      mUiDescPool  { VK_NULL_HANDLE };
+    std::vector<VkDescriptorSet> mUiDescSets;
+
+    VkSampler    mUiSampler { VK_NULL_HANDLE };
+    VkPipelineLayout mUiPipelineLayout { VK_NULL_HANDLE };
+    VkPipeline       mUiPipeline       { VK_NULL_HANDLE };
+
+    // test texture (1x1 white)
+    VkImage        mUiTestImage       { VK_NULL_HANDLE };
+    VkDeviceMemory mUiTestImageMemory { VK_NULL_HANDLE };
+    VkImageView    mUiTestImageView   { VK_NULL_HANDLE };
+
+    // test quad buffers
+    VkBuffer       mUiVB       { VK_NULL_HANDLE };
+    VkDeviceMemory mUiVBMemory { VK_NULL_HANDLE };
+    VkBuffer       mUiIB       { VK_NULL_HANDLE };
+    VkDeviceMemory mUiIBMemory { VK_NULL_HANDLE };
+    uint32_t       mUiIndexCount { 0 };
+    
 };
 
 } // namespace toy
