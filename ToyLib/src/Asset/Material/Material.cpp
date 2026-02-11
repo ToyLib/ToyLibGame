@@ -15,21 +15,6 @@ Material::Material()
 // BindToShader()
 //   Shader に対してマテリアル情報を一括で反映させる。
 //--------------------------------------------------------------
-
-static std::shared_ptr<Texture> GetWhiteDummyTex()
-{
-    static std::shared_ptr<Texture> sWhite;
-    if (!sWhite)
-    {
-        sWhite = std::make_shared<Texture>();
-
-        // 1x1 RGBA white
-        const uint8_t white[4] = { 255, 255, 255, 255 };
-        sWhite->CreateFromPixels(white, 1, 1, true);
-    }
-    return sWhite;
-}
-
 void Material::BindToShader(Shader* shader, int textureUnit) const
 {
     if (!shader) return;
@@ -43,8 +28,7 @@ void Material::BindToShader(Shader* shader, int textureUnit) const
     shader->SetFloatUniform ("uSpecPower",     mShininess);
 
     // ★重要：テクスチャ無しでも「必ず」有効テクスチャを bind する
-    auto tex = mDiffuseMap ? mDiffuseMap : GetWhiteDummyTex();
-    tex->SetActive(textureUnit);
+    mDiffuseMap->SetActive(textureUnit);
     shader->SetTextureUniform("uTexture", textureUnit);
 
     // “使う/使わない”はシェーダ分岐用のフラグとして残してOK
