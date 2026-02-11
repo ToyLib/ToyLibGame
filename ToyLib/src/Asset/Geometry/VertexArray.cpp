@@ -26,9 +26,12 @@ VertexArray::VertexArray(unsigned int numVerts,
     // 物理用：xyz 配列（stride=3）
     CreatePolygons(verts, indices, mNumIndices);
 
-    // GPU用：現状は GL を生成（判定方法は後で差し替え）
-    mBackend = std::make_unique<GLVertexArrayBackend>(
-        numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
+    if (RenderBackendState::Get().IsGL())
+    {
+        // GPU用：現状は GL を生成（判定方法は後で差し替え）
+        mBackend = std::make_unique<GLVertexArrayBackend>(
+                                                          numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
+    }
 }
 
 //==============================================================

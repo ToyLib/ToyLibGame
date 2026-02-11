@@ -64,7 +64,7 @@ bool Application::LoadSettings(const std::string& filePath)
     {
         RenderBackendState::Get().Set(RenderBackendType::OpenGL);
     }
-    
+
     //---------------------------------------------------------
     // ウィンドウサイズ、
     //   "screen": {

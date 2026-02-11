@@ -24,7 +24,7 @@ namespace toy {
 //=============================================================
 
 Application::Application()
-    : mIsFullScreen(true)
+    : mIsFullScreen(false)
     , mEnableDebug(false)
 {
     mInputSys      = std::make_unique<InputSystem>();
@@ -35,6 +35,7 @@ Application::Application()
     mCameraManager = std::make_unique<CameraManager>();
     
     mSystemAssetManager = std::make_unique<AssetManager>();
+    
 }
 
 Application::~Application()
