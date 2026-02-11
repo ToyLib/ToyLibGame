@@ -18,6 +18,8 @@ bool GLRenderer::LoadShaders()
 {
     std::string vShaderName;
     std::string fShaderName;
+    
+    mShaderPath = mShaderPath + "GL/";
 
     // Weather overlay
     vShaderName = mShaderPath + "WeatherScreen.vert";
