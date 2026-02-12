@@ -26,7 +26,7 @@ struct PipelineHandle
     PipelineBackend backend { PipelineBackend::None };
 
     // GL
-    class Shader* ptrGLShader { nullptr };
+    class GLShader* ptrGLShader { nullptr };
 
     // VK（VKPipelineのラッパーを指す）
     void* ptrVKPipeline { nullptr };

@@ -124,10 +124,10 @@ public:
     // ・viewMatrixから LightDir を view space に変換して渡す
     //---------------------------------------------------------
     
-    void ApplyToShader(std::shared_ptr<class Shader> shader,
+    void ApplyToShader(std::shared_ptr<class GLShader> shader,
                        const Matrix4& viewMatrix);
     
-    void ApplyToShader(Shader* shader, const Matrix4& viewMatrix);
+    void ApplyToShader(class GLShader* shader, const Matrix4& viewMatrix);
     
     //---------------------------------------------------------
     // Point Light 管理

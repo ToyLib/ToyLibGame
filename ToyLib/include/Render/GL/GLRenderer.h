@@ -23,7 +23,7 @@ public:
     void OnWindowResized(int pixelW, int pixelH) override;
 
     
-    std::shared_ptr<class Shader> GetShader(const std::string& name);
+    std::shared_ptr<class GLShader> GetShader(const std::string& name);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
     
@@ -55,7 +55,7 @@ private:
     SDL_Window*   mWindow             { nullptr };
     SDL_GLContext mGLContext          { nullptr };
     
-    std::unordered_map<std::string, std::shared_ptr<class Shader>> mShaders;
+    std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();
 
 };

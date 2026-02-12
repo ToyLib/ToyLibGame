@@ -6,7 +6,7 @@
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
 #include "Render/IRenderer.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 
 namespace toy {
 

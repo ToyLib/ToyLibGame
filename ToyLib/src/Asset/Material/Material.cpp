@@ -1,5 +1,5 @@
 #include "Asset/Material/Material.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "Asset/Material/Texture.h"
 
 namespace toy {
@@ -15,7 +15,7 @@ Material::Material()
 // BindToShader()
 //   Shader に対してマテリアル情報を一括で反映させる。
 //--------------------------------------------------------------
-void Material::BindToShader(Shader* shader, int textureUnit) const
+void Material::BindToShader(GLShader* shader, int textureUnit) const
 {
     if (!shader) return;
 
@@ -37,7 +37,7 @@ void Material::BindToShader(Shader* shader, int textureUnit) const
 }
 
 
-void Material::BindToShader(std::shared_ptr<Shader> shader, int textureUnit) const
+void Material::BindToShader(std::shared_ptr<GLShader> shader, int textureUnit) const
 {
     BindToShader(shader.get(), textureUnit);
 }

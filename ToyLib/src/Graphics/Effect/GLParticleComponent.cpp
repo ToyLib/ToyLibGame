@@ -4,7 +4,7 @@
 #include "Engine/Core/Application.h"
 #include "Render/IRenderer.h"
 #include "Render/GL/GLRenderer.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "Render/RenderQueue.h"
 #include "Render/RenderItem.h"
 

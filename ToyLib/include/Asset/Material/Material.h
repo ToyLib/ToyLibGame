@@ -17,10 +17,10 @@ public:
 
     // 指定シェーダへマテリアル情報をバインドする
     //   textureUnit … DiffuseMap を貼るスロット番号（通常 0）
-    void BindToShader(std::shared_ptr<class Shader> shader,
+    void BindToShader(std::shared_ptr<class GLShader> shader,
                       int textureUnit = 0) const;
 
-    void BindToShader(class Shader* shader,
+    void BindToShader(class GLShader* shader,
                       int textureUnit = 0) const;
 
     //--- テクスチャ関連 ------------------------------------

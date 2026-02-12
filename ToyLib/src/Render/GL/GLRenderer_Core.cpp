@@ -1,6 +1,6 @@
 #include "Render/GL/GLRenderer.h"
 #include "Engine/Core/Application.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "Asset/Material/Texture.h"
 #include "Render/GL/GLRenderTarget.h"
 

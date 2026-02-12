@@ -1,9 +1,9 @@
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 
 namespace toy {
 
 // 同値スキップ用
-GLuint Shader::sCurrentShaderID = 0;
+GLuint GLShader::sCurrentShaderID = 0;
 
 //=============================================================
 // シェーダープログラム読み込み／セットアップ
@@ -12,7 +12,7 @@ GLuint Shader::sCurrentShaderID = 0;
 // シェーダー読み込み
 //  - 頂点シェーダー／フラグメントシェーダーをコンパイルしてリンクする
 //  - 成功すると mShaderProgramID が有効なプログラムになる
-bool Shader::Load(const std::string& vertName, const std::string& fragName)
+bool GLShader::Load(const std::string& vertName, const std::string& fragName)
 {
     // 頂点シェーダーコンパイル
     if (!CompileShader(vertName, GL_VERTEX_SHADER, mVertexShaderID))
@@ -41,7 +41,7 @@ bool Shader::Load(const std::string& vertName, const std::string& fragName)
     return true;
 }
 
-bool Shader::LoadWithTransformFeedback(
+bool GLShader::LoadWithTransformFeedback(
     const std::string& vertName,
     const std::string& fragName,
     const std::vector<const char*>& varyings,
@@ -95,7 +95,7 @@ bool Shader::LoadWithTransformFeedback(
 }
 
 // GL リソース解放
-void Shader::Unload()
+void GLShader::Unload()
 {
     glDeleteProgram(mShaderProgramID);
     glDeleteShader(mVertexShaderID);
@@ -103,7 +103,7 @@ void Shader::Unload()
 }
 
 // このシェーダープログラムを OpenGL にバインド
-void Shader::SetActive()
+void GLShader::SetActive()
 {
     if (sCurrentShaderID == mShaderProgramID)
     {
@@ -119,56 +119,56 @@ void Shader::SetActive()
 //=============================================================
 
 // 4x4 行列を uniform に送る
-void Shader::SetMatrixUniform(const char* name, const Matrix4& matrix)
+void GLShader::SetMatrixUniform(const char* name, const Matrix4& matrix)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniformMatrix4fv(loc, 1, GL_TRUE, matrix.GetAsFloatPtr());
 }
 
 // 4x4 行列配列を uniform に送る（スキンメッシュのボーン行列など）
-void Shader::SetMatrixUniforms(const char* name, const Matrix4* matrices, unsigned count)
+void GLShader::SetMatrixUniforms(const char* name, const Matrix4* matrices, unsigned count)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniformMatrix4fv(loc, count, GL_TRUE, matrices[0].GetAsFloatPtr());
 }
 
 // vec3 を uniform に送る
-void Shader::SetVectorUniform(const char* name, const Vector3& vector)
+void GLShader::SetVectorUniform(const char* name, const Vector3& vector)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform3fv(loc, 1, vector.GetAsFloatPtr());
 }
 
 // vec2 を uniform に送る
-void Shader::SetVector2Uniform(const char* name, const Vector2& vector)
+void GLShader::SetVector2Uniform(const char* name, const Vector2& vector)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform2fv(loc, 1, vector.GetAsFloatPtr());
 }
 
 // float を uniform に送る
-void Shader::SetFloatUniform(const char* name, float value)
+void GLShader::SetFloatUniform(const char* name, float value)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1f(loc, value);
 }
 
 // bool を uniform に送る（内部的には int として送る）
-void Shader::SetBooleanUniform(const char *name, bool value)
+void GLShader::SetBooleanUniform(const char *name, bool value)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, value);
 }
 
 // sampler 用のテクスチャユニット番号を送る
-void Shader::SetTextureUniform(const char* name, GLuint textureUnit)
+void GLShader::SetTextureUniform(const char* name, GLuint textureUnit)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, textureUnit);
 }
 
 // int を uniform に送る
-void Shader::SetIntUniform(const char* name, int value)
+void GLShader::SetIntUniform(const char* name, int value)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniform1i(loc, value);
@@ -183,7 +183,7 @@ void Shader::SetIntUniform(const char* name, int value)
 //  - fileName  : GLSL ファイルパス
 //  - shaderType: GL_VERTEX_SHADER / GL_FRAGMENT_SHADER など
 //  - outShader : コンパイル済みシェーダー ID を返す
-bool Shader::CompileShader(const std::string& fileName, GLenum shaderType, GLuint& outShader)
+bool GLShader::CompileShader(const std::string& fileName, GLenum shaderType, GLuint& outShader)
 {
     std::ifstream shaderFile(fileName);
     if (shaderFile.is_open())
@@ -218,7 +218,7 @@ bool Shader::CompileShader(const std::string& fileName, GLenum shaderType, GLuin
 }
 
 // シェーダーコンパイル結果チェック
-bool Shader::IsCompiled(GLuint shader)
+bool GLShader::IsCompiled(GLuint shader)
 {
     GLint status;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
@@ -237,7 +237,7 @@ bool Shader::IsCompiled(GLuint shader)
 }
 
 // プログラムリンク結果チェック
-bool Shader::IsValidProgram()
+bool GLShader::IsValidProgram()
 {
     GLint status;
     glGetProgramiv(mShaderProgramID, GL_LINK_STATUS, &status);

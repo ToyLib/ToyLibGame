@@ -1,5 +1,5 @@
 #include "Render/LightingManager.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "Graphics/Light/PointLightComponent.h"
 
 #include <algorithm>
@@ -12,13 +12,13 @@ namespace toy {
 // ・Renderer → 各 VisualComponent 描画時に呼ばれる想定
 //-------------------------------------------------------------
 // LightingManager.cpp
-void LightingManager::ApplyToShader(std::shared_ptr<Shader> shader,
+void LightingManager::ApplyToShader(std::shared_ptr<GLShader> shader,
                                     const Matrix4& viewMatrix)
 {
     ApplyToShader(shader.get(), viewMatrix);
 }
 
-void LightingManager::ApplyToShader(Shader* shader,
+void LightingManager::ApplyToShader(GLShader* shader,
                                     const Matrix4& viewMatrix)
 {
     if (!shader) return;

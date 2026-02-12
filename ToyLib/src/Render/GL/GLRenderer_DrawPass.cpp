@@ -2,7 +2,7 @@
 #include "Render/GL/GLRenderTarget.h"
 
 #include "Render/LightingManager.h"
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Texture.h"
 

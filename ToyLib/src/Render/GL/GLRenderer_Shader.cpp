@@ -6,7 +6,7 @@
 
 #include "Render/GL/GLRenderer.h"
 
-#include "Render/GL/Shader.h"
+#include "Render/GL/GLShader.h"
 #include "glad/glad.h"
 
 #include <memory>
@@ -24,49 +24,49 @@ bool GLRenderer::LoadShaders()
     // Weather overlay
     vShaderName = mShaderPath + "WeatherScreen.vert";
     fShaderName = mShaderPath + "WeatherScreen.frag";
-    mShaders["WeatherOverlay"] = std::make_shared<Shader>();
+    mShaders["WeatherOverlay"] = std::make_shared<GLShader>();
     if (!mShaders["WeatherOverlay"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // PostEffect
     vShaderName = mShaderPath + "PostEffect.vert";
     fShaderName = mShaderPath + "PostEffect.frag";
-    mShaders["PostEffect"] = std::make_shared<Shader>();
+    mShaders["PostEffect"] = std::make_shared<GLShader>();
     if (!mShaders["PostEffect"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Fade
     vShaderName = mShaderPath + "PostEffect.vert";
     fShaderName = mShaderPath + "Fade.frag";
-    mShaders["Fade"] = std::make_shared<Shader>();
+    mShaders["Fade"] = std::make_shared<GLShader>();
     if (!mShaders["Fade"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Mesh (Phong)
     vShaderName = mShaderPath + "Phong.vert";
     fShaderName = mShaderPath + "Phong.frag";
-    mShaders["Mesh"] = std::make_shared<Shader>();
+    mShaders["Mesh"] = std::make_shared<GLShader>();
     if (!mShaders["Mesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Skinned
     vShaderName = mShaderPath + "Skinned.vert";
     fShaderName = mShaderPath + "Phong.frag";
-    mShaders["Skinned"] = std::make_shared<Shader>();
+    mShaders["Skinned"] = std::make_shared<GLShader>();
     if (!mShaders["Skinned"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Unlit
     vShaderName = mShaderPath + "Unlit.vert";
     fShaderName = mShaderPath + "Unlit.frag";
-    mShaders["Unlit"] = std::make_shared<Shader>();
+    mShaders["Unlit"] = std::make_shared<GLShader>();
     if (!mShaders["Unlit"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Sprite
     vShaderName = mShaderPath + "Sprite.vert";
     fShaderName = mShaderPath + "Sprite.frag";
-    mShaders["Sprite"] = std::make_shared<Shader>();
+    mShaders["Sprite"] = std::make_shared<GLShader>();
     if (!mShaders["Sprite"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
@@ -80,7 +80,7 @@ bool GLRenderer::LoadShaders()
     // GPU particle update (Transform Feedback)
     vShaderName = mShaderPath + "ParticleUpdate.vert";
     {
-        auto update = std::make_shared<Shader>();
+        auto update = std::make_shared<GLShader>();
         update->LoadWithTransformFeedback(
             vShaderName,
             "", // fragなし
@@ -94,7 +94,7 @@ bool GLRenderer::LoadShaders()
     vShaderName = mShaderPath + "Particle.vert";
     fShaderName = mShaderPath + "Particle.frag";
     {
-        auto render = std::make_shared<Shader>();
+        auto render = std::make_shared<GLShader>();
         render->Load(vShaderName, fShaderName);
         mShaders["Particle"] = render;
     }
@@ -102,35 +102,35 @@ bool GLRenderer::LoadShaders()
     // SolidColor
     vShaderName = mShaderPath + "BasicMesh.vert";
     fShaderName = mShaderPath + "SolidColor.frag";
-    mShaders["Solid"] = std::make_shared<Shader>();
+    mShaders["Solid"] = std::make_shared<GLShader>();
     if (!mShaders["Solid"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Shadow (Skinned)
     vShaderName = mShaderPath + "ShadowMapping_Skinned.vert";
     fShaderName = mShaderPath + "ShadowMapping.frag";
-    mShaders["ShadowSkinned"] = std::make_shared<Shader>();
+    mShaders["ShadowSkinned"] = std::make_shared<GLShader>();
     if (!mShaders["ShadowSkinned"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Shadow (Mesh)
     vShaderName = mShaderPath + "ShadowMapping_Mesh.vert";
     fShaderName = mShaderPath + "ShadowMapping.frag";
-    mShaders["ShadowMesh"] = std::make_shared<Shader>();
+    mShaders["ShadowMesh"] = std::make_shared<GLShader>();
     if (!mShaders["ShadowMesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // RenderSurface
     vShaderName = mShaderPath + "RenderSurface.vert";
     fShaderName = mShaderPath + "RenderSurface.frag";
-    mShaders["RenderSurface"] = std::make_shared<Shader>();
+    mShaders["RenderSurface"] = std::make_shared<GLShader>();
     if (!mShaders["RenderSurface"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // SkyDome
     vShaderName = mShaderPath + "WeatherDome.vert";
     fShaderName = mShaderPath + "WeatherDome.frag";
-    mShaders["SkyDome"] = std::make_shared<Shader>();
+    mShaders["SkyDome"] = std::make_shared<GLShader>();
     if (!mShaders["SkyDome"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
@@ -151,7 +151,7 @@ bool GLRenderer::LoadShaders()
     return true;
 }
 
-std::shared_ptr<Shader> GLRenderer::GetShader(const std::string& name)
+std::shared_ptr<GLShader> GLRenderer::GetShader(const std::string& name)
 {
     auto itr = mShaders.find(name);
     return (itr != mShaders.end()) ? itr->second : nullptr;
