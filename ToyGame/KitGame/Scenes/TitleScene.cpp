@@ -21,7 +21,6 @@ void TitleScene::InitScene()
     mLogoMesh->SetContourFactor(1.05f);
     mLogoActor->SetScale(0.05f);
 
-    
     toy::PostEffectDesc effectDesc;
     effectDesc.type = toy::PostEffectType::CRT;
     effectDesc.intensity = 1.0f;
@@ -47,7 +46,20 @@ void TitleScene::Update(float dt)
     {
         mColor = 0.0f;
     }
-    //mLogoMesh->SetContourColor(Vector3(mColor, 0.0f, 0.0f));
+    mLogoMesh->SetContourColor(Vector3(mColor, 0.0f, 0.0f));
+
+
+
+    if (mIntensity > 0.0f)
+    {
+        mIntensity -= dt * 0.1f;
+        if (mIntensity < 0.0f) mIntensity = 0.0f;
+	}
+    toy::PostEffectDesc effectDesc;
+    effectDesc.type = toy::PostEffectType::CRT;
+    effectDesc.intensity = mIntensity;
+    GetApp()->GetRenderer()->SetPostEffect(effectDesc);
+
 }
 
 void TitleScene::ProcessInput(const toy::InputState& input)
