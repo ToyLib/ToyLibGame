@@ -54,15 +54,18 @@ bool Application::LoadSettings(const std::string& filePath)
     // アセットパス
     //   "renderer_backend": "GL" "VK"
     //---------------------------------------------------------
-    std::string backend;
-    JsonHelper::GetString(data, "renderer_backend", backend);
-    if (backend == "VK")
+    if (RenderBackendState::Get().Type() == RenderBackendType::Unknown)
     {
-        RenderBackendState::Get().Set(RenderBackendType::Vulkan);
-    }
-    else
-    {
-        RenderBackendState::Get().Set(RenderBackendType::OpenGL);
+        std::string backend;
+        JsonHelper::GetString(data, "renderer_backend", backend);
+        if (backend == "VK")
+        {
+            RenderBackendState::Get().Set(RenderBackendType::Vulkan);
+        }
+        else
+        {
+            RenderBackendState::Get().Set(RenderBackendType::OpenGL);
+        }
     }
 
     //---------------------------------------------------------

@@ -36,6 +36,7 @@ Application::Application()
     
     mSystemAssetManager = std::make_unique<AssetManager>();
     
+    
 }
 
 Application::~Application()

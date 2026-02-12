@@ -1,8 +1,10 @@
 #include "TestApp.h"
+#include "Render/RenderBackendState.h"
 
 VKTest::VKTest()
 : toy::Application()
 {
+    toy::RenderBackendState::Get().Set(toy::RenderBackendType::Vulkan);
 }
 
 VKTest::~VKTest()
