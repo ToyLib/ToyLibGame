@@ -1049,4 +1049,19 @@ bool VKRenderer::CreateFramebuffers()
     return true;
 }
 
+PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
+{
+    PipelineHandle h{};
+    h.backend = PipelineBackend::VK;
+
+    auto it = mPipelines.find(name);
+    if (it == mPipelines.end())
+    {
+        return {}; // invalid
+    }
+
+    h.ptrVKPipeline = it->second.get();
+    return h;
+}
+
 } // namespace toy

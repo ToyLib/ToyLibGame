@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/IRenderer.h"
+#include "Render/VK/VKPipeline.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -41,15 +42,17 @@ public:
     void UnloadData() override {}
     void OnWindowResized(int /*pixelW*/, int /*pixelH*/) override {}
 
-    std::shared_ptr<class Shader> GetShader(const std::string& /*name*/) { return nullptr; }
-    PipelineHandle GetPipelineHandle(const std::string& /*name*/) override { return {}; }
+    //std::shared_ptr<class Shader> GetShader(const std::string& /*name*/) { return nullptr; }
+    PipelineHandle GetPipelineHandle(const std::string& name) override;
 
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
     std::shared_ptr<RenderTarget> CreateRenderTarget() override { return nullptr; }
+    
+    std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
 
 protected:
     void ApplyState(const RenderItem& /*it*/) override {}
-    void DrawItem(const RenderItem& /*it*/, RenderPass /*pass*/, int /*cascadeIndex*/) override {}
+    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
 
     bool InitializeShadowMapping() override { return false; }
     void DrawToRenderTarget(const struct SceneCaptureRequest& /*req*/) override {}
