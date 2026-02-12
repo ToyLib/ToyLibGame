@@ -18,17 +18,25 @@ struct GeometryHandle
 
 struct TextureHandle
 {
-    class Texture*    ptr = nullptr;
+    class Texture* ptr = nullptr;
 };
 
 struct PipelineHandle
 {
     PipelineBackend backend { PipelineBackend::None };
-    class Shader*     ptrGLShader { nullptr };
-    bool IsValidGL() const { return ptrGLShader != nullptr; }
+
+    // GL
+    class Shader* ptrGLShader { nullptr };
+
+    // VK（VKPipelineのラッパーを指す）
+    void* ptrVKPipeline { nullptr };
+
+    bool IsValidGL() const { return (backend == PipelineBackend::GL) && (ptrGLShader != nullptr); }
+    bool IsValidVK() const { return (backend == PipelineBackend::VK) && (ptrVKPipeline != nullptr); }
+    bool IsValid()   const { return IsValidGL() || IsValidVK(); }
 };
 
-// ★追加：MaterialHandle
+// MaterialHandle
 struct MaterialHandle
 {
     class Material* ptr = nullptr;

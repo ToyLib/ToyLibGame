@@ -38,7 +38,7 @@ protected:
     
     void DrawToRenderTarget(const struct SceneCaptureRequest& req) override;
     
-    void BeginFrame() override;
+    bool BeginFrame() override;
     void EndFrame() override;
     
     void DrawShadowPass() override;

@@ -800,95 +800,68 @@ void VKRenderer::Shutdown()
 //--------------------------------------------------------------
 // VKRenderer::BeginFrame
 //--------------------------------------------------------------
-void VKRenderer::BeginFrame()
+bool VKRenderer::BeginFrame()
 {
     if (!mDevice || !mSwapchain || mFrames.empty())
-    {
-        return;
-    }
+        return false;
+
+    // 前提チェック（acquire前にやるのが安全）
+    if (mRenderPass == VK_NULL_HANDLE ||
+        mFramebuffers.empty())
+        return false;
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // 1) wait previous frame
     vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
     vkResetFences(mDevice, 1, &frame.inFlight);
 
-    // 2) acquire swapchain image
     VkResult ar = vkAcquireNextImageKHR(
         mDevice,
         mSwapchain,
         UINT64_MAX,
         frame.imageAvailable,
         VK_NULL_HANDLE,
-        &mImageIndex
-    );
+        &mImageIndex);
 
     if (ar == VK_ERROR_OUT_OF_DATE_KHR)
     {
-        // later: RecreateSwapchain()
-        return;
+        mNeedRecreateSwapchain = true;
+        return false;
     }
+
     if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR)
     {
-        std::cerr << "[VKRenderer] vkAcquireNextImageKHR failed: " << ar << "\n";
-        return;
+        std::cerr << "Acquire failed: " << ar << "\n";
+        return false;
     }
 
-    // safety checks (to avoid crash at mFramebuffers[mImageIndex])
-    if (mFramebuffers.empty())
-    {
-        std::cerr << "[VKRenderer] mFramebuffers is empty\n";
-        return;
-    }
     if (mImageIndex >= mFramebuffers.size())
-    {
-        std::cerr << "[VKRenderer] mImageIndex out of range. "
-                  << "index=" << mImageIndex
-                  << " fbSize=" << mFramebuffers.size() << "\n";
-        return;
-    }
-    if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] framebuffer is NULL. index=" << mImageIndex << "\n";
-        return;
-    }
-    if (mRenderPass == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] mRenderPass is NULL\n";
-        return;
-    }
+        return false;
 
-    // 3) command buffer reset + begin
     vkResetCommandBuffer(frame.cmd, 0);
 
     VkCommandBufferBeginInfo cbBegin{};
     cbBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    VkResult br = vkBeginCommandBuffer(frame.cmd, &cbBegin);
-    if (br != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed: " << br << "\n";
-        return;
-    }
-
-    // 4) begin render pass (clear)
-    const Vector3& c = mClearColor;
+    vkBeginCommandBuffer(frame.cmd, &cbBegin);
 
     VkClearValue clear{};
-    clear.color.float32[0] = c.x;
-    clear.color.float32[1] = c.y;
-    clear.color.float32[2] = c.z;
+    clear.color.float32[0] = mClearColor.x;
+    clear.color.float32[1] = mClearColor.y;
+    clear.color.float32[2] = mClearColor.z;
     clear.color.float32[3] = 1.0f;
 
     VkRenderPassBeginInfo rpBegin{};
     rpBegin.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rpBegin.renderPass  = mRenderPass;
     rpBegin.framebuffer = mFramebuffers[mImageIndex];
-    rpBegin.renderArea.offset = { 0, 0 };
+    rpBegin.renderArea.offset = {0, 0};
     rpBegin.renderArea.extent = mSwapchainExtent;
     rpBegin.clearValueCount   = 1;
     rpBegin.pClearValues      = &clear;
 
     vkCmdBeginRenderPass(frame.cmd, &rpBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+    return true;
 }
 
 //--------------------------------------------------------------
@@ -903,7 +876,11 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
+    // BeginFrame() が true のときだけ呼ばれる想定なので、
+    // ここでは「コマンドは録れている」前提で進める
+
     vkCmdEndRenderPass(frame.cmd);
+
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
     {
@@ -911,10 +888,11 @@ void VKRenderer::EndFrame()
         return;
     }
 
+    // submit: wait imageAvailable -> signal renderFinished
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo submit{};
-    submit.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.waitSemaphoreCount   = 1;
     submit.pWaitSemaphores      = &frame.imageAvailable;
     submit.pWaitDstStageMask    = &waitStage;
@@ -930,6 +908,7 @@ void VKRenderer::EndFrame()
         return;
     }
 
+    // present: wait renderFinished
     VkPresentInfoKHR present{};
     present.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present.waitSemaphoreCount = 1;
@@ -939,16 +918,19 @@ void VKRenderer::EndFrame()
     present.pImageIndices      = &mImageIndex;
 
     VkResult pr = vkQueuePresentKHR(mQueuePresent, &present);
+
     if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR)
     {
-        // later: RecreateSwapchain()
+        // ここでは作り直さない（Drawの外側でやる方が安全）
+        mNeedRecreateSwapchain = true;
     }
     else if (pr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkQueuePresentKHR failed: " << pr << "\n";
     }
 
-    mFrameIndex = (mFrameIndex + 1) % (uint32_t)mFrames.size();
+    // 次フレームへ
+    mFrameIndex = (mFrameIndex + 1) % static_cast<uint32_t>(mFrames.size());
 }
 
 //--------------------------------------------------------------

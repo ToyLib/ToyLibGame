@@ -187,7 +187,7 @@ void GLRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 // Frame begin/end
 //==============================================================================
 
-void GLRenderer::BeginFrame()
+bool GLRenderer::BeginFrame()
 {
     const bool usePost = (mPost.type != PostEffectType::None);
 
@@ -214,6 +214,8 @@ void GLRenderer::BeginFrame()
     glDepthMask(GL_TRUE);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    return true;
 }
 
 void GLRenderer::EndFrame()

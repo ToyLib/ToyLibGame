@@ -480,7 +480,7 @@ protected:
     void SortBucket_Shadow(std::vector<uint32_t>& bucket);
 
     
-    virtual void BeginFrame() = 0;
+    virtual bool BeginFrame() = 0;
     
     virtual void DrawShadowPass() = 0;
     virtual void RestoreAfterShadowPass() = 0;

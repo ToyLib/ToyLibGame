@@ -54,7 +54,7 @@ protected:
     bool InitializeShadowMapping() override { return false; }
     void DrawToRenderTarget(const struct SceneCaptureRequest& /*req*/) override {}
 
-    void BeginFrame() override;
+    bool BeginFrame() override;
     void EndFrame() override;
 
     void DrawShadowPass() override {}
@@ -75,6 +75,7 @@ private:
     bool CreateFramebuffers();
     bool CreateCommandBuffers(); // ★ BeginFrame の vkResetCommandBuffer の前提（後で実装）
     void DestroyFramebuffers();
+    
 
 private:
     //--------------------------------------------------------------------------
@@ -111,6 +112,9 @@ private:
 
     std::vector<VkImage>         mSwapchainImages;
     std::vector<VkImageView>     mSwapchainImageViews;
+    
+    bool mNeedRecreateSwapchain {true};
+
 
     //--------------------------------------------------------------------------
     // RenderPass / Framebuffers

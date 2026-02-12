@@ -101,7 +101,10 @@ void IRenderer::Draw()
     }
     mSceneCaptureQueue.clear();
 
-    BeginFrame();
+    if (!BeginFrame())
+    {
+        return;
+    }
     BuildFrameQueues();
 
     DrawShadowPass();
