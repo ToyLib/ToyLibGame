@@ -1,7 +1,11 @@
+// Asset/Geometry/VertexArray.cpp
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Geometry/VertexArrayBackend.h"
+
 #include "Asset/Geometry/GL/GLVertexArrayBackend.h"
+#include "Asset/Geometry/VK/VKVertexArrayBackend.h"
+
 #include "Render/RenderBackendState.h"
 
 #include <utility>
@@ -28,9 +32,14 @@ VertexArray::VertexArray(unsigned int numVerts,
 
     if (RenderBackendState::Get().IsGL())
     {
-        // GPU用：現状は GL を生成（判定方法は後で差し替え）
         mBackend = std::make_unique<GLVertexArrayBackend>(
-                                                          numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
+            numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
+    }
+    else if (RenderBackendState::Get().IsVK())
+    {
+        // NOTE: ここは VKVertexArrayBackend 側で未実装でも落ちないようにしておく
+        mBackend = std::make_unique<VKVertexArrayBackend>(
+            numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
     }
 }
 
@@ -52,9 +61,14 @@ VertexArray::VertexArray(unsigned int numVerts,
 
     if (RenderBackendState::Get().IsGL())
     {
-        // GPU用：現状は GL
         mBackend = std::make_unique<GLVertexArrayBackend>(
-                                                          numVerts, verts, norms, uvs, numIndices, indices);
+            numVerts, verts, norms, uvs, numIndices, indices);
+    }
+    else if (RenderBackendState::Get().IsVK())
+    {
+        // NOTE: ここも VK 側は後で staging 化して最適化
+        mBackend = std::make_unique<VKVertexArrayBackend>(
+            numVerts, verts, norms, uvs, numIndices, indices);
     }
 }
 
@@ -76,9 +90,14 @@ VertexArray::VertexArray(const float* verts,
 
     if (RenderBackendState::Get().IsGL())
     {
-        // GPU用：現状は GL
         mBackend = std::make_unique<GLVertexArrayBackend>(
-                                                          verts, numVerts, indices, numIndices);
+            verts, numVerts, indices, numIndices);
+    }
+    else if (RenderBackendState::Get().IsVK())
+    {
+        // SpriteQuad はまずここを最優先で対応する想定
+        mBackend = std::make_unique<VKVertexArrayBackend>(
+            verts, numVerts, indices, numIndices);
     }
 }
 
@@ -101,9 +120,13 @@ VertexArray::VertexArray(const float* verts,
 
     if (RenderBackendState::Get().IsGL())
     {
-        // GPU用：現状は GL
         mBackend = std::make_unique<GLVertexArrayBackend>(
-                                                          verts, numVerts, indices, numIndices, true);
+            verts, numVerts, indices, numIndices, true);
+    }
+    else if (RenderBackendState::Get().IsVK())
+    {
+        mBackend = std::make_unique<VKVertexArrayBackend>(
+            verts, numVerts, indices, numIndices, true);
     }
 }
 
@@ -135,6 +158,8 @@ void VertexArray::SetActive()
 {
     if (mBackend)
     {
+        // GL: VAO bind
+        // VK: no-op（cmd で BindVertexBuffers/IndexBuffer する）
         mBackend->Bind();
     }
 }

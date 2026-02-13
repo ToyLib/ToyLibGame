@@ -1,243 +1,385 @@
+//==============================================================================
+// VKRenderer_SpritePipeline.cpp
+//  - CreateSpritePipeline() full implementation
+//  - Sprite: 2D textured quad (pos+uv) + alpha blend
+//  - Descriptor: set=0 binding=0 combined image sampler (uTex)
+//  - PushConstants: MVP + color/alpha
+//
+// Assumptions:
+//  - mDevice / mRenderPass / mSwapchainExtent are valid
+//  - You have a VKPipeline wrapper class (or struct) to store:
+//      VkPipeline pipeline;
+//      VkPipelineLayout pipelineLayout;
+//      VkDescriptorSetLayout setLayout;
+//      VkRenderPass renderPass;
+//  - You keep pipelines in: std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
+//  - SPIR-V files exist (example):
+//      ToyLib/Shaders/VK/Sprite.vert.spv
+//      ToyLib/Shaders/VK/Sprite.frag.spv
+//==============================================================================
+
 #include "Render/VK/VKRenderer.h"
 #include "Render/VK/VKPipeline.h"
+
 #include <fstream>
+#include <iostream>
 #include <vector>
+#include <array>
+#include <cstring>
 
-namespace toy
+namespace toy {
+
+//------------------------------------------------------------------------------
+// File read (SPIR-V)
+//------------------------------------------------------------------------------
+static bool ReadFileBinary(const char* path, std::vector<uint8_t>& out)
 {
+    out.clear();
 
-//--------------------------------------------------------------
-// SPIR-V 読み込み
-//--------------------------------------------------------------
-static std::vector<char> ReadFile(const std::string& path)
-{
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error("Failed to open file: " + path);
+    std::ifstream ifs(path, std::ios::binary | std::ios::ate);
+    if (!ifs.is_open())
+    {
+        std::cerr << "[VK] Failed to open file: " << path << "\n";
+        return false;
+    }
 
-    size_t size = (size_t)file.tellg();
-    std::vector<char> buffer(size);
+    const std::streamsize size = ifs.tellg();
+    if (size <= 0)
+    {
+        std::cerr << "[VK] File empty: " << path << "\n";
+        return false;
+    }
 
-    file.seekg(0);
-    file.read(buffer.data(), size);
-    file.close();
+    out.resize((size_t)size);
+    ifs.seekg(0, std::ios::beg);
 
-    return buffer;
+    if (!ifs.read((char*)out.data(), size))
+    {
+        std::cerr << "[VK] Failed to read file: " << path << "\n";
+        out.clear();
+        return false;
+    }
+
+    return true;
 }
 
-static VkShaderModule CreateShaderModule(VkDevice device,
-                                         const std::vector<char>& code)
+static VkShaderModule CreateShaderModule(VkDevice device, const std::vector<uint8_t>& bytes)
 {
+    if (!device || bytes.empty() || (bytes.size() % 4) != 0)
+    {
+        return VK_NULL_HANDLE;
+    }
+
     VkShaderModuleCreateInfo ci{};
-    ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    ci.codeSize = code.size();
-    ci.pCode = reinterpret_cast<const uint32_t*>(code.data());
+    ci.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    ci.codeSize = bytes.size();
+    ci.pCode    = reinterpret_cast<const uint32_t*>(bytes.data());
 
-    VkShaderModule module;
-    if (vkCreateShaderModule(device, &ci, nullptr, &module) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create shader module");
-
-    return module;
+    VkShaderModule mod = VK_NULL_HANDLE;
+    if (vkCreateShaderModule(device, &ci, nullptr, &mod) != VK_SUCCESS)
+    {
+        return VK_NULL_HANDLE;
+    }
+    return mod;
 }
 
-//--------------------------------------------------------------
+//------------------------------------------------------------------------------
+// Sprite vertex declaration (pos.xyz + uv.xy)
+// NOTE:
+//  - This must match your sprite quad vertex buffer layout.
+//  - If your VertexArray uses different layout, adjust offsets/formats.
+//------------------------------------------------------------------------------
+struct VKSpriteVertex
+{
+    float px, py, pz;
+    float u, v;
+};
+
+//------------------------------------------------------------------------------
+// PushConstants (MVP + color/alpha)
+// NOTE:
+//  - Keep under device limit (often 128 bytes on many devices).
+//  - Mat4(64) + vec4(16) = 80 bytes OK.
+//------------------------------------------------------------------------------
+struct SpritePushConstants
+{
+    float mvp[16];   // column-major or row-major: match shader expectation!
+    float color[4];  // rgb + alpha
+};
+
+//==============================================================================
 // CreateSpritePipeline
-//--------------------------------------------------------------
+//==============================================================================
 bool VKRenderer::CreateSpritePipeline()
 {
-    auto pipeline = std::make_unique<VKPipeline>();
-
-    //----------------------------------------------------------
-    // 1) DescriptorSetLayout (binding 0 = sampler2D)
-    //----------------------------------------------------------
-    VkDescriptorSetLayoutBinding samplerBinding{};
-    samplerBinding.binding = 0;
-    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerBinding.descriptorCount = 1;
-    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutCreateInfo dsl{};
-    dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    dsl.bindingCount = 1;
-    dsl.pBindings = &samplerBinding;
-
-    if (vkCreateDescriptorSetLayout(mDevice, &dsl, nullptr,
-                                    &pipeline->descSetLayout) != VK_SUCCESS)
+    if (!mDevice || mRenderPass == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: device/renderpass not ready\n";
         return false;
+    }
 
-    //----------------------------------------------------------
-    // 2) PipelineLayout (PushConstant: MVP)
-    //----------------------------------------------------------
+    // If already exists, destroy and recreate (safe)
+    {
+        auto it = mPipelines.find("Sprite");
+        if (it != mPipelines.end() && it->second)
+        {
+            auto* p = it->second.get();
+            if (p->pipeline)       vkDestroyPipeline(mDevice, p->pipeline, nullptr);
+            if (p->pipelineLayout) vkDestroyPipelineLayout(mDevice, p->pipelineLayout, nullptr);
+            if (p->setLayout)      vkDestroyDescriptorSetLayout(mDevice, p->setLayout, nullptr);
+            it->second.reset();
+            mPipelines.erase(it);
+        }
+    }
+
+    // ----------------------------------------------------------
+    // 1) Shader modules
+    // ----------------------------------------------------------
+    // You can use your mShaderPath or a dedicated VK shader folder.
+    // Example: "ToyLib/Shaders/VK/"
+    const std::string base = mShaderPath + "VK/spv/";
+    const std::string vsPath = base + "Sprite.vert.spv";
+    const std::string fsPath = base + "Sprite.frag.spv";
+
+    std::vector<uint8_t> vsBytes;
+    std::vector<uint8_t> fsBytes;
+
+    if (!ReadFileBinary(vsPath.c_str(), vsBytes) ||
+        !ReadFileBinary(fsPath.c_str(), fsBytes))
+    {
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: missing SPIR-V\n";
+        return false;
+    }
+
+    VkShaderModule vs = CreateShaderModule(mDevice, vsBytes);
+    VkShaderModule fs = CreateShaderModule(mDevice, fsBytes);
+    if (vs == VK_NULL_HANDLE || fs == VK_NULL_HANDLE)
+    {
+        if (vs) vkDestroyShaderModule(mDevice, vs, nullptr);
+        if (fs) vkDestroyShaderModule(mDevice, fs, nullptr);
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: shader module create failed\n";
+        return false;
+    }
+
+    VkPipelineShaderStageCreateInfo stageVS{};
+    stageVS.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageVS.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+    stageVS.module = vs;
+    stageVS.pName  = "main";
+
+    VkPipelineShaderStageCreateInfo stageFS{};
+    stageFS.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageFS.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stageFS.module = fs;
+    stageFS.pName  = "main";
+
+    VkPipelineShaderStageCreateInfo stages[] = { stageVS, stageFS };
+
+    // ----------------------------------------------------------
+    // 2) DescriptorSetLayout (set=0 binding=0: combined image sampler)
+    // ----------------------------------------------------------
+    VkDescriptorSetLayoutBinding texBinding{};
+    texBinding.binding            = 0;
+    texBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texBinding.descriptorCount    = 1;
+    texBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    texBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo slci{};
+    slci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    slci.bindingCount = 1;
+    slci.pBindings    = &texBinding;
+
+    VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
+    if (vkCreateDescriptorSetLayout(mDevice, &slci, nullptr, &setLayout) != VK_SUCCESS)
+    {
+        vkDestroyShaderModule(mDevice, vs, nullptr);
+        vkDestroyShaderModule(mDevice, fs, nullptr);
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: vkCreateDescriptorSetLayout\n";
+        return false;
+    }
+
+    // ----------------------------------------------------------
+    // 3) PipelineLayout (Descriptor + PushConstants)
+    // ----------------------------------------------------------
     VkPushConstantRange pcr{};
-    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pcr.offset = 0;
-    pcr.size = sizeof(Matrix4);
+    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pcr.offset     = 0;
+    pcr.size       = sizeof(SpritePushConstants);
 
-    VkPipelineLayoutCreateInfo pl{};
-    pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl.setLayoutCount = 1;
-    pl.pSetLayouts = &pipeline->descSetLayout;
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges = &pcr;
+    VkPipelineLayoutCreateInfo plci{};
+    plci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    plci.setLayoutCount         = 1;
+    plci.pSetLayouts            = &setLayout;
+    plci.pushConstantRangeCount = 1;
+    plci.pPushConstantRanges    = &pcr;
 
-    if (vkCreatePipelineLayout(mDevice, &pl, nullptr,
-                               &pipeline->layout) != VK_SUCCESS)
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    if (vkCreatePipelineLayout(mDevice, &plci, nullptr, &pipelineLayout) != VK_SUCCESS)
+    {
+        vkDestroyDescriptorSetLayout(mDevice, setLayout, nullptr);
+        vkDestroyShaderModule(mDevice, vs, nullptr);
+        vkDestroyShaderModule(mDevice, fs, nullptr);
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: vkCreatePipelineLayout\n";
         return false;
+    }
 
-    //----------------------------------------------------------
-    // 3) ShaderModules
-    //----------------------------------------------------------
-    auto vertCode = ReadFile(mShaderPath + "sprite.vert.spv");
-    auto fragCode = ReadFile(mShaderPath + "sprite.frag.spv");
+    // ----------------------------------------------------------
+    // 4) Vertex Input (pos3 + uv2)
+    // ----------------------------------------------------------
+    VkVertexInputBindingDescription bind{};
+    bind.binding   = 0;
+    bind.stride    = sizeof(VKSpriteVertex);
+    bind.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkShaderModule vertModule = CreateShaderModule(mDevice, vertCode);
-    VkShaderModule fragModule = CreateShaderModule(mDevice, fragCode);
+    VkVertexInputAttributeDescription attrPos{};
+    attrPos.location = 0;
+    attrPos.binding  = 0;
+    attrPos.format   = VK_FORMAT_R32G32B32_SFLOAT;
+    attrPos.offset   = offsetof(VKSpriteVertex, px);
 
-    VkPipelineShaderStageCreateInfo stages[2]{};
+    VkVertexInputAttributeDescription attrUV{};
+    attrUV.location = 1;
+    attrUV.binding  = 0;
+    attrUV.format   = VK_FORMAT_R32G32_SFLOAT;
+    attrUV.offset   = offsetof(VKSpriteVertex, u);
 
-    stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = vertModule;
-    stages[0].pName  = "main";
+    std::array<VkVertexInputAttributeDescription, 2> attrs = { attrPos, attrUV };
 
-    stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module = fragModule;
-    stages[1].pName  = "main";
+    VkPipelineVertexInputStateCreateInfo vis{};
+    vis.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vis.vertexBindingDescriptionCount   = 1;
+    vis.pVertexBindingDescriptions      = &bind;
+    vis.vertexAttributeDescriptionCount = (uint32_t)attrs.size();
+    vis.pVertexAttributeDescriptions    = attrs.data();
 
-    //----------------------------------------------------------
-    // 4) Vertex Input (vec2 pos + vec2 uv)
-    //----------------------------------------------------------
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride  = sizeof(float) * 4;
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription attrs[2]{};
-
-    attrs[0].location = 0;
-    attrs[0].binding  = 0;
-    attrs[0].format   = VK_FORMAT_R32G32_SFLOAT;
-    attrs[0].offset   = 0;
-
-    attrs[1].location = 1;
-    attrs[1].binding  = 0;
-    attrs[1].format   = VK_FORMAT_R32G32_SFLOAT;
-    attrs[1].offset   = sizeof(float) * 2;
-
-    VkPipelineVertexInputStateCreateInfo vi{};
-    vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vi.vertexBindingDescriptionCount = 1;
-    vi.pVertexBindingDescriptions = &binding;
-    vi.vertexAttributeDescriptionCount = 2;
-    vi.pVertexAttributeDescriptions = attrs;
-
-    //----------------------------------------------------------
-    // 5) Input Assembly
-    //----------------------------------------------------------
     VkPipelineInputAssemblyStateCreateInfo ia{};
-    ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ia.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ia.primitiveRestartEnable = VK_FALSE;
 
-    //----------------------------------------------------------
-    // 6) Viewport / Scissor (dynamic)
-    //----------------------------------------------------------
+    // ----------------------------------------------------------
+    // 5) Viewport/Scissor (use dynamic)
+    // ----------------------------------------------------------
     VkPipelineViewportStateCreateInfo vp{};
-    vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
     vp.scissorCount  = 1;
 
-    //----------------------------------------------------------
-    // 7) Rasterizer
-    //----------------------------------------------------------
-    VkPipelineRasterizationStateCreateInfo rs{};
-    rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.polygonMode = VK_POLYGON_MODE_FILL;
-    rs.lineWidth = 1.0f;
-    rs.cullMode = VK_CULL_MODE_NONE;
-    rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    VkPipelineDynamicStateCreateInfo dyn{};
+    std::array<VkDynamicState, 2> dynStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+    dyn.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dyn.dynamicStateCount = (uint32_t)dynStates.size();
+    dyn.pDynamicStates    = dynStates.data();
 
-    //----------------------------------------------------------
-    // 8) Multisample
-    //----------------------------------------------------------
+    // ----------------------------------------------------------
+    // 6) Rasterizer
+    // NOTE: UI spriteなら cull none が安定（RenderItem.cull をVKで反映するなら別pipelineが必要）
+    // ----------------------------------------------------------
+    VkPipelineRasterizationStateCreateInfo rs{};
+    rs.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.depthClampEnable        = VK_FALSE;
+    rs.rasterizerDiscardEnable = VK_FALSE;
+    rs.polygonMode             = VK_POLYGON_MODE_FILL;
+    rs.cullMode                = VK_CULL_MODE_NONE; // Sprite is usually double-sided
+    rs.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rs.depthBiasEnable         = VK_FALSE;
+    rs.lineWidth               = 1.0f;
+
+    // ----------------------------------------------------------
+    // 7) Multisample
+    // ----------------------------------------------------------
     VkPipelineMultisampleStateCreateInfo ms{};
-    ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    //----------------------------------------------------------
-    // 9) Color Blend (alpha)
-    //----------------------------------------------------------
-    VkPipelineColorBlendAttachmentState blend{};
-    blend.blendEnable = VK_TRUE;
-    blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    blend.colorBlendOp = VK_BLEND_OP_ADD;
-    blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    blend.alphaBlendOp = VK_BLEND_OP_ADD;
-    blend.colorWriteMask =
+    // ----------------------------------------------------------
+    // 8) Depth/Stencil (UI: disabled)
+    // ----------------------------------------------------------
+    VkPipelineDepthStencilStateCreateInfo ds{};
+    ds.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable  = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
+    ds.stencilTestEnable = VK_FALSE;
+
+    // ----------------------------------------------------------
+    // 9) Color blend (alpha)
+    // ----------------------------------------------------------
+    VkPipelineColorBlendAttachmentState att{};
+    att.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT |
         VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
 
+    att.blendEnable         = VK_TRUE;
+    att.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    att.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    att.colorBlendOp        = VK_BLEND_OP_ADD;
+
+    att.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    att.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    att.alphaBlendOp        = VK_BLEND_OP_ADD;
+
     VkPipelineColorBlendStateCreateInfo cb{};
-    cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.logicOpEnable   = VK_FALSE;
     cb.attachmentCount = 1;
-    cb.pAttachments = &blend;
+    cb.pAttachments    = &att;
 
-    //----------------------------------------------------------
-    // 10) Dynamic State
-    //----------------------------------------------------------
-    VkDynamicState dynStates[] =
+    // ----------------------------------------------------------
+    // 10) Graphics Pipeline create
+    // ----------------------------------------------------------
+    VkGraphicsPipelineCreateInfo gpci{};
+    gpci.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gpci.stageCount          = 2;
+    gpci.pStages             = stages;
+
+    gpci.pVertexInputState   = &vis;
+    gpci.pInputAssemblyState = &ia;
+    gpci.pViewportState      = &vp;
+    gpci.pRasterizationState = &rs;
+    gpci.pMultisampleState   = &ms;
+    gpci.pDepthStencilState  = &ds;
+    gpci.pColorBlendState    = &cb;
+    gpci.pDynamicState       = &dyn;
+
+    gpci.layout              = pipelineLayout;
+    gpci.renderPass          = mRenderPass;
+    gpci.subpass             = 0;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkResult pr = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline);
+
+    // Shader modules can be destroyed after pipeline creation
+    vkDestroyShaderModule(mDevice, vs, nullptr);
+    vkDestroyShaderModule(mDevice, fs, nullptr);
+
+    if (pr != VK_SUCCESS || pipeline == VK_NULL_HANDLE)
     {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-
-    VkPipelineDynamicStateCreateInfo dyn{};
-    dyn.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dyn.dynamicStateCount = 2;
-    dyn.pDynamicStates = dynStates;
-
-    //----------------------------------------------------------
-    // 11) GraphicsPipeline
-    //----------------------------------------------------------
-    VkGraphicsPipelineCreateInfo gp{};
-    gp.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    gp.stageCount = 2;
-    gp.pStages = stages;
-    gp.pVertexInputState   = &vi;
-    gp.pInputAssemblyState = &ia;
-    gp.pViewportState      = &vp;
-    gp.pRasterizationState = &rs;
-    gp.pMultisampleState   = &ms;
-    gp.pColorBlendState    = &cb;
-    gp.pDynamicState       = &dyn;
-    gp.layout     = pipeline->layout;
-    gp.renderPass = mRenderPass;
-    gp.subpass    = 0;
-
-    if (vkCreateGraphicsPipelines(mDevice,
-                                   VK_NULL_HANDLE,
-                                   1,
-                                   &gp,
-                                   nullptr,
-                                   &pipeline->pipeline) != VK_SUCCESS)
+        vkDestroyPipelineLayout(mDevice, pipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(mDevice, setLayout, nullptr);
+        std::cerr << "[VKRenderer] CreateSpritePipeline failed: vkCreateGraphicsPipelines: " << pr << "\n";
         return false;
+    }
 
-    //----------------------------------------------------------
-    // cleanup shader modules
-    //----------------------------------------------------------
-    vkDestroyShaderModule(mDevice, vertModule, nullptr);
-    vkDestroyShaderModule(mDevice, fragModule, nullptr);
+    // ----------------------------------------------------------
+    // 11) Store into map
+    // ----------------------------------------------------------
+    auto p = std::make_unique<VKPipeline>();
+    p->pipeline       = pipeline;
+    p->pipelineLayout = pipelineLayout;
+    p->setLayout      = setLayout;
+    p->renderPass     = mRenderPass;
 
-    //----------------------------------------------------------
-    // register
-    //----------------------------------------------------------
-    mPipelines["Sprite"] = std::move(pipeline);
+    mPipelines["Sprite"] = std::move(p);
 
+    std::cerr << "[VKRenderer] Sprite pipeline created.\n";
     return true;
 }
 
-}
+} // namespace toy

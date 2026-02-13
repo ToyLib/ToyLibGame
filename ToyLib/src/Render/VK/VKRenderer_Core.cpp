@@ -8,6 +8,7 @@
 
 #include "Render/VK/VKRenderer.h"
 #include "Engine/Core/Application.h"
+#include "Render/RenderBackendState.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -674,7 +675,6 @@ bool VKRenderer::Initialize(const Application* app)
     }
     
     
-    mShaderPath = mShaderPath + "VK/spv/";
     // Sprite Pipeline
     if (!CreateSpritePipeline() )
     {
@@ -682,7 +682,12 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     };
     
-
+    RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
+    RenderBackendState::Get().SetVKDevice(mDevice);
+    RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
+    RenderBackendState::Get().SetVKCommandPool(mCommandPool);
+    
+    
     std::cerr << "[Renderer] VK Init Complete. "
               << "Pixels(" << pixelW << "x" << pixelH << ") "
               << "Scale="  << mWindowDisplayScale
