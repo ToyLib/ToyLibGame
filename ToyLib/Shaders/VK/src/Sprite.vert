@@ -22,6 +22,7 @@ void main()
     // Vulkan(=GLSL) の標準は column-vector なので (P*V*W*pos) が自然。
     // ToyLib側の行列仕様が v*M なら、CPUで転置する or ここを合わせる必要あり。
     // いまは「一般的な列ベクトル」前提で組む：
-    gl_Position = pc.uViewProj * pc.uWorld * vec4(inPosition, 1.0);
-    
+    //gl_Position = pc.uViewProj * pc.uWorld * vec4(inPosition, 1.0);
+    gl_Position = vec4(inPosition, 1.0) * pc.uWorld * pc.uViewProj;
+
 }
