@@ -79,6 +79,8 @@ private:
     bool CreateCommandBuffers(); // ★ BeginFrame の vkResetCommandBuffer の前提（後で実装）
     void DestroyFramebuffers();
     
+    
+    bool CreateSpritePipeline();
 
 private:
     //--------------------------------------------------------------------------

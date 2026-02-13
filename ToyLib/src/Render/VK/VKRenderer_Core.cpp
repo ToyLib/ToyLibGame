@@ -672,6 +672,16 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    
+    
+    mShaderPath = mShaderPath + "VK/spv/";
+    // Sprite Pipeline
+    if (!CreateSpritePipeline() )
+    {
+        Shutdown();
+        return false;
+    };
+    
 
     std::cerr << "[Renderer] VK Init Complete. "
               << "Pixels(" << pixelW << "x" << pixelH << ") "
