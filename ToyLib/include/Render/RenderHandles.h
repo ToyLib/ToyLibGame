@@ -14,11 +14,13 @@ enum class PipelineBackend : uint8_t
 struct GeometryHandle
 {
     class VertexArray* ptr = nullptr;
+    bool IsValid() const { return ptr != nullptr; }
 };
 
 struct TextureHandle
 {
     class Texture* ptr = nullptr;
+    bool IsValid() const { return ptr != nullptr; }
 };
 
 struct PipelineHandle
@@ -36,10 +38,10 @@ struct PipelineHandle
     bool IsValid()   const { return IsValidGL() || IsValidVK(); }
 };
 
-// MaterialHandle
 struct MaterialHandle
 {
     class Material* ptr = nullptr;
+    bool IsValid() const { return ptr != nullptr; }
 };
 
 } // namespace toy

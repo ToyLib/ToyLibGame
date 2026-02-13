@@ -11,7 +11,7 @@ namespace toy {
 // VertexArray
 // ・CPU側：ポリゴン（物理用）を保持
 // ・GPU側：バックエンド実装（GL/VK）に委譲（SetActive/Unload）
-// ・公開インターフェースは変更しない
+// ・公開インターフェースは変更しない（既存APIは維持）
 //-------------------------------------------
 class VertexArray
 {
@@ -93,6 +93,56 @@ public:
     //-----------------------------------------------
     std::vector<struct Polygon> GetWorldPolygons(const Matrix4& worldTransform) const;
 
+    //=====================================================
+    // ▼ 追加：CPU頂点アクセス（VK 等のバックエンド用）
+    //  - 目的：SpriteQuad 等 “小さい固定ジオメトリ” をVK VB/IB化する
+    //  - 通常メッシュは巨大なので、ここでは「保持している場合だけ」返す
+    //=====================================================
+
+    enum class CpuVertexLayout : uint8_t
+    {
+        None = 0,
+
+        // 1頂点 = 8 floats : pos3 + normal3 + uv2（SpriteQuadの想定）
+        Pos3Nrm3UV2_F32,
+
+        // 1頂点 = 4 floats : pos2 + uv2
+        Pos2UV2_F32,
+
+        // 1頂点 = 2 floats : pos2
+        Pos2_F32,
+    };
+
+    // CPUコピーを持っていれば true。持っていなければ false（通常メッシュ等）
+    bool HasCpuGeometry() const
+    {
+        return !mCpuVertexData.empty() &&
+               !mCpuIndexData.empty()  &&
+               (mCpuVertexStrideBytes > 0) &&
+               (mCpuVertexCount > 0) &&
+               (mCpuIndexCount > 0);
+    }
+
+    // VK側（EnsureSpriteGeometryVK）が使う想定の最小アクセサ
+    const void* GetVertexData() const
+    {
+        return mCpuVertexData.empty() ? nullptr : mCpuVertexData.data();
+    }
+
+    const void* GetIndexData() const
+    {
+        return mCpuIndexData.empty() ? nullptr : mCpuIndexData.data();
+    }
+
+    size_t GetVertexDataSizeBytes() const { return mCpuVertexData.size(); }
+    size_t GetIndexDataSizeBytes()  const { return mCpuIndexData.size();  }
+
+    uint32_t GetVertexStrideBytes() const { return mCpuVertexStrideBytes; }
+    uint32_t GetIndexCount()  const { return mCpuIndexCount; }
+    uint32_t GetVertexCount() const { return mCpuVertexCount; }
+
+    CpuVertexLayout GetCpuVertexLayout() const { return mCpuLayout; }
+
 private:
     //=====================================================
     // コピー禁止
@@ -113,10 +163,19 @@ private:
 
     //-----------------------------------------------
     // GPU側：バックエンド実装へ委譲
-    //  - GL 実装は追加ファイル側（GLVertexArrayBackend）
-    //  - VK 実装は後で追加できる
     //-----------------------------------------------
     std::unique_ptr<class IVertexArrayBackend> mBackend;
+
+    //=====================================================
+    // CPU copy (optional) : 小物ジオメトリ用
+    //=====================================================
+    std::vector<uint8_t> mCpuVertexData;
+    std::vector<uint8_t> mCpuIndexData;
+
+    uint32_t      mCpuVertexStrideBytes { 0 };
+    uint32_t      mCpuVertexCount       { 0 };
+    uint32_t      mCpuIndexCount        { 0 };
+    CpuVertexLayout mCpuLayout          { CpuVertexLayout::None };
 
 private:
     //-----------------------------------------------
@@ -131,6 +190,14 @@ private:
                                   unsigned int strideFloats,
                                   const unsigned int* indices,
                                   unsigned int numIndices);
+
+    // ★追加：CPUコピー保持（必要なコンストラクタでだけ呼ぶ）
+    void StoreCpuGeometryIfSmall(const float* verts,
+                                 uint32_t vertexCount,
+                                 uint32_t strideFloats,
+                                 const unsigned int* indices,
+                                 uint32_t indexCount,
+                                 CpuVertexLayout layout);
 };
 
 } // namespace toy

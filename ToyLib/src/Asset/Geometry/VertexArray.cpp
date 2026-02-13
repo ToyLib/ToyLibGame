@@ -1,4 +1,3 @@
-// Asset/Geometry/VertexArray.cpp
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/Polygon.h"
 #include "Asset/Geometry/VertexArrayBackend.h"
@@ -9,6 +8,8 @@
 #include "Render/RenderBackendState.h"
 
 #include <utility>
+#include <cstring> // memcpy
+#include <iostream>
 
 namespace toy {
 
@@ -37,7 +38,6 @@ VertexArray::VertexArray(unsigned int numVerts,
     }
     else if (RenderBackendState::Get().IsVK())
     {
-        // NOTE: ここは VKVertexArrayBackend 側で未実装でも落ちないようにしておく
         mBackend = std::make_unique<VKVertexArrayBackend>(
             numVerts, verts, norms, uvs, boneids, weights, numIndices, indices);
     }
@@ -66,7 +66,6 @@ VertexArray::VertexArray(unsigned int numVerts,
     }
     else if (RenderBackendState::Get().IsVK())
     {
-        // NOTE: ここも VK 側は後で staging 化して最適化
         mBackend = std::make_unique<VKVertexArrayBackend>(
             numVerts, verts, norms, uvs, numIndices, indices);
     }
@@ -76,6 +75,7 @@ VertexArray::VertexArray(unsigned int numVerts,
 // ctor（スプライト）
 //  - 8 float/vertex の interleaved（pos3 + normal3 + uv2）
 //  - ★仕様維持：スプライトからも GetPolygons() を取れるようにする
+//  - ★VK用：CPUコピーを保持する（SpriteQuadで必須）
 //==============================================================
 VertexArray::VertexArray(const float* verts,
                          unsigned int numVerts,
@@ -85,8 +85,17 @@ VertexArray::VertexArray(const float* verts,
     mNumVerts   = numVerts;
     mNumIndices = numIndices;
 
-    // ★重要：8 float/vertex でも pos は先頭 (x,y,z) なので stride=8 で読める
+    // pos は先頭 (x,y,z) なので stride=8 で読める
     CreatePolygonsWithStride(verts, 8, indices, mNumIndices);
+
+    // ★追加：小物のCPUコピーを保持（VKのEnsureSpriteGeometryVKが読む）
+    StoreCpuGeometryIfSmall(
+        verts,
+        (uint32_t)numVerts,
+        8,
+        indices,
+        (uint32_t)numIndices,
+        CpuVertexLayout::Pos3Nrm3UV2_F32);
 
     if (RenderBackendState::Get().IsGL())
     {
@@ -95,7 +104,6 @@ VertexArray::VertexArray(const float* verts,
     }
     else if (RenderBackendState::Get().IsVK())
     {
-        // SpriteQuad はまずここを最優先で対応する想定
         mBackend = std::make_unique<VKVertexArrayBackend>(
             verts, numVerts, indices, numIndices);
     }
@@ -104,6 +112,7 @@ VertexArray::VertexArray(const float* verts,
 //==============================================================
 // ctor（vec2 only：フルスクリーン等）
 //  - 物理用ポリゴンは不要（従来どおり）
+//  - ★VK用：CPUコピーを保持する（必要なら）
 //==============================================================
 VertexArray::VertexArray(const float* verts,
                          unsigned int numVerts,
@@ -117,6 +126,16 @@ VertexArray::VertexArray(const float* verts,
     mNumIndices = numIndices;
 
     // vec2-only はポリゴン生成しない（従来どおり）
+
+    // ★追加：必要ならCPUコピー保持（pos2のみ想定）
+    // もし vec2-only が「pos2+uv2」なら stride=4 / Pos2UV2_F32 に変えてOK
+    StoreCpuGeometryIfSmall(
+        verts,
+        (uint32_t)numVerts,
+        2,
+        indices,
+        (uint32_t)numIndices,
+        CpuVertexLayout::Pos2_F32);
 
     if (RenderBackendState::Get().IsGL())
     {
@@ -137,6 +156,8 @@ VertexArray::~VertexArray()
 {
     Unload();
     mPolygons.clear();
+    mCpuVertexData.clear();
+    mCpuIndexData.clear();
 }
 
 //==============================================================
@@ -183,11 +204,9 @@ void VertexArray::CreatePolygonsWithStride(const float* verts,
                                            const unsigned int* indices,
                                            unsigned int num)
 {
-    if (!verts) return;
-    if (num == 0) return;
-
-    // indices が無いケース（wireframeなど：numIndices=0 + indices=nullptr）を安全に通す
-    if (!indices) return;
+    if (!verts)    return;
+    if (num == 0)  return;
+    if (!indices)  return;
 
     mPolygons.reserve(mPolygons.size() + (num / 3));
 
@@ -209,6 +228,48 @@ void VertexArray::CreatePolygonsWithStride(const float* verts,
         poly.c = Vector3(verts[c + 0], verts[c + 1], verts[c + 2]);
 
         mPolygons.emplace_back(poly);
+    }
+}
+
+//==============================================================
+// ★追加：CPUコピー保持（小物だけ）
+//==============================================================
+void VertexArray::StoreCpuGeometryIfSmall(const float* verts,
+                                         uint32_t vertexCount,
+                                         uint32_t strideFloats,
+                                         const unsigned int* indices,
+                                         uint32_t indexCount,
+                                         CpuVertexLayout layout)
+{
+    // “小物だけ保持” の安全弁（SpriteQuad想定：4 verts / 6 idx）
+    constexpr uint32_t kMaxKeepVerts  = 1024;
+    constexpr uint32_t kMaxKeepIndex  = 4096;
+
+    if (!verts || !indices) return;
+    if (vertexCount == 0 || indexCount == 0) return;
+    if (strideFloats == 0) return;
+
+    if (vertexCount > kMaxKeepVerts || indexCount > kMaxKeepIndex)
+    {
+        return;
+    }
+
+    mCpuLayout            = layout;
+    mCpuVertexCount       = vertexCount;
+    mCpuIndexCount        = indexCount;
+    mCpuVertexStrideBytes = strideFloats * (uint32_t)sizeof(float);
+
+    // Vertex data (float array -> byte array)
+    const size_t vBytes = (size_t)vertexCount * (size_t)mCpuVertexStrideBytes;
+    mCpuVertexData.resize(vBytes);
+    std::memcpy(mCpuVertexData.data(), verts, vBytes);
+
+    // Index data (uint32)
+    mCpuIndexData.resize((size_t)indexCount * sizeof(uint32_t));
+    uint32_t* dst = reinterpret_cast<uint32_t*>(mCpuIndexData.data());
+    for (uint32_t i = 0; i < indexCount; ++i)
+    {
+        dst[i] = (uint32_t)indices[i];
     }
 }
 

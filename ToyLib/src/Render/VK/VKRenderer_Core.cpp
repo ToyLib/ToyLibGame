@@ -7,6 +7,7 @@
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
+#include "Render/VK/VKUtil.h" // ★追加：ヘルパーはVKUtilへ集約
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
 
@@ -35,176 +36,6 @@ static const char* kValidationLayers[] =
 {
     "VK_LAYER_KHRONOS_validation"
 };
-
-static bool HasLayer(const char* name, const std::vector<VkLayerProperties>& layers)
-{
-    for (const auto& l : layers)
-    {
-        if (std::strcmp(l.layerName, name) == 0) return true;
-    }
-    return false;
-}
-
-static bool HasInstanceExt(const char* name, const std::vector<VkExtensionProperties>& exts)
-{
-    for (const auto& e : exts)
-    {
-        if (std::strcmp(e.extensionName, name) == 0) return true;
-    }
-    return false;
-}
-
-static bool HasDeviceExt(const char* name, const std::vector<VkExtensionProperties>& exts)
-{
-    for (const auto& e : exts)
-    {
-        if (std::strcmp(e.extensionName, name) == 0) return true;
-    }
-    return false;
-}
-
-//--------------------------------------------------------------
-// Debug messenger
-//--------------------------------------------------------------
-static VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-    VkDebugUtilsMessageTypeFlagsEXT,
-    const VkDebugUtilsMessengerCallbackDataEXT* cb,
-    void*)
-{
-    (void)severity;
-    std::cerr << "[VK] " << (cb && cb->pMessage ? cb->pMessage : "(null)") << "\n";
-    return VK_FALSE;
-}
-
-static VkResult CreateDebugUtilsMessengerEXT(
-    VkInstance instance,
-    const VkDebugUtilsMessengerCreateInfoEXT* createInfo,
-    VkDebugUtilsMessengerEXT* out)
-{
-    auto fn = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        instance, "vkCreateDebugUtilsMessengerEXT");
-    if (!fn) return VK_ERROR_EXTENSION_NOT_PRESENT;
-    return fn(instance, createInfo, nullptr, out);
-}
-
-static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT messenger)
-{
-    auto fn = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        instance, "vkDestroyDebugUtilsMessengerEXT");
-    if (fn && messenger) fn(instance, messenger, nullptr);
-}
-
-//--------------------------------------------------------------
-// Queue families
-//--------------------------------------------------------------
-struct QueueFamilyIndices
-{
-    std::optional<uint32_t> graphics;
-    std::optional<uint32_t> present;
-
-    bool IsComplete() const { return graphics.has_value() && present.has_value(); }
-};
-
-static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice gpu, VkSurfaceKHR surface)
-{
-    QueueFamilyIndices out;
-
-    uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
-    std::vector<VkQueueFamilyProperties> props(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, props.data());
-
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            out.graphics = i;
-        }
-
-        VkBool32 supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(gpu, i, surface, &supported);
-        if (supported)
-        {
-            out.present = i;
-        }
-
-        if (out.IsComplete()) break;
-    }
-
-    return out;
-}
-
-//--------------------------------------------------------------
-// Swapchain support
-//--------------------------------------------------------------
-struct SwapchainSupport
-{
-    VkSurfaceCapabilitiesKHR        caps{};
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR>   presentModes;
-};
-
-static SwapchainSupport QuerySwapchainSupport(VkPhysicalDevice gpu, VkSurfaceKHR surface)
-{
-    SwapchainSupport out;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &out.caps);
-
-    uint32_t fmtCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &fmtCount, nullptr);
-    out.formats.resize(fmtCount);
-    if (fmtCount) vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &fmtCount, out.formats.data());
-
-    uint32_t pmCount = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, &pmCount, nullptr);
-    out.presentModes.resize(pmCount);
-    if (pmCount) vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, &pmCount, out.presentModes.data());
-
-    return out;
-}
-
-static VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
-{
-    for (const auto& f : formats)
-    {
-        if (f.format == VK_FORMAT_B8G8R8A8_UNORM &&
-            f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-        {
-            return f;
-        }
-    }
-
-    if (!formats.empty()) return formats[0];
-
-    VkSurfaceFormatKHR fallback{};
-    fallback.format = VK_FORMAT_B8G8R8A8_UNORM;
-    fallback.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-    return fallback;
-}
-
-static VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes, bool vsync)
-{
-    if (!vsync)
-    {
-        for (auto m : modes) if (m == VK_PRESENT_MODE_MAILBOX_KHR)   return m;
-        for (auto m : modes) if (m == VK_PRESENT_MODE_IMMEDIATE_KHR) return m;
-    }
-    return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-static VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, int pixelW, int pixelH)
-{
-    if (caps.currentExtent.width != 0xFFFFFFFF)
-    {
-        return caps.currentExtent;
-    }
-
-    VkExtent2D e{};
-    e.width  = (uint32_t)std::clamp(pixelW, (int)caps.minImageExtent.width,  (int)caps.maxImageExtent.width);
-    e.height = (uint32_t)std::clamp(pixelH, (int)caps.minImageExtent.height, (int)caps.maxImageExtent.height);
-    return e;
-}
 
 //--------------------------------------------------------------
 // VKRenderer::Initialize
@@ -272,11 +103,13 @@ bool VKRenderer::Initialize(const Application* app)
     }
 
     // validation on/off
-    mEnableValidation = mEnableValidation && HasLayer(kValidationLayers[0], availLayers);
+    mEnableValidation =
+        mEnableValidation &&
+        toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
 
     if (mEnableValidation)
     {
-        if (HasInstanceExt(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, availExts))
+        if (toy::vkutil::HasInstanceExt(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, availExts))
         {
             instanceExts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
@@ -284,7 +117,7 @@ bool VKRenderer::Initialize(const Application* app)
 
     // portability enumeration (MoltenVK/macOS)
     const bool hasPortabilityEnum =
-        HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
+        toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
     if (hasPortabilityEnum)
     {
         instanceExts.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
@@ -325,7 +158,7 @@ bool VKRenderer::Initialize(const Application* app)
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        dbgCI.pfnUserCallback = VkDebugCallback;
+        dbgCI.pfnUserCallback = toy::vkutil::DebugCallback; // ★VKUtil側のコールバック
 
         ci.pNext = &dbgCI;
     }
@@ -339,7 +172,7 @@ bool VKRenderer::Initialize(const Application* app)
 
     if (mEnableValidation)
     {
-        CreateDebugUtilsMessengerEXT(mInstance, &dbgCI, &mDebugMessenger);
+        toy::vkutil::CreateDebugUtilsMessengerEXT(mInstance, &dbgCI, &mDebugMessenger);
     }
 
     //----------------------------------------------------------
@@ -389,7 +222,7 @@ bool VKRenderer::Initialize(const Application* app)
         }
 
         // required
-        if (!HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
+        if (!toy::vkutil::HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
         {
             continue;
         }
@@ -399,17 +232,17 @@ bool VKRenderer::Initialize(const Application* app)
         devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
         // portability subset (MoltenVK)
-        if (HasDeviceExt(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, de))
+        if (toy::vkutil::HasDeviceExt(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, de))
         {
             devExts.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
         }
 
         // queue families
-        const auto q = FindQueueFamilies(gpu, mSurface);
+        const auto q = toy::vkutil::FindQueueFamilies(gpu, mSurface);
         if (!q.IsComplete()) continue;
 
         // swapchain support
-        const auto sc = QuerySwapchainSupport(gpu, mSurface);
+        const auto sc = toy::vkutil::QuerySwapchainSupport(gpu, mSurface);
         if (sc.formats.empty() || sc.presentModes.empty()) continue;
 
         // choose this GPU (first suitable)
@@ -427,7 +260,7 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
 
-    mPhysicalDevice = best;
+    mPhysicalDevice   = best;
     mDeviceExtensions = std::move(bestDevExts);
 
     VkPhysicalDeviceProperties props{};
@@ -486,7 +319,7 @@ bool VKRenderer::Initialize(const Application* app)
     // 5) Swapchain + Images + ImageViews
     //----------------------------------------------------------
     {
-        SwapchainSupport sc = QuerySwapchainSupport(mPhysicalDevice, mSurface);
+        toy::vkutil::SwapchainSupport sc = toy::vkutil::QuerySwapchainSupport(mPhysicalDevice, mSurface);
         if (sc.formats.empty() || sc.presentModes.empty())
         {
             std::cerr << "[VKRenderer] Swapchain support incomplete.\n";
@@ -494,10 +327,10 @@ bool VKRenderer::Initialize(const Application* app)
             return false;
         }
 
-        mSwapchainFormat = ChooseSurfaceFormat(sc.formats);
-        mPresentMode     = ChoosePresentMode(sc.presentModes, /*vsync*/ true);
+        mSwapchainFormat = toy::vkutil::ChooseSurfaceFormat(sc.formats);
+        mPresentMode     = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ true);
 
-        VkExtent2D extent = ChooseExtent(sc.caps, pixelW, pixelH);
+        VkExtent2D extent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
         mSwapchainExtent  = extent;
 
         uint32_t imageCount = sc.caps.minImageCount + 1;
@@ -673,26 +506,26 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    
-    
+
     // Sprite Pipeline
-    if (!CreateSpritePipeline() )
+    if (!CreateSpritePipeline())
     {
         Shutdown();
         return false;
-    };
-    
+    }
+
     RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
     RenderBackendState::Get().SetVKDevice(mDevice);
     RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
     RenderBackendState::Get().SetVKCommandPool(mCommandPool);
-    
-    
+
     std::cerr << "[Renderer] VK Init Complete. "
               << "Pixels(" << pixelW << "x" << pixelH << ") "
               << "Scale="  << mWindowDisplayScale
               << " SwapchainImages=" << (int)mSwapchainImages.size()
               << std::endl;
+    
+    CreateSpriteVerts();
 
     return true;
 }
@@ -706,6 +539,10 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
+    
+    mFullScreenQuad.reset();
+    mSpriteQuad.reset();
+    mSurfaceQuad.reset();
 
     // framebuffers
     if (mDevice)
@@ -719,7 +556,7 @@ void VKRenderer::Shutdown()
 
     // UIResources
     DestroyUIResources();
-    
+
     // render pass
     if (mDevice && mRenderPass)
     {
@@ -785,7 +622,7 @@ void VKRenderer::Shutdown()
     // debug messenger
     if (mEnableValidation && mDebugMessenger && mInstance)
     {
-        DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger);
+        toy::vkutil::DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger);
         mDebugMessenger = VK_NULL_HANDLE;
     }
 

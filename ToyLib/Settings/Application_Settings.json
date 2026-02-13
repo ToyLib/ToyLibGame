@@ -1,7 +1,7 @@
 {
   "title": "ToyGame",
   "asset_path": "ToyLib/Assets/",
-  "renderer_backend": "GL",
+  "renderer_backend": "VK",
   "screen": {
     "screen_width": 1280,
     "screen_height": 720,
