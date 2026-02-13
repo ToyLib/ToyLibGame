@@ -138,6 +138,7 @@
 			buildConfigurationList = 7EDCE8A72ED72F7F0069EE3D /* Build configuration list for PBXNativeTarget "ToyLibGame" */;
 			buildPhases = (
 				7EDCE89C2ED72F7F0069EE3D /* Sources */,
+				7E67DADB2F3F9784009D7BE5 /* Run Script */,
 				7EDCE89D2ED72F7F0069EE3D /* Frameworks */,
 				7EDCE89E2ED72F7F0069EE3D /* CopyFiles */,
 			);
@@ -190,6 +191,28 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7E67DADB2F3F9784009D7BE5 /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\n# 1. Homebrewのパスを明示的に追加 (Apple Silicon / Intel 両対応)\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"\n\n# 2. パス設定\nSHADER_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/src\"\nOUTPUT_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/spv\"\n\nmkdir -p \"${OUTPUT_DIR}\"\necho \"${OUTPUT_DIR}\"\n\n# 3. コンパイル実行 (glslc を使用)\nfor shader in \"${SHADER_DIR}\"/*.{vert,frag}; do\n    if [ -f \"$shader\" ]; then\n        filename=$(basename \"$shader\")\n        echo \"Compiling: ${filename} using glslc\"\n        # glslc を使用して SPIR-V に変換\n        glslc \"$shader\" -o \"${OUTPUT_DIR}/${filename}.spv\"\n    fi\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		7EDCE89C2ED72F7F0069EE3D /* Sources */ = {
@@ -327,6 +350,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				HEADER_SEARCH_PATHS = (
 					/opt/homebrew/include,
 					"/opt/homebrew/opt/openal-soft/include",
@@ -361,6 +385,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEAD_CODE_STRIPPING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				HEADER_SEARCH_PATHS = (
 					/opt/homebrew/include,
 					"/opt/homebrew/opt/openal-soft/include",
