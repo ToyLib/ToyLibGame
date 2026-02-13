@@ -119,6 +119,7 @@ private:
     std::vector<VkImageView>     mSwapchainImageViews;
     
     bool mNeedRecreateSwapchain {true};
+    bool mUiImageLayoutReady {false};
 
 
     //--------------------------------------------------------------------------
