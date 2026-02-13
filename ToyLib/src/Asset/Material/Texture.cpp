@@ -1,8 +1,10 @@
 #include "Asset/Material/Texture.h"
 
 #include "Asset/AssetManager.h"
+
 #include "Render/ITextureGPU.h"
 #include "Render/GL/GLTextureGPU.h"
+#include "Render/VK/VKTextureGPU.h"
 
 #include "Render/RenderBackendState.h"
 
@@ -17,16 +19,40 @@
 namespace toy {
 
 //============================================================
-// 内部：いまは GL 固定で生成（VK導入時に差し替えポイント）
+// 内部：Backend に応じて GPU 実装を生成
 //============================================================
 static std::unique_ptr<ITextureGPU> CreateTextureGPU()
 {
     if (RenderBackendState::Get().IsGL())
     {
-        // 今は GL だけ
         return std::make_unique<GLTextureGPU>();
     }
+    if (RenderBackendState::Get().IsVK())
+    {
+        return std::make_unique<VKTextureGPU>();
+    }
+
+    // Unknown の場合はまだ作れない（Initialize 前の可能性）
     return nullptr;
+}
+
+//============================================================
+// 内部：必要なら GPU を作る（Unknown の場合は失敗）
+//============================================================
+static bool EnsureGPU(std::unique_ptr<ITextureGPU>& gpu)
+{
+    if (gpu)
+    {
+        return true;
+    }
+
+    gpu = CreateTextureGPU();
+    if (!gpu)
+    {
+        std::cerr << "[Texture] EnsureGPU failed: backend is not ready (Unknown?)\n";
+        return false;
+    }
+    return true;
 }
 
 //============================================================
@@ -34,7 +60,7 @@ static std::unique_ptr<ITextureGPU> CreateTextureGPU()
 //============================================================
 Texture::Texture()
 {
-    mGPU = CreateTextureGPU();
+    // ★ここでは作らない（Backend 未確定の可能性がある）
 }
 
 Texture::~Texture()
@@ -52,9 +78,8 @@ bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
         std::cerr << "[Texture] Load failed: assetManager is null\n";
         return false;
     }
-    if (!mGPU)
+    if (!EnsureGPU(mGPU))
     {
-        std::cerr << "[Texture] Load failed: GPU is null\n";
         return false;
     }
 
@@ -69,7 +94,7 @@ bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
         return false;
     }
 
-    // GL で扱いやすいフォーマットへ（ABGR8888）
+    // まず RGBA とみなせる形式へ（ABGR8888）
     SDL_Surface* conv = SDL_ConvertSurface(image, SDL_PIXELFORMAT_ABGR8888);
     SDL_DestroySurface(image);
 
@@ -83,10 +108,18 @@ bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
     mWidth  = conv->w;
     mHeight = conv->h;
 
-    // ABGR8888 は little endian で RGBA と互換扱いできるので「hasAlpha=true」でOK
+    // ABGR8888 は little endian 環境で RGBA 相当として扱える運用
     const bool ok = mGPU->CreateFromPixels(conv->pixels, mWidth, mHeight, true);
 
     SDL_DestroySurface(conv);
+
+    if (!ok)
+    {
+        // GPU側が失敗したらサイズも戻す
+        mWidth = 0;
+        mHeight = 0;
+    }
+
     return ok;
 }
 
@@ -95,9 +128,8 @@ bool Texture::Load(const std::string& fileName, AssetManager* assetManager)
 //============================================================
 bool Texture::LoadFromMemory(const void* data, int size)
 {
-    if (!mGPU)
+    if (!EnsureGPU(mGPU))
     {
-        std::cerr << "[Texture] LoadFromMemory failed: GPU is null\n";
         return false;
     }
     if (!data || size <= 0)
@@ -122,14 +154,7 @@ bool Texture::LoadFromMemory(const void* data, int size)
         return false;
     }
 
-    const bool hasAlpha = SDL_ISPIXELFORMAT_ALPHA(image->format);
-    mWidth  = image->w;
-    mHeight = image->h;
-
-    // ここは SDL_Surface の format に応じて「RGB/RGBA」どちらで解釈するかだけ決める
-    // ※image->pixels の並びは format に依存するので、厳密にやるなら変換が必要。
-    // ただ「既存コードの挙動を崩さない」が最優先なら、従来通りの運用でOK。
-    // ここでは安全側で RGBA へ変換してから投げる（破綻しづらい）。
+    // 安全側：常に ABGR8888 に変換して GPU へ
     SDL_Surface* conv = SDL_ConvertSurface(image, SDL_PIXELFORMAT_ABGR8888);
     SDL_DestroySurface(image);
 
@@ -146,7 +171,13 @@ bool Texture::LoadFromMemory(const void* data, int size)
     const bool ok = mGPU->CreateFromPixels(conv->pixels, mWidth, mHeight, true);
 
     SDL_DestroySurface(conv);
-    (void)hasAlpha; // 情報としては取ってるが、ここでは統一でRGBA化している
+
+    if (!ok)
+    {
+        mWidth = 0;
+        mHeight = 0;
+    }
+
     return ok;
 }
 
@@ -164,9 +195,8 @@ bool Texture::LoadFromMemory(const void* data, int width, int height)
 //============================================================
 void Texture::CreateShadowMap(int width, int height)
 {
-    if (!mGPU)
+    if (!EnsureGPU(mGPU))
     {
-        std::cerr << "[Texture] CreateShadowMap failed: GPU is null\n";
         return;
     }
 
@@ -179,9 +209,11 @@ void Texture::CreateShadowMap(int width, int height)
 // NOTE: OpenGL backend only.
 // RenderTarget(GL) など GL直結コードから使うための暫定アクセサ。
 // Vulkan backend では 0 を返す or 別APIになる想定。
+//============================================================
 unsigned int Texture::GetTextureID() const
 {
-    // GL のときだけ値が取れる
+    if (!mGPU) return 0;
+
     if (auto* gl = dynamic_cast<GLTextureGPU*>(mGPU.get()))
     {
         return gl->GetTextureID();
@@ -198,7 +230,7 @@ bool Texture::CreateAlphaCircle(int size,
                                 Vector3 color,
                                 float blendPow)
 {
-    if (!mGPU) return false;
+    if (!EnsureGPU(mGPU)) return false;
     if (size <= 0) return false;
 
     std::vector<uint8_t> pixels(size * size * 4);
@@ -226,7 +258,14 @@ bool Texture::CreateAlphaCircle(int size,
 
     mWidth  = size;
     mHeight = size;
-    return mGPU->CreateFromPixels(pixels.data(), size, size, true);
+
+    const bool ok = mGPU->CreateFromPixels(pixels.data(), size, size, true);
+    if (!ok)
+    {
+        mWidth = 0;
+        mHeight = 0;
+    }
+    return ok;
 }
 
 //============================================================
@@ -238,7 +277,7 @@ bool Texture::CreateRadialRays(int size,
                                float rayStrength,
                                float intensityScale)
 {
-    if (!mGPU) return false;
+    if (!EnsureGPU(mGPU)) return false;
     if (size <= 0 || numRays <= 0) return false;
 
     std::vector<uint8_t> pixels(size * size * 4);
@@ -272,7 +311,14 @@ bool Texture::CreateRadialRays(int size,
 
     mWidth  = size;
     mHeight = size;
-    return mGPU->CreateFromPixels(pixels.data(), size, size, true);
+
+    const bool ok = mGPU->CreateFromPixels(pixels.data(), size, size, true);
+    if (!ok)
+    {
+        mWidth = 0;
+        mHeight = 0;
+    }
+    return ok;
 }
 
 //============================================================
@@ -280,9 +326,8 @@ bool Texture::CreateRadialRays(int size,
 //============================================================
 void Texture::CreateRenderColorRGBA8(int w, int h)
 {
-    if (!mGPU)
+    if (!EnsureGPU(mGPU))
     {
-        std::cerr << "[Texture] CreateRenderColorRGBA8 failed: GPU is null\n";
         return;
     }
 
@@ -296,9 +341,8 @@ void Texture::CreateRenderColorRGBA8(int w, int h)
 //============================================================
 bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha)
 {
-    if (!mGPU)
+    if (!EnsureGPU(mGPU))
     {
-        std::cerr << "[Texture] CreateFromPixels failed: GPU is null\n";
         return false;
     }
     if (!pixels || width <= 0 || height <= 0)
@@ -309,7 +353,14 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
 
     mWidth  = width;
     mHeight = height;
-    return mGPU->CreateFromPixels(pixels, width, height, hasAlpha);
+
+    const bool ok = mGPU->CreateFromPixels(pixels, width, height, hasAlpha);
+    if (!ok)
+    {
+        mWidth = 0;
+        mHeight = 0;
+    }
+    return ok;
 }
 
 //============================================================
@@ -317,6 +368,7 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
 //============================================================
 void Texture::SetActive(int unit)
 {
+    // VK では no-op 実装でも OK（descriptor bind が本命）
     if (!mGPU) return;
     mGPU->SetActive(unit);
 }
@@ -329,7 +381,11 @@ void Texture::Unload()
     if (mGPU)
     {
         mGPU->Unload();
+        // ★Texture は “再利用” される可能性があるので GPU オブジェクト自体は保持してOK
+        // ただし backend 切替の可能性を完全に排除したいなら reset() でも良い
+        // mGPU.reset();
     }
+
     mWidth  = 0;
     mHeight = 0;
 }
