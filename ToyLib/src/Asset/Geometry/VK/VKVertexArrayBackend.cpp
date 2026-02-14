@@ -170,11 +170,72 @@ VKVertexArrayBackend::VKVertexArrayBackend(unsigned int numVerts,
 {
     mDevice = GetVKDevice();
 
-    // これも当面は sprite優先なら後回しOK
-    (void)numVerts; (void)verts; (void)norms; (void)uvs;
-    (void)numIndices; (void)indices;
+    if (!mDevice || !verts || !norms || !uvs || !indices)
+    {
+        std::cerr << "[VKVertexArrayBackend] Static mesh invalid args\n";
+        return;
+    }
 
-    std::cerr << "[VKVertexArrayBackend] Static mesh ctor not implemented yet.\n";
+    // ------------------------------------------------------
+    // 1) interleave (pos3 + normal3 + uv2)
+    // ------------------------------------------------------
+    std::vector<float> interleaved;
+    interleaved.reserve(numVerts * 8);
+
+    for (unsigned int i = 0; i < numVerts; ++i)
+    {
+        // pos
+        interleaved.push_back(verts[i*3 + 0]);
+        interleaved.push_back(verts[i*3 + 1]);
+        interleaved.push_back(verts[i*3 + 2]);
+
+        // normal
+        interleaved.push_back(norms[i*3 + 0]);
+        interleaved.push_back(norms[i*3 + 1]);
+        interleaved.push_back(norms[i*3 + 2]);
+
+        // uv
+        interleaved.push_back(uvs[i*2 + 0]);
+        interleaved.push_back(uvs[i*2 + 1]);
+    }
+
+    const VkDeviceSize vbSize = sizeof(float) * interleaved.size();
+    const VkDeviceSize ibSize = sizeof(uint32_t) * numIndices;
+
+    // ------------------------------------------------------
+    // 2) Create VB
+    // ------------------------------------------------------
+    if (!CreateBufferHostVisible(vbSize,
+                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                 mVB, mVBMem))
+    {
+        std::cerr << "[VKVertexArrayBackend] Create VB failed (static)\n";
+        return;
+    }
+
+    // ------------------------------------------------------
+    // 3) Create IB
+    // ------------------------------------------------------
+    if (!CreateBufferHostVisible(ibSize,
+                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                 mIB, mIBMem))
+    {
+        std::cerr << "[VKVertexArrayBackend] Create IB failed (static)\n";
+        return;
+    }
+
+    // ------------------------------------------------------
+    // 4) Upload
+    // ------------------------------------------------------
+    if (!UploadToBuffer(mVBMem, interleaved.data(), vbSize) ||
+        !UploadToBuffer(mIBMem, indices, ibSize))
+    {
+        std::cerr << "[VKVertexArrayBackend] Upload failed (static)\n";
+        Unload();
+        return;
+    }
+
+    mIndexType = VK_INDEX_TYPE_UINT32;
 }
 
 VKVertexArrayBackend::VKVertexArrayBackend(const float* verts,
