@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
-#include "Asset/Geometry/IVertexArrayBackend.h"
-#include <vulkan/vulkan.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -145,10 +143,7 @@ public:
 
     CpuVertexLayout GetCpuVertexLayout() const { return mCpuLayout; }
     
-    // VertexArray.h に追加（API追加だけなので既存は壊れない）
-    void* GetVKVertexBuffer() const { return mBackend ? mBackend->GetVKVertexBuffer() : nullptr; }
-    void* GetVKIndexBuffer()  const { return mBackend ? mBackend->GetVKIndexBuffer()  : nullptr; }
-    uint32_t GetVKIndexType() const  { return mBackend ? (uint32_t)mBackend->GetVKIndexType() : (uint32_t)VK_INDEX_TYPE_UINT32; }
+    const class IVertexArrayBackend* GetBackend() const { return mBackend.get(); }
 
 private:
     //=====================================================

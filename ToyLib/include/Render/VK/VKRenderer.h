@@ -49,6 +49,15 @@ public:
 
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
     std::shared_ptr<class IRenderTarget> CreateRenderTarget() override { return nullptr; }
+    
+    VkCommandBuffer GetActiveCommandBuffer() const
+    {
+        if (mFrames.empty())
+        {
+            return VK_NULL_HANDLE;
+        }
+        return mFrames[mFrameIndex].cmd;
+    }
 
 protected:
     void ApplyState(const RenderItem& /*it*/) override {}
@@ -64,7 +73,7 @@ protected:
     void RestoreAfterShadowPass() override {}
 
     void DrawSkyPass() override {}
-    void DrawWorldPass() override {}
+    void DrawWorldPass() override;
     void DrawOverlayScreenPass() override {}
     void DrawFadePass() override {}
     void DrawPostEffectPass() override {}
@@ -86,7 +95,16 @@ private:
 
     // Pipelines (name -> VKPipeline)
     PipelineHandle FindPipelineHandle(const std::string& name) const;
-
+     
+   
+    void DrawBucket_World(const std::vector<uint32_t>& bucket);
+    bool BindWorldCommon(VkCommandBuffer cmd,
+                         VKPipeline* pipe,
+                         const RenderItem& it);
+    bool BindWorldMaterial(VkCommandBuffer cmd,
+                           VKPipeline* pipe,
+                           const RenderItem& it);
+   
 private:
     //--------------------------------------------------------------------------
     // SpriteQueue(UI bucket) rendering helpers
