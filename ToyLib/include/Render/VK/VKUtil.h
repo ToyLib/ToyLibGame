@@ -173,4 +173,30 @@ namespace toy::vkutil
                                                   VkSampler sampler,
                                                   VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    VkDescriptorSetLayout CreateDescriptorSetLayout(
+        VkDevice device,
+        const std::vector<VkDescriptorSetLayoutBinding>& bindings);
+
+    inline VkDescriptorSetLayoutBinding MakeBinding_UBO(
+        uint32_t binding, VkShaderStageFlags stages)
+    {
+        VkDescriptorSetLayoutBinding b{};
+        b.binding         = binding;
+        b.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        b.descriptorCount = 1;
+        b.stageFlags      = stages;
+        return b;
+    }
+
+    inline VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
+        uint32_t binding, VkShaderStageFlags stages)
+    {
+        VkDescriptorSetLayoutBinding b{};
+        b.binding         = binding;
+        b.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        b.descriptorCount = 1;
+        b.stageFlags      = stages;
+        return b;
+    }
+
 } // namespace toy::vkutil

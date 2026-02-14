@@ -697,5 +697,20 @@ void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
     vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
 }
 
+VkDescriptorSetLayout CreateDescriptorSetLayout(
+    VkDevice device,
+    const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+{
+    VkDescriptorSetLayoutCreateInfo ci{};
+    ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    ci.bindingCount = (uint32_t)bindings.size();
+    ci.pBindings    = bindings.data();
 
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &layout) != VK_SUCCESS)
+    {
+        return VK_NULL_HANDLE;
+    }
+    return layout;
+}
 } // namespace toy::vkutil
