@@ -20,6 +20,10 @@ void VKTest::InitGame()
     auto tex = GetAssetManager()->GetTexture("youkai_kappa.png");
     sp->SetTexture(tex);
     
+    auto islandActor = CreateActor<toy::Actor>();
+    auto islandMesh = islandActor->CreateComponent<toy::MeshComponent>();
+    islandMesh->SetMesh(GetAssetManager()->GetMesh("island.x"));
+    
 }
 
 static float r = 0.0f;
