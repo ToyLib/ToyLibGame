@@ -15,21 +15,19 @@ layout(set = 1, binding = 0, std140) uniform WorldCommon
 
     vec3 uAmbientLight; float _pad1;
 
-    // Fog
     float uFogMaxDist;
     float uFogMinDist;
     vec2  _pad2;
     vec3  uFogColor;
     float _pad3;
 
-    // Shadow / CSM
     mat4  uLightViewProj0;
     mat4  uLightViewProj1;
     float uCascadeSplit0;
     float uCascadeBlend;
     float uShadowBias;
-    int   uUseShadow;   // 0/1
-    int   uUseToon;     // 0/1
+    int   uUseShadow;
+    int   uUseToon;
     float _pad4;
 } sc;
 
@@ -45,6 +43,7 @@ void main()
 
     gl_Position = worldPos * sc.uViewProj; // v*M
 
-    fragNormal   = normalize(mat3(pc.uWorldTransform) * inNormal);
+    // ★修正：行ベクトル運用に合わせる
+    fragNormal   = normalize(inNormal * mat3(pc.uWorldTransform));
     fragTexCoord = inTexCoord;
 }
