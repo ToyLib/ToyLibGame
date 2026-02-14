@@ -187,6 +187,9 @@ void VKRenderer::DrawWorldPass()
     // World は BeginFrame() で render pass begin 済み（あなたの Core 実装に合わせる）
     // ここは「描画するだけ」にする。
 
+    if (!EnsureWorldDescriptors())
+         return;
+    
     // 1) Opaque
     DrawBucket_WorldVK(mBuckets.worldOpaque);
 

@@ -115,9 +115,9 @@ bool VKRenderer::CreateMeshPipeline()
 
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable  = VK_TRUE;
-    ds.depthWriteEnable = VK_TRUE;
-    ds.depthCompareOp   = VK_COMPARE_OP_LESS;
+    ds.depthTestEnable  = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
 
     VkPipelineColorBlendAttachmentState cbAttach{};
     cbAttach.colorWriteMask =
@@ -162,32 +162,34 @@ bool VKRenderer::CreateMeshPipeline()
         }
     }
 
-    // set1: Scene/Common
+    // set1: Scene/Common （方針B：まずは UBO のみ）
     VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
 
         // binding0: WorldCommon UBO (vertex+frag)
         b.push_back(vkutil::MakeBinding_UBO(
-            0, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT));
-
-        // binding1/2: shadow maps (combined image sampler) (frag)
-        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
-            1, VK_SHADER_STAGE_FRAGMENT_BIT));
-        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
-            2, VK_SHADER_STAGE_FRAGMENT_BIT));
+            0,
+            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+            1));
 
         // binding3: MaterialParams UBO (frag)
         b.push_back(vkutil::MakeBinding_UBO(
-            3, VK_SHADER_STAGE_FRAGMENT_BIT));
+            3,
+            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
+            1));
 
         // binding4: DirLightBlock UBO (frag)
         b.push_back(vkutil::MakeBinding_UBO(
-            4, VK_SHADER_STAGE_FRAGMENT_BIT));
+            4,
+            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
+            1));
 
         // binding5: PointLightBlock UBO (frag)
         b.push_back(vkutil::MakeBinding_UBO(
-            5, VK_SHADER_STAGE_FRAGMENT_BIT));
+            5,
+            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
+            1));
 
         set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
         if (!set1)

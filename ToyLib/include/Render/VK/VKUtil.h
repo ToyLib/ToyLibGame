@@ -99,11 +99,6 @@ namespace toy::vkutil
                                   VkFormat format,
                                   VkImageAspectFlags aspect);
 
-    
-    // ----------------------------------------------------------
-    // Test helper: 1x1 white texture (Linear tiling, HostVisible)
-    // ----------------------------------------------------------
-    
     // ----------------------------------------------------------
     // Barrier
     // ----------------------------------------------------------
@@ -135,7 +130,6 @@ namespace toy::vkutil
         VkInstance instance,
         VkDebugUtilsMessengerEXT messenger);
 
-
     // ----------------------------------------------------------
     // Buffer: device-local (staging expected)
     // ----------------------------------------------------------
@@ -160,7 +154,7 @@ namespace toy::vkutil
                               VkDeviceSize dstOffsetBytes = 0);
 
     // ----------------------------------------------------------
-    // Descriptor (common)
+    // Descriptor (legacy helpers you already use)
     // ----------------------------------------------------------
     VkDescriptorSetLayout CreateSetLayout_CombinedImageSampler(VkDevice device,
                                                                uint32_t binding,
@@ -173,30 +167,38 @@ namespace toy::vkutil
                                                   VkSampler sampler,
                                                   VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    // ----------------------------------------------------------
+    // Descriptor helpers (Layouts / Bindings)  ※統一版
+    // ----------------------------------------------------------
+    VkDescriptorSetLayoutBinding MakeBinding_UBO(
+        uint32_t binding,
+        VkShaderStageFlags stages,
+        uint32_t count = 1);
+
+    VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
+        uint32_t binding,
+        VkShaderStageFlags stages,
+        uint32_t count = 1);
+
     VkDescriptorSetLayout CreateDescriptorSetLayout(
         VkDevice device,
         const std::vector<VkDescriptorSetLayoutBinding>& bindings);
 
-    inline VkDescriptorSetLayoutBinding MakeBinding_UBO(
-        uint32_t binding, VkShaderStageFlags stages)
-    {
-        VkDescriptorSetLayoutBinding b{};
-        b.binding         = binding;
-        b.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        b.descriptorCount = 1;
-        b.stageFlags      = stages;
-        return b;
-    }
+    // Optional: descriptor set write helpers
+    void WriteDesc_UBO(
+        VkDevice device,
+        VkDescriptorSet set,
+        uint32_t binding,
+        VkBuffer buffer,
+        VkDeviceSize range,
+        VkDeviceSize offset = 0);
 
-    inline VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
-        uint32_t binding, VkShaderStageFlags stages)
-    {
-        VkDescriptorSetLayoutBinding b{};
-        b.binding         = binding;
-        b.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        b.descriptorCount = 1;
-        b.stageFlags      = stages;
-        return b;
-    }
+    void WriteDesc_CombinedImageSampler(
+        VkDevice device,
+        VkDescriptorSet set,
+        uint32_t binding,
+        VkImageView view,
+        VkSampler sampler,
+        VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 } // namespace toy::vkutil

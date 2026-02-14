@@ -45,6 +45,20 @@ public:
     void SetUseTexture(bool use) { mUseTexture = use; }
     
     TextureHandle GetDiffuseTextureHandle() const;
+    
+    //--- getters（VK/RenderItemから参照する用） ----------------
+    const Vector3& GetDiffuseColor() const  { return mDiffuseColor; }
+    const Vector3& GetUniformColor() const  { return mUniformColor; }
+    bool GetOverrideColor() const           { return mOverrideColor; }
+
+    float GetSpecPower() const              { return mShininess; }
+
+    // “意思” + 実体 の両方を見て最終判定するのが安全
+    bool WantsUseTexture() const            { return mUseTexture; }
+    bool HasDiffuseMap() const              { return (mDiffuseMap != nullptr); }
+    bool UseTextureFinal() const            { return mUseTexture && (mDiffuseMap != nullptr); }
+
+    std::shared_ptr<class Texture> GetDiffuseMap() const { return mDiffuseMap; }
 
 private:
     //--- 基本テクスチャ -------------------------------------

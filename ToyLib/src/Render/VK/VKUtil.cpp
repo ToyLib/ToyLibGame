@@ -448,8 +448,6 @@ VkImageView CreateImageView2D(VkDevice device,
 }
 
 //--------------------------------------------------------------
-//--------------------------------------------------------------
-//--------------------------------------------------------------
 // CmdTransitionImageLayout
 //--------------------------------------------------------------
 void CmdTransitionImageLayout(VkCommandBuffer cmd,
@@ -534,6 +532,9 @@ void DestroyDebugUtilsMessengerEXT(
     if (fn && messenger) fn(instance, messenger, nullptr);
 }
 
+// ----------------------------------------------------------
+// Buffer: device-local
+// ----------------------------------------------------------
 bool CreateBuffer_DeviceLocal(VkPhysicalDevice phys,
                               VkDevice device,
                               VkDeviceSize sizeBytes,
@@ -642,13 +643,15 @@ bool UploadBuffer_Staging(VkPhysicalDevice phys,
     copy.size      = sizeBytes;
     vkCmdCopyBuffer(cmd, staging, dstDeviceLocal, 1, &copy);
 
-    // staging は「GPUが使い終わった後」に破棄する必要があるが、
-    // ここでは「その cmd を submit して wait する」運用を前提に簡易化。
+    // submitしてwaitする運用前提の簡易化（要改善）
     vkDestroyBuffer(device, staging, nullptr);
     vkFreeMemory(device, stagingMem, nullptr);
     return true;
 }
 
+// ----------------------------------------------------------
+// Descriptor (legacy helpers)
+// ----------------------------------------------------------
 VkDescriptorSetLayout CreateSetLayout_CombinedImageSampler(VkDevice device,
                                                            uint32_t binding,
                                                            VkShaderStageFlags stages)
@@ -697,6 +700,9 @@ void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
     vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
 }
 
+// ----------------------------------------------------------
+// Descriptor helpers (統一版)
+// ----------------------------------------------------------
 VkDescriptorSetLayout CreateDescriptorSetLayout(
     VkDevice device,
     const std::vector<VkDescriptorSetLayoutBinding>& bindings)
@@ -713,4 +719,83 @@ VkDescriptorSetLayout CreateDescriptorSetLayout(
     }
     return layout;
 }
+
+VkDescriptorSetLayoutBinding MakeBinding_UBO(
+    uint32_t binding,
+    VkShaderStageFlags stages,
+    uint32_t count)
+{
+    VkDescriptorSetLayoutBinding b{};
+    b.binding            = binding;
+    b.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    b.descriptorCount    = count;
+    b.stageFlags         = stages;
+    b.pImmutableSamplers = nullptr;
+    return b;
+}
+
+VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
+    uint32_t binding,
+    VkShaderStageFlags stages,
+    uint32_t count)
+{
+    VkDescriptorSetLayoutBinding b{};
+    b.binding            = binding;
+    b.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    b.descriptorCount    = count;
+    b.stageFlags         = stages;
+    b.pImmutableSamplers = nullptr;
+    return b;
+}
+
+void WriteDesc_UBO(
+    VkDevice device,
+    VkDescriptorSet set,
+    uint32_t binding,
+    VkBuffer buffer,
+    VkDeviceSize range,
+    VkDeviceSize offset)
+{
+    VkDescriptorBufferInfo bi{};
+    bi.buffer = buffer;
+    bi.offset = offset;
+    bi.range  = range;
+
+    VkWriteDescriptorSet w{};
+    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet          = set;
+    w.dstBinding      = binding;
+    w.dstArrayElement = 0;
+    w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    w.descriptorCount = 1;
+    w.pBufferInfo     = &bi;
+
+    vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
+}
+
+void WriteDesc_CombinedImageSampler(
+    VkDevice device,
+    VkDescriptorSet set,
+    uint32_t binding,
+    VkImageView view,
+    VkSampler sampler,
+    VkImageLayout layout)
+{
+    VkDescriptorImageInfo ii{};
+    ii.imageView   = view;
+    ii.sampler     = sampler;
+    ii.imageLayout = layout;
+
+    VkWriteDescriptorSet w{};
+    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet          = set;
+    w.dstBinding      = binding;
+    w.dstArrayElement = 0;
+    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.descriptorCount = 1;
+    w.pImageInfo      = &ii;
+
+    vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
+}
+
 } // namespace toy::vkutil

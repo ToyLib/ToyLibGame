@@ -716,6 +716,23 @@ bool VKRenderer::BeginFrame()
     rpBegin.pClearValues      = &clear;
 
     vkCmdBeginRenderPass(frame.cmd, &rpBegin, VK_SUBPASS_CONTENTS_INLINE);
+    
+    // ------------------------------------------------------
+    // Dynamic viewport/scissor (必須)
+    // ------------------------------------------------------
+    VkViewport vp{};
+    vp.x        = 0.0f;
+    vp.y        = 0.0f;
+    vp.width    = (float)mSwapchainExtent.width;
+    vp.height   = (float)mSwapchainExtent.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+    vkCmdSetViewport(frame.cmd, 0, 1, &vp);
+
+    VkRect2D sc{};
+    sc.offset = { 0, 0 };
+    sc.extent = mSwapchainExtent;
+    vkCmdSetScissor(frame.cmd, 0, 1, &sc);
 
     return true;
 }

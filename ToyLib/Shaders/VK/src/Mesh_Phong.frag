@@ -23,38 +23,38 @@ layout(set = 1, binding = 0, std140) uniform WorldCommon
     vec3  uFogColor;
     float _pad3;
 
+    // Shadow / CSM (使わないが、UBO互換維持のため残す)
     mat4  uLightViewProj0;
     mat4  uLightViewProj1;
     float uCascadeSplit0;
     float uCascadeBlend;
     float uShadowBias;
-    int   uUseShadow;   // 0/1
+    int   uUseShadow;   // 0/1 (今は常に 0 を想定)
     int   uUseToon;     // 0/1
     float _pad4;
 } sc;
 
-// shadow maps（未実装なら set/binding を作らずに uUseShadow=0でOK）
-// もし使うなら：sampler compare 有効な VkSampler が必要
-layout(set = 1, binding = 1) uniform sampler2DShadow uShadowMap0;
-layout(set = 1, binding = 2) uniform sampler2DShadow uShadowMap1;
+// shadow maps（今は無効化：ShadowMapping 実装までコメントアウト）
+// layout(set = 1, binding = 1) uniform sampler2DShadow uShadowMap0;
+// layout(set = 1, binding = 2) uniform sampler2DShadow uShadowMap1;
 
-// Material params（push constant でもいいけど、まずは set1 にまとめてもOK）
+// Material params
 layout(set = 1, binding = 3, std140) uniform MaterialParams
 {
-    vec3  uDiffuseColor; int uUseTexture;   // 0/1
-    vec3  uUniformColor; int uOverrideColor;// 0/1
+    vec3  uDiffuseColor; int uUseTexture;    // 0/1
+    vec3  uUniformColor; int uOverrideColor; // 0/1
     float uSpecPower;
     float _padM0;
     float _padM1;
     float _padM2;
 } mp;
 
-// DirLight（GLと同じ）
+// DirLight
 struct DirectionalLight
 {
-    vec3 mDirection; float _p0;
+    vec3 mDirection;    float _p0;
     vec3 mDiffuseColor; float _p1;
-    vec3 mSpecColor; float _p2;
+    vec3 mSpecColor;    float _p2;
 };
 layout(set = 1, binding = 4, std140) uniform DirLightBlock
 {
@@ -65,7 +65,7 @@ layout(set = 1, binding = 4, std140) uniform DirLightBlock
 struct PointLight
 {
     vec3 position; float intensity;
-    vec3 color; float constant;
+    vec3 color;    float constant;
     float linear;
     float quadratic;
     float radius;
@@ -100,7 +100,7 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
         }
         else
         {
-            vec3 diffuse = dl.uDirLight.mDiffuseColor * NdotL;
+            vec3 diffuse  = dl.uDirLight.mDiffuseColor * NdotL;
             vec3 specular = dl.uDirLight.mSpecColor *
                             pow(max(dot(reflect(-L, N), V), 0.0), mp.uSpecPower);
             result += diffuse + specular;
@@ -146,7 +146,8 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
     return result * light.intensity * attenuation;
 }
 
-// GLのShadowPCFをそのまま
+// ShadowPCF（今は無効化：ShadowMapping 実装までコメントアウト）
+/*
 float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
 {
     vec4 lp = vec4(worldPos, 1.0) * lightVP; // v*M
@@ -176,6 +177,7 @@ float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
     float lit = sum / 9.0;
     return mix(0.5, 1.0, lit);
 }
+*/
 
 void main()
 {
@@ -204,6 +206,11 @@ void main()
         lighting += ComputePointLight(pl.uPointLights[i], N, V, fragWorldPos);
     }
 
+    // Shadow 無効（ダミー不要化のため固定値）
+    float shadowFactor = 1.0;
+
+    // 影処理（今は無効化：ShadowMapping 実装までコメントアウト）
+    /*
     float shadowFactor = 1.0;
     if (sc.uUseShadow != 0)
     {
@@ -217,6 +224,7 @@ void main()
 
         shadowFactor = mix(s0, s1, t);
     }
+    */
 
     vec4 baseColor;
     if (mp.uUseTexture != 0)

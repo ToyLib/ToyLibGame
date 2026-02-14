@@ -110,15 +110,6 @@ private:
     // World draw helpers
     //--------------------------------------------------------------------------
     void DrawBucket_WorldVK(const std::vector<uint32_t>& bucket);
-
-    void BindWorldCommon(VkCommandBuffer cmd,
-                         const VKPipeline& pipe,
-                         const RenderItem& it);
-
-    void BindWorldMaterial(VkCommandBuffer cmd,
-                           const VKPipeline& pipe,
-                           const RenderItem& it);
-
     void DrawWorldItem_VK(const RenderItem& it);
 
 private:
@@ -156,6 +147,47 @@ private:
     // Fallback for missing texture-vk bridge
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
+
+private:
+    //--------------------------------------------------------------------------
+    // Scene(Common) descriptor resources (set=1)
+    //--------------------------------------------------------------------------
+    VkDescriptorPool              mWorldDescPool { VK_NULL_HANDLE };
+    std::vector<VkDescriptorSet>  mWorldDescSets; // swapchain枚数ぶん
+
+    // UBO: binding0 WorldCommon
+    VkBuffer       mWorldCommonUBO { VK_NULL_HANDLE };
+    VkDeviceMemory mWorldCommonUBOMem { VK_NULL_HANDLE };
+
+    // UBO: binding3 MaterialParams
+    VkBuffer       mMaterialParamsUBO { VK_NULL_HANDLE };
+    VkDeviceMemory mMaterialParamsUBOMem { VK_NULL_HANDLE };
+
+    // UBO: binding4 DirLight
+    VkBuffer       mDirLightUBO { VK_NULL_HANDLE };
+    VkDeviceMemory mDirLightUBOMem { VK_NULL_HANDLE };
+
+    // UBO: binding5 PointLights
+    VkBuffer       mPointLightUBO { VK_NULL_HANDLE };
+    VkDeviceMemory mPointLightUBOMem { VK_NULL_HANDLE };
+
+    // 生成/破棄
+    bool EnsureWorldDescriptors();      // pool + sets + UBO + update
+    void DestroyWorldDescriptors();     // Shutdownで
+
+    // フレーム毎に更新
+    void UpdateWorldCommonUBO(uint32_t imageIndex);
+    void UpdateMaterialParamsUBO(const RenderItem& it);
+    void UpdateDirLightUBO();
+    void UpdatePointLightUBO();
+
+    // Draw時にbind（Mesh用）
+    void BindWorldCommon(VkCommandBuffer cmd,
+                         const VKPipeline& pipe,
+                         const RenderItem& it);
+    void BindWorldMaterial(VkCommandBuffer cmd,
+                           const VKPipeline& p,
+                           const RenderItem& it);
 
 private:
     //--------------------------------------------------------------------------
