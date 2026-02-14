@@ -10,7 +10,7 @@
 // Engine / Render
 //------------------------------------------------------------------------------
 #include "Render/IRenderer.h"
-#include "Render/RenderTarget.h"
+#include "Render/IRenderTarget.h"
 #include "Render/GL/GLRenderTarget.h"
 
 //------------------------------------------------------------------------------

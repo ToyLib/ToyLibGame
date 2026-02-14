@@ -48,7 +48,7 @@ public:
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
-    std::shared_ptr<RenderTarget> CreateRenderTarget() override { return nullptr; }
+    std::shared_ptr<class IRenderTarget> CreateRenderTarget() override { return nullptr; }
 
 protected:
     void ApplyState(const RenderItem& /*it*/) override {}

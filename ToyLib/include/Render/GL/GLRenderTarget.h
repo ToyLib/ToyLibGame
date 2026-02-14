@@ -3,7 +3,7 @@
 //======================================================================
 #pragma once
 
-#include "Render/RenderTarget.h"
+#include "Render/IRenderTarget.h"
 
 #include <cstdint>
 
@@ -12,7 +12,7 @@ namespace toy {
 //==============================================================
 // GLRenderTarget
 //==============================================================
-class GLRenderTarget : public RenderTarget
+class GLRenderTarget : public IRenderTarget
 {
 public:
     ~GLRenderTarget() override;

@@ -14,10 +14,10 @@ class Texture;
 //  - Create/Bind/Unbind の共通APIだけを提供
 //  - 実体は GLRenderTarget / VkRenderTarget に分離
 //==============================================================
-class RenderTarget
+class IRenderTarget
 {
 public:
-    virtual ~RenderTarget() = default;
+    virtual ~IRenderTarget() = default;
 
     virtual bool Create(int w, int h) = 0;
     virtual void Unload() = 0;

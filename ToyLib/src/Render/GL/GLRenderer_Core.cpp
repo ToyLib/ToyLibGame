@@ -250,7 +250,7 @@ void GLRenderer::SetClearColor(const Vector3& color)
 }
 
 
-std::shared_ptr<RenderTarget>  GLRenderer::CreateRenderTarget()
+std::shared_ptr<IRenderTarget>  GLRenderer::CreateRenderTarget()
 {
     return std::make_shared<GLRenderTarget>();
 }

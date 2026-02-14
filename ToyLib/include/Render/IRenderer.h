@@ -66,7 +66,7 @@ struct UIScaleInfo
 //==============================================================================
 struct SceneCaptureRequest
 {
-    std::shared_ptr<class RenderTarget> rt;
+    std::shared_ptr<class IRenderTarget> rt;
 
     Matrix4 view { Matrix4::Identity };
     Matrix4 proj { Matrix4::Identity };
@@ -210,7 +210,7 @@ public:
     // Scene capture request
     //--------------------------------------------------------------------------
 
-    virtual std::shared_ptr<RenderTarget>  CreateRenderTarget() { return nullptr; }
+    virtual std::shared_ptr<class IRenderTarget>  CreateRenderTarget() { return nullptr; }
     void RequestSceneCapture(const SceneCaptureRequest& req);
 
     //--------------------------------------------------------------------------
@@ -413,7 +413,7 @@ protected:
     //--------------------------------------------------------------------------
 
     // メインシーン（ポスト用）RenderTarget
-    std::shared_ptr<RenderTarget> mSceneRT;
+    std::shared_ptr<IRenderTarget> mSceneRT;
 
     // ポスト設定
     PostEffectDesc mPost {};

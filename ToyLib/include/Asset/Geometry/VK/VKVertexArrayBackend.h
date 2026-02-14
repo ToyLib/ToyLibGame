@@ -1,7 +1,7 @@
 // Asset/Geometry/VK/VKVertexArrayBackend.h
 #pragma once
 
-#include "Asset/Geometry/VertexArrayBackend.h"
+#include "Asset/Geometry/IVertexArrayBackend.h"
 
 #include <vulkan/vulkan.h>
 

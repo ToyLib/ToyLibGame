@@ -87,7 +87,7 @@ private:
 private:
     Desc mDesc{};
 
-    std::shared_ptr<class RenderTarget> mRT;
+    std::shared_ptr<class IRenderTarget> mRT;
 
     Matrix4 mView { Matrix4::Identity };
     Matrix4 mProj { Matrix4::Identity };

@@ -1,6 +1,6 @@
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/Polygon.h"
-#include "Asset/Geometry/VertexArrayBackend.h"
+#include "Asset/Geometry/IVertexArrayBackend.h"
 
 #include "Asset/Geometry/GL/GLVertexArrayBackend.h"
 #include "Asset/Geometry/VK/VKVertexArrayBackend.h"

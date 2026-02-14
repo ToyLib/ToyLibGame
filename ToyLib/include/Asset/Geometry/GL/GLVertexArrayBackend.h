@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Asset/Geometry/VertexArrayBackend.h"
+#include "Asset/Geometry/IVertexArrayBackend.h"
 #include <array>
 #include <cstdint>
 

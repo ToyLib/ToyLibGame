@@ -142,7 +142,12 @@ public:
     uint32_t GetVertexCount() const { return mCpuVertexCount; }
 
     CpuVertexLayout GetCpuVertexLayout() const { return mCpuLayout; }
-
+    /*
+    // VertexArray.h に追加（API追加だけなので既存は壊れない）
+    void* GetVKVertexBuffer() const { return mBackend ? mBackend->GetVKVertexBuffer() : nullptr; }
+    void* GetVKIndexBuffer()  const { return mBackend ? mBackend->GetVKIndexBuffer()  : nullptr; }
+    uint32_t GetVKIndexType() const  { return mBackend ? (uint32_t)mBackend->GetVKIndexType() : (uint32_t)VK_INDEX_TYPE_UINT32; }
+*/
 private:
     //=====================================================
     // コピー禁止

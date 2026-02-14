@@ -10,7 +10,7 @@
 
 // Engine / Render
 #include "Render/LightingManager.h"
-#include "Render/RenderTarget.h"
+#include "Render/IRenderTarget.h"
 
 
 // Geometry / Visual
