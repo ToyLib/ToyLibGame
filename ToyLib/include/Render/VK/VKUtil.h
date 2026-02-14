@@ -135,4 +135,42 @@ namespace toy::vkutil
         VkInstance instance,
         VkDebugUtilsMessengerEXT messenger);
 
+
+    // ----------------------------------------------------------
+    // Buffer: device-local (staging expected)
+    // ----------------------------------------------------------
+    bool CreateBuffer_DeviceLocal(VkPhysicalDevice phys,
+                                  VkDevice device,
+                                  VkDeviceSize sizeBytes,
+                                  VkBufferUsageFlags usage,
+                                  VkBuffer& outBuf,
+                                  VkDeviceMemory& outMem);
+
+    void CmdCopyBuffer(VkCommandBuffer cmd,
+                       VkBuffer src,
+                       VkBuffer dst,
+                       VkDeviceSize sizeBytes);
+
+    bool UploadBuffer_Staging(VkPhysicalDevice phys,
+                              VkDevice device,
+                              VkCommandBuffer cmd,
+                              const void* srcData,
+                              VkDeviceSize sizeBytes,
+                              VkBuffer dstDeviceLocal,
+                              VkDeviceSize dstOffsetBytes = 0);
+
+    // ----------------------------------------------------------
+    // Descriptor (common)
+    // ----------------------------------------------------------
+    VkDescriptorSetLayout CreateSetLayout_CombinedImageSampler(VkDevice device,
+                                                               uint32_t binding,
+                                                               VkShaderStageFlags stages);
+
+    void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
+                                                  VkDescriptorSet set,
+                                                  uint32_t binding,
+                                                  VkImageView view,
+                                                  VkSampler sampler,
+                                                  VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 } // namespace toy::vkutil

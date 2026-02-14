@@ -2,6 +2,7 @@
 
 #include "Render/IRenderer.h"
 #include "Render/VK/VKPipeline.h"
+#include "Render/RenderHandles.h" // PipelineHandle / TextureHandle etc.
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -49,10 +50,13 @@ public:
 
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
     std::shared_ptr<class IRenderTarget> CreateRenderTarget() override { return nullptr; }
-    
+
+    //--------------------------------------------------------------------------
+    // VK helpers
+    //--------------------------------------------------------------------------
     VkCommandBuffer GetActiveCommandBuffer() const
     {
-        if (mFrames.empty())
+        if (mFrames.empty() || mFrameIndex >= (uint32_t)mFrames.size())
         {
             return VK_NULL_HANDLE;
         }
@@ -60,6 +64,9 @@ public:
     }
 
 protected:
+    //--------------------------------------------------------------------------
+    // IRenderer protected
+    //--------------------------------------------------------------------------
     void ApplyState(const RenderItem& /*it*/) override {}
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
 
@@ -93,18 +100,27 @@ private:
     //--------------------------------------------------------------------------
     bool CreateSpritePipeline();
 
-    // Pipelines (name -> VKPipeline)
+    // 3D
+    bool CreateMeshPipeline();
+    bool CreateSkinnedMeshPipeline();
+
     PipelineHandle FindPipelineHandle(const std::string& name) const;
-     
-   
-    void DrawBucket_World(const std::vector<uint32_t>& bucket);
-    bool BindWorldCommon(VkCommandBuffer cmd,
-                         VKPipeline* pipe,
+
+    //--------------------------------------------------------------------------
+    // World draw helpers
+    //--------------------------------------------------------------------------
+    void DrawBucket_WorldVK(const std::vector<uint32_t>& bucket);
+
+    void BindWorldCommon(VkCommandBuffer cmd,
+                         const VKPipeline& pipe,
                          const RenderItem& it);
-    bool BindWorldMaterial(VkCommandBuffer cmd,
-                           VKPipeline* pipe,
+
+    void BindWorldMaterial(VkCommandBuffer cmd,
+                           const VKPipeline& pipe,
                            const RenderItem& it);
-   
+
+    void DrawWorldItem_VK(const RenderItem& it);
+
 private:
     //--------------------------------------------------------------------------
     // SpriteQueue(UI bucket) rendering helpers
@@ -141,6 +157,7 @@ private:
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
 
+private:
     //--------------------------------------------------------------------------
     // SDL (non-owning)
     //--------------------------------------------------------------------------
@@ -192,9 +209,8 @@ private:
     uint32_t               mFrameIndex { 0 };
     uint32_t               mImageIndex { 0 };
 
-private:
     //--------------------------------------------------------------------------
-    // Pipelines (private)
+    // Pipelines storage
     //--------------------------------------------------------------------------
     std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
 };

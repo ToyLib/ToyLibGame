@@ -91,10 +91,10 @@ bool VKRenderer::CreateSpritePipeline()
             vkDestroyPipelineLayout(mDevice, old->pipelineLayout, nullptr);
             old->pipelineLayout = VK_NULL_HANDLE;
         }
-        if (old->setLayout)
+        if (old->setLayout0)
         {
-            vkDestroyDescriptorSetLayout(mDevice, old->setLayout, nullptr);
-            old->setLayout = VK_NULL_HANDLE;
+            vkDestroyDescriptorSetLayout(mDevice, old->setLayout0, nullptr);
+            old->setLayout0 = VK_NULL_HANDLE;
         }
     }
 
@@ -118,7 +118,7 @@ bool VKRenderer::CreateSpritePipeline()
         ci.bindingCount = 1;
         ci.pBindings    = &b;
 
-        if (vkCreateDescriptorSetLayout(mDevice, &ci, nullptr, &pipe->setLayout) != VK_SUCCESS)
+        if (vkCreateDescriptorSetLayout(mDevice, &ci, nullptr, &pipe->setLayout0) != VK_SUCCESS)
         {
             std::cerr << "[VKRenderer] CreateSpritePipeline: vkCreateDescriptorSetLayout failed.\n";
             return false;
@@ -137,7 +137,7 @@ bool VKRenderer::CreateSpritePipeline()
         VkPipelineLayoutCreateInfo lci{};
         lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         lci.setLayoutCount         = 1;
-        lci.pSetLayouts            = &pipe->setLayout;
+        lci.pSetLayouts            = &pipe->setLayout0;
         lci.pushConstantRangeCount = 1;
         lci.pPushConstantRanges    = &pcr;
 
@@ -151,7 +151,6 @@ bool VKRenderer::CreateSpritePipeline()
     //----------------------------------------------------------
     // (3) Shader modules (SPIR-V)
     //----------------------------------------------------------
-    // ★パスはあなたの配置に合わせて調整してね
     const std::string vsPath = "ToyLib/Shaders/VK/spv/Sprite.vert.spv";
     const std::string fsPath = "ToyLib/Shaders/VK/spv/Sprite.frag.spv";
 

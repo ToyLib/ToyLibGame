@@ -155,7 +155,7 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     }
 
     VKPipeline* pipe = itPipe->second.get();
-    if (pipe->setLayout == VK_NULL_HANDLE)
+    if (pipe->setLayout0 == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] GetOrCreateSpriteDescSet: Sprite setLayout missing.\n";
         return VK_NULL_HANDLE;
@@ -182,7 +182,7 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     // swapchain枚数分 allocate
     std::vector<VkDescriptorSet> sets(scCount, VK_NULL_HANDLE);
     {
-        std::vector<VkDescriptorSetLayout> layouts(scCount, pipe->setLayout);
+        std::vector<VkDescriptorSetLayout> layouts(scCount, pipe->setLayout0);
 
         VkDescriptorSetAllocateInfo ai{};
         ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

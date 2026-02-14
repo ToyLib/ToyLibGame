@@ -534,4 +534,168 @@ void DestroyDebugUtilsMessengerEXT(
     if (fn && messenger) fn(instance, messenger, nullptr);
 }
 
+bool CreateBuffer_DeviceLocal(VkPhysicalDevice phys,
+                              VkDevice device,
+                              VkDeviceSize sizeBytes,
+                              VkBufferUsageFlags usage,
+                              VkBuffer& outBuf,
+                              VkDeviceMemory& outMem)
+{
+    outBuf = VK_NULL_HANDLE;
+    outMem = VK_NULL_HANDLE;
+
+    VkBufferCreateInfo bci{};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size  = sizeBytes;
+    bci.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // staging copy想定
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bci, nullptr, &outBuf) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    VkMemoryRequirements req{};
+    vkGetBufferMemoryRequirements(device, outBuf, &req);
+
+    const uint32_t typeIndex = FindMemoryType(
+        phys, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    if (typeIndex == UINT32_MAX)
+    {
+        vkDestroyBuffer(device, outBuf, nullptr);
+        outBuf = VK_NULL_HANDLE;
+        return false;
+    }
+
+    VkMemoryAllocateInfo mai{};
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize  = req.size;
+    mai.memoryTypeIndex = typeIndex;
+
+    if (vkAllocateMemory(device, &mai, nullptr, &outMem) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(device, outBuf, nullptr);
+        outBuf = VK_NULL_HANDLE;
+        return false;
+    }
+
+    if (vkBindBufferMemory(device, outBuf, outMem, 0) != VK_SUCCESS)
+    {
+        vkFreeMemory(device, outMem, nullptr);
+        vkDestroyBuffer(device, outBuf, nullptr);
+        outMem = VK_NULL_HANDLE;
+        outBuf = VK_NULL_HANDLE;
+        return false;
+    }
+
+    return true;
+}
+
+void CmdCopyBuffer(VkCommandBuffer cmd,
+                   VkBuffer src,
+                   VkBuffer dst,
+                   VkDeviceSize sizeBytes)
+{
+    VkBufferCopy copy{};
+    copy.srcOffset = 0;
+    copy.dstOffset = 0;
+    copy.size      = sizeBytes;
+    vkCmdCopyBuffer(cmd, src, dst, 1, &copy);
+}
+
+bool UploadBuffer_Staging(VkPhysicalDevice phys,
+                          VkDevice device,
+                          VkCommandBuffer cmd,
+                          const void* srcData,
+                          VkDeviceSize sizeBytes,
+                          VkBuffer dstDeviceLocal,
+                          VkDeviceSize dstOffsetBytes)
+{
+    if (!srcData || sizeBytes == 0 || !dstDeviceLocal) return false;
+
+    VkBuffer staging = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
+
+    if (!CreateBuffer_HostVisible(
+            phys, device, sizeBytes,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            staging, stagingMem))
+    {
+        return false;
+    }
+
+    void* mapped = nullptr;
+    if (vkMapMemory(device, stagingMem, 0, sizeBytes, 0, &mapped) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(device, staging, nullptr);
+        vkFreeMemory(device, stagingMem, nullptr);
+        return false;
+    }
+
+    std::memcpy(mapped, srcData, (size_t)sizeBytes);
+    vkUnmapMemory(device, stagingMem);
+
+    VkBufferCopy copy{};
+    copy.srcOffset = 0;
+    copy.dstOffset = dstOffsetBytes;
+    copy.size      = sizeBytes;
+    vkCmdCopyBuffer(cmd, staging, dstDeviceLocal, 1, &copy);
+
+    // staging は「GPUが使い終わった後」に破棄する必要があるが、
+    // ここでは「その cmd を submit して wait する」運用を前提に簡易化。
+    vkDestroyBuffer(device, staging, nullptr);
+    vkFreeMemory(device, stagingMem, nullptr);
+    return true;
+}
+
+VkDescriptorSetLayout CreateSetLayout_CombinedImageSampler(VkDevice device,
+                                                           uint32_t binding,
+                                                           VkShaderStageFlags stages)
+{
+    VkDescriptorSetLayoutBinding b{};
+    b.binding            = binding;
+    b.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    b.descriptorCount    = 1;
+    b.stageFlags         = stages;
+    b.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo ci{};
+    ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    ci.bindingCount = 1;
+    ci.pBindings    = &b;
+
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &layout) != VK_SUCCESS)
+    {
+        return VK_NULL_HANDLE;
+    }
+    return layout;
+}
+
+void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
+                                              VkDescriptorSet set,
+                                              uint32_t binding,
+                                              VkImageView view,
+                                              VkSampler sampler,
+                                              VkImageLayout layout)
+{
+    VkDescriptorImageInfo img{};
+    img.imageView   = view;
+    img.sampler     = sampler;
+    img.imageLayout = layout;
+
+    VkWriteDescriptorSet w{};
+    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet          = set;
+    w.dstBinding      = binding;
+    w.dstArrayElement = 0;
+    w.descriptorCount = 1;
+    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.pImageInfo      = &img;
+
+    vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
+}
+
+
 } // namespace toy::vkutil

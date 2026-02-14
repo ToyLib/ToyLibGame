@@ -513,6 +513,12 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    if (!CreateMeshPipeline())
+    {
+        Shutdown();
+        return false;
+    }
+
 
     RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
     RenderBackendState::Get().SetVKDevice(mDevice);

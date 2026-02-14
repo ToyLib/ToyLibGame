@@ -51,4 +51,11 @@ void Material::SetOverrideColor(bool enable, const Vector3& color)
     mUniformColor  = color;
 }
 
+TextureHandle Material::GetDiffuseTextureHandle() const
+{
+    TextureHandle h;
+    h.ptr = mDiffuseMap.get(); // あなたの内部構造に合わせて
+    return h;
+}
+
 } // namespace toy

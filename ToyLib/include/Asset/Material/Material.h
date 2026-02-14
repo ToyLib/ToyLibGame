@@ -1,5 +1,6 @@
 #pragma once
 #include "Utils/MathUtil.h"
+#include "Render/RenderHandles.h"
 #include <memory>
 
 namespace toy {
@@ -42,6 +43,8 @@ public:
 
     // 「テクスチャを使う意思」(DiffuseMap が無い場合は自動的に false になる)
     void SetUseTexture(bool use) { mUseTexture = use; }
+    
+    TextureHandle GetDiffuseTextureHandle() const;
 
 private:
     //--- 基本テクスチャ -------------------------------------
