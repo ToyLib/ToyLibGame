@@ -103,11 +103,13 @@ bool Application::Initialize()
     {
         mRenderer = std::make_unique<VKRenderer>();
         windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+        mApplicationTitle = mApplicationTitle + "(Vulkan)";
     }
     else
     {
         mRenderer = std::make_unique<GLRenderer>();
         windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+        mApplicationTitle = mApplicationTitle + "(OpenGL)";
     }
 
 
