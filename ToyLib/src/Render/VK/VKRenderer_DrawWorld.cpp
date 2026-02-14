@@ -124,12 +124,14 @@ void VKRenderer::BindWorldMaterial(VkCommandBuffer cmd,
 // ------------------------------------------------------------
 void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
 {
+
     VKPipeline* pipe = AsVKPipeline(it.pipeline);
     if (!pipe || !pipe->pipeline || !pipe->pipelineLayout)
     {
         return;
     }
-
+   
+    
     VkCommandBuffer cmd = GetCmd(*this);
 
     // Bind pipeline
@@ -154,6 +156,13 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     BindWorldCommon(cmd, *pipe, it);
     BindWorldMaterial(cmd, *pipe, it);
 
+    
+    std::cerr << "[VK] bind set1: sets=" << mWorldDescSets.size()
+              << " img=" << mImageIndex
+              << " set=" << (void*)mWorldDescSets[mImageIndex]
+              << " ubo=" << (void*)mWorldCommonUBO
+              << "\n";
+    
     // Draw
     vkCmdDrawIndexed(cmd, indexCount, 1, 0, 0, 0);
     AddDrawCall();
@@ -164,18 +173,46 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
 // ------------------------------------------------------------
 void VKRenderer::DrawBucket_WorldVK(const std::vector<uint32_t>& bucket)
 {
+    VkCommandBuffer cmd = GetActiveCommandBuffer();
+    if (cmd == VK_NULL_HANDLE) return;
+
+    // set1(=World UBO群) を確実に作る
+    if (!EnsureWorldDescriptors())
+    {
+        return;
+    }
+
+    // フレーム共通（最低限：WorldCommonは毎フレーム）
+    UpdateWorldCommonUBO(mImageIndex);
+    UpdateDirLightUBO();
+    UpdatePointLightUBO();
+
+    // Mesh pipeline が dynamic viewport/scissor を使ってるなら必須
+    VkViewport vp{};
+    vp.x        = 0.0f;
+    vp.y        = 0.0f;
+    vp.width    = (float)mSwapchainExtent.width;
+    vp.height   = (float)mSwapchainExtent.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+
+    VkRect2D sc{};
+    sc.offset = {0, 0};
+    sc.extent = mSwapchainExtent;
+
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Draw
     auto& items = mRenderQueue.Items();
     for (uint32_t idx : bucket)
     {
         if (idx >= items.size()) continue;
         const RenderItem& it = items[idx];
 
-        // World pass only
         if (it.pass != RenderPass::World) continue;
 
-        // Mesh / Skinned は pipeline を分ける方針を踏襲
-        // it.type を見て分岐したい場合はここでフィルタしてもOK
-        DrawWorldItem_VK(it);
+        DrawWorldItem_VK(it); // ←この中で set0+set1 bind するのが理想
     }
 }
 
@@ -187,8 +224,6 @@ void VKRenderer::DrawWorldPass()
     // World は BeginFrame() で render pass begin 済み（あなたの Core 実装に合わせる）
     // ここは「描画するだけ」にする。
 
-    if (!EnsureWorldDescriptors())
-         return;
     
     // 1) Opaque
     DrawBucket_WorldVK(mBuckets.worldOpaque);

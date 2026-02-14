@@ -943,17 +943,57 @@ PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 //==============================================================================
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
+    (void)pass;
+    (void)cascadeIndex;
+
     const PipelineHandle ph = it.pipeline;
-    
     if (!ph.IsValidVK())
     {
         return;
     }
-    
-    auto* p = reinterpret_cast<VKPipeline*>(ph.ptrVKPipeline);
-    vkCmdBindPipeline(mFrames[mFrameIndex].cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->pipeline);
-    
-    // 以降：DS bind / VB bind / draw...
+
+    auto* pipe = reinterpret_cast<VKPipeline*>(ph.ptrVKPipeline);
+    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+
+    // ---- pipeline bind
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
+
+    // ---- ここが止血ポイント：set1( WorldCommon UBO ) を必ず用意して bind
+    // Mesh系だけに限定してもいいけど、まずは "Worldを描く可能性があるもの" は全部 bind してOK
+    if (!EnsureWorldDescriptors())
+    {
+        fprintf(stderr, "[VK] EnsureWorldDescriptors failed\n");
+        fflush(stderr);
+        return;
+    }
+
+    // WorldCommon は毎フレーム更新（最低でも一度は書く）
+    UpdateWorldCommonUBO(mImageIndex);
+
+    // set1 bind（WorldCommon + Light + MaterialParamsUBO 等）
+    BindWorldCommon(cmd, *pipe, it);
+
+    // frame毎に更新（最低限 viewproj/camera を入れる）
+    UpdateWorldCommonUBO(mImageIndex);
+    UpdateDirLightUBO();
+    UpdatePointLightUBO();
+
+    // set=1 bind（WorldCommonなど）
+    if (mImageIndex < mWorldDescSets.size())
+    {
+        VkDescriptorSet set1 = mWorldDescSets[mImageIndex];
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->pipelineLayout,
+            1,  // firstSet = 1
+            1,  // count
+            &set1,
+            0,
+            nullptr);
+    }
+
+    // TODO: set0(テクスチャ) / push constants / VB/IB / vkCmdDraw...
 }
 
 } // namespace toy
