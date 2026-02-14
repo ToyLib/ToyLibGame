@@ -121,9 +121,10 @@ void VKRenderer::DrawUIPass()
     // viewport/scissor（dynamic）
     VkViewport vp{};
     vp.x        = 0.0f;
-    vp.y        = 0.0f;
+    vp.y        = (float)mSwapchainExtent.height;
     vp.width    = (float)mSwapchainExtent.width;
-    vp.height   = (float)mSwapchainExtent.height;
+    vp.height   = -(float)mSwapchainExtent.height;
+
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
 

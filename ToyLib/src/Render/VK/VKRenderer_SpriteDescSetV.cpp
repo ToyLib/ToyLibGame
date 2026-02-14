@@ -252,14 +252,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     // cache
     mSpriteDescSetsVK.emplace(texPtr, sets);
 
-    // デバッグログ（あなたの既存ログ形式に寄せる）
-    std::cerr
-        << "[VKRenderer] SpriteDescSet created: tex=" << (void*)texPtr
-        << " frameImage=" << mImageIndex
-        << " view=" << (void*)view << (usedFallback ? " (fallback)" : "")
-        << " sampler=" << (void*)sampler << (usedFallback ? " (fallback)" : "")
-        << "\n";
-
     // current image
     const uint32_t idx = (mImageIndex < (uint32_t)sets.size()) ? mImageIndex : 0;
     return sets[idx];
