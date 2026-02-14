@@ -99,17 +99,11 @@ namespace toy::vkutil
                                   VkFormat format,
                                   VkImageAspectFlags aspect);
 
-    VkSampler CreateSampler_LinearClamp(VkDevice device);
-
+    
     // ----------------------------------------------------------
     // Test helper: 1x1 white texture (Linear tiling, HostVisible)
     // ----------------------------------------------------------
-    bool CreateImage1x1White_LinearHostVisible(VkPhysicalDevice phys,
-                                              VkDevice device,
-                                              VkImage& outImg,
-                                              VkDeviceMemory& outMem,
-                                              VkImageView& outView);
-
+    
     // ----------------------------------------------------------
     // Barrier
     // ----------------------------------------------------------

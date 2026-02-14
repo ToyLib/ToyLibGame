@@ -50,9 +50,6 @@ public:
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
     std::shared_ptr<RenderTarget> CreateRenderTarget() override { return nullptr; }
 
-    // Pipelines (name -> VKPipeline)
-    std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
-
 protected:
     void ApplyState(const RenderItem& /*it*/) override {}
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
@@ -75,20 +72,24 @@ protected:
 
 private:
     //--------------------------------------------------------------------------
-    // Internal helpers (minimum)
+    // Core VK init (minimum)
     //--------------------------------------------------------------------------
     bool CreateRenderPass();
     bool CreateFramebuffers();
     bool CreateCommandBuffers();
     void DestroyFramebuffers();
 
+    //--------------------------------------------------------------------------
+    // Pipelines
+    //--------------------------------------------------------------------------
     bool CreateSpritePipeline();
-    
+
+    // Pipelines (name -> VKPipeline)
+    PipelineHandle FindPipelineHandle(const std::string& name) const;
 
 private:
     //--------------------------------------------------------------------------
     // SpriteQueue(UI bucket) rendering helpers
-    //  - VKRenderer_DrawUI.cpp（あなたが貼った版）に合わせた宣言
     //--------------------------------------------------------------------------
     struct VKGeometry
     {
@@ -102,14 +103,14 @@ private:
     };
 
     // (A) Geometry: VertexArray* -> VK VB/IB cache
-    bool EnsureSpriteGeometryVK();  // IRenderer::GetSpriteQuad() を VK VB/IB 化
-    void DestroySpriteGeometryVK(); // Shutdown で呼ぶ用（任意だが用意推奨）
+    bool EnsureSpriteGeometryVK();
+    void DestroySpriteGeometryVK();
 
     std::unordered_map<const class VertexArray*, VKGeometry> mSpriteGeoVK;
 
     // (B) DescriptorSet: Texture* -> (swapchain枚数分の VkDescriptorSet)
-    bool EnsureSpriteDescriptorPool();                 // pool 作成（lazily）
-    VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex); // そのフレームの set を返す
+    bool EnsureSpriteDescriptorPool();
+    VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex);
 
     VkDescriptorPool mSpriteDescPool { VK_NULL_HANDLE };
     std::unordered_map<const class Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK;
@@ -118,11 +119,9 @@ private:
     VkImageView GetVkImageViewFromTextureHandle(TextureHandle h) const;
     VkSampler   GetVkSamplerFromTextureHandle(TextureHandle h) const;
 
-    // Fallback (texture が無い/未対応の時に使う)
+    // Fallback for missing texture-vk bridge
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
-    
-    bool mUiImageLayoutReady { false };
 
     //--------------------------------------------------------------------------
     // SDL (non-owning)
@@ -175,35 +174,11 @@ private:
     uint32_t               mFrameIndex { 0 };
     uint32_t               mImageIndex { 0 };
 
+private:
     //--------------------------------------------------------------------------
-    // Optional: 旧「白Quadテスト」用（残すなら独立させる）
-    //  ※SpriteQueueへ完全移行できたら削除推奨
+    // Pipelines (private)
     //--------------------------------------------------------------------------
-    bool EnsureUIResources();   // 任意
-    void DestroyUIResources();  // 任意
-
-    bool mUiReady { false };
-
-    
-    VkDescriptorSetLayout        mUiSetLayout { VK_NULL_HANDLE };
-    VkDescriptorPool             mUiDescPool  { VK_NULL_HANDLE };
-    std::vector<VkDescriptorSet> mUiDescSets;
-
-    VkSampler        mUiSampler        { VK_NULL_HANDLE };
-    VkPipelineLayout mUiPipelineLayout { VK_NULL_HANDLE };
-    VkPipeline       mUiPipeline       { VK_NULL_HANDLE };
-
-    VkImage        mUiTestImage       { VK_NULL_HANDLE };
-    VkDeviceMemory mUiTestImageMemory { VK_NULL_HANDLE };
-    VkImageView    mUiTestImageView   { VK_NULL_HANDLE };
-
-    VkBuffer       mUiVB       { VK_NULL_HANDLE };
-    VkDeviceMemory mUiVBMemory { VK_NULL_HANDLE };
-    VkBuffer       mUiIB       { VK_NULL_HANDLE };
-    VkDeviceMemory mUiIBMemory { VK_NULL_HANDLE };
-    uint32_t       mUiIndexCount { 0 };
-    
-    
+    std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
 };
 
 } // namespace toy
