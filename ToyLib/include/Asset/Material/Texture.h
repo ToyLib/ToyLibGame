@@ -89,6 +89,9 @@ public:
     // RenderTarget(GL) など GL直結コードから使うための暫定アクセサ。
     // Vulkan backend では 0 を返す or 別APIになる想定。
     unsigned int GetTextureID() const;
+    
+    const ITextureGPU* GetGPU() const { return mGPU.get(); }
+    ITextureGPU*       GetGPU()       { return mGPU.get(); }
 
 private:
     // GPU実装（GL/VK差し替え可能）

@@ -55,7 +55,6 @@ namespace
 //--------------------------------------------------------------
 void VKRenderer::DrawUIPass()
 {
-    
     // BeginFrame() で vkCmdBeginRenderPass 済み前提
     if (!mDevice || mFrames.empty())
     {
@@ -94,7 +93,6 @@ void VKRenderer::DrawUIPass()
     }
 
     // UI resources（sampler / white fallback texture）を用意
-    // ここが無いと descriptor set 作れない
     if (!EnsureUIResources())
     {
         return;
@@ -177,13 +175,6 @@ void VKRenderer::DrawUIPass()
 
         //------------------------------------------------------
         // PushConstants: world / viewProj / colorAlpha
-        //
-        // Shader は「row-vector (pos * world * viewProj)」想定なので
-        // C++側でも it.world / it.viewProj をそのまま渡す。
-        //
-        // useMVP の場合：
-        //   it.mvp = world*viewProj を事前計算した互換用として扱い、
-        //   ここでは world=I, viewProj=it.mvp に寄せる（最小互換）。
         //------------------------------------------------------
         SpritePush pc{};
 
@@ -199,10 +190,24 @@ void VKRenderer::DrawUIPass()
             CopyMatrixToFloat16(it.viewProj, pc.viewProj);
         }
 
-        pc.colorAlpha[0] = it.color.x;
-        pc.colorAlpha[1] = it.color.y;
-        pc.colorAlpha[2] = it.color.z;
-        pc.colorAlpha[3] = it.alpha;
+        //======================================================
+        // ★ SpritePayload を反映（Bルート）
+        //  - SpriteComponent::GatherRenderItems() で
+        //    out.PushSpritePayload(sp) して it.payloadIndex に詰めている前提
+        //======================================================
+        Vector3 col = it.color;
+        float   alp = it.alpha;
+
+        {
+            const SpritePayload& sp = mRenderQueue.GetSpritePayload(it.payloadIndex);
+            col = sp.color;
+            alp = sp.alpha;
+        }
+
+        pc.colorAlpha[0] = col.x;
+        pc.colorAlpha[1] = col.y;
+        pc.colorAlpha[2] = col.z;
+        pc.colorAlpha[3] = alp;
 
         vkCmdPushConstants(frame.cmd,
                            pipe->pipelineLayout,
@@ -210,8 +215,6 @@ void VKRenderer::DrawUIPass()
                            0, (uint32_t)sizeof(SpritePush), &pc);
 
         // indexCount:
-        // - SpriteQuad固定なら geo.indexCount でOK
-        // - RenderItem側で indexCount が入っているならそれを優先しても良い
         const uint32_t indexCount =
             (it.indexCount > 0) ? (uint32_t)it.indexCount : geo.indexCount;
 

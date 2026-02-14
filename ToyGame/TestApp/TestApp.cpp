@@ -4,7 +4,7 @@
 VKTest::VKTest()
 : toy::Application()
 {
-    GetAssetManager()->SetAssetsPath("ToyGame/Assets/KitGame/");
+    GetAssetManager()->SetAssetsPath("ToyGame/Assets/VKTest/");
     toy::RenderBackendState::Get().Set(toy::RenderBackendType::Vulkan);
 }
 
@@ -17,8 +17,9 @@ void VKTest::InitGame()
     
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>();
-    auto tex = GetAssetManager()->GetTexture("UI/lockon.png");
+    auto tex = GetAssetManager()->GetTexture("otaku_winter.png");
     sp->SetTexture(tex);
+    
 }
 
 static float r = 0.0f;

@@ -12,13 +12,15 @@
 //      VkSampler   mSpriteFallbackSampler
 //
 // 注意:
-//  - Texture -> VkImageView/VkSampler を引く仕組みがまだ無い段階では
-//    fallback(白1x1など) を返して「落とさず描ける」状態にしておく
+//  - Texture -> VkImageView/VkSampler を引けない場合は fallback を使う
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Asset/Material/Texture.h" // Texture 完全型が必要（パス調整してOK）
+#include "Asset/Material/Texture.h"     // Texture 完全型
+#include "Render/ITextureGPU.h"
+#include "Render/VK/VKTextureGPU.h"     // VKTextureGPU の getter を使う
+
 #include <iostream>
 #include <vector>
 
@@ -75,20 +77,54 @@ bool VKRenderer::EnsureSpriteDescriptorPool()
 
 //--------------------------------------------------------------
 // TextureHandle -> VkImageView/VkSampler bridge
-//  - ここは「現状のあなたの Texture VK backend」に合わせて実装する
-//  - まだ無いなら fallback を返す運用でOK
+//
+// 重要：Texture の public API は増やさない方針なので、Texture.h 側で
+//   friend class VKRenderer;
+// を追加して、VKRenderer だけが mGPU を覗ける前提。
 //--------------------------------------------------------------
 VkImageView VKRenderer::GetVkImageViewFromTextureHandle(TextureHandle h) const
 {
-    // 現状 Handle は Texture* だけ
-    // Texture が VK backend を持っていないなら VK_NULL_HANDLE のまま
-    (void)h;
+    const Texture* tex = h.ptr;
+    if (!tex)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    // Texture の GPU 実装を覗く（friend 前提）
+    const ITextureGPU* gpu = tex->GetGPU();
+    if (!gpu)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    // Vulkan 実装なら ImageView を返す
+    if (auto* vkgpu = dynamic_cast<const VKTextureGPU*>(gpu))
+    {
+        return vkgpu->GetImageView();
+    }
+
     return VK_NULL_HANDLE;
 }
 
 VkSampler VKRenderer::GetVkSamplerFromTextureHandle(TextureHandle h) const
 {
-    (void)h;
+    const Texture* tex = h.ptr;
+    if (!tex)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    const ITextureGPU* gpu = tex->GetGPU();
+    if (!gpu)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    if (auto* vkgpu = dynamic_cast<const VKTextureGPU*>(gpu))
+    {
+        return vkgpu->GetSampler();
+    }
+
     return VK_NULL_HANDLE;
 }
 
@@ -102,7 +138,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     {
         return VK_NULL_HANDLE;
     }
-    
 
     const uint32_t scCount = (uint32_t)mSwapchainImageViews.size();
     if (scCount == 0)
@@ -143,7 +178,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
             return it->second[idx];
         }
     }
-    
 
     // swapchain枚数分 allocate
     std::vector<VkDescriptorSet> sets(scCount, VK_NULL_HANDLE);
@@ -170,10 +204,16 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
 
     if (texPtr)
     {
-        // まだ Texture -> VK の橋が無い段階では NULL のままになる
         view    = GetVkImageViewFromTextureHandle(texH);
         sampler = GetVkSamplerFromTextureHandle(texH);
+
+        // デバッグ（必要なら）
+        // std::cerr << "[VKRenderer] GetVkImageViewFromTextureHandle: tex=" << (void*)texPtr
+        //           << " view=" << (void*)view << "\n";
     }
+
+    const bool usedFallback =
+        (view == VK_NULL_HANDLE) || (sampler == VK_NULL_HANDLE);
 
     if (view == VK_NULL_HANDLE)
     {
@@ -211,15 +251,15 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
 
     // cache
     mSpriteDescSetsVK.emplace(texPtr, sets);
+
+    // デバッグログ（あなたの既存ログ形式に寄せる）
     std::cerr
-        << "[VKRenderer] Sprite view="
-        << (void*)view
-        << " sampler="
-        << (void*)mUiSampler
-        << " (fallback="
-        << (void*)mUiTestImageView
-        << ")\n";
-    
+        << "[VKRenderer] SpriteDescSet created: tex=" << (void*)texPtr
+        << " frameImage=" << mImageIndex
+        << " view=" << (void*)view << (usedFallback ? " (fallback)" : "")
+        << " sampler=" << (void*)sampler << (usedFallback ? " (fallback)" : "")
+        << "\n";
+
     // current image
     const uint32_t idx = (mImageIndex < (uint32_t)sets.size()) ? mImageIndex : 0;
     return sets[idx];
