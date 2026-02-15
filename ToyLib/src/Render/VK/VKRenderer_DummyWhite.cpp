@@ -5,6 +5,7 @@
 
 #include <array>
 #include <iostream>
+#include <cstring>
 
 namespace toy
 {
