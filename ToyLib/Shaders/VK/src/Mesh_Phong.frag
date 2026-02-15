@@ -275,5 +275,4 @@ void main()
     
     vec3 finalColor = mix(sc.uFogColor, baseColor.rgb, fogFactor);
     outColor = vec4(finalColor, baseColor.a);
-    outColor = baseColor;
 }

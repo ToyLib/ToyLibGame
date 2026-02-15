@@ -5,7 +5,7 @@ VKTest::VKTest()
 : toy::Application()
 {
     GetAssetManager()->SetAssetsPath("ToyGame/Assets/VKTest/");
-    toy::RenderBackendState::Get().Set(toy::RenderBackendType::Vulkan);
+    toy::RenderBackendState::Get().Set(toy::RenderBackendType::OpenGL);
 }
 
 VKTest::~VKTest()
@@ -14,12 +14,12 @@ VKTest::~VKTest()
 
 void VKTest::InitGame()
 {
-    /*
+    
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>();
     auto tex = GetAssetManager()->GetTexture("youkai_kappa.png");
     sp->SetTexture(tex);
-    */
+    
     mAct = CreateActor<toy::Actor>();
     auto mesh = mAct->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));

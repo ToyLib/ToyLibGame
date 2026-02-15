@@ -41,19 +41,22 @@ struct alignas(16) UBO_WorldCommon
     float _pad4b { 0.0f };
 };
 
+
+
 struct alignas(16) UBO_MaterialParams
 {
-    Vec3Pad  uDiffuseColor;     // vec3 + pad
-    int32_t  uUseTexture { 0 }; // int
+    float uDiffuseColor[3];
+    int   uUseTexture;
 
-    Vec3Pad  uUniformColor;
-    int32_t  uOverrideColor { 0 };
+    float uUniformColor[3];
+    int   uOverrideColor;
 
-    float uSpecPower { 32.0f };
-    float _padM0 { 0.0f };
-    float _padM1 { 0.0f };
-    float _padM2 { 0.0f };
+    float uSpecPower;
+    float _pad0;
+    float _pad1;
+    float _pad2;
 };
+static_assert(sizeof(UBO_MaterialParams) == 48);
 
 struct alignas(16) UBO_DirLight
 {

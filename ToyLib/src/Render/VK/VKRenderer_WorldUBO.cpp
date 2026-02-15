@@ -1,16 +1,14 @@
 //======================================================================
 // VKRenderer_WorldUBO.cpp
-//  - Linker undefined symbols fix (helpers + UBO updates)
-//  - Matches your current VKRenderer.h signatures
+//  - helpers + UBO updates
+//  - MUST match GLSL(std140) layouts exactly
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Render/VK/VKPipeline.h"
-#include "Render/RenderItem.h"          // RenderItem
-#include "Asset/Material/Material.h"    // (if you have it; otherwise remove include)
-#include "Asset/Material/Texture.h"     // Texture, TextureHandle
-#include "Render/VK/VKTextureGPU.h"     // VKTextureGPU (bridge)
+#include "Render/RenderItem.h"
+#include "Asset/Material/Material.h"    // あるなら
+#include "Render/RenderHandles.h"       // TextureHandle, MaterialHandle
 #include "Utils/MathUtil.h"             // Matrix4, Vector3
 
 #include <vulkan/vulkan.h>
@@ -21,52 +19,84 @@ namespace toy
 {
 
 //------------------------------------------------------------
-// std140 friendly POD blocks
+// std140 friendly POD blocks  (MATCH SHADERS)
 //------------------------------------------------------------
-struct UBO_WorldCommon
+
+// GLSL:
+// layout(set=1,binding=0,std140) uniform WorldCommon { ... } sc;
+struct alignas(16) UBO_WorldCommon
 {
     Matrix4 uViewProj;
 
-    alignas(16) float uCameraPos[4];     // xyz + pad
-    alignas(16) float uAmbientLight[4];  // xyz + pad
+    alignas(16) float uCameraPos[4];     // vec3 + pad
+    alignas(16) float uAmbientLight[4];  // vec3 + pad
 
-    alignas(16) float uFogParams[4];     // max, min, pad, pad
-    alignas(16) float uFogColor[4];      // rgb + pad
+    // fog
+    float uFogMaxDist;   // float
+    float uFogMinDist;   // float
+    float _pad2[2];      // vec2 pad to 16B
+    alignas(16) float uFogColor[4];      // vec3 + pad
 
-    // keep compatibility (unused now)
+    // shadow block (kept, unused)
     Matrix4 uLightViewProj0;
     Matrix4 uLightViewProj1;
 
-    alignas(16) float uShadowParams0[4]; // split0, blend, bias, (pad)
-    alignas(16) int   uShadowParams1[4]; // useShadow, useToon, pad, pad
+    float uCascadeSplit0;
+    float uCascadeBlend;
+    float uShadowBias;
+    int   uUseShadow;
+
+    int   uUseToon;
+    float _pad4[3]; // pad to 16B
 };
 
-struct UBO_MaterialParams
+// GLSL:
+// layout(set=1,binding=1,std140) uniform MaterialParams { vec3 uDiffuseColor; int uUseTexture; ... } mp;
+struct alignas(16) UBO_MaterialParams
 {
-    alignas(16) float uDiffuseColor[4];   // rgb + uUseTexture (as int bit-cast is messy, so store float then write int separately)
-    alignas(16) float uUniformColor[4];   // rgb + uOverrideColor
-    alignas(16) float uSpecPower[4];      // specPower + pad...
-    // NOTE: std140 wants 16-byte multiples anyway.
+    float uDiffuseColor[3];
+    int   uUseTexture;
+
+    float uUniformColor[3];
+    int   uOverrideColor;
+
+    float uSpecPower;
+    float _padM0;
+    float _padM1;
+    float _padM2;
+};
+static_assert(sizeof(UBO_MaterialParams) == 48, "UBO_MaterialParams size must be 48 bytes (std140)");
+
+// GLSL:
+// layout(set=1,binding=2,std140) uniform DirLightBlock { DirectionalLight uDirLight; } dl;
+// struct DirectionalLight { vec3 mDirection; float _p0; vec3 mDiffuseColor; float _p1; vec3 mSpecColor; float _p2; };
+struct alignas(16) UBO_DirLight
+{
+    float mDirection[3]; float _p0;
+    float mDiffuseColor[3]; float _p1;
+    float mSpecColor[3]; float _p2;
 };
 
-struct UBO_DirLight
+// GLSL:
+// layout(set=1,binding=3,std140) uniform PointLightBlock { int uNumPointLights; int _pA; int _pB; int _pC; PointLight[8]; } pl;
+// struct PointLight { vec3 position; float intensity; vec3 color; float constant; float linear; float quadratic; float radius; float _p; };
+struct alignas(16) UBO_PointLight
 {
-    alignas(16) float dir[4];     // xyz + pad
-    alignas(16) float diff[4];    // rgb + pad
-    alignas(16) float spec[4];    // rgb + pad
+    float position[3]; float intensity;
+    float color[3];    float constant;
+    float linear;
+    float quadratic;
+    float radius;
+    float _p;
 };
-
-struct UBO_PointLight
+struct alignas(16) UBO_PointLightBlock
 {
-    alignas(16) float position[4];   // xyz + intensity
-    alignas(16) float color[4];      // rgb + constant
-    alignas(16) float params[4];     // linear, quadratic, radius, pad
-};
+    int uNumPointLights;
+    int _pA;
+    int _pB;
+    int _pC;
 
-struct UBO_PointLightBlock
-{
-    alignas(16) int header[4]; // numPointLights, pad, pad, pad
-    UBO_PointLight lights[8];
+    UBO_PointLight uPointLights[8];
 };
 
 //------------------------------------------------------------
@@ -206,7 +236,6 @@ void VKRenderer::TransitionImageLayout(VkCommandBuffer cmd,
     VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
-    // minimal set (enough for staging upload)
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
         newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
     {
@@ -260,7 +289,7 @@ void VKRenderer::CopyBufferToImage(VkCommandBuffer cmd,
 }
 
 //------------------------------------------------------------
-// UBO updates (declared in VKRenderer.h)
+// UBO updates
 //------------------------------------------------------------
 static inline void WriteUBO(VkDevice dev, VkDeviceMemory mem, const void* src, size_t bytes)
 {
@@ -300,37 +329,34 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
 
     UBO_WorldCommon u{};
 
-    // row-vector: worldPos * (View*Proj*Corr)
-    const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix();
+    const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix(); // row-vector
     const Matrix4 corr = MakeGLtoVK_ClipCorrection_RowVector();
-
     u.uViewProj = vpGL * corr;
 
     const Vector3 cam = GetCameraPosition();
     u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
 
-    // defaults
     u.uAmbientLight[0] = 0.2f; u.uAmbientLight[1] = 0.2f; u.uAmbientLight[2] = 0.2f; u.uAmbientLight[3] = 0.0f;
 
-    u.uFogParams[0] = 999999.0f;
-    u.uFogParams[1] = 999998.0f;
-    u.uFogParams[2] = 0.0f;
-    u.uFogParams[3] = 0.0f;
+    u.uFogMaxDist = 999999.0f;
+    u.uFogMinDist = 999998.0f;
+    u._pad2[0] = 0.0f;
+    u._pad2[1] = 0.0f;
 
     u.uFogColor[0] = 0.0f; u.uFogColor[1] = 0.0f; u.uFogColor[2] = 0.0f; u.uFogColor[3] = 0.0f;
 
     u.uLightViewProj0 = Matrix4::Identity;
     u.uLightViewProj1 = Matrix4::Identity;
 
-    u.uShadowParams0[0] = 0.0f;
-    u.uShadowParams0[1] = 0.0f;
-    u.uShadowParams0[2] = 0.0f;
-    u.uShadowParams0[3] = 0.0f;
+    u.uCascadeSplit0 = 0.0f;
+    u.uCascadeBlend  = 0.0f;
+    u.uShadowBias    = 0.0f;
+    u.uUseShadow     = 0;
 
-    u.uShadowParams1[0] = 0; // useShadow
-    u.uShadowParams1[1] = 0; // useToon
-    u.uShadowParams1[2] = 0;
-    u.uShadowParams1[3] = 0;
+    u.uUseToon = 0;
+    u._pad4[0] = 0.0f;
+    u._pad4[1] = 0.0f;
+    u._pad4[2] = 0.0f;
 
     WriteUBO(mDevice, mWorldCommonUBOMem, &u, sizeof(u));
 }
@@ -339,60 +365,81 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
 {
     if (!mMaterialParamsUBOMem) return;
 
-    // defaults
-    Vector3 diffuse(1.0f, 1.0f, 1.0f);
-    Vector3 ucol(0.0f, 0.0f, 0.0f);
-
-    int useTex = 0;
-    int overrideCol = 0;
-    float specPower = 32.0f;
-
-    TextureHandle texH{};
-    if (it.material.ptr)
-    {
-        // your earlier comment implies this exists:
-        texH = it.material.ptr->GetDiffuseTextureHandle();
-        if (texH.IsValid()) useTex = 1;
-    }
-
+    // ===== アウトライン専用（RenderItem override） =====
+    // 裏返し拡大メッシュを “単色塗り” するための経路
     if (it.overrideColor)
     {
-        overrideCol = 1;
-        ucol = it.overrideColorValue;
+        UBO_MaterialParams u{};
+        u.uDiffuseColor[0] = 0.0f;
+        u.uDiffuseColor[1] = 0.0f;
+        u.uDiffuseColor[2] = 0.0f;
+        u.uUseTexture      = 0;            // ★必ず OFF（白テクスチャを読ませない）
+
+        u.uUniformColor[0] = it.overrideColorValue.x;
+        u.uUniformColor[1] = it.overrideColorValue.y;
+        u.uUniformColor[2] = it.overrideColorValue.z;
+        u.uOverrideColor   = 1;            // ★単色で return させる
+
+        u.uSpecPower = 1.0f;               // 使わないけど適当でOK
+        u._padM0 = u._padM1 = u._padM2 = 0.0f;
+
+        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
+        return;
+    }
+
+    // ===== 通常メッシュ（Material反映） =====
+    Vector3 diffuse(0.8f, 0.8f, 0.8f);     // Material default に合わせる
+    Vector3 ucol(0.0f, 0.0f, 0.0f);
+
+    int   useTex      = 0;
+    int   overrideCol = 0;                // ←「アウトライン」は上で return 済みなので基本 0
+    float specPower   = 32.0f;
+
+    if (it.material.ptr)
+    {
+        diffuse   = it.material.ptr->GetDiffuseColor();
+        specPower = it.material.ptr->GetSpecPower();
+
+        // GL と同じ判定：意思 AND 実体
+        const bool wantUseTex = it.material.ptr->WantsUseTexture();
+        const bool hasMap     = it.material.ptr->HasDiffuseMap();
+
+        useTex = (wantUseTex && hasMap) ? 1 : 0;
+
+        // （Material 側の overrideColor を将来使うならここで拾う）
+        // 今回の用途説明だと RenderItem の override だけで良いので、ここは基本使わないでもOK
+        // もし Material override も残すなら:
+        // if (it.material.ptr->GetOverrideColor()) { overrideCol=1; ucol=it.material.ptr->GetUniformColor(); useTex=0; }
     }
 
     UBO_MaterialParams u{};
     u.uDiffuseColor[0] = diffuse.x;
     u.uDiffuseColor[1] = diffuse.y;
     u.uDiffuseColor[2] = diffuse.z;
-    u.uDiffuseColor[3] = *(float*)&useTex; // store bit pattern (matches std140 int slot)
+    u.uUseTexture      = useTex;
 
     u.uUniformColor[0] = ucol.x;
     u.uUniformColor[1] = ucol.y;
     u.uUniformColor[2] = ucol.z;
-    u.uUniformColor[3] = *(float*)&overrideCol;
+    u.uOverrideColor   = overrideCol;
 
-    u.uSpecPower[0] = specPower;
-    u.uSpecPower[1] = 0.0f;
-    u.uSpecPower[2] = 0.0f;
-    u.uSpecPower[3] = 0.0f;
+    u.uSpecPower = specPower;
+    u._padM0 = u._padM1 = u._padM2 = 0.0f;
 
     WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
 }
-
 void VKRenderer::UpdateDirLightUBO()
 {
     if (!mDirLightUBOMem) return;
 
-    // defaults: top-left-ish sun
     Vector3 dir(-0.4f, -1.0f, -0.2f);
     Vector3 diff(1.0f, 1.0f, 1.0f);
     Vector3 spec(1.0f, 1.0f, 1.0f);
 
     UBO_DirLight u{};
-    u.dir[0] = dir.x; u.dir[1] = dir.y; u.dir[2] = dir.z; u.dir[3] = 0.0f;
-    u.diff[0] = diff.x; u.diff[1] = diff.y; u.diff[2] = diff.z; u.diff[3] = 0.0f;
-    u.spec[0] = spec.x; u.spec[1] = spec.y; u.spec[2] = spec.z; u.spec[3] = 0.0f;
+    u.mDirection[0] = dir.x;  u.mDirection[1] = dir.y;  u.mDirection[2] = dir.z;  u._p0 = 0.0f;
+    u.mDiffuseColor[0] = diff.x; u.mDiffuseColor[1] = diff.y; u.mDiffuseColor[2] = diff.z; u._p1 = 0.0f;
+    u.mSpecColor[0] = spec.x; u.mSpecColor[1] = spec.y; u.mSpecColor[2] = spec.z; u._p2 = 0.0f;
 
     WriteUBO(mDevice, mDirLightUBOMem, &u, sizeof(u));
 }
@@ -402,10 +449,8 @@ void VKRenderer::UpdatePointLightUBO()
     if (!mPointLightUBOMem) return;
 
     UBO_PointLightBlock u{};
-    u.header[0] = 0; // numPointLights
-    u.header[1] = 0;
-    u.header[2] = 0;
-    u.header[3] = 0;
+    u.uNumPointLights = 0;
+    u._pA = u._pB = u._pC = 0;
 
     WriteUBO(mDevice, mPointLightUBOMem, &u, sizeof(u));
 }

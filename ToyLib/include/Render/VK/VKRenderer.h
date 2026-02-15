@@ -28,7 +28,7 @@ struct FrameSync
 class VKRenderer final : public IRenderer
 {
 public:
-    VKRenderer() = default;
+    VKRenderer();
     ~VKRenderer() override { Shutdown(); }
 
     bool Initialize(const class Application* app) override;

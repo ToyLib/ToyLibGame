@@ -37,6 +37,11 @@ static const char* kValidationLayers[] =
     "VK_LAYER_KHRONOS_validation"
 };
 
+VKRenderer::VKRenderer()
+: IRenderer()
+{
+}
+
 //--------------------------------------------------------------
 // VKRenderer::Initialize
 //--------------------------------------------------------------
