@@ -10,5 +10,7 @@ public:
     void InitGame() override;
     void UpdateGame(float deltaTime) override;
     void ShutdownGame() override;
+private:
+    toy::Actor* mAct;
 
 };
