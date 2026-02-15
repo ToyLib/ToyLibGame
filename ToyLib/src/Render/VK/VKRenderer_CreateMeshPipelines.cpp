@@ -4,7 +4,7 @@
 #include "Render/VK/VKPipeline.h"
 #include "Render/VK/VKUtil.h"
 
-#include "Utils/MathUtil.h" // Matrix4
+#include "Utils/MathUtil.h"
 #include <vector>
 #include <iostream>
 
@@ -53,8 +53,7 @@ static void GetMeshVertexInputState(
 
 bool VKRenderer::CreateMeshPipeline()
 {
-    std::vector<uint8_t> vertCode;
-    std::vector<uint8_t> fragCode;
+    std::vector<uint8_t> vertCode, fragCode;
 
     if (!vkutil::ReadFileBinary("ToyLib/Shaders/VK/spv/Mesh_Phong.vert.spv", vertCode))
     {
@@ -103,21 +102,21 @@ bool VKRenderer::CreateMeshPipeline()
     vp.scissorCount  = 1;
 
     VkPipelineRasterizationStateCreateInfo rs{};
-    rs.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.polygonMode             = VK_POLYGON_MODE_FILL;
-    rs.cullMode                = VK_CULL_MODE_BACK_BIT;
-    rs.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rs.lineWidth               = 1.0f;
+    rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.cullMode    = VK_CULL_MODE_BACK_BIT;
+    rs.frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rs.lineWidth   = 1.0f;
 
     VkPipelineMultisampleStateCreateInfo ms{};
-    ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable  = VK_TRUE;
-    ds.depthWriteEnable = VK_TRUE;
-    ds.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
+    ds.depthTestEnable  = VK_FALSE;
+    ds.depthWriteEnable = VK_FALSE;
+    ds.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
 
     VkPipelineColorBlendAttachmentState cbAttach{};
     cbAttach.colorWriteMask =
@@ -132,61 +131,52 @@ bool VKRenderer::CreateMeshPipeline()
     cb.attachmentCount = 1;
     cb.pAttachments    = &cbAttach;
 
-    VkDynamicState dynStates[] =
-    {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    VkDynamicState dynStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
     VkPipelineDynamicStateCreateInfo dyn{};
     dyn.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dyn.dynamicStateCount = 2;
     dyn.pDynamicStates    = dynStates;
 
     //========================================================
-    // Descriptor set layouts
+    // Descriptor set layouts (確定)
     //========================================================
-    // set0: Material (Diffuse texture sampler)
+
+    // set0: Diffuse texture (binding0)
     VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
-            0, VK_SHADER_STAGE_FRAGMENT_BIT));
-
+        b.push_back(vkutil::MakeBinding_CombinedImageSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT));
         set0 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set0) { std::cerr << "Mesh set0(Texture) layout failed\n"; return false; }
+        if (!set0)
+        {
+            std::cerr << "Mesh set0(Texture) layout failed\n";
+            vkDestroyShaderModule(mDevice, vertModule, nullptr);
+            vkDestroyShaderModule(mDevice, fragModule, nullptr);
+            return false;
+        }
     }
 
-    // set1: Scene/Common (UBO群)  ★bindingを詰める（0..3）
+    // set1: UBO 0..3 (MoltenVK対策：欠番なし)
     VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
-
-        // 0: WorldCommon UBO (VS+FS)
         b.push_back(vkutil::MakeBinding_UBO(
             0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
-
-        // 1: MaterialParams UBO (FS)
-        b.push_back(vkutil::MakeBinding_UBO(
-            1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-
-        // 2: DirLight UBO (FS)
-        b.push_back(vkutil::MakeBinding_UBO(
-            2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-
-        // 3: PointLightBlock UBO (FS)
-        b.push_back(vkutil::MakeBinding_UBO(
-            3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+        b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+        b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+        b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
         set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set1) { std::cerr << "Mesh set1(Scene) layout failed\n"; return false; }
+        if (!set1)
+        {
+            std::cerr << "Mesh set1(Scene) layout failed\n";
+            vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
+            vkDestroyShaderModule(mDevice, vertModule, nullptr);
+            vkDestroyShaderModule(mDevice, fragModule, nullptr);
+            return false;
+        }
     }
 
-    //========================================================
-    // Push constant
-    //  - 方針Bでは viewProj は set1(WorldCommon) に置く想定
-    //  - PushConstant は world だけにするのが自然
-    //    (shader側もそれに合わせる)
-    //========================================================
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset     = 0;
@@ -252,7 +242,6 @@ bool VKRenderer::CreateMeshPipeline()
 
     vkDestroyShaderModule(mDevice, vertModule, nullptr);
     vkDestroyShaderModule(mDevice, fragModule, nullptr);
-
     return true;
 }
 

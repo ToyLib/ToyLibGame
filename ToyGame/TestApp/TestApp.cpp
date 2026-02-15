@@ -14,12 +14,12 @@ VKTest::~VKTest()
 
 void VKTest::InitGame()
 {
-    
+    /*
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>();
     auto tex = GetAssetManager()->GetTexture("youkai_kappa.png");
     sp->SetTexture(tex);
-    
+    */
     auto islandActor = CreateActor<toy::Actor>();
     auto islandMesh = islandActor->CreateComponent<toy::MeshComponent>();
     islandMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));

@@ -342,25 +342,25 @@ VKVertexArrayBackend::~VKVertexArrayBackend()
 
 void VKVertexArrayBackend::Unload()
 {
-    if (!mDevice) return;
+    if (mDevice) return;
 
-    if (mIB)
+    if (mIB != VK_NULL_HANDLE)
     {
-        vkDestroyBuffer(mDevice, mIB, nullptr);
+        //vkDestroyBuffer(mDevice, mIB, nullptr);
         mIB = VK_NULL_HANDLE;
     }
-    if (mIBMem)
+    if (mIBMem != VK_NULL_HANDLE)
     {
         vkFreeMemory(mDevice, mIBMem, nullptr);
         mIBMem = VK_NULL_HANDLE;
     }
 
-    if (mVB)
+    if (mVB != VK_NULL_HANDLE)
     {
-        vkDestroyBuffer(mDevice, mVB, nullptr);
+        //vkDestroyBuffer(mDevice, mVB, nullptr);
         mVB = VK_NULL_HANDLE;
     }
-    if (mVBMem)
+    if (mVBMem != VK_NULL_HANDLE)
     {
         vkFreeMemory(mDevice, mVBMem, nullptr);
         mVBMem = VK_NULL_HANDLE;

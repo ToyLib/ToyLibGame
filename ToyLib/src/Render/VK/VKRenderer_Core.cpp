@@ -532,6 +532,12 @@ bool VKRenderer::Initialize(const Application* app)
               << std::endl;
     
     CreateSpriteVerts();
+    
+    if (!CreateDummyWhiteResources())
+    {
+        std::cerr << "[VKRenderer] DummyWhite create failed\n";
+        return false;
+    }
 
     return true;
 }
@@ -545,7 +551,8 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
-    
+
+    DestroyDummyWhiteResources();
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
     mSurfaceQuad.reset();

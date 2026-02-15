@@ -275,6 +275,5 @@ void main()
     
     vec3 finalColor = mix(sc.uFogColor, baseColor.rgb, fogFactor);
     outColor = vec4(finalColor, baseColor.a);
-    float d = length(fragWorldPos);          // ワールド原点からの距離
-    outColor = vec4(vec3(clamp(d * 0.02, 0.0, 1.0)), 1.0);
+    outColor = baseColor;
 }

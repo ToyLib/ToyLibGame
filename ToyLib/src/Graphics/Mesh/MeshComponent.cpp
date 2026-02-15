@@ -20,6 +20,9 @@ MeshComponent::MeshComponent(Actor* a, int drawOrder, VisualLayer layer, bool is
     mEnableShadow = true;
 }
 
+MeshComponent::~MeshComponent()
+{
+}
 
 std::shared_ptr<VertexArray> MeshComponent::GetVertexArray(int id) const
 {

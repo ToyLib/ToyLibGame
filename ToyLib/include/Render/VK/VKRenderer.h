@@ -2,7 +2,7 @@
 
 #include "Render/IRenderer.h"
 #include "Render/VK/VKPipeline.h"
-#include "Render/RenderHandles.h" // PipelineHandle / TextureHandle etc.
+#include "Render/RenderHandles.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -17,9 +17,6 @@
 namespace toy
 {
 
-//==============================================================
-// FrameSync（最低限のフレーム同期）
-//==============================================================
 struct FrameSync
 {
     VkSemaphore     imageAvailable { VK_NULL_HANDLE };
@@ -28,18 +25,12 @@ struct FrameSync
     VkCommandBuffer cmd            { VK_NULL_HANDLE };
 };
 
-//==============================================================
-// VKRenderer
-//==============================================================
 class VKRenderer final : public IRenderer
 {
 public:
     VKRenderer() = default;
     ~VKRenderer() override { Shutdown(); }
 
-    //--------------------------------------------------------------------------
-    // IRenderer
-    //--------------------------------------------------------------------------
     bool Initialize(const class Application* app) override;
     void Shutdown() override;
 
@@ -51,9 +42,6 @@ public:
     void SetClearColor(const Vector3& color) override { mClearColor = color; }
     std::shared_ptr<class IRenderTarget> CreateRenderTarget() override { return nullptr; }
 
-    //--------------------------------------------------------------------------
-    // VK helpers
-    //--------------------------------------------------------------------------
     VkCommandBuffer GetActiveCommandBuffer() const
     {
         if (mFrames.empty() || mFrameIndex >= (uint32_t)mFrames.size())
@@ -64,9 +52,6 @@ public:
     }
 
 protected:
-    //--------------------------------------------------------------------------
-    // IRenderer protected
-    //--------------------------------------------------------------------------
     void ApplyState(const RenderItem& /*it*/) override {}
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
 
@@ -99,8 +84,6 @@ private:
     // Pipelines
     //--------------------------------------------------------------------------
     bool CreateSpritePipeline();
-
-    // 3D
     bool CreateMeshPipeline();
     bool CreateSkinnedMeshPipeline();
 
@@ -114,7 +97,7 @@ private:
 
 private:
     //--------------------------------------------------------------------------
-    // SpriteQueue(UI bucket) rendering helpers
+    // Sprite (既存のまま)
     //--------------------------------------------------------------------------
     struct VKGeometry
     {
@@ -127,71 +110,99 @@ private:
         VkDeviceSize   ibBytes { 0 };
     };
 
-    // (A) Geometry: VertexArray* -> VK VB/IB cache
     bool EnsureSpriteGeometryVK();
     void DestroySpriteGeometryVK();
 
     std::unordered_map<const class VertexArray*, VKGeometry> mSpriteGeoVK;
 
-    // (B) DescriptorSet: Texture* -> (swapchain枚数分の VkDescriptorSet)
     bool EnsureSpriteDescriptorPool();
     VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex);
 
     VkDescriptorPool mSpriteDescPool { VK_NULL_HANDLE };
     std::unordered_map<const class Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK;
 
-    // (C) TextureHandle -> Vulkan resource bridge
     VkImageView GetVkImageViewFromTextureHandle(TextureHandle h) const;
     VkSampler   GetVkSamplerFromTextureHandle(TextureHandle h) const;
 
-    // Fallback for missing texture-vk bridge
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------
-    // Scene(Common) descriptor resources (set=1)
+    // Scene(Common) descriptors: set=1 (UBO 0..3)
     //--------------------------------------------------------------------------
-    VkDescriptorPool              mWorldDescPool { VK_NULL_HANDLE };
-    std::vector<VkDescriptorSet>  mWorldDescSets; // swapchain枚数ぶん
+    VkDescriptorPool             mWorldDescPool { VK_NULL_HANDLE };
+    std::vector<VkDescriptorSet> mWorldDescSets; // swapchain枚数ぶん
 
-    // UBO: binding0 WorldCommon
     VkBuffer       mWorldCommonUBO { VK_NULL_HANDLE };
     VkDeviceMemory mWorldCommonUBOMem { VK_NULL_HANDLE };
 
-    // UBO: binding3 MaterialParams
     VkBuffer       mMaterialParamsUBO { VK_NULL_HANDLE };
     VkDeviceMemory mMaterialParamsUBOMem { VK_NULL_HANDLE };
 
-    // UBO: binding4 DirLight
     VkBuffer       mDirLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory mDirLightUBOMem { VK_NULL_HANDLE };
 
-    // UBO: binding5 PointLights
     VkBuffer       mPointLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory mPointLightUBOMem { VK_NULL_HANDLE };
 
-    // 生成/破棄
-    bool EnsureWorldDescriptors();      // pool + sets + UBO + update
-    void DestroyWorldDescriptors();     // Shutdownで
+    bool EnsureWorldDescriptors();
+    void DestroyWorldDescriptors();
 
-    // フレーム毎に更新
     void UpdateWorldCommonUBO(uint32_t imageIndex);
     void UpdateMaterialParamsUBO(const RenderItem& it);
     void UpdateDirLightUBO();
     void UpdatePointLightUBO();
 
-    // Draw時にbind（Mesh用）
     void BindWorldCommon(VkCommandBuffer cmd,
                          const VKPipeline& pipe,
                          const RenderItem& it);
     void BindWorldMaterial(VkCommandBuffer cmd,
-                           const VKPipeline& p,
+                           const VKPipeline& pipe,
                            const RenderItem& it);
+
+    // set0 (Diffuse) : Texture -> descriptor
+    VkDescriptorSet GetOrCreateWorldTexDescSet(TextureHandle texH);
+
+    // Dummy white (no texture fallback)
+    bool CreateDummyWhiteResources();
+    void DestroyDummyWhiteResources();
 
 private:
     //--------------------------------------------------------------------------
-    // SDL (non-owning)
+    // Upload helpers (DummyWhiteで使用)
+    //--------------------------------------------------------------------------
+    uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags props) const;
+
+    bool CreateBuffer(VkDeviceSize size,
+                      VkBufferUsageFlags usage,
+                      VkMemoryPropertyFlags props,
+                      VkBuffer& outBuf,
+                      VkDeviceMemory& outMem);
+
+    bool BeginOneShot(VkCommandBuffer& outCmd);
+    void EndOneShot(VkCommandBuffer cmd);
+
+    void TransitionImageLayout(VkCommandBuffer cmd,
+                               VkImage image,
+                               VkImageLayout oldLayout,
+                               VkImageLayout newLayout);
+
+    void CopyBufferToImage(VkCommandBuffer cmd,
+                           VkBuffer buffer,
+                           VkImage image,
+                           uint32_t width,
+                           uint32_t height);
+    // --- UBO helper -------------------------------------------------
+    bool CreateHostVisibleUBO(VkPhysicalDevice phys,
+                              VkDevice device,
+                              VkDeviceSize size,
+                              VkBuffer& outBuf,
+                              VkDeviceMemory& outMem);
+    
+private:
+    //--------------------------------------------------------------------------
+    // SDL
     //--------------------------------------------------------------------------
     SDL_Window* mWindow { nullptr };
 
@@ -245,16 +256,19 @@ private:
     // Pipelines storage
     //--------------------------------------------------------------------------
     std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
-    
-    // -----------------------------------------------------------------------------
-    // Dummy shadow resources (temporary until real shadow mapping)
-    //  - Used to satisfy shader bindings when shadow is not implemented.
-    // -----------------------------------------------------------------------------
-    VkImage        mDummyShadowImage      { VK_NULL_HANDLE };
-    VkDeviceMemory mDummyShadowMem        { VK_NULL_HANDLE };
-    VkImageView    mDummyShadowImageView  { VK_NULL_HANDLE };
-    VkSampler      mDummyShadowSampler    { VK_NULL_HANDLE };
 
+    //--------------------------------------------------------------------------
+    // set0 (World Diffuse) descriptor pool + cache
+    //--------------------------------------------------------------------------
+    VkDescriptorPool mWorldTexDescPool { VK_NULL_HANDLE };
+    std::unordered_map<const class Texture*, VkDescriptorSet> mWorldTexDescSetCache;
+    VkDescriptorSet mWorldTexDescSetDummyWhite { VK_NULL_HANDLE };
+
+    // Dummy white resources
+    VkImage        mDummyWhiteImage { VK_NULL_HANDLE };
+    VkDeviceMemory mDummyWhiteMemory { VK_NULL_HANDLE };
+    VkImageView    mDummyWhiteImageView { VK_NULL_HANDLE };
+    VkSampler      mDummyWhiteSampler { VK_NULL_HANDLE };
 };
 
 } // namespace toy

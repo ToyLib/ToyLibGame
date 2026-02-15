@@ -27,7 +27,7 @@ public:
                   VisualLayer layer = VisualLayer::Object3D,
                   bool isSkeletal = false);
 
-    virtual ~MeshComponent() = default;
+    virtual ~MeshComponent();
 
     // 新描画パス
     virtual void GatherRenderItems(RenderQueue& out) override;
