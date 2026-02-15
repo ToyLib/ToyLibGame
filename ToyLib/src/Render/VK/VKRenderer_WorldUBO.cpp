@@ -429,20 +429,15 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
     u.uDiffuseColor[1] = diffuse.y;
     u.uDiffuseColor[2] = diffuse.z;
 
-    u.uOverrideColor   = it.overrideColor;
+    //u.uOverrideColor   = it.overrideColor;
     std::cout << "Override = " << it.overrideColor << std::endl;
     if (it.overrideColor)
     {
         u.uUniformColor[0] = 0.0f;//it.overrideColorValue.x;
         u.uUniformColor[1] = 0.0f;//it.overrideColorValue.y;
         u.uUniformColor[2] = 0.0f;//it.overrideColorValue.z;
-        u.uUseTexture      = 0;
+        u.uOverrideColor = 1;
 
-        u.uSpecPower = specPower;
-        u._padM0 = u._padM1 = u._padM2 = 0.0f;
-
-        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
-        return;
     }
     else
     {
@@ -450,14 +445,9 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
         u.uUniformColor[0] = ucol.x;
         u.uUniformColor[1] = ucol.y;
         u.uUniformColor[2] = ucol.z;
-        u.uSpecPower = specPower;
-        u._padM0 = u._padM1 = u._padM2 = 0.0f;
-
-        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
-        return;
+        u.uOverrideColor = 0;
     }
     
-
     u.uSpecPower = specPower;
     u._padM0 = u._padM1 = u._padM2 = 0.0f;
 
