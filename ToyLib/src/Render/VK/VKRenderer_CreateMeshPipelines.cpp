@@ -1,4 +1,4 @@
-// Render/VK/VKRenderer_CreateMeshPipelines.cpp（Mesh 部分）
+// Render/VK/VKRenderer_CreateMeshPipelines.cpp（Mesh: Cull variants）
 
 #include "Render/VK/VKRenderer.h"
 #include "Render/VK/VKPipeline.h"
@@ -51,8 +51,28 @@ static void GetMeshVertexInputState(
     outInfo.pVertexAttributeDescriptions    = attrs.data();
 }
 
+static VkCullModeFlags ToVkCullMode(CullMode cull)
+{
+    switch (cull)
+    {
+    case CullMode::None:  return VK_CULL_MODE_NONE;
+    case CullMode::Front: return VK_CULL_MODE_FRONT_BIT;
+    case CullMode::Back:  return VK_CULL_MODE_BACK_BIT;
+    }
+    return VK_CULL_MODE_BACK_BIT;
+}
+
+static VkFrontFace ToVkFrontFace(FrontFace ff)
+{
+    return (ff == FrontFace::CW) ? VK_FRONT_FACE_CLOCKWISE
+                                 : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+}
+
 bool VKRenderer::CreateMeshPipeline()
 {
+    //========================================================
+    // Load SPIR-V once
+    //========================================================
     std::vector<uint8_t> vertCode, fragCode;
 
     if (!vkutil::ReadFileBinary("ToyLib/Shaders/VK/spv/Mesh_Phong.vert.spv", vertCode))
@@ -87,6 +107,9 @@ bool VKRenderer::CreateMeshPipeline()
     stages[1].module = fragModule;
     stages[1].pName  = "main";
 
+    //========================================================
+    // Common fixed states
+    //========================================================
     VkPipelineVertexInputStateCreateInfo vi{};
     std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attrs;
@@ -100,13 +123,6 @@ bool VKRenderer::CreateMeshPipeline()
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
     vp.scissorCount  = 1;
-
-    VkPipelineRasterizationStateCreateInfo rs{};
-    rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.polygonMode = VK_POLYGON_MODE_FILL;
-    rs.cullMode    = VK_CULL_MODE_BACK_BIT;
-    rs.frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rs.lineWidth   = 1.0f;
 
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -138,111 +154,132 @@ bool VKRenderer::CreateMeshPipeline()
     dyn.pDynamicStates    = dynStates;
 
     //========================================================
-    // Descriptor set layouts (確定)
+    // Local helper: make one variant
     //========================================================
-
-    // set0: Diffuse texture (binding0)
-    VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
+    auto createVariant = [&](const char* name, CullMode cull, FrontFace ff) -> bool
     {
-        std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_CombinedImageSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT));
-        set0 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set0)
+        VkPipelineRasterizationStateCreateInfo rs{};
+        rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rs.polygonMode = VK_POLYGON_MODE_FILL;
+        rs.cullMode    = ToVkCullMode(cull);
+        rs.frontFace   = ToVkFrontFace(ff);
+        rs.lineWidth   = 1.0f;
+
+        // set0: Diffuse texture
+        VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
         {
-            std::cerr << "Mesh set0(Texture) layout failed\n";
-            vkDestroyShaderModule(mDevice, vertModule, nullptr);
-            vkDestroyShaderModule(mDevice, fragModule, nullptr);
-            return false;
+            std::vector<VkDescriptorSetLayoutBinding> b;
+            b.push_back(vkutil::MakeBinding_CombinedImageSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT));
+            set0 = vkutil::CreateDescriptorSetLayout(mDevice, b);
+            if (!set0)
+            {
+                std::cerr << "Mesh set0 layout failed: " << name << "\n";
+                return false;
+            }
         }
-    }
 
-    // set1: UBO 0..3 (MoltenVK対策：欠番なし)
-    VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
-    {
-        std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_UBO(
-            0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
-        b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-        b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-        b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-
-        set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set1)
+        // set1: UBO 0..3
+        VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
         {
-            std::cerr << "Mesh set1(Scene) layout failed\n";
+            std::vector<VkDescriptorSetLayoutBinding> b;
+            b.push_back(vkutil::MakeBinding_UBO(
+                0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
+            b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+            b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+            b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+
+            set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
+            if (!set1)
+            {
+                std::cerr << "Mesh set1 layout failed: " << name << "\n";
+                vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
+                return false;
+            }
+        }
+
+        VkPushConstantRange pc{};
+        pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pc.offset     = 0;
+        pc.size       = sizeof(Matrix4);
+
+        VkDescriptorSetLayout setLayouts[2] = { set0, set1 };
+
+        VkPipelineLayoutCreateInfo pl{};
+        pl.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pl.setLayoutCount         = 2;
+        pl.pSetLayouts            = setLayouts;
+        pl.pushConstantRangeCount = 1;
+        pl.pPushConstantRanges    = &pc;
+
+        VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+        if (vkCreatePipelineLayout(mDevice, &pl, nullptr, &pipelineLayout) != VK_SUCCESS)
+        {
+            std::cerr << "Mesh pipeline layout failed: " << name << "\n";
+            vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
             vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
-            vkDestroyShaderModule(mDevice, vertModule, nullptr);
-            vkDestroyShaderModule(mDevice, fragModule, nullptr);
             return false;
         }
-    }
 
-    VkPushConstantRange pc{};
-    pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pc.offset     = 0;
-    pc.size       = sizeof(Matrix4); // world only
+        VkGraphicsPipelineCreateInfo gp{};
+        gp.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        gp.stageCount          = 2;
+        gp.pStages             = stages;
+        gp.pVertexInputState   = &vi;
+        gp.pInputAssemblyState = &ia;
+        gp.pViewportState      = &vp;
+        gp.pRasterizationState = &rs;
+        gp.pMultisampleState   = &ms;
+        gp.pDepthStencilState  = &ds;
+        gp.pColorBlendState    = &cb;
+        gp.pDynamicState       = &dyn;
+        gp.layout              = pipelineLayout;
+        gp.renderPass          = mRenderPass;
+        gp.subpass             = 0;
 
-    VkDescriptorSetLayout setLayouts[2] = { set0, set1 };
+        VkPipeline pipeline = VK_NULL_HANDLE;
+        if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &gp, nullptr, &pipeline) != VK_SUCCESS)
+        {
+            std::cerr << "Mesh pipeline create failed: " << name << "\n";
+            vkDestroyPipelineLayout(mDevice, pipelineLayout, nullptr);
+            vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
+            vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
+            return false;
+        }
 
-    VkPipelineLayoutCreateInfo pl{};
-    pl.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl.setLayoutCount         = 2;
-    pl.pSetLayouts            = setLayouts;
-    pl.pushConstantRangeCount = 1;
-    pl.pPushConstantRanges    = &pc;
+        auto p = std::make_unique<VKPipeline>();
+        p->debugName      = name;
+        p->pipeline       = pipeline;
+        p->pipelineLayout = pipelineLayout;
+        p->setLayout0     = set0;
+        p->setLayout1     = set1;
+        p->renderPass     = mRenderPass;
 
-    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-    if (vkCreatePipelineLayout(mDevice, &pl, nullptr, &pipelineLayout) != VK_SUCCESS)
-    {
-        std::cerr << "Mesh pipeline layout failed\n";
-        vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
-        vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
-        vkDestroyShaderModule(mDevice, vertModule, nullptr);
-        vkDestroyShaderModule(mDevice, fragModule, nullptr);
-        return false;
-    }
+        mPipelines[name] = std::move(p);
+        return true;
+    };
 
-    VkGraphicsPipelineCreateInfo gp{};
-    gp.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    gp.stageCount          = 2;
-    gp.pStages             = stages;
-    gp.pVertexInputState   = &vi;
-    gp.pInputAssemblyState = &ia;
-    gp.pViewportState      = &vp;
-    gp.pRasterizationState = &rs;
-    gp.pMultisampleState   = &ms;
-    gp.pDepthStencilState  = &ds;
-    gp.pColorBlendState    = &cb;
-    gp.pDynamicState       = &dyn;
-    gp.layout              = pipelineLayout;
-    gp.renderPass          = mRenderPass;
-    gp.subpass             = 0;
+    //========================================================
+    // Create variants (DrawWorldのキーと一致させる)
+    //========================================================
+    bool ok = true;
 
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &gp, nullptr, &pipeline) != VK_SUCCESS)
-    {
-        std::cerr << "Mesh pipeline create failed\n";
-        vkDestroyPipelineLayout(mDevice, pipelineLayout, nullptr);
-        vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
-        vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
-        vkDestroyShaderModule(mDevice, vertModule, nullptr);
-        vkDestroyShaderModule(mDevice, fragModule, nullptr);
-        return false;
-    }
+    // 旧コード互換：まず "Mesh" をデフォルトとして作る（Back + CCW）
+    ok &= createVariant("Mesh", CullMode::Back, FrontFace::CCW);
 
-    auto p = std::make_unique<VKPipeline>();
-    p->debugName      = "Mesh";
-    p->pipeline       = pipeline;
-    p->pipelineLayout = pipelineLayout;
-    p->setLayout0     = set0;
-    p->setLayout1     = set1;
-    p->renderPass     = mRenderPass;
+    // 派生：ResolveWorldPipelineForItem が探すキーに合わせる
+    ok &= createVariant("Mesh_CullNone_CCW",  CullMode::None,  FrontFace::CCW);
+    ok &= createVariant("Mesh_CullBack_CCW",  CullMode::Back,  FrontFace::CCW);
+    ok &= createVariant("Mesh_CullFront_CCW", CullMode::Front, FrontFace::CCW);
 
-    mPipelines["Mesh"] = std::move(p);
+    // 必要なら CW 系も（今後の反転メッシュ/裏返し表現で使う）
+    ok &= createVariant("Mesh_CullNone_CW",  CullMode::None,  FrontFace::CW);
+    ok &= createVariant("Mesh_CullBack_CW",  CullMode::Back,  FrontFace::CW);
+    ok &= createVariant("Mesh_CullFront_CW", CullMode::Front, FrontFace::CW);
 
     vkDestroyShaderModule(mDevice, vertModule, nullptr);
     vkDestroyShaderModule(mDevice, fragModule, nullptr);
-    return true;
+
+    return ok;
 }
 
 } // namespace toy

@@ -58,7 +58,7 @@ bool Application::LoadSettings(const std::string& filePath)
     {
         std::string backend;
         JsonHelper::GetString(data, "renderer_backend", backend);
-        if (backend == "VK")
+        if (backend == "VK" || backend == "Vulkan" || backend == "VULKAN")
         {
             RenderBackendState::Get().Set(RenderBackendType::Vulkan);
         }
