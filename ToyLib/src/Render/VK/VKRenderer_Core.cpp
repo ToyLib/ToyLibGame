@@ -533,6 +533,22 @@ bool VKRenderer::Initialize(const Application* app)
     
     CreateSpriteVerts();
     
+    
+    
+    // Default view/proj
+    mViewMatrix = Matrix4::CreateLookAt(
+        Vector3(0, 0.5f, -3),
+        Vector3(0, 0, 10),
+        Vector3::UnitY
+    );
+    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mPerspectiveFOV),
+        mScreenWidth,
+        mScreenHeight,
+        1.0f,
+        2000.0f
+    );
+    
     if (!CreateDummyWhiteResources())
     {
         std::cerr << "[VKRenderer] DummyWhite create failed\n";

@@ -23,27 +23,27 @@ void VKTest::InitGame()
     mAct = CreateActor<toy::Actor>();
     auto mesh = mAct->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-    mesh->SetLocalScale(0.1f);
-    mAct->SetPosition(Vector3(0.0, 0.0f, 30.0f));
+    mesh->SetLocalScale(0.3f);
+    mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
     
 }
 
 static float r = 0.0f;
 static float g = 0.0f;
 static float b = 0.5f;
-static float ang = 0.0f;
+static float ang = 30.0f;
 
 void VKTest::UpdateGame(float deltaTime)
 {
     auto renderer = GetRenderer();
-    r += 0.01f;
+    //r += 0.01f;
     if (r > 1.0f) r = 0.0f;
 
     renderer->SetClearColor(Vector3(r, g, b));
     
     
-    ang += 0.1f;
-    Quaternion q = Quaternion(Vector3::UnitY, ang);
+    ang += 0.5f;
+    Quaternion q = Quaternion(Vector3::UnitX, Math::ToRadians(ang));
     mAct->SetRotation(q);
 }
 

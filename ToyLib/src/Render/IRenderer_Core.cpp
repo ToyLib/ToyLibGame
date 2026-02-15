@@ -43,6 +43,8 @@ IRenderer::IRenderer()
 {
     mLightingManager = std::make_shared<LightingManager>();
     LoadSettings("ToyLib/Settings/Renderer_Settings.json");
+    
+
 }
 
 IRenderer::~IRenderer()

@@ -274,21 +274,46 @@ static inline void WriteUBO(VkDevice dev, VkDeviceMemory mem, const void* src, s
     vkUnmapMemory(dev, mem);
 }
 
+static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
+{
+    Matrix4 c = Matrix4::Identity;
+
+    // x' = x
+    c.mat[0][0] = 1.0f;
+
+    // y' = -y
+    c.mat[1][1] = -1.0f;
+
+    // z' = 0.5*z + 0.5*w
+    c.mat[2][2] = 0.5f;
+    c.mat[3][2] = 0.5f;
+
+    // w' = w
+    c.mat[3][3] = 1.0f;
+
+    return c;
+}
+
 void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
 {
     if (!mWorldCommonUBOMem) return;
 
     UBO_WorldCommon u{};
-    u.uViewProj = GetViewMatrix() * GetProjectionMatrix(); // row-vector: View * Proj
+
+    // row-vector: worldPos * (View*Proj*Corr)
+    const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix();
+    const Matrix4 corr = MakeGLtoVK_ClipCorrection_RowVector();
+
+    u.uViewProj = vpGL * corr;
 
     const Vector3 cam = GetCameraPosition();
     u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
 
-    // defaults (you can later wire LightingManager)
+    // defaults
     u.uAmbientLight[0] = 0.2f; u.uAmbientLight[1] = 0.2f; u.uAmbientLight[2] = 0.2f; u.uAmbientLight[3] = 0.0f;
 
-    u.uFogParams[0] = 999999.0f; // max
-    u.uFogParams[1] = 999998.0f; // min (almost disabled)
+    u.uFogParams[0] = 999999.0f;
+    u.uFogParams[1] = 999998.0f;
     u.uFogParams[2] = 0.0f;
     u.uFogParams[3] = 0.0f;
 
@@ -297,13 +322,13 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
     u.uLightViewProj0 = Matrix4::Identity;
     u.uLightViewProj1 = Matrix4::Identity;
 
-    u.uShadowParams0[0] = 0.0f;  // split0
-    u.uShadowParams0[1] = 0.0f;  // blend
-    u.uShadowParams0[2] = 0.0f;  // bias
+    u.uShadowParams0[0] = 0.0f;
+    u.uShadowParams0[1] = 0.0f;
+    u.uShadowParams0[2] = 0.0f;
     u.uShadowParams0[3] = 0.0f;
 
     u.uShadowParams1[0] = 0; // useShadow
-    u.uShadowParams1[1] = 0; // useToon (per-itemで MaterialParams 側でもよいが、今は 0)
+    u.uShadowParams1[1] = 0; // useToon
     u.uShadowParams1[2] = 0;
     u.uShadowParams1[3] = 0;
 
