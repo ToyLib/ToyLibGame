@@ -115,9 +115,9 @@ bool VKRenderer::CreateMeshPipeline()
 
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable  = VK_FALSE;
-    ds.depthWriteEnable = VK_FALSE;
-    ds.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
+    ds.depthTestEnable  = VK_TRUE;
+    ds.depthWriteEnable = VK_TRUE;
+    ds.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     VkPipelineColorBlendAttachmentState cbAttach{};
     cbAttach.colorWriteMask =
@@ -145,61 +145,40 @@ bool VKRenderer::CreateMeshPipeline()
     //========================================================
     // Descriptor set layouts
     //========================================================
-
-    // set0: Material (Diffuse texture)
+    // set0: Material (Diffuse texture sampler)
     VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
         b.push_back(vkutil::MakeBinding_CombinedImageSampler(
             0, VK_SHADER_STAGE_FRAGMENT_BIT));
+
         set0 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set0)
-        {
-            std::cerr << "Mesh set0 layout failed\n";
-            vkDestroyShaderModule(mDevice, vertModule, nullptr);
-            vkDestroyShaderModule(mDevice, fragModule, nullptr);
-            return false;
-        }
+        if (!set0) { std::cerr << "Mesh set0(Texture) layout failed\n"; return false; }
     }
 
-    // set1: Scene/Common （方針B：まずは UBO のみ）
+    // set1: Scene/Common (UBO群)  ★bindingを詰める（0..3）
     VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
 
-        // binding0: WorldCommon UBO (vertex+frag)
+        // 0: WorldCommon UBO (VS+FS)
         b.push_back(vkutil::MakeBinding_UBO(
-            0,
-            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
-            1));
+            0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
 
-        // binding3: MaterialParams UBO (frag)
+        // 1: MaterialParams UBO (FS)
         b.push_back(vkutil::MakeBinding_UBO(
-            3,
-            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
-            1));
+            1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
-        // binding4: DirLightBlock UBO (frag)
+        // 2: DirLight UBO (FS)
         b.push_back(vkutil::MakeBinding_UBO(
-            4,
-            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
-            1));
+            2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
-        // binding5: PointLightBlock UBO (frag)
+        // 3: PointLightBlock UBO (FS)
         b.push_back(vkutil::MakeBinding_UBO(
-            5,
-            static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT),
-            1));
+            3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
         set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (!set1)
-        {
-            std::cerr << "Mesh set1 layout failed\n";
-            vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
-            vkDestroyShaderModule(mDevice, vertModule, nullptr);
-            vkDestroyShaderModule(mDevice, fragModule, nullptr);
-            return false;
-        }
+        if (!set1) { std::cerr << "Mesh set1(Scene) layout failed\n"; return false; }
     }
 
     //========================================================

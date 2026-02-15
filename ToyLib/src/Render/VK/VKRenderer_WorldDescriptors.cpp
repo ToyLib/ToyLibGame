@@ -109,7 +109,29 @@ static bool CreateHostVisibleUBO(
 //============================================================
 // EnsureWorldDescriptors
 //============================================================
+inline void WriteDesc_CombinedImageSampler(VkDevice device,
+                                          VkDescriptorSet set,
+                                          uint32_t binding,
+                                          VkImageView view,
+                                          VkSampler sampler,
+                                          VkImageLayout layout)
+{
+    VkDescriptorImageInfo ii{};
+    ii.imageView   = view;
+    ii.sampler     = sampler;
+    ii.imageLayout = layout;
 
+    VkWriteDescriptorSet w{};
+    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet          = set;
+    w.dstBinding      = binding;
+    w.dstArrayElement = 0;
+    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.descriptorCount = 1;
+    w.pImageInfo      = &ii;
+
+    vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
+}
 bool VKRenderer::EnsureWorldDescriptors()
 {
     if (mWorldDescPool != VK_NULL_HANDLE && !mWorldDescSets.empty())
@@ -138,8 +160,9 @@ bool VKRenderer::EnsureWorldDescriptors()
         return false;
     }
 
-    // --- UBO buffers ------------------------------------------------
-
+    // ------------------------------------------------------------
+    // UBO buffers（あなたの現状：1本ずつ・mappedは別管理 or Update関数内で map）
+    // ------------------------------------------------------------
     if (mWorldCommonUBO == VK_NULL_HANDLE)
     {
         if (!CreateHostVisibleUBO(
@@ -188,8 +211,9 @@ bool VKRenderer::EnsureWorldDescriptors()
         }
     }
 
-    // --- Descriptor pool (UBO ×4) ----------------------------------
-
+    // ------------------------------------------------------------
+    // Descriptor pool（UBO x4 / set = imageCount）
+    // ------------------------------------------------------------
     VkDescriptorPoolSize poolUBO{};
     poolUBO.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolUBO.descriptorCount = imageCount * 4;
@@ -202,11 +226,13 @@ bool VKRenderer::EnsureWorldDescriptors()
 
     if (vkCreateDescriptorPool(mDevice, &pci, nullptr, &mWorldDescPool) != VK_SUCCESS)
     {
+        std::cerr << "[VKRenderer] vkCreateDescriptorPool failed\n";
         return false;
     }
 
-    // --- Allocate sets ----------------------------------------------
-
+    // ------------------------------------------------------------
+    // Allocate sets（layout = setLayout1）
+    // ------------------------------------------------------------
     mWorldDescSets.resize(imageCount);
 
     std::vector<VkDescriptorSetLayout> layouts(imageCount, meshPipe->setLayout1);
@@ -219,28 +245,33 @@ bool VKRenderer::EnsureWorldDescriptors()
 
     if (vkAllocateDescriptorSets(mDevice, &ai, mWorldDescSets.data()) != VK_SUCCESS)
     {
+        std::cerr << "[VKRenderer] vkAllocateDescriptorSets failed\n";
         return false;
     }
 
-    // --- Update sets ------------------------------------------------
-
+    // ------------------------------------------------------------
+    // Update sets：binding 0..3 を必ず全部書く ★ここが本命
+    // ------------------------------------------------------------
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         VkDescriptorSet set = mWorldDescSets[i];
 
         vkutil::WriteDesc_UBO(mDevice, set, 0, mWorldCommonUBO,    sizeof(UBO_WorldCommon));
-        vkutil::WriteDesc_UBO(mDevice, set, 3, mMaterialParamsUBO, sizeof(UBO_MaterialParams));
-        vkutil::WriteDesc_UBO(mDevice, set, 4, mDirLightUBO,       sizeof(UBO_DirLight));
-        vkutil::WriteDesc_UBO(mDevice, set, 5, mPointLightUBO,     sizeof(UBO_PointLightBlock));
+        vkutil::WriteDesc_UBO(mDevice, set, 1, mMaterialParamsUBO, sizeof(UBO_MaterialParams));
+        vkutil::WriteDesc_UBO(mDevice, set, 2, mDirLightUBO,       sizeof(UBO_DirLight));
+        vkutil::WriteDesc_UBO(mDevice, set, 3, mPointLightUBO,     sizeof(UBO_PointLightBlock));
     }
 
+    // 初期更新（あなたの Update 関数が map/unmap するならそれでOK）
     UpdateWorldCommonUBO(0);
     UpdateDirLightUBO();
     UpdatePointLightUBO();
 
+    // もし MaterialParams も別関数なら呼ぶ（なければ UpdateMaterialParamsUBO を後で追加）
+    // UpdateMaterialParamsUBO();
+
     return true;
 }
-
 //============================================================
 // Destroy
 //============================================================

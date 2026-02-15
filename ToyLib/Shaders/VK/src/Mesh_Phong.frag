@@ -6,10 +6,15 @@ layout(location = 2) in vec3 fragWorldPos;
 
 layout(location = 0) out vec4 outColor;
 
+//============================================================
 // set0: Material (Diffuse)
+//============================================================
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
 
+//============================================================
 // set1: Scene/Common
+//  ※ MoltenVK 対策：binding を欠番なしで 0..3 に詰める
+//============================================================
 layout(set = 1, binding = 0, std140) uniform WorldCommon
 {
     mat4 uViewProj;
@@ -23,23 +28,28 @@ layout(set = 1, binding = 0, std140) uniform WorldCommon
     vec3  uFogColor;
     float _pad3;
 
-    // Shadow / CSM (使わないが、UBO互換維持のため残す)
+    // Shadow / CSM（互換維持用に残す：今は使わない）
     mat4  uLightViewProj0;
     mat4  uLightViewProj1;
     float uCascadeSplit0;
     float uCascadeBlend;
     float uShadowBias;
-    int   uUseShadow;   // 0/1 (今は常に 0 を想定)
+    int   uUseShadow;   // 0/1（今は常に 0 想定）
     int   uUseToon;     // 0/1
     float _pad4;
 } sc;
 
-// shadow maps（今は無効化：ShadowMapping 実装までコメントアウト）
-// layout(set = 1, binding = 1) uniform sampler2DShadow uShadowMap0;
-// layout(set = 1, binding = 2) uniform sampler2DShadow uShadowMap1;
+//============================================================
+// Shadow maps（実装再開用：今は無効）
+//  ※ 連番維持のため、復活させるなら set=1 binding=4,5 などで追加推奨
+//============================================================
+// layout(set = 1, binding = 4) uniform sampler2DShadow uShadowMap0;
+// layout(set = 1, binding = 5) uniform sampler2DShadow uShadowMap1;
 
-// Material params
-layout(set = 1, binding = 3, std140) uniform MaterialParams
+//============================================================
+// Material params  (set1 binding=1)
+//============================================================
+layout(set = 1, binding = 1, std140) uniform MaterialParams
 {
     vec3  uDiffuseColor; int uUseTexture;    // 0/1
     vec3  uUniformColor; int uOverrideColor; // 0/1
@@ -49,19 +59,24 @@ layout(set = 1, binding = 3, std140) uniform MaterialParams
     float _padM2;
 } mp;
 
-// DirLight
+//============================================================
+// DirLight (set1 binding=2)
+//============================================================
 struct DirectionalLight
 {
     vec3 mDirection;    float _p0;
     vec3 mDiffuseColor; float _p1;
     vec3 mSpecColor;    float _p2;
 };
-layout(set = 1, binding = 4, std140) uniform DirLightBlock
+
+layout(set = 1, binding = 2, std140) uniform DirLightBlock
 {
     DirectionalLight uDirLight;
 } dl;
 
-// PointLight（最大8）
+//============================================================
+// PointLight (set1 binding=3)
+//============================================================
 struct PointLight
 {
     vec3 position; float intensity;
@@ -71,17 +86,23 @@ struct PointLight
     float radius;
     float _p;
 };
-layout(set = 1, binding = 5, std140) uniform PointLightBlock
+
+layout(set = 1, binding = 3, std140) uniform PointLightBlock
 {
     int uNumPointLights;
     int _pA; int _pB; int _pC;
     PointLight uPointLights[8];
 } pl;
 
+//============================================================
 // Toon const
+//============================================================
 const float toonDiffuseThreshold = 0.5;
 const float toonSpecThreshold    = 0.95;
 
+//------------------------------------------------------------
+// Lighting helpers
+//------------------------------------------------------------
 vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 {
     vec3 result = vec3(0.0);
@@ -146,7 +167,9 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
     return result * light.intensity * attenuation;
 }
 
-// ShadowPCF（今は無効化：ShadowMapping 実装までコメントアウト）
+//============================================================
+// ShadowPCF（実装再開用：今は無効）
+//============================================================
 /*
 float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
 {
@@ -181,51 +204,63 @@ float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
 
 void main()
 {
+    //========================================================
     // Fog
+    //========================================================
     float dist = length(sc.uCameraPos - fragWorldPos);
     float fogFactor = clamp(
-        (sc.uFogMaxDist - dist) / (sc.uFogMaxDist - sc.uFogMinDist),
-        0.0, 1.0);
-
+                            (sc.uFogMaxDist - dist) / (sc.uFogMaxDist - sc.uFogMinDist),
+                            0.0, 1.0);
+    
+    //========================================================
     // override color
+    //========================================================
     if (mp.uOverrideColor != 0)
     {
         vec3 col = mix(sc.uFogColor, mp.uUniformColor, fogFactor);
         outColor = vec4(col, 1.0);
         return;
     }
-
+    
+    //========================================================
+    // Lighting
+    //========================================================
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(sc.uCameraPos - fragWorldPos);
     vec3 L = normalize(-dl.uDirLight.mDirection);
-
+    
     vec3 lighting = sc.uAmbientLight + ComputeLighting(N, V, L);
-
+    
     for (int i = 0; i < pl.uNumPointLights; ++i)
     {
         lighting += ComputePointLight(pl.uPointLights[i], N, V, fragWorldPos);
     }
-
-    // Shadow 無効（ダミー不要化のため固定値）
+    
+    //========================================================
+    // Shadow（今は無効：固定で 1.0）
+    //========================================================
     float shadowFactor = 1.0;
-
-    // 影処理（今は無効化：ShadowMapping 実装までコメントアウト）
+    
+    // 影処理（実装再開用：今は無効）
     /*
-    float shadowFactor = 1.0;
-    if (sc.uUseShadow != 0)
-    {
-        float s0 = ShadowPCF(uShadowMap0, sc.uLightViewProj0, fragWorldPos);
-        float s1 = ShadowPCF(uShadowMap1, sc.uLightViewProj1, fragWorldPos);
-
-        float t = smoothstep(
-            sc.uCascadeSplit0 - sc.uCascadeBlend,
-            sc.uCascadeSplit0 + sc.uCascadeBlend,
-            dist);
-
-        shadowFactor = mix(s0, s1, t);
-    }
-    */
-
+     float shadowFactor = 1.0;
+     if (sc.uUseShadow != 0)
+     {
+     float s0 = ShadowPCF(uShadowMap0, sc.uLightViewProj0, fragWorldPos);
+     float s1 = ShadowPCF(uShadowMap1, sc.uLightViewProj1, fragWorldPos);
+     
+     float t = smoothstep(
+     sc.uCascadeSplit0 - sc.uCascadeBlend,
+     sc.uCascadeSplit0 + sc.uCascadeBlend,
+     dist);
+     
+     shadowFactor = mix(s0, s1, t);
+     }
+     */
+    
+    //========================================================
+    // Base color
+    //========================================================
     vec4 baseColor;
     if (mp.uUseTexture != 0)
     {
@@ -235,9 +270,11 @@ void main()
     {
         baseColor = vec4(mp.uDiffuseColor, 1.0);
     }
-
+    
     baseColor.rgb *= lighting * shadowFactor;
-
+    
     vec3 finalColor = mix(sc.uFogColor, baseColor.rgb, fogFactor);
     outColor = vec4(finalColor, baseColor.a);
+    float d = length(fragWorldPos);          // ワールド原点からの距離
+    outColor = vec4(vec3(clamp(d * 0.02, 0.0, 1.0)), 1.0);
 }

@@ -23,7 +23,7 @@ void VKTest::InitGame()
     auto islandActor = CreateActor<toy::Actor>();
     auto islandMesh = islandActor->CreateComponent<toy::MeshComponent>();
     islandMesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-    islandActor->SetPosition(Vector3(0.0, 0.0f, 10.0f));
+    islandActor->SetPosition(Vector3(0.0, 0.0f, 30.0f));
     
 }
 

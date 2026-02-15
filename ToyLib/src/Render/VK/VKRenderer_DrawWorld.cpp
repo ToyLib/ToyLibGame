@@ -71,52 +71,64 @@ inline bool GetVKGeometry(const RenderItem& it,
 } // unnamed
 
 // ------------------------------------------------------------
-// VKRenderer: World common/material binding (minimum)
+// VKRenderer: World common/material binding (fixed)
 // ------------------------------------------------------------
 void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
-                                const VKPipeline& p,
-                                const RenderItem& it)
+                                 const VKPipeline& p,
+                                 const RenderItem& it)
 {
-    // Push constants: world + viewProj
-    PC_World pc{};
-    pc.world    = it.world;
-    pc.viewProj = it.viewProj;
+    // 1) Push constants: world only（viewProj は UBO 側）
+    Matrix4 world = it.world;
 
     vkCmdPushConstants(cmd,
                        p.pipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT,
                        0,
-                       (uint32_t)sizeof(PC_World),
-                       &pc);
+                       (uint32_t)sizeof(Matrix4),
+                       &world);
+
+    // 2) Bind set1: Scene/Common UBOs（binding 0..3）
+    //    EnsureWorldDescriptors() が作ったやつを使う
+    if (mWorldDescSets.empty()) return;
+
+    const uint32_t img = mImageIndex; // AcquireNextImage の index
+    if (img >= (uint32_t)mWorldDescSets.size()) return;
+
+    VkDescriptorSet set1 = mWorldDescSets[img];
+    vkCmdBindDescriptorSets(cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            p.pipelineLayout,
+                            /*firstSet*/ 1,
+                            /*descriptorSetCount*/ 1,
+                            &set1,
+                            0, nullptr);
 }
 
 void VKRenderer::BindWorldMaterial(VkCommandBuffer cmd,
-                                  const VKPipeline& p,
-                                  const RenderItem& it)
+                                   const VKPipeline& p,
+                                   const RenderItem& it)
 {
-    // 今は “Diffuse 1枚” だけ（Sprite と同じ combined image sampler）
-    // ※将来 Scene(ライト/影/フォグ) を set1 に追加する
+    // set0: Diffuse sampler
     TextureHandle texH{};
 
     if (it.material.ptr)
     {
-        // Material から DiffuseMap を取る実装に合わせてここを書き換え
-        // 例：texH = it.material.ptr->GetDiffuseTextureHandle();
-        texH = it.material.ptr->GetDiffuseTextureHandle(); // ★仮：あなたのAPIに合わせて調整
+        texH = it.material.ptr->GetDiffuseTextureHandle();
     }
+    // ない場合は「白1x1」などのダミーにするのが安全
+    // texH が無効なら GetOrCreateSpriteDescSet 側でダミーを返す設計でもOK
 
-    VkDescriptorSet set0 = GetOrCreateSpriteDescSet(texH); // ★World用を用意（Sprite流用でもOK）
+    VkDescriptorSet set0 = GetOrCreateSpriteDescSet(texH);
+    if (set0 == VK_NULL_HANDLE) return;
 
-    if (set0)
-    {
-        vkCmdBindDescriptorSets(cmd,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                p.pipelineLayout,
-                                0, // set=0
-                                1,
-                                &set0,
-                                0, nullptr);
-    }
+    // ★重要：set0 は firstSet=0
+    vkCmdBindDescriptorSets(cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            p.pipelineLayout,
+                            /*firstSet*/ 0,
+                            /*descriptorSetCount*/ 1,
+                            &set0,
+                            0, nullptr);
 }
 
 // ------------------------------------------------------------
@@ -157,12 +169,7 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     BindWorldMaterial(cmd, *pipe, it);
 
     
-    std::cerr << "[VK] bind set1: sets=" << mWorldDescSets.size()
-              << " img=" << mImageIndex
-              << " set=" << (void*)mWorldDescSets[mImageIndex]
-              << " ubo=" << (void*)mWorldCommonUBO
-              << "\n";
-    
+
     // Draw
     vkCmdDrawIndexed(cmd, indexCount, 1, 0, 0, 0);
     AddDrawCall();

@@ -245,6 +245,16 @@ private:
     // Pipelines storage
     //--------------------------------------------------------------------------
     std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
+    
+    // -----------------------------------------------------------------------------
+    // Dummy shadow resources (temporary until real shadow mapping)
+    //  - Used to satisfy shader bindings when shadow is not implemented.
+    // -----------------------------------------------------------------------------
+    VkImage        mDummyShadowImage      { VK_NULL_HANDLE };
+    VkDeviceMemory mDummyShadowMem        { VK_NULL_HANDLE };
+    VkImageView    mDummyShadowImageView  { VK_NULL_HANDLE };
+    VkSampler      mDummyShadowSampler    { VK_NULL_HANDLE };
+
 };
 
 } // namespace toy

@@ -22,6 +22,7 @@ Component::Component(Actor* a, int order)
 // デストラクタ（基底では特別な処理なし）
 Component::~Component()
 {
+    
 }
 
 // 毎フレーム更新（基底では何もしない）
