@@ -375,7 +375,7 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
 void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
 {
     if (!mMaterialParamsUBOMem) return;
-
+/*
     // ===== アウトライン専用（RenderItem override） =====
     // 裏返し拡大メッシュを “単色塗り” するための経路
     if (it.overrideColor)
@@ -398,13 +398,13 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
         WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
         return;
     }
-
+*/
     // ===== 通常メッシュ（Material反映） =====
     Vector3 diffuse(0.8f, 0.8f, 0.8f);     // Material default に合わせる
     Vector3 ucol(0.0f, 0.0f, 0.0f);
 
     int   useTex      = 0;
-    int   overrideCol = 0;                // ←「アウトライン」は上で return 済みなので基本 0
+    //int   overrideCol = 0;                // ←「アウトライン」は上で return 済みなので基本 0
     float specPower   = 32.0f;
 
     if (it.material.ptr)
@@ -428,12 +428,35 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
     u.uDiffuseColor[0] = diffuse.x;
     u.uDiffuseColor[1] = diffuse.y;
     u.uDiffuseColor[2] = diffuse.z;
-    u.uUseTexture      = useTex;
 
-    u.uUniformColor[0] = ucol.x;
-    u.uUniformColor[1] = ucol.y;
-    u.uUniformColor[2] = ucol.z;
-    u.uOverrideColor   = overrideCol;
+    u.uOverrideColor   = it.overrideColor;
+    std::cout << "Override = " << it.overrideColor << std::endl;
+    if (it.overrideColor)
+    {
+        u.uUniformColor[0] = 0.0f;//it.overrideColorValue.x;
+        u.uUniformColor[1] = 0.0f;//it.overrideColorValue.y;
+        u.uUniformColor[2] = 0.0f;//it.overrideColorValue.z;
+        u.uUseTexture      = 0;
+
+        u.uSpecPower = specPower;
+        u._padM0 = u._padM1 = u._padM2 = 0.0f;
+
+        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
+        return;
+    }
+    else
+    {
+        u.uUseTexture      = useTex;
+        u.uUniformColor[0] = ucol.x;
+        u.uUniformColor[1] = ucol.y;
+        u.uUniformColor[2] = ucol.z;
+        u.uSpecPower = specPower;
+        u._padM0 = u._padM1 = u._padM2 = 0.0f;
+
+        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
+        return;
+    }
+    
 
     u.uSpecPower = specPower;
     u._padM0 = u._padM1 = u._padM2 = 0.0f;

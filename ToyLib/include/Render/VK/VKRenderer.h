@@ -94,6 +94,7 @@ private:
     //--------------------------------------------------------------------------
     void DrawBucket_WorldVK(const std::vector<uint32_t>& bucket);
     void DrawWorldItem_VK(const RenderItem& it);
+    VKPipeline* ResolveWorldPipelineForItem(const RenderItem& it);
 
 private:
     //--------------------------------------------------------------------------

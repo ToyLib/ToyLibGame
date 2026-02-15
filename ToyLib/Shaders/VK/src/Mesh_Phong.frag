@@ -219,6 +219,7 @@ void main()
     {
         vec3 col = mix(sc.uFogColor, mp.uUniformColor, fogFactor);
         outColor = vec4(col, 1.0);
+        outColor = vec4(mp.uUniformColor, 1.0);
         return;
     }
     
