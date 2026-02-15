@@ -62,7 +62,6 @@ void main()
 
     // 法線も行ベクトルに合わせる
     // ※ 非一様スケールがあるなら inverse-transpose が理想だけど、まずはこれでOK
-    //fragNormal   = normalize(inNormal * mat3(pc.uWorldTransform));
-    fragNormal   = normalize(mat3(pc.uWorldTransform) * inNormal);
+    fragNormal   = normalize(inNormal * mat3(pc.uWorldTransform));
     fragTexCoord = inTexCoord;
 }

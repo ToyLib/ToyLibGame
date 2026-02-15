@@ -5,7 +5,8 @@ VKTest::VKTest()
 : toy::Application()
 {
     GetAssetManager()->SetAssetsPath("ToyGame/Assets/VKTest/");
-    toy::RenderBackendState::Get().Set(toy::RenderBackendType::OpenGL);
+    toy::RenderBackendState::Get().Set(toy::RenderBackendType::Vulkan);
+    
 }
 
 VKTest::~VKTest()
@@ -14,6 +15,15 @@ VKTest::~VKTest()
 
 void VKTest::InitGame()
 {
+
+    auto lm = GetRenderer()->GetLightingManager();
+    toy::DirectionalLight dirLight;
+    dirLight.Position = Vector3(1.0f, 1.0f, 1.0f);
+    dirLight.Target = Vector3(0.0f, 0.0f, 0.0f);
+    dirLight.DiffuseColor = Vector3(0.4f, 0.0f, 0.0f);
+    lm->SetDirectionalLight(dirLight);
+    lm->SetAmbientColor(Vector3(0.5f, 0.5f, 0.5f));
+
     
     auto a = CreateActor<toy::Actor>();
     auto sp = a->CreateComponent<toy::SpriteComponent>();
@@ -25,7 +35,7 @@ void VKTest::InitGame()
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
     mesh->SetLocalScale(0.3f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
-    mesh->SetToonRender(true);
+    mesh->SetToonRender(false);
     
 }
 
@@ -44,7 +54,7 @@ void VKTest::UpdateGame(float deltaTime)
     
     
     ang += 0.5f;
-    Quaternion q = Quaternion(Vector3::UnitX, Math::ToRadians(ang));
+    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(ang));
     mAct->SetRotation(q);
 }
 

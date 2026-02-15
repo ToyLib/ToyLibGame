@@ -10,6 +10,7 @@
 #include "Asset/Material/Material.h"    // あるなら
 #include "Render/RenderHandles.h"       // TextureHandle, MaterialHandle
 #include "Utils/MathUtil.h"             // Matrix4, Vector3
+#include "Render/LightingManager.h"
 
 #include <vulkan/vulkan.h>
 #include <cstring>
@@ -336,8 +337,18 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
     const Vector3 cam = GetCameraPosition();
     u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
 
-    u.uAmbientLight[0] = 0.2f; u.uAmbientLight[1] = 0.2f; u.uAmbientLight[2] = 0.2f; u.uAmbientLight[3] = 0.0f;
+    u.uAmbientLight[0] = 0.2f;
+    u.uAmbientLight[1] = 0.2f;
+    u.uAmbientLight[2] = 0.2f;
+    u.uAmbientLight[3] = 0.0f;
 
+    Vector3 ambColor = mLightingManager->GetAmbientColor();
+    u.uAmbientLight[0] = ambColor.x;
+    u.uAmbientLight[1] = ambColor.y;
+    u.uAmbientLight[2] = ambColor.z;
+    u.uAmbientLight[3] = 0.0f;
+
+    
     u.uFogMaxDist = 999999.0f;
     u.uFogMinDist = 999998.0f;
     u._pad2[0] = 0.0f;
@@ -380,7 +391,8 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
         u.uUniformColor[2] = it.overrideColorValue.z;
         u.uOverrideColor   = 1;            // ★単色で return させる
 
-        u.uSpecPower = 1.0f;               // 使わないけど適当でOK
+        u.uSpecPower = it.material.ptr->GetSpecPower();
+        
         u._padM0 = u._padM1 = u._padM2 = 0.0f;
 
         WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
