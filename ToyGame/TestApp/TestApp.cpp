@@ -25,6 +25,7 @@ void VKTest::InitGame()
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
     mesh->SetLocalScale(0.3f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
+    mesh->SetToonRender(true);
     
 }
 

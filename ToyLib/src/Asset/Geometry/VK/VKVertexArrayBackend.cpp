@@ -346,7 +346,7 @@ void VKVertexArrayBackend::Unload()
 
     if (mIB != VK_NULL_HANDLE)
     {
-        //vkDestroyBuffer(mDevice, mIB, nullptr);
+        vkDestroyBuffer(mDevice, mIB, nullptr);
         mIB = VK_NULL_HANDLE;
     }
     if (mIBMem != VK_NULL_HANDLE)
@@ -357,7 +357,7 @@ void VKVertexArrayBackend::Unload()
 
     if (mVB != VK_NULL_HANDLE)
     {
-        //vkDestroyBuffer(mDevice, mVB, nullptr);
+        vkDestroyBuffer(mDevice, mVB, nullptr);
         mVB = VK_NULL_HANDLE;
     }
     if (mVBMem != VK_NULL_HANDLE)
