@@ -14,54 +14,43 @@
 #include <vector>
 #include <array>
 
-namespace toy
+namespace toy {
+
+
+// VertexArray の SpriteQuad(8 floats) を想定:
+// pos3 + normal3(dummy) + uv2
+static VkVertexInputBindingDescription MakeSpriteBinding()
 {
+    VkVertexInputBindingDescription b{};
+    b.binding   = 0;
+    b.stride    = sizeof(float) * 8;
+    b.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return b;
+}
 
-namespace
+static std::array<VkVertexInputAttributeDescription, 3> MakeSpriteAttributes()
 {
-    // VKRenderer_DrawUI.cpp と同じ PushConstants 定義（サイズ一致が重要）
-    struct SpritePush
-    {
-        float world[16];
-        float viewProj[16];
-        float colorAlpha[4];
-    };
+    std::array<VkVertexInputAttributeDescription, 3> a{};
 
-    // VertexArray の SpriteQuad(8 floats) を想定:
-    // pos3 + normal3(dummy) + uv2
-    static VkVertexInputBindingDescription MakeSpriteBinding()
-    {
-        VkVertexInputBindingDescription b{};
-        b.binding   = 0;
-        b.stride    = sizeof(float) * 8;
-        b.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        return b;
-    }
+    // location=0 vec3 inPosition
+    a[0].location = 0;
+    a[0].binding  = 0;
+    a[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    a[0].offset   = 0;
 
-    static std::array<VkVertexInputAttributeDescription, 3> MakeSpriteAttributes()
-    {
-        std::array<VkVertexInputAttributeDescription, 3> a{};
+    // location=1 vec3 inNormal (unused)
+    a[1].location = 1;
+    a[1].binding  = 0;
+    a[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    a[1].offset   = sizeof(float) * 3;
 
-        // location=0 vec3 inPosition
-        a[0].location = 0;
-        a[0].binding  = 0;
-        a[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-        a[0].offset   = 0;
+    // location=2 vec2 inTexCoord
+    a[2].location = 2;
+    a[2].binding  = 0;
+    a[2].format   = VK_FORMAT_R32G32_SFLOAT;
+    a[2].offset   = sizeof(float) * 6;
 
-        // location=1 vec3 inNormal (unused)
-        a[1].location = 1;
-        a[1].binding  = 0;
-        a[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-        a[1].offset   = sizeof(float) * 3;
-
-        // location=2 vec2 inTexCoord
-        a[2].location = 2;
-        a[2].binding  = 0;
-        a[2].format   = VK_FORMAT_R32G32_SFLOAT;
-        a[2].offset   = sizeof(float) * 6;
-
-        return a;
-    }
+    return a;
 }
 
 //--------------------------------------------------------------
@@ -75,69 +64,91 @@ bool VKRenderer::CreateSpritePipeline()
         return false;
     }
 
-    // 既存があれば破棄して作り直し（最小）
-    auto itOld = mPipelines.find("Sprite");
-    if (itOld != mPipelines.end() && itOld->second)
+    //========================================================
+    // (0) 共有 set0(Texture) を確保（Worldと共用）
+    //========================================================
+    if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
     {
-        VKPipeline* old = itOld->second.get();
+        std::vector<VkDescriptorSetLayoutBinding> b;
+        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
+            0, VK_SHADER_STAGE_FRAGMENT_BIT));
 
-        if (old->pipeline)
+        mWorldSetLayout0_Texture = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
         {
-            vkDestroyPipeline(mDevice, old->pipeline, nullptr);
-            old->pipeline = VK_NULL_HANDLE;
-        }
-        if (old->pipelineLayout)
-        {
-            vkDestroyPipelineLayout(mDevice, old->pipelineLayout, nullptr);
-            old->pipelineLayout = VK_NULL_HANDLE;
-        }
-        if (old->setLayout0)
-        {
-            vkDestroyDescriptorSetLayout(mDevice, old->setLayout0, nullptr);
-            old->setLayout0 = VK_NULL_HANDLE;
-        }
-    }
-
-    // 新規
-    auto pipeUP = std::make_unique<VKPipeline>();
-    VKPipeline* pipe = pipeUP.get();
-
-    //----------------------------------------------------------
-    // (1) DescriptorSetLayout: set=0 binding=0 sampler2D
-    //----------------------------------------------------------
-    {
-        VkDescriptorSetLayoutBinding b{};
-        b.binding            = 0;
-        b.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        b.descriptorCount    = 1;
-        b.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-        b.pImmutableSamplers = nullptr;
-
-        VkDescriptorSetLayoutCreateInfo ci{};
-        ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        ci.bindingCount = 1;
-        ci.pBindings    = &b;
-
-        if (vkCreateDescriptorSetLayout(mDevice, &ci, nullptr, &pipe->setLayout0) != VK_SUCCESS)
-        {
-            std::cerr << "[VKRenderer] CreateSpritePipeline: vkCreateDescriptorSetLayout failed.\n";
+            std::cerr << "[VK] setLayout0(Texture) create failed\n";
             return false;
         }
     }
 
-    //----------------------------------------------------------
-    // (2) PipelineLayout: setLayout + PushConstants(144 bytes)
-    //----------------------------------------------------------
+    //========================================================
+    // (1) 既存 Sprite pipeline を破棄（共有layoutは破棄しない）
+    //========================================================
+    auto itOld = mPipelines.find("Sprite");
+    if (itOld != mPipelines.end() && itOld->second)
+    {
+        VKPipeline* old = itOld->second.get();
+        if (old->pipeline)       vkDestroyPipeline(mDevice, old->pipeline, nullptr);
+        if (old->pipelineLayout) vkDestroyPipelineLayout(mDevice, old->pipelineLayout, nullptr);
+
+        old->pipeline       = VK_NULL_HANDLE;
+        old->pipelineLayout = VK_NULL_HANDLE;
+
+        // ★共有なので destroy しない
+        old->setLayout0 = VK_NULL_HANDLE;
+
+        mPipelines.erase(itOld);
+    }
+    // (1b) set=1 SpriteCommon layout を VKRenderer 側で共有生成
+    if (mSpriteSetLayout1_Common == VK_NULL_HANDLE)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> b;
+        b.push_back(vkutil::MakeBinding_UBO(
+            0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
+
+        mSpriteSetLayout1_Common = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mSpriteSetLayout1_Common == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VK] setLayout1(SpriteCommon) create failed\n";
+            return false;
+        }
+    }
+
+    //========================================================
+    // (2) 新規
+    //========================================================
+    auto pipeUP = std::make_unique<VKPipeline>();
+    VKPipeline* pipe = pipeUP.get();
+
+    pipe->debugName  = "Sprite";
+    pipe->renderPass = mRenderPass;
+
+    // ★共有参照（destroyしない）
+    pipe->setLayout0 = mWorldSetLayout0_Texture;
+
+    // push constants（サイズ一致が重要）
     VkPushConstantRange pcr{};
     pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pcr.offset     = 0;
-    pcr.size       = (uint32_t)sizeof(SpritePush); // ★ 144 bytes
+    pcr.size       = (uint32_t)sizeof(SpritePush); // 80
 
+    // PipelineLayout: set0 + push
     {
+        VkDescriptorSetLayout setLayouts[2] =
+        {
+            pipe->setLayout0,         // set=0 sampler
+            mSpriteSetLayout1_Common  // set=1 sprite common
+        };
+
+        VkPushConstantRange pcr{};
+        pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        pcr.offset     = 0;
+        pcr.size       = (uint32_t)sizeof(SpritePush); // ★ 80 bytes
+
         VkPipelineLayoutCreateInfo lci{};
         lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        lci.setLayoutCount         = 1;
-        lci.pSetLayouts            = &pipe->setLayout0;
+        lci.setLayoutCount         = 2;
+        lci.pSetLayouts            = setLayouts;
         lci.pushConstantRangeCount = 1;
         lci.pPushConstantRanges    = &pcr;
 
@@ -148,15 +159,13 @@ bool VKRenderer::CreateSpritePipeline()
         }
     }
 
-    //----------------------------------------------------------
-    // (3) Shader modules (SPIR-V)
-    //----------------------------------------------------------
+    //========================================================
+    // (3) Shader modules
+    //========================================================
     const std::string vsPath = "ToyLib/Shaders/VK/spv/Sprite.vert.spv";
     const std::string fsPath = "ToyLib/Shaders/VK/spv/Sprite.frag.spv";
 
-    std::vector<uint8_t> vsCode;
-    std::vector<uint8_t> fsCode;
-
+    std::vector<uint8_t> vsCode, fsCode;
     if (!vkutil::ReadFileBinary(vsPath, vsCode))
     {
         std::cerr << "[VKRenderer] CreateSpritePipeline: failed to read VS: " << vsPath << "\n";
@@ -170,7 +179,6 @@ bool VKRenderer::CreateSpritePipeline()
 
     VkShaderModule vs = vkutil::CreateShaderModule(mDevice, vsCode);
     VkShaderModule fs = vkutil::CreateShaderModule(mDevice, fsCode);
-
     if (!vs || !fs)
     {
         std::cerr << "[VKRenderer] CreateSpritePipeline: CreateShaderModule failed.\n";
@@ -180,20 +188,18 @@ bool VKRenderer::CreateSpritePipeline()
     }
 
     VkPipelineShaderStageCreateInfo stages[2]{};
-
     stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
     stages[0].module = vs;
     stages[0].pName  = "main";
-
     stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
     stages[1].module = fs;
     stages[1].pName  = "main";
 
-    //----------------------------------------------------------
+    //========================================================
     // (4) Vertex input
-    //----------------------------------------------------------
+    //========================================================
     const VkVertexInputBindingDescription binding = MakeSpriteBinding();
     const auto attrs = MakeSpriteAttributes();
 
@@ -205,62 +211,43 @@ bool VKRenderer::CreateSpritePipeline()
     vis.pVertexAttributeDescriptions    = attrs.data();
 
     VkPipelineInputAssemblyStateCreateInfo ia{};
-    ia.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    ia.primitiveRestartEnable = VK_FALSE;
+    ia.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    //----------------------------------------------------------
-    // (5) Viewport/Scissor: dynamic
-    //----------------------------------------------------------
+    //========================================================
+    // (5) Dynamic viewport/scissor
+    //========================================================
     VkPipelineViewportStateCreateInfo vp{};
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
     vp.scissorCount  = 1;
 
-    VkDynamicState dyns[] =
-    {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    VkDynamicState dyns[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo dyn{};
+    dyn.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dyn.dynamicStateCount = 2;
+    dyn.pDynamicStates    = dyns;
 
-    VkPipelineDynamicStateCreateInfo ds{};
-    ds.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    ds.dynamicStateCount = (uint32_t)(sizeof(dyns) / sizeof(dyns[0]));
-    ds.pDynamicStates    = dyns;
-
-    //----------------------------------------------------------
-    // (6) Raster
-    //----------------------------------------------------------
+    //========================================================
+    // (6) Raster / MSAA / Depth / Blend（そのまま）
+    //========================================================
     VkPipelineRasterizationStateCreateInfo rs{};
-    rs.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.depthClampEnable        = VK_FALSE;
-    rs.rasterizerDiscardEnable = VK_FALSE;
-    rs.polygonMode             = VK_POLYGON_MODE_FILL;
-    rs.lineWidth               = 1.0f;
-    rs.cullMode                = VK_CULL_MODE_NONE;           // UI は基本 cull 無し
-    rs.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rs.depthBiasEnable         = VK_FALSE;
+    rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.cullMode    = VK_CULL_MODE_NONE;
+    rs.frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rs.lineWidth   = 1.0f;
 
-    //----------------------------------------------------------
-    // (7) MSAA
-    //----------------------------------------------------------
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    //----------------------------------------------------------
-    // (8) DepthStencil: UI最小はOFF（RenderPassが深度無し前提）
-    //----------------------------------------------------------
     VkPipelineDepthStencilStateCreateInfo dss{};
     dss.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     dss.depthTestEnable  = VK_FALSE;
     dss.depthWriteEnable = VK_FALSE;
     dss.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
-    dss.stencilTestEnable = VK_FALSE;
 
-    //----------------------------------------------------------
-    // (9) Blend: alpha blend
-    //----------------------------------------------------------
     VkPipelineColorBlendAttachmentState cbA{};
     cbA.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT |
@@ -279,13 +266,12 @@ bool VKRenderer::CreateSpritePipeline()
 
     VkPipelineColorBlendStateCreateInfo cb{};
     cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cb.logicOpEnable   = VK_FALSE;
     cb.attachmentCount = 1;
     cb.pAttachments    = &cbA;
 
-    //----------------------------------------------------------
-    // (10) Graphics pipeline create
-    //----------------------------------------------------------
+    //========================================================
+    // (7) Create pipeline
+    //========================================================
     VkGraphicsPipelineCreateInfo gp{};
     gp.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     gp.stageCount          = 2;
@@ -297,27 +283,25 @@ bool VKRenderer::CreateSpritePipeline()
     gp.pMultisampleState   = &ms;
     gp.pDepthStencilState  = &dss;
     gp.pColorBlendState    = &cb;
-    gp.pDynamicState       = &ds;
-
+    gp.pDynamicState       = &dyn;
     gp.layout              = pipe->pipelineLayout;
     gp.renderPass          = mRenderPass;
     gp.subpass             = 0;
 
     VkResult r = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &gp, nullptr, &pipe->pipeline);
 
-    // shader module cleanup（パイプライン作成後に破棄OK）
     vkDestroyShaderModule(mDevice, vs, nullptr);
     vkDestroyShaderModule(mDevice, fs, nullptr);
 
     if (r != VK_SUCCESS || pipe->pipeline == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateGraphicsPipelines(Sprite) failed: " << r << "\n";
+        vkDestroyPipelineLayout(mDevice, pipe->pipelineLayout, nullptr);
+        pipe->pipelineLayout = VK_NULL_HANDLE;
         return false;
     }
 
-    // 登録
     mPipelines["Sprite"] = std::move(pipeUP);
     return true;
 }
-
 } // namespace toy

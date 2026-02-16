@@ -74,7 +74,7 @@ void VKTextureGPU::SetActive(int /*unit*/)
     // Vulkan では descriptor に image/sampler を詰めて bind するので no-op でOK
 }
 
-bool VKTextureGPU::CreateFromPixels(const void* pixels, int width, int height, bool /*hasAlpha*/)
+bool VKTextureGPU::CreateFromPixels(const void* pixels, int width, int height, bool hasAlpha)
 {
     if (!mDevice || !mPhysicalDevice || !mGraphicsQueue || !mCommandPool)
     {
@@ -91,7 +91,7 @@ bool VKTextureGPU::CreateFromPixels(const void* pixels, int width, int height, b
     mWidth = width;
     mHeight = height;
 
-    // まずは RGBA8 固定でいく（あなたの Texture 側が RGBA 前提）
+    // 内部は常にRGBA8
     const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
 
     if (!CreateImage(width, height, format,
@@ -101,7 +101,32 @@ bool VKTextureGPU::CreateFromPixels(const void* pixels, int width, int height, b
         return false;
     }
 
-    if (!UploadRGBA8(pixels, width, height))
+    // 入力をRGBA8に正規化してからアップロード
+    std::vector<uint8_t> rgba;
+    const uint8_t* src = reinterpret_cast<const uint8_t*>(pixels);
+
+    if (hasAlpha)
+    {
+        // 入力がRGBA8前提（4byte/pixel）
+        // ※ここが本当にRGBAか怪しい場合は “bytesPerPixel/format” を上位から渡す必要あり
+        rgba.assign(src, src + (size_t)width * (size_t)height * 4);
+    }
+    else
+    {
+        // 入力がRGB8(3byte/pixel)前提 → RGBA8へ展開（A=255）
+        rgba.resize((size_t)width * (size_t)height * 4);
+
+        const size_t n = (size_t)width * (size_t)height;
+        for (size_t i = 0; i < n; ++i)
+        {
+            rgba[i * 4 + 0] = src[i * 3 + 0];
+            rgba[i * 4 + 1] = src[i * 3 + 1];
+            rgba[i * 4 + 2] = src[i * 3 + 2];
+            rgba[i * 4 + 3] = 255;
+        }
+    }
+
+    if (!UploadRGBA8(rgba.data(), width, height))
     {
         return false;
     }

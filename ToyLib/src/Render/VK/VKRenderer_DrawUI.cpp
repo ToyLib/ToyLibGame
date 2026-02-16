@@ -1,14 +1,6 @@
 //======================================================================
 // VKRenderer_DrawUI.cpp
 //  - DrawUIPass(): RenderQueue の UI bucket を Vulkan で描画
-//  - SpriteComponent が積んだ RenderItem(type=Sprite) を処理
-//  - Sprite pipeline は CreateSpritePipeline() で生成済み前提
-//
-// NOTE:
-//  - VulkanにはVAOは無いので、IRenderer::GetSpriteQuad() の頂点/インデックスを
-//    VK用VB/IBに変換して使う（EnsureSpriteGeometryVK）
-//  - VertexArray がCPU側の頂点/インデックスを保持していない場合は、
-//    VertexArray に GetVertexData()/GetIndexData() 等を追加する必要あり。
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -28,30 +20,14 @@ namespace toy {
 
 namespace
 {
-    //==========================================================
-    // PushConstants（Sprite.vert/frag）
-    //  - mat4 world
-    //  - mat4 viewProj
-    //  - vec4 colorAlpha (rgb + a)
-    //
-    // total: 64 + 64 + 16 = 144 bytes
-    //==========================================================
-    struct SpritePush
-    {
-        float world[16];
-        float viewProj[16];
-        float colorAlpha[4];
-    };
-
     static void CopyMatrixToFloat16(const Matrix4& m, float out16[16])
     {
-        // Matrix4 が 16float 連続の前提（ToyLibのMathUtilに合わせて）
         std::memcpy(out16, &m, sizeof(float) * 16);
     }
 }
 
 //--------------------------------------------------------------
-// VKRenderer::DrawUIPass（RenderQueueのUIスプライトを描く）
+// VKRenderer::DrawUIPass
 //--------------------------------------------------------------
 void VKRenderer::DrawUIPass()
 {
@@ -82,7 +58,6 @@ void VKRenderer::DrawUIPass()
     auto itPipe = mPipelines.find("Sprite");
     if (itPipe == mPipelines.end() || !itPipe->second)
     {
-        // まだ CreateSpritePipeline() してない
         return;
     }
 
@@ -97,6 +72,15 @@ void VKRenderer::DrawUIPass()
     {
         return;
     }
+
+    // SpriteCommon(set=1) を用意（viewProj UBO）
+    if (!EnsureSpriteCommonDescriptors())
+    {
+        return;
+    }
+
+    // 毎フレーム安全側で更新（最適化は後でOK）
+    UpdateSpriteCommonUBO(mImageIndex);
 
     // SpriteQuad の VB/IB を取り出す
     VertexArray* quad = GetSpriteQuad().get();
@@ -118,7 +102,6 @@ void VKRenderer::DrawUIPass()
     vp.y        = (float)mSwapchainExtent.height;
     vp.width    = (float)mSwapchainExtent.width;
     vp.height   = -(float)mSwapchainExtent.height;
-
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
 
@@ -136,6 +119,18 @@ void VKRenderer::DrawUIPass()
     VkDeviceSize vbOff = 0;
     vkCmdBindVertexBuffers(frame.cmd, 0, 1, &geo.vb, &vbOff);
     vkCmdBindIndexBuffer(frame.cmd, geo.ib, 0, VK_INDEX_TYPE_UINT32);
+
+    //======================================================
+    // set=1 (SpriteCommon) を取得（per-image）
+    //======================================================
+    const uint32_t spriteFrameIdx =
+        (mImageIndex < (uint32_t)mSpriteFrames.size()) ? mImageIndex : 0;
+
+    VkDescriptorSet set1 = mSpriteFrames[spriteFrameIdx].descSet1_SpriteCommon;
+    if (set1 == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
     // RenderQueue items
     const auto& items = mRenderQueue.Items();
@@ -155,40 +150,31 @@ void VKRenderer::DrawUIPass()
             continue;
         }
 
-        // texture → descriptor set（swapchain枚数分のうち mImageIndex を返す）
+        // set=0 : texture sampler
         VkDescriptorSet set0 = GetOrCreateSpriteDescSet(it.texture);
         if (set0 == VK_NULL_HANDLE)
         {
             continue;
         }
 
+        //======================================================
+        // ★ set0 + set1 をまとめて bind（安全側）
+        //======================================================
+        VkDescriptorSet sets[2] = { set0, set1 };
         vkCmdBindDescriptorSets(frame.cmd,
                                 VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipe->pipelineLayout,
-                                0, 1, &set0,
+                                0, 2, sets,
                                 0, nullptr);
 
         //------------------------------------------------------
-        // PushConstants: world / viewProj / colorAlpha
+        // PushConstants: world + colorAlpha（80 bytes）
         //------------------------------------------------------
         SpritePush pc{};
-
-        if (it.useMVP)
-        {
-            // MVP互換：world=Identity, viewProj=MVP
-            CopyMatrixToFloat16(Matrix4::Identity, pc.world);
-            CopyMatrixToFloat16(it.mvp, pc.viewProj);
-        }
-        else
-        {
-            CopyMatrixToFloat16(it.world, pc.world);
-            CopyMatrixToFloat16(it.viewProj, pc.viewProj);
-        }
+        CopyMatrixToFloat16(it.world, pc.world);
 
         //======================================================
-        // ★ SpritePayload を反映（Bルート）
-        //  - SpriteComponent::GatherRenderItems() で
-        //    out.PushSpritePayload(sp) して it.payloadIndex に詰めている前提
+        // ★ SpritePayload を常に反映（0も有効値の可能性があるため）
         //======================================================
         Vector3 col = it.color;
         float   alp = it.alpha;
@@ -209,7 +195,6 @@ void VKRenderer::DrawUIPass()
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            0, (uint32_t)sizeof(SpritePush), &pc);
 
-        // indexCount:
         const uint32_t indexCount =
             (it.indexCount > 0) ? (uint32_t)it.indexCount : geo.indexCount;
 
@@ -218,11 +203,5 @@ void VKRenderer::DrawUIPass()
         AddDrawCall();
     }
 }
-
-//--------------------------------------------------------------
-// VKRenderer::EnsureSpriteGeometryVK
-//  - IRenderer::GetSpriteQuad() の CPU頂点/Index から VK VB/IB を作る
-//  - 最短: HostVisible + Coherent
-//--------------------------------------------------------------
 
 } // namespace toy

@@ -77,6 +77,18 @@ struct alignas(16) UBO_PointLightBlock
 };
 
 //==============================================================
+// UBO_SpriteCommon (set=1, binding=0)  ※ Sprite専用
+// GLSL:
+// layout(set=1,binding=0,std140,row_major) uniform SpriteCommon { mat4 uViewProj; } sc;
+//==============================================================
+struct alignas(16) UBO_SpriteCommon
+{
+    Matrix4 uViewProj;
+};
+
+
+
+//==============================================================
 // Safety checks
 //==============================================================
 static_assert(alignof(UBO_WorldCommon) == 16, "UBO_WorldCommon must be 16-byte aligned");
@@ -90,5 +102,8 @@ static_assert(sizeof(UBO_PointLight) % 16 == 0, "UBO_PointLight size must be mul
 
 static_assert(alignof(UBO_PointLightBlock) == 16, "UBO_PointLightBlock must be 16-byte aligned");
 static_assert(sizeof(UBO_PointLightBlock) % 16 == 0, "UBO_PointLightBlock size must be multiple of 16");
+
+static_assert(alignof(UBO_SpriteCommon) == 16, "UBO_SpriteCommon must be 16-byte aligned");
+static_assert(sizeof(UBO_SpriteCommon) % 16 == 0, "UBO_SpriteCommon size must be multiple of 16");
 
 } // namespace toy

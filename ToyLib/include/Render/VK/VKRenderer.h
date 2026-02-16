@@ -26,6 +26,21 @@ struct PushConstants_Mesh
     float pcFlagsSpec[4];
 };
 
+struct SpritePush
+{
+    float world[16];
+    float colorAlpha[4];
+};
+
+
+struct SpriteDescCacheEntry
+{
+    std::vector<VkDescriptorSet> sets; // swapchain枚数分
+    VkImageView lastView    { VK_NULL_HANDLE };
+    VkSampler   lastSampler { VK_NULL_HANDLE };
+};
+
+
 
 struct FrameSync
 {
@@ -55,6 +70,17 @@ struct WorldFrameResources
     // binding=2 : PointLight
     VkBuffer       pointLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
+};
+
+//==============================================================
+// SpriteFrameResources (swapchain image 単位)
+//  - set=1 binding=0 : SpriteCommon(viewProj)
+//==============================================================
+struct SpriteFrameResources
+{
+    VkDescriptorSet descSet1_SpriteCommon { VK_NULL_HANDLE };
+    VkBuffer        spriteCommonUBO      { VK_NULL_HANDLE };
+    VkDeviceMemory  spriteCommonMem      { VK_NULL_HANDLE };
 };
 
 class VKRenderer final : public IRenderer
@@ -163,13 +189,26 @@ private:
     VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex);
 
     VkDescriptorPool mSpriteDescPool { VK_NULL_HANDLE };
-    std::unordered_map<const class Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK;
+    //std::unordered_map<const class Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK;
+    std::unordered_map<const class Texture*, SpriteDescCacheEntry> mSpriteDescSetsVK;
 
     VkImageView GetVkImageViewFromTextureHandle(TextureHandle h) const;
     VkSampler   GetVkSamplerFromTextureHandle(TextureHandle h) const;
 
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
+    
+    //--------------------------------------------------------------------------
+    // Sprite common (set=1) : viewProj UBO
+    //--------------------------------------------------------------------------
+    VkDescriptorSetLayout mSpriteSetLayout1_Common { VK_NULL_HANDLE };
+    VkDescriptorPool      mSpriteCommonDescPool   { VK_NULL_HANDLE };
+    std::vector<SpriteFrameResources> mSpriteFrames;
+
+    bool EnsureSpriteCommonDescriptors();
+    void DestroySpriteCommonDescriptors();
+    void UpdateSpriteCommonUBO(uint32_t imageIndex);
+    
 
 private:
     // World set layouts (共有)

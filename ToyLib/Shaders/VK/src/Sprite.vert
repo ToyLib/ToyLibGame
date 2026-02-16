@@ -1,28 +1,35 @@
 #version 450
 
-// Vertex layout: pos3 + normal3(dummy) + uv2
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;   // unused
 layout(location = 2) in vec2 inTexCoord;
 
-layout(location = 0) out vec2 vUV;
+layout(location = 0) out vec2 fragTexCoord;
 
-layout(push_constant) uniform Push
+//------------------------------------------------------------
+// set=1 binding=0 : SpriteCommon (viewProj)
+// - row-vector (v*M)
+//------------------------------------------------------------
+layout(set = 1, binding = 0, std140, row_major) uniform SpriteCommon
 {
-    mat4 uWorld;
     mat4 uViewProj;
-    vec4 uColorAlpha; // rgb + alpha
+} sc;
+
+//------------------------------------------------------------
+// Push constants (80 bytes)
+// - mat4 world (64)
+// - vec4 colorAlpha (16)
+//------------------------------------------------------------
+layout(push_constant, row_major) uniform Push
+{
+    mat4 pcWorld;
+    vec4 pcColorAlpha; // unused in VS (FSで使う)
 } pc;
 
 void main()
 {
-    vUV = inTexCoord;
+    vec4 worldPos = vec4(inPosition, 1.0) * pc.pcWorld;
+    gl_Position   = worldPos * sc.uViewProj;
 
-    // GL版は row-vector っぽい書き方だったけど、
-    // Vulkan(=GLSL) の標準は column-vector なので (P*V*W*pos) が自然。
-    // ToyLib側の行列仕様が v*M なら、CPUで転置する or ここを合わせる必要あり。
-    // いまは「一般的な列ベクトル」前提で組む：
-    gl_Position = pc.uViewProj * pc.uWorld * vec4(inPosition, 1.0);
-    //gl_Position = vec4(inPosition, 1.0) * pc.uWorld * pc.uViewProj;
-
+    fragTexCoord = inTexCoord;
 }
