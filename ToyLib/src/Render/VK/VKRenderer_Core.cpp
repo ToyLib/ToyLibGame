@@ -973,64 +973,17 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 {
     (void)cascadeIndex;
 
-    // pass が一致しないなら無視（上位が振り分けてるなら保険）
-    if (it.pass != pass)
-    {
-        return;
-    }
+    // pass が一致しないなら無視
+    if (it.pass != pass) return;
 
-    const PipelineHandle ph = it.pipeline;
-    if (!ph.IsValidVK())
-    {
-        return;
-    }
-
-    auto* pipe = reinterpret_cast<VKPipeline*>(ph.ptrVKPipeline);
-    if (!pipe || pipe->pipeline == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    VkCommandBuffer cmd = GetActiveCommandBuffer();
-    if (cmd == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    // ---- pipeline bind
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
-
-    //============================================================
-    // World pass 用の bind（set1 + push(world)）
-    //============================================================
+    // World は “World専用経路” に一本化
     if (pass == RenderPass::World)
     {
-        if (!EnsureWorldDescriptors())
-        {
-            std::cerr << "[VK] EnsureWorldDescriptors failed\n";
-            return;
-        }
-
-        // per-frame UBO update（imageIndex 指定版）
-        UpdateWorldCommonUBO(mImageIndex);
-        UpdateDirLightUBO(mImageIndex);
-        UpdatePointLightUBO(mImageIndex);
-
-        // per-item（material params）は DrawWorldItem_VK 側で呼ぶのが自然
-        // もし DrawItem が World描画の本体ならここで呼ぶ：
-        // UpdateMaterialParamsUBO(mImageIndex, it);
-
-        // set1 bind + push constants（一本化）
-        BindWorldCommon(cmd, *pipe, it);
-
-        // set0(texture) もこの DrawItem が world描画を担当するなら bind
-        // BindWorldMaterial(cmd, *pipe, it);
+        DrawWorldItem_VK(it);
+        return;
     }
 
-    //============================================================
-    // ここから VB/IB bind と draw
-    // （あなたの現状の設計だと DrawWorldItem_VK がやってるので、
-    //   DrawItem ではやらない or 役割を統一する）
-    //============================================================
+    // それ以外（UI/Sprite等）は既存の経路へ
+    // 例: DrawSpriteItem_VK(it) とか、現状の実装に合わせて
 }
 } // namespace toy

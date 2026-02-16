@@ -253,8 +253,10 @@ static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
 
 void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
 {
-    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
-    if (!fr || fr->worldCommonMem == VK_NULL_HANDLE) return;
+    if (mWorldFrames.empty() || imageIndex >= (uint32_t)mWorldFrames.size()) return;
+
+    VkDeviceMemory mem = mWorldFrames[imageIndex].worldCommonMem;
+    if (mem == VK_NULL_HANDLE) return;
 
     UBO_WorldCommon u{};
 
@@ -263,9 +265,12 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
     u.uViewProj = vpGL * corr;
 
     const Vector3 cam = GetCameraPosition();
-    u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
+    u.uCameraPos[0] = cam.x;
+    u.uCameraPos[1] = cam.y;
+    u.uCameraPos[2] = cam.z;
+    u.uCameraPos[3] = 0.0f;
 
-    Vector3 ambColor = mLightingManager->GetAmbientColor();
+    const Vector3 ambColor = mLightingManager->GetAmbientColor();
     u.uAmbientLight[0] = ambColor.x;
     u.uAmbientLight[1] = ambColor.y;
     u.uAmbientLight[2] = ambColor.z;
@@ -276,7 +281,10 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
     u._pad2[0] = 0.0f;
     u._pad2[1] = 0.0f;
 
-    u.uFogColor[0] = 0.0f; u.uFogColor[1] = 0.0f; u.uFogColor[2] = 0.0f; u.uFogColor[3] = 0.0f;
+    u.uFogColor[0] = 0.0f;
+    u.uFogColor[1] = 0.0f;
+    u.uFogColor[2] = 0.0f;
+    u.uFogColor[3] = 0.0f;
 
     u.uLightViewProj0 = Matrix4::Identity;
     u.uLightViewProj1 = Matrix4::Identity;
@@ -291,21 +299,20 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
     u._pad4[1] = 0.0f;
     u._pad4[2] = 0.0f;
 
-    WriteUBO(mDevice, fr->worldCommonMem, &u, sizeof(u));
+    WriteUBO(mDevice, mem, &u, sizeof(u));
 }
 
 void VKRenderer::UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& it)
 {
-    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
-    if (!fr || fr->materialParamsMem == VK_NULL_HANDLE) return;
+    if (mWorldFrames.empty() || imageIndex >= (uint32_t)mWorldFrames.size()) return;
+    VkDeviceMemory mem = mWorldFrames[imageIndex].materialParamsMem;
+    if (mem == VK_NULL_HANDLE) return;
 
-    // Material default
     Vector3 diffuse(0.8f, 0.8f, 0.8f);
     float   specPower = 32.0f;
 
     int useTex      = 0;
     int overrideCol = (it.overrideColor ? 1 : 0);
-
     Vector3 ucol(0.0f, 0.0f, 0.0f);
 
     if (it.material.ptr)
@@ -336,11 +343,9 @@ void VKRenderer::UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& 
     u.uOverrideColor   = overrideCol;
 
     u.uSpecPower = specPower;
-    u._padM0 = 0.0f;
-    u._padM1 = 0.0f;
-    u._padM2 = 0.0f;
+    u._padM0 = u._padM1 = u._padM2 = 0.0f;
 
-    WriteUBO(mDevice, fr->materialParamsMem, &u, sizeof(u));
+    WriteUBO(mDevice, mem, &u, sizeof(u));
 }
 
 void VKRenderer::UpdateDirLightUBO(uint32_t imageIndex)

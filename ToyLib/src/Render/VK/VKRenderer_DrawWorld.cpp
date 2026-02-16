@@ -118,17 +118,32 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     if (cmd == VK_NULL_HANDLE) return;
     if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
-    vkCmdPushConstants(cmd, p.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
-                       0, (uint32_t)sizeof(Matrix4), &it.world);
+    // push constant: world matrix
+    vkCmdPushConstants(
+        cmd,
+        p.pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT,   // ← VSのみ運用ならこれでOK
+        0,
+        (uint32_t)sizeof(Matrix4),
+        &it.world
+    );
 
+    // set=1 : common UBOs (per swapchain image)
     if (mWorldFrames.empty()) return;
     if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
 
-    VkDescriptorSet set1 = mWorldFrames[mImageIndex].descSet1_Common;
+    const VkDescriptorSet set1 = mWorldFrames[mImageIndex].descSet1_Common;
     if (set1 == VK_NULL_HANDLE) return;
 
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            p.pipelineLayout, 1, 1, &set1, 0, nullptr);
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        p.pipelineLayout,
+        1,          // firstSet = 1
+        1,
+        &set1,
+        0, nullptr
+    );
 }
 
 //------------------------------------------------------------
@@ -171,8 +186,10 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     VkCommandBuffer cmd = GetActiveCommandBuffer();
     if (cmd == VK_NULL_HANDLE) return;
 
+    // pipeline bind
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
 
+    // geometry
     if (!it.geometry.ptr) return;
     auto* backend = it.geometry.ptr->GetBackend();
     if (!backend || !backend->IsVK()) return;
@@ -184,17 +201,17 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, &vb, offsets);
 
-    // per-frame
-    UpdateWorldCommonUBO(mImageIndex);
-    UpdateDirLightUBO(mImageIndex);
-    UpdatePointLightUBO(mImageIndex);
-
-    // per-item
+    // ============================================================
+    // per-item UBO only
+    //  - per-frame は DrawBucket_WorldVK で 1回だけ更新する
+    // ============================================================
     UpdateMaterialParamsUBO(mImageIndex, it);
 
+    // bind set1 + push(world), set0(texture)
     BindWorldCommon(cmd, *pipe, it);
     BindWorldMaterial(cmd, *pipe, it);
 
+    // draw
     if (it.indexCount > 0 && ib != VK_NULL_HANDLE)
     {
         VkIndexType indexType = (VkIndexType)backend->GetVKIndexType();
@@ -218,8 +235,15 @@ void VKRenderer::DrawBucket_WorldVK(const std::vector<uint32_t>& bucket)
     VkCommandBuffer cmd = GetActiveCommandBuffer();
     if (cmd == VK_NULL_HANDLE) return;
 
+    // set=1 UBO & descriptor set を保証
     if (!EnsureWorldDescriptors()) return;
 
+    // per-frame UBO update（この bucket で 1回だけ）
+    UpdateWorldCommonUBO(mImageIndex);
+    UpdateDirLightUBO(mImageIndex);
+    UpdatePointLightUBO(mImageIndex);
+
+    // viewport / scissor
     VkViewport vp{};
     vp.x        = 0.0f;
     vp.y        = (float)mSwapchainExtent.height;
@@ -241,6 +265,7 @@ void VKRenderer::DrawBucket_WorldVK(const std::vector<uint32_t>& bucket)
         if (idx >= items.size()) continue;
         const RenderItem& it = items[idx];
         if (it.pass != RenderPass::World) continue;
+
         DrawWorldItem_VK(it);
     }
 }
