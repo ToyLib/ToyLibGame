@@ -5,40 +5,28 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <cstdint>
 
 namespace toy {
 
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
-static uint32_t FindMemoryType(VkPhysicalDevice /*unused*/,
-                              VkPhysicalDeviceMemoryProperties memProps,
+static uint32_t FindMemoryType(VkPhysicalDeviceMemoryProperties memProps,
                               uint32_t typeBits,
                               VkMemoryPropertyFlags props)
 {
     for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
     {
-        if ((typeBits & (1u << i)) &&
-            (memProps.memoryTypes[i].propertyFlags & props) == props)
+        const bool typeOk = (typeBits & (1u << i)) != 0;
+        const bool propOk = (memProps.memoryTypes[i].propertyFlags & props) == props;
+        if (typeOk && propOk)
         {
             return i;
         }
     }
     return UINT32_MAX;
 }
-
-// NOTE:
-//  - 今は最小実装として「vkGetPhysicalDeviceMemoryProperties」を取れないので、ここはVKRenderer側で
-//    memProps を渡すのが本来。
-//  - ただし、あなたの今の構造だと VertexArrayBackend 単体で GPU を触るので
-//    “RenderBackendState に PhysicalDevice も持たせる” のが妥当。
-//  - ここでは「まず動かす」ために、RenderBackendState に PhysicalDevice を足す前提にする。
-
-// ---- 追加してほしい（必須）------------------------------------
-// RenderBackendState に PhysicalDevice も保存しておく：
-//   void SetVKPhysicalDevice(void* gpu) { mVKPhysicalDevice = gpu; }
-//   void* GetVKPhysicalDevice() const { return mVKPhysicalDevice; }
-// --------------------------------------------------------------
 
 static VkPhysicalDevice GetVKPhysicalDevice()
 {
@@ -50,6 +38,9 @@ static VkDevice GetVKDevice()
     return (VkDevice)RenderBackendState::Get().GetVKDevice();
 }
 
+//------------------------------------------------------------------------------
+// Buffer helpers
+//------------------------------------------------------------------------------
 bool VKVertexArrayBackend::CreateBufferHostVisible(VkDeviceSize size,
                                                    VkBufferUsageFlags usage,
                                                    VkBuffer& outBuf,
@@ -58,7 +49,7 @@ bool VKVertexArrayBackend::CreateBufferHostVisible(VkDeviceSize size,
     outBuf = VK_NULL_HANDLE;
     outMem = VK_NULL_HANDLE;
 
-    if (!mDevice) return false;
+    if (!mDevice || size == 0) return false;
 
     VkBufferCreateInfo bci{};
     bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -87,7 +78,6 @@ bool VKVertexArrayBackend::CreateBufferHostVisible(VkDeviceSize size,
     vkGetPhysicalDeviceMemoryProperties(gpu, &memProps);
 
     const uint32_t typeIndex = FindMemoryType(
-        gpu,
         memProps,
         req.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -126,7 +116,7 @@ bool VKVertexArrayBackend::CreateBufferHostVisible(VkDeviceSize size,
 
 bool VKVertexArrayBackend::UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size)
 {
-    if (!mDevice || !mem || !data || size == 0) return false;
+    if (!mDevice || mem == VK_NULL_HANDLE || !data || size == 0) return false;
 
     void* mapped = nullptr;
     if (vkMapMemory(mDevice, mem, 0, size, 0, &mapped) != VK_SUCCESS)
@@ -135,7 +125,6 @@ bool VKVertexArrayBackend::UploadToBuffer(VkDeviceMemory mem, const void* data, 
     }
 
     std::memcpy(mapped, data, (size_t)size);
-
     vkUnmapMemory(mDevice, mem);
     return true;
 }
@@ -154,11 +143,91 @@ VKVertexArrayBackend::VKVertexArrayBackend(unsigned int numVerts,
 {
     mDevice = GetVKDevice();
 
-    // ここは “今すぐスプライト” が目的なら後回しでもOK（skinnedはとりあえず未対応で落とさない）
-    (void)numVerts; (void)verts; (void)norms; (void)uvs; (void)boneids; (void)weights;
-    (void)numIndices; (void)indices;
+    if (!mDevice || numVerts == 0 || numIndices == 0 ||
+        !verts || !norms || !uvs || !boneids || !weights || !indices)
+    {
+        std::cerr << "[VKVertexArrayBackend] Skinned mesh invalid args\n";
+        return;
+    }
 
-    std::cerr << "[VKVertexArrayBackend] Skinned ctor not implemented yet.\n";
+    // ------------------------------------------------------
+    // 1) interleave
+    //   pos3 + normal3 + uv2 + boneIds4(u32) + weights4(f32)
+    //   stride = 64 bytes
+    // ------------------------------------------------------
+    struct SkinnedVertexVK
+    {
+        float    pos[3];
+        float    nrm[3];
+        float    uv[2];
+        uint32_t bone[4];
+        float    w[4];
+    };
+
+    std::vector<SkinnedVertexVK> v;
+    v.resize(numVerts);
+
+    for (unsigned int i = 0; i < numVerts; ++i)
+    {
+        SkinnedVertexVK& o = v[i];
+
+        o.pos[0] = verts[i * 3 + 0];
+        o.pos[1] = verts[i * 3 + 1];
+        o.pos[2] = verts[i * 3 + 2];
+
+        o.nrm[0] = norms[i * 3 + 0];
+        o.nrm[1] = norms[i * 3 + 1];
+        o.nrm[2] = norms[i * 3 + 2];
+
+        o.uv[0]  = uvs[i * 2 + 0];
+        o.uv[1]  = uvs[i * 2 + 1];
+
+        // 4 influences / vertex 前提
+        o.bone[0] = (uint32_t)boneids[i * 4 + 0];
+        o.bone[1] = (uint32_t)boneids[i * 4 + 1];
+        o.bone[2] = (uint32_t)boneids[i * 4 + 2];
+        o.bone[3] = (uint32_t)boneids[i * 4 + 3];
+
+        o.w[0] = weights[i * 4 + 0];
+        o.w[1] = weights[i * 4 + 1];
+        o.w[2] = weights[i * 4 + 2];
+        o.w[3] = weights[i * 4 + 3];
+    }
+
+    const VkDeviceSize vbSize = (VkDeviceSize)(sizeof(SkinnedVertexVK) * v.size());
+    const VkDeviceSize ibSize = (VkDeviceSize)(sizeof(uint32_t) * numIndices);
+
+    // ------------------------------------------------------
+    // 2) Create VB/IB
+    // ------------------------------------------------------
+    if (!CreateBufferHostVisible(vbSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mVB, mVBMem))
+    {
+        std::cerr << "[VKVertexArrayBackend] Create VB failed (skinned)\n";
+        return;
+    }
+
+    if (!CreateBufferHostVisible(ibSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mIB, mIBMem))
+    {
+        std::cerr << "[VKVertexArrayBackend] Create IB failed (skinned)\n";
+        Unload();
+        return;
+    }
+
+    // ------------------------------------------------------
+    // 3) Upload
+    // ------------------------------------------------------
+    if (!UploadToBuffer(mVBMem, v.data(), vbSize) ||
+        !UploadToBuffer(mIBMem, indices, ibSize))
+    {
+        std::cerr << "[VKVertexArrayBackend] Upload failed (skinned)\n";
+        Unload();
+        return;
+    }
+
+    mIndexType = VK_INDEX_TYPE_UINT32;
+
+    // ★必要なら Backend 側に stride を保存しておくと Pipeline 作る時に便利
+    // mVertexStride = sizeof(SkinnedVertexVK);
 }
 
 VKVertexArrayBackend::VKVertexArrayBackend(unsigned int numVerts,
@@ -170,31 +239,26 @@ VKVertexArrayBackend::VKVertexArrayBackend(unsigned int numVerts,
 {
     mDevice = GetVKDevice();
 
-    if (!mDevice || !verts || !norms || !uvs || !indices)
+    if (!mDevice || !verts || !norms || !uvs || !indices || numVerts == 0 || numIndices == 0)
     {
         std::cerr << "[VKVertexArrayBackend] Static mesh invalid args\n";
         return;
     }
 
-    // ------------------------------------------------------
-    // 1) interleave (pos3 + normal3 + uv2)
-    // ------------------------------------------------------
+    // pos3 + normal3 + uv2 (8 floats)
     std::vector<float> interleaved;
     interleaved.reserve(numVerts * 8);
 
     for (unsigned int i = 0; i < numVerts; ++i)
     {
-        // pos
         interleaved.push_back(verts[i*3 + 0]);
         interleaved.push_back(verts[i*3 + 1]);
         interleaved.push_back(verts[i*3 + 2]);
 
-        // normal
         interleaved.push_back(norms[i*3 + 0]);
         interleaved.push_back(norms[i*3 + 1]);
         interleaved.push_back(norms[i*3 + 2]);
 
-        // uv
         interleaved.push_back(uvs[i*2 + 0]);
         interleaved.push_back(uvs[i*2 + 1]);
     }
@@ -202,31 +266,19 @@ VKVertexArrayBackend::VKVertexArrayBackend(unsigned int numVerts,
     const VkDeviceSize vbSize = sizeof(float) * interleaved.size();
     const VkDeviceSize ibSize = sizeof(uint32_t) * numIndices;
 
-    // ------------------------------------------------------
-    // 2) Create VB
-    // ------------------------------------------------------
-    if (!CreateBufferHostVisible(vbSize,
-                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                 mVB, mVBMem))
+    if (!CreateBufferHostVisible(vbSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mVB, mVBMem))
     {
         std::cerr << "[VKVertexArrayBackend] Create VB failed (static)\n";
         return;
     }
 
-    // ------------------------------------------------------
-    // 3) Create IB
-    // ------------------------------------------------------
-    if (!CreateBufferHostVisible(ibSize,
-                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                 mIB, mIBMem))
+    if (!CreateBufferHostVisible(ibSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mIB, mIBMem))
     {
         std::cerr << "[VKVertexArrayBackend] Create IB failed (static)\n";
+        Unload();
         return;
     }
 
-    // ------------------------------------------------------
-    // 4) Upload
-    // ------------------------------------------------------
     if (!UploadToBuffer(mVBMem, interleaved.data(), vbSize) ||
         !UploadToBuffer(mIBMem, indices, ibSize))
     {
@@ -251,23 +303,20 @@ VKVertexArrayBackend::VKVertexArrayBackend(const float* verts,
         return;
     }
 
-    // Sprite VAO in GL: interleaved 8 floats/vertex (pos3+norm3+uv2)
+    // 8 floats/vertex (pos3+norm3+uv2)
     const VkDeviceSize vbSize = (VkDeviceSize)(sizeof(float) * 8 * numVerts);
     const VkDeviceSize ibSize = (VkDeviceSize)(sizeof(uint32_t) * numIndices);
 
-    if (!CreateBufferHostVisible(vbSize,
-                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                 mVB, mVBMem))
+    if (!CreateBufferHostVisible(vbSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mVB, mVBMem))
     {
         std::cerr << "[VKVertexArrayBackend] Create VB failed\n";
         return;
     }
 
-    if (!CreateBufferHostVisible(ibSize,
-                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                 mIB, mIBMem))
+    if (!CreateBufferHostVisible(ibSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mIB, mIBMem))
     {
         std::cerr << "[VKVertexArrayBackend] Create IB failed\n";
+        Unload();
         return;
     }
 
@@ -296,12 +345,9 @@ VKVertexArrayBackend::VKVertexArrayBackend(const float* verts,
         return;
     }
 
-    // vec2 only: 2 floats/vertex
     const VkDeviceSize vbSize = (VkDeviceSize)(sizeof(float) * 2 * numVerts);
 
-    if (!CreateBufferHostVisible(vbSize,
-                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                 mVB, mVBMem))
+    if (!CreateBufferHostVisible(vbSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mVB, mVBMem))
     {
         std::cerr << "[VKVertexArrayBackend] Create VB failed (vec2)\n";
         return;
@@ -314,15 +360,13 @@ VKVertexArrayBackend::VKVertexArrayBackend(const float* verts,
         return;
     }
 
-    // indices optional
     if (indices && numIndices > 0)
     {
         const VkDeviceSize ibSize = (VkDeviceSize)(sizeof(uint32_t) * numIndices);
-        if (!CreateBufferHostVisible(ibSize,
-                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                     mIB, mIBMem))
+        if (!CreateBufferHostVisible(ibSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mIB, mIBMem))
         {
             std::cerr << "[VKVertexArrayBackend] Create IB failed (vec2)\n";
+            Unload();
             return;
         }
         if (!UploadToBuffer(mIBMem, indices, ibSize))
@@ -342,7 +386,7 @@ VKVertexArrayBackend::~VKVertexArrayBackend()
 
 void VKVertexArrayBackend::Unload()
 {
-    if (mDevice) return;
+    if (!mDevice) return; // ★修正：デバイスが無いなら何もできない
 
     if (mIB != VK_NULL_HANDLE)
     {
