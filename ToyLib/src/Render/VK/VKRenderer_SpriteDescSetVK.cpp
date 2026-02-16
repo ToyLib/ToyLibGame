@@ -212,8 +212,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
         //           << " view=" << (void*)view << "\n";
     }
 
-    const bool usedFallback =
-        (view == VK_NULL_HANDLE) || (sampler == VK_NULL_HANDLE);
 
     if (view == VK_NULL_HANDLE)
     {

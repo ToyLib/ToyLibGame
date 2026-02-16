@@ -11,6 +11,7 @@
 #include "Render/RenderHandles.h"       // TextureHandle, MaterialHandle
 #include "Utils/MathUtil.h"             // Matrix4, Vector3
 #include "Render/LightingManager.h"
+#include "Render/VK/VKUBO.h"
 
 #include <vulkan/vulkan.h>
 #include <cstring>
@@ -18,87 +19,6 @@
 
 namespace toy
 {
-
-//------------------------------------------------------------
-// std140 friendly POD blocks  (MATCH SHADERS)
-//------------------------------------------------------------
-
-// GLSL:
-// layout(set=1,binding=0,std140) uniform WorldCommon { ... } sc;
-struct alignas(16) UBO_WorldCommon
-{
-    Matrix4 uViewProj;
-
-    alignas(16) float uCameraPos[4];     // vec3 + pad
-    alignas(16) float uAmbientLight[4];  // vec3 + pad
-
-    // fog
-    float uFogMaxDist;   // float
-    float uFogMinDist;   // float
-    float _pad2[2];      // vec2 pad to 16B
-    alignas(16) float uFogColor[4];      // vec3 + pad
-
-    // shadow block (kept, unused)
-    Matrix4 uLightViewProj0;
-    Matrix4 uLightViewProj1;
-
-    float uCascadeSplit0;
-    float uCascadeBlend;
-    float uShadowBias;
-    int   uUseShadow;
-
-    int   uUseToon;
-    float _pad4[3]; // pad to 16B
-};
-
-// GLSL:
-// layout(set=1,binding=1,std140) uniform MaterialParams { vec3 uDiffuseColor; int uUseTexture; ... } mp;
-struct alignas(16) UBO_MaterialParams
-{
-    float uDiffuseColor[3];
-    int   uUseTexture;
-
-    float uUniformColor[3];
-    int   uOverrideColor;
-
-    float uSpecPower;
-    float _padM0;
-    float _padM1;
-    float _padM2;
-};
-static_assert(sizeof(UBO_MaterialParams) == 48, "UBO_MaterialParams size must be 48 bytes (std140)");
-
-// GLSL:
-// layout(set=1,binding=2,std140) uniform DirLightBlock { DirectionalLight uDirLight; } dl;
-// struct DirectionalLight { vec3 mDirection; float _p0; vec3 mDiffuseColor; float _p1; vec3 mSpecColor; float _p2; };
-struct alignas(16) UBO_DirLight
-{
-    float mDirection[3]; float _p0;
-    float mDiffuseColor[3]; float _p1;
-    float mSpecColor[3]; float _p2;
-};
-
-// GLSL:
-// layout(set=1,binding=3,std140) uniform PointLightBlock { int uNumPointLights; int _pA; int _pB; int _pC; PointLight[8]; } pl;
-// struct PointLight { vec3 position; float intensity; vec3 color; float constant; float linear; float quadratic; float radius; float _p; };
-struct alignas(16) UBO_PointLight
-{
-    float position[3]; float intensity;
-    float color[3];    float constant;
-    float linear;
-    float quadratic;
-    float radius;
-    float _p;
-};
-struct alignas(16) UBO_PointLightBlock
-{
-    int uNumPointLights;
-    int _pA;
-    int _pB;
-    int _pC;
-
-    UBO_PointLight uPointLights[8];
-};
 
 //------------------------------------------------------------
 // Helpers (declared in VKRenderer.h)
