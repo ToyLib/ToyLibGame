@@ -7,9 +7,13 @@
 //  - Sprite pipeline は set=0 binding=0 に CombinedImageSampler を要求
 //  - VKRenderer.h 側に以下がある前提：
 //      VkDescriptorPool mSpriteDescPool
-//      std::unordered_map<const Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK
+//      std::unordered_map<const Texture*, SpriteDescCacheEntry> mSpriteDescSetsVK
 //      VkImageView mSpriteFallbackImageView
 //      VkSampler   mSpriteFallbackSampler
+//
+//      VkDescriptorPool mSpriteCommonDescPool
+//      std::vector<SpriteFrameResources> mSpriteFrames
+//      VkDescriptorSetLayout mSpriteSetLayout1_Common
 //
 // 注意:
 //  - Texture -> VkImageView/VkSampler を引けない場合は fallback を使う
@@ -17,37 +21,38 @@
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Asset/Material/Texture.h"     // Texture 完全型
+#include "Asset/Material/Texture.h"
 #include "Render/ITextureGPU.h"
-#include "Render/VK/VKTextureGPU.h"     // VKTextureGPU の getter を使う
+#include "Render/VK/VKTextureGPU.h"
 #include "Render/VK/VKUtil.h"
 #include "Render/VK/VKUBO.h"
 
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 namespace toy
 {
 
+//--------------------------------------------------------------
+// GL clip(-1..1) -> VK clip(0..1) 補正（row-vector 前提）
+//  - y反転は viewport 側でやる想定なのでここでは触らない
+//--------------------------------------------------------------
 static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
 {
     Matrix4 c = Matrix4::Identity;
 
-    // x' = x
-    c.mat[0][0] = 1.0f;
+    c.mat[0][0] = 1.0f; // x' = x
+    c.mat[1][1] = 1.0f; // y' = y
 
-    // y' = y   ★ここを -1 にしない（viewport側で反転する）
-    c.mat[1][1] = 1.0f;
-
-    // z' = 0.5*z + 0.5*w  (GL [-1..1] -> VK [0..1])
+    // z' = 0.5*z + 0.5*w
     c.mat[2][2] = 0.5f;
     c.mat[3][2] = 0.5f;
 
-    // w' = w
-    c.mat[3][3] = 1.0f;
-
+    c.mat[3][3] = 1.0f; // w' = w
     return c;
 }
+
 static inline void WriteUBO(VkDevice dev, VkDeviceMemory mem, const void* src, size_t bytes)
 {
     void* dst = nullptr;
@@ -69,7 +74,6 @@ bool VKRenderer::EnsureSpriteDescriptorPool()
     {
         return true;
     }
-
     if (!mDevice)
     {
         return false;
@@ -84,17 +88,17 @@ bool VKRenderer::EnsureSpriteDescriptorPool()
 
     // 「1 Texture = swapchain枚数分の set」を想定
     // 最小段階：とりあえず 256 Texture 分
-    const uint32_t kMaxTextures   = 256;
-    const uint32_t totalSets      = scCount * kMaxTextures;
-    const uint32_t totalSamplers  = totalSets; // set あたり1 sampler
+    const uint32_t kMaxTextures  = 256;
+    const uint32_t totalSets     = scCount * kMaxTextures;
+    const uint32_t totalBindings = totalSets; // setあたり sampler1個
 
     VkDescriptorPoolSize ps{};
     ps.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    ps.descriptorCount = totalSamplers;
+    ps.descriptorCount = totalBindings;
 
     VkDescriptorPoolCreateInfo pci{};
     pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pci.flags         = 0; // FREE を使うなら VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+    pci.flags         = 0;
     pci.maxSets       = totalSets;
     pci.poolSizeCount = 1;
     pci.pPoolSizes    = &ps;
@@ -110,27 +114,15 @@ bool VKRenderer::EnsureSpriteDescriptorPool()
 
 //--------------------------------------------------------------
 // TextureHandle -> VkImageView/VkSampler bridge
-//
-// 重要：Texture の public API は増やさない方針なので、Texture.h 側で
-//   friend class VKRenderer;
-// を追加して、VKRenderer だけが mGPU を覗ける前提。
 //--------------------------------------------------------------
 VkImageView VKRenderer::GetVkImageViewFromTextureHandle(TextureHandle h) const
 {
     const Texture* tex = h.ptr;
-    if (!tex)
-    {
-        return VK_NULL_HANDLE;
-    }
+    if (!tex) return VK_NULL_HANDLE;
 
-    // Texture の GPU 実装を覗く（friend 前提）
     const ITextureGPU* gpu = tex->GetGPU();
-    if (!gpu)
-    {
-        return VK_NULL_HANDLE;
-    }
+    if (!gpu) return VK_NULL_HANDLE;
 
-    // Vulkan 実装なら ImageView を返す
     if (auto* vkgpu = dynamic_cast<const VKTextureGPU*>(gpu))
     {
         return vkgpu->GetImageView();
@@ -142,16 +134,10 @@ VkImageView VKRenderer::GetVkImageViewFromTextureHandle(TextureHandle h) const
 VkSampler VKRenderer::GetVkSamplerFromTextureHandle(TextureHandle h) const
 {
     const Texture* tex = h.ptr;
-    if (!tex)
-    {
-        return VK_NULL_HANDLE;
-    }
+    if (!tex) return VK_NULL_HANDLE;
 
     const ITextureGPU* gpu = tex->GetGPU();
-    if (!gpu)
-    {
-        return VK_NULL_HANDLE;
-    }
+    if (!gpu) return VK_NULL_HANDLE;
 
     if (auto* vkgpu = dynamic_cast<const VKTextureGPU*>(gpu))
     {
@@ -164,6 +150,10 @@ VkSampler VKRenderer::GetVkSamplerFromTextureHandle(TextureHandle h) const
 //--------------------------------------------------------------
 // Sprite用 DescriptorSet を Texture* 単位でキャッシュ
 // - swapchain枚数分をまとめて確保して、現在の mImageIndex の set を返す
+//
+// ★重要：Textureが再生成されて VkImageView が変わっても
+//         「同じ Texture*」のままなので、descriptor の更新が必要。
+//         lastView/lastSampler を見て必要時に update する。
 //--------------------------------------------------------------
 VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
 {
@@ -179,6 +169,7 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
         return VK_NULL_HANDLE;
     }
 
+    // Sprite pipeline が必要（setLayout0 をここから取る）
     auto itPipe = mPipelines.find("Sprite");
     if (itPipe == mPipelines.end() || !itPipe->second)
     {
@@ -189,7 +180,7 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     VKPipeline* pipe = itPipe->second.get();
     if (pipe->setLayout0 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] GetOrCreateSpriteDescSet: Sprite setLayout missing.\n";
+        std::cerr << "[VKRenderer] GetOrCreateSpriteDescSet: Sprite setLayout0 missing.\n";
         return VK_NULL_HANDLE;
     }
 
@@ -198,9 +189,10 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
         return VK_NULL_HANDLE;
     }
 
+    // null は fallback 扱い
     const Texture* texPtr = texH.ptr;
 
-    // 今の view/sampler を解決（無ければ fallback）
+    // view/sampler 解決（無ければ fallback）
     VkImageView view    = VK_NULL_HANDLE;
     VkSampler   sampler = VK_NULL_HANDLE;
 
@@ -209,7 +201,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
         view    = GetVkImageViewFromTextureHandle(texH);
         sampler = GetVkSamplerFromTextureHandle(texH);
     }
-
     if (view == VK_NULL_HANDLE)    view = mSpriteFallbackImageView;
     if (sampler == VK_NULL_HANDLE) sampler = mSpriteFallbackSampler;
 
@@ -219,21 +210,18 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
         return VK_NULL_HANDLE;
     }
 
-    // キャッシュ取得（無ければ作る）
-    auto& entry = mSpriteDescSetsVK[texPtr];
+    // cache entry（★SpriteDescCacheEntry を使用）
+    SpriteDescCacheEntry& entry = mSpriteDescSetsVK[texPtr];
 
-    // 既存 sets があるか？
-    const bool hasSets = (!entry.sets.empty());
-
-    // swapchain 枚数が変わってたら作り直し（recreate対応の最低限）
-    if (hasSets && entry.sets.size() != scCount)
+    // swapchain 枚数が変わったら作り直し（最低限）
+    if (!entry.sets.empty() && entry.sets.size() != scCount)
     {
         entry.sets.clear();
-        entry.lastView = VK_NULL_HANDLE;
+        entry.lastView    = VK_NULL_HANDLE;
         entry.lastSampler = VK_NULL_HANDLE;
     }
 
-    // allocate が必要ならここで作る
+    // allocate が必要なら作る
     if (entry.sets.empty())
     {
         entry.sets.assign(scCount, VK_NULL_HANDLE);
@@ -254,12 +242,12 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
             return VK_NULL_HANDLE;
         }
 
-        // 初回は必ず update する
+        // 初回は必ず update
         entry.lastView    = VK_NULL_HANDLE;
         entry.lastSampler = VK_NULL_HANDLE;
     }
 
-    // ★重要：view/sampler が変わっていたら descriptor を更新し直す
+    // ★重要：view/sampler が変わっていたら descriptor を更新
     if (entry.lastView != view || entry.lastSampler != sampler)
     {
         for (uint32_t i = 0; i < scCount; ++i)
@@ -288,7 +276,9 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteDescSet(TextureHandle texH)
     return entry.sets[idx];
 }
 
-
+//--------------------------------------------------------------
+// set=1 SpriteCommon descriptors（viewProj UBO）
+//--------------------------------------------------------------
 bool VKRenderer::EnsureSpriteCommonDescriptors()
 {
     const uint32_t imageCount = (uint32_t)mSwapchainImages.size();
@@ -313,10 +303,9 @@ bool VKRenderer::EnsureSpriteCommonDescriptors()
 
     DestroySpriteCommonDescriptors();
 
-    // pool: UBO * 1 * imageCount
     VkDescriptorPoolSize ps{};
     ps.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    ps.descriptorCount = imageCount * 1;
+    ps.descriptorCount = imageCount;
 
     VkDescriptorPoolCreateInfo pci{};
     pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -366,7 +355,7 @@ bool VKRenderer::EnsureSpriteCommonDescriptors()
                               f.spriteCommonUBO, sizeof(UBO_SpriteCommon));
     }
 
-    // init
+    // init（未初期化参照を潰す）
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         UpdateSpriteCommonUBO(i);
@@ -397,8 +386,6 @@ void VKRenderer::DestroySpriteCommonDescriptors()
         vkDestroyDescriptorPool(mDevice, mSpriteCommonDescPool, nullptr);
         mSpriteCommonDescPool = VK_NULL_HANDLE;
     }
-
-    // mSpriteSetLayout1_Common は “共有” なので、renderer shutdownでまとめて破棄でもOK
 }
 
 void VKRenderer::UpdateSpriteCommonUBO(uint32_t imageIndex)
@@ -408,18 +395,17 @@ void VKRenderer::UpdateSpriteCommonUBO(uint32_t imageIndex)
     VkDeviceMemory mem = mSpriteFrames[imageIndex].spriteCommonMem;
     if (mem == VK_NULL_HANDLE) return;
 
-    // UIスケール（SpriteComponentと同じ値で viewProj を作る）
     const UIScaleInfo ui = GetUIScaleInfo();
     const float sw = ui.screenW;
     const float sh = ui.screenH;
 
     UBO_SpriteCommon u{};
 
-    // GL的な2D viewProj を作って、ZだけVK向け補正（あなたの corr が Z補正のみの前提）
-    const Matrix4 vpGL = Matrix4::CreateSimpleViewProj(sw, sh);
-    const Matrix4 corr = MakeGLtoVK_ClipCorrection_RowVector();
+    const Matrix4 vpGL  = Matrix4::CreateSimpleViewProj(sw, sh);
+    const Matrix4 corr  = MakeGLtoVK_ClipCorrection_RowVector();
     u.uViewProj = vpGL * corr;
 
     WriteUBO(mDevice, mem, &u, sizeof(u));
 }
+
 } // namespace toy
