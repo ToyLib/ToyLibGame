@@ -25,10 +25,8 @@ static VKTextureGPU* AsVKTex(TextureHandle h)
 
 VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
 {
-    // pool を先に作る
     if (mWorldTexDescPool == VK_NULL_HANDLE)
     {
-        // だいたいでOK：必要なら増やす
         VkDescriptorPoolSize ps{};
         ps.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         ps.descriptorCount = 1024;
@@ -46,29 +44,28 @@ VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
         }
     }
 
-    // dummy white を必ず用意
     if (!CreateDummyWhiteResources())
     {
         std::cerr << "[VK] dummy white create failed\n";
         return VK_NULL_HANDLE;
     }
 
-    // texture が無い → dummy white の descriptor を返す（1個だけ作って使い回す）
+    // ★ここ：共有 layout0 を使う（Mesh variants で共通化している前提）
+    if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VK] mWorldSetLayout0_Texture is null (CreateMeshPipeline did not set it)\n";
+        return VK_NULL_HANDLE;
+    }
+
+    VkDescriptorSetLayout layout = mWorldSetLayout0_Texture;
+
+    // texture 無し → dummy white の descriptor を返す
     if (!texH.ptr)
     {
         if (mWorldTexDescSetDummyWhite != VK_NULL_HANDLE)
         {
             return mWorldTexDescSetDummyWhite;
         }
-
-        auto itP = mPipelines.find("Mesh");
-        if (itP == mPipelines.end() || !itP->second || itP->second->setLayout0 == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VK] Mesh pipeline/layout0 missing\n";
-            return VK_NULL_HANDLE;
-        }
-
-        VkDescriptorSetLayout layout = itP->second->setLayout0;
 
         VkDescriptorSetAllocateInfo ai{};
         ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -106,17 +103,6 @@ VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
         return it->second;
     }
 
-    // layout0
-    auto itP = mPipelines.find("Mesh");
-    if (itP == mPipelines.end() || !itP->second || itP->second->setLayout0 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] Mesh pipeline/layout0 missing\n";
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorSetLayout layout = itP->second->setLayout0;
-
-    // alloc
     VkDescriptorSet set = VK_NULL_HANDLE;
     VkDescriptorSetAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -130,7 +116,6 @@ VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
         return VK_NULL_HANDLE;
     }
 
-    // resolve view/sampler
     VkImageView view = VK_NULL_HANDLE;
     VkSampler   samp = VK_NULL_HANDLE;
 
@@ -140,7 +125,6 @@ VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
         samp = vkTex->GetSampler();
     }
 
-    // fallback
     if (view == VK_NULL_HANDLE || samp == VK_NULL_HANDLE)
     {
         view = mDummyWhiteImageView;
@@ -162,7 +146,6 @@ VkDescriptorSet VKRenderer::GetOrCreateWorldTexDescSet(TextureHandle texH)
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
-    // cache
     mWorldTexDescSetCache[texH.ptr] = set;
     return set;
 }

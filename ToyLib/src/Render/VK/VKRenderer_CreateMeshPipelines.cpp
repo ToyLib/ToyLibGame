@@ -71,6 +71,40 @@ static VkFrontFace ToVkFrontFace(FrontFace ff)
 bool VKRenderer::CreateMeshPipeline()
 {
     //========================================================
+    // 共有テクスチャ
+    //========================================================
+    if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> b;
+        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
+            0, VK_SHADER_STAGE_FRAGMENT_BIT));
+
+        mWorldSetLayout0_Texture = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VK] setLayout0(Texture) create failed\n";
+            return false;
+        }
+    }
+
+    if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> b;
+        b.push_back(vkutil::MakeBinding_UBO(0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
+        b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+        b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+        b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+
+        mWorldSetLayout1_Common = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VK] setLayout1(Common) create failed\n";
+            return false;
+        }
+    }
+    
+    
+    //========================================================
     // Load SPIR-V once
     //========================================================
     std::vector<uint8_t> vertCode, fragCode;
@@ -165,44 +199,16 @@ bool VKRenderer::CreateMeshPipeline()
         rs.frontFace   = ToVkFrontFace(ff);
         rs.lineWidth   = 1.0f;
 
-        // set0: Diffuse texture
-        VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
-        {
-            std::vector<VkDescriptorSetLayoutBinding> b;
-            b.push_back(vkutil::MakeBinding_CombinedImageSampler(0, VK_SHADER_STAGE_FRAGMENT_BIT));
-            set0 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-            if (!set0)
-            {
-                std::cerr << "Mesh set0 layout failed: " << name << "\n";
-                return false;
-            }
-        }
-
-        // set1: UBO 0..3
-        VkDescriptorSetLayout set1 = VK_NULL_HANDLE;
-        {
-            std::vector<VkDescriptorSetLayoutBinding> b;
-            b.push_back(vkutil::MakeBinding_UBO(
-                0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
-            b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-            b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-            b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-
-            set1 = vkutil::CreateDescriptorSetLayout(mDevice, b);
-            if (!set1)
-            {
-                std::cerr << "Mesh set1 layout failed: " << name << "\n";
-                vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
-                return false;
-            }
-        }
+        // ★共有 set layout を使う（Descriptors.cpp と必ず一致させる）
+        VkDescriptorSetLayout setLayouts[2] = {
+            mWorldSetLayout0_Texture,
+            mWorldSetLayout1_Common
+        };
 
         VkPushConstantRange pc{};
         pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         pc.offset     = 0;
         pc.size       = sizeof(Matrix4);
-
-        VkDescriptorSetLayout setLayouts[2] = { set0, set1 };
 
         VkPipelineLayoutCreateInfo pl{};
         pl.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -215,8 +221,6 @@ bool VKRenderer::CreateMeshPipeline()
         if (vkCreatePipelineLayout(mDevice, &pl, nullptr, &pipelineLayout) != VK_SUCCESS)
         {
             std::cerr << "Mesh pipeline layout failed: " << name << "\n";
-            vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
-            vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
             return false;
         }
 
@@ -241,8 +245,6 @@ bool VKRenderer::CreateMeshPipeline()
         {
             std::cerr << "Mesh pipeline create failed: " << name << "\n";
             vkDestroyPipelineLayout(mDevice, pipelineLayout, nullptr);
-            vkDestroyDescriptorSetLayout(mDevice, set1, nullptr);
-            vkDestroyDescriptorSetLayout(mDevice, set0, nullptr);
             return false;
         }
 
@@ -250,8 +252,11 @@ bool VKRenderer::CreateMeshPipeline()
         p->debugName      = name;
         p->pipeline       = pipeline;
         p->pipelineLayout = pipelineLayout;
-        p->setLayout0     = set0;
-        p->setLayout1     = set1;
+
+        // ★共有参照（destroyしない）
+        p->setLayout0     = mWorldSetLayout0_Texture;
+        p->setLayout1     = mWorldSetLayout1_Common;
+
         p->renderPass     = mRenderPass;
 
         mPipelines[name] = std::move(p);

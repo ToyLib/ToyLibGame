@@ -18,7 +18,7 @@ void VKTest::InitGame()
 
     auto lm = GetRenderer()->GetLightingManager();
     toy::DirectionalLight dirLight;
-    dirLight.Position = Vector3(1.0f, 1.0f, 1.0f);
+    dirLight.Position = Vector3(1.0f, 20.0f, -1.0f);
     dirLight.Target = Vector3(0.0f, 0.0f, 0.0f);
     dirLight.DiffuseColor = Vector3(0.4f, 0.0f, 0.0f);
     lm->SetDirectionalLight(dirLight);
@@ -33,9 +33,10 @@ void VKTest::InitGame()
     mAct = CreateActor<toy::Actor>();
     auto mesh = mAct->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
-    mesh->SetLocalScale(0.3f);
+    mesh->SetLocalScale(0.5f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
     mesh->SetToonRender(false);
+    mesh->SetContourFactor(1.1f);
     
 }
 

@@ -127,6 +127,9 @@ private:
 
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
+    
+    VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
+    VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------

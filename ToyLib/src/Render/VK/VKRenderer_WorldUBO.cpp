@@ -295,84 +295,58 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
 void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
 {
     if (!mMaterialParamsUBOMem) return;
-/*
-    // ===== アウトライン専用（RenderItem override） =====
-    // 裏返し拡大メッシュを “単色塗り” するための経路
-    if (it.overrideColor)
-    {
-        UBO_MaterialParams u{};
-        u.uDiffuseColor[0] = 0.0f;
-        u.uDiffuseColor[1] = 0.0f;
-        u.uDiffuseColor[2] = 0.0f;
-        u.uUseTexture      = 0;            // ★必ず OFF（白テクスチャを読ませない）
 
-        u.uUniformColor[0] = it.overrideColorValue.x;
-        u.uUniformColor[1] = it.overrideColorValue.y;
-        u.uUniformColor[2] = it.overrideColorValue.z;
-        u.uOverrideColor   = 1;            // ★単色で return させる
+    // Material default に合わせる
+    Vector3 diffuse(0.8f, 0.8f, 0.8f);
+    float   specPower = 32.0f;
 
-        u.uSpecPower = it.material.ptr->GetSpecPower();
-        
-        u._padM0 = u._padM1 = u._padM2 = 0.0f;
+    // shader 分岐用フラグ（必ず確定値を入れる）
+    int useTex      = 0;
+    int overrideCol = (it.overrideColor ? 1 : 0);
 
-        WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
-        return;
-    }
-*/
-    // ===== 通常メッシュ（Material反映） =====
-    Vector3 diffuse(0.8f, 0.8f, 0.8f);     // Material default に合わせる
+    // overrideColor の色（未使用でも 0 を入れておく）
     Vector3 ucol(0.0f, 0.0f, 0.0f);
 
-    int   useTex      = 0;
-    //int   overrideCol = 0;                // ←「アウトライン」は上で return 済みなので基本 0
-    float specPower   = 32.0f;
-
+    // ===== Material 反映（通常メッシュ）=====
     if (it.material.ptr)
     {
         diffuse   = it.material.ptr->GetDiffuseColor();
         specPower = it.material.ptr->GetSpecPower();
 
-        // GL と同じ判定：意思 AND 実体
+        // GL と同じ最終判定：意思 AND 実体
         const bool wantUseTex = it.material.ptr->WantsUseTexture();
         const bool hasMap     = it.material.ptr->HasDiffuseMap();
-
         useTex = (wantUseTex && hasMap) ? 1 : 0;
+    }
 
-        // （Material 側の overrideColor を将来使うならここで拾う）
-        // 今回の用途説明だと RenderItem の override だけで良いので、ここは基本使わないでもOK
-        // もし Material override も残すなら:
-        // if (it.material.ptr->GetOverrideColor()) { overrideCol=1; ucol=it.material.ptr->GetUniformColor(); useTex=0; }
+    // ===== OverrideColor（輪郭用など）=====
+    if (overrideCol != 0)
+    {
+        ucol = it.overrideColorValue;
+
+        // override のときは必ずテクスチャ無効（安全）
+        useTex = 0;
     }
 
     UBO_MaterialParams u{};
     u.uDiffuseColor[0] = diffuse.x;
     u.uDiffuseColor[1] = diffuse.y;
     u.uDiffuseColor[2] = diffuse.z;
+    u.uUseTexture      = useTex;
 
-    //u.uOverrideColor   = it.overrideColor;
-    std::cout << "Override = " << it.overrideColor << std::endl;
-    if (it.overrideColor)
-    {
-        u.uUniformColor[0] = 0.0f;//it.overrideColorValue.x;
-        u.uUniformColor[1] = 0.0f;//it.overrideColorValue.y;
-        u.uUniformColor[2] = 0.0f;//it.overrideColorValue.z;
-        u.uOverrideColor = 1;
+    u.uUniformColor[0] = ucol.x;
+    u.uUniformColor[1] = ucol.y;
+    u.uUniformColor[2] = ucol.z;
+    u.uOverrideColor   = overrideCol;
 
-    }
-    else
-    {
-        u.uUseTexture      = useTex;
-        u.uUniformColor[0] = ucol.x;
-        u.uUniformColor[1] = ucol.y;
-        u.uUniformColor[2] = ucol.z;
-        u.uOverrideColor = 0;
-    }
-    
     u.uSpecPower = specPower;
-    u._padM0 = u._padM1 = u._padM2 = 0.0f;
+    u._padM0 = 0.0f;
+    u._padM1 = 0.0f;
+    u._padM2 = 0.0f;
 
     WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
 }
+
 void VKRenderer::UpdateDirLightUBO()
 {
     if (!mDirLightUBOMem) return;
