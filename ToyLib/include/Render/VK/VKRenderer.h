@@ -25,6 +25,33 @@ struct FrameSync
     VkCommandBuffer cmd            { VK_NULL_HANDLE };
 };
 
+//==============================================================
+// WorldFrameResources
+//  - swapchain image index (= mImageIndex) 単位で保持
+//  - set=1 の UBO 0..3 と、それを参照する descriptor set
+//==============================================================
+struct WorldFrameResources
+{
+    // set=1 descriptor set (UBO 0..3)
+    VkDescriptorSet descSet1_Common { VK_NULL_HANDLE };
+
+    // binding=0 : WorldCommon
+    VkBuffer       worldCommonUBO { VK_NULL_HANDLE };
+    VkDeviceMemory worldCommonMem { VK_NULL_HANDLE };
+
+    // binding=1 : MaterialParams
+    VkBuffer       materialParamsUBO { VK_NULL_HANDLE };
+    VkDeviceMemory materialParamsMem { VK_NULL_HANDLE };
+
+    // binding=2 : DirLight
+    VkBuffer       dirLightUBO { VK_NULL_HANDLE };
+    VkDeviceMemory dirLightMem { VK_NULL_HANDLE };
+
+    // binding=3 : PointLight
+    VkBuffer       pointLightUBO { VK_NULL_HANDLE };
+    VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
+};
+
 class VKRenderer final : public IRenderer
 {
 public:
@@ -73,7 +100,7 @@ protected:
 
 private:
     //--------------------------------------------------------------------------
-    // Core VK init (minimum)
+    // Core VK init
     //--------------------------------------------------------------------------
     bool CreateRenderPass();
     bool CreateFramebuffers();
@@ -95,6 +122,17 @@ private:
     void DrawBucket_WorldVK(const std::vector<uint32_t>& bucket);
     void DrawWorldItem_VK(const RenderItem& it);
     VKPipeline* ResolveWorldPipelineForItem(const RenderItem& it);
+
+    //--------------------------------------------------------------------------
+    // World bind helpers
+    //--------------------------------------------------------------------------
+    void BindWorldCommon(VkCommandBuffer cmd,
+                         const VKPipeline& pipe,
+                         const RenderItem& it);
+
+    void BindWorldMaterial(VkCommandBuffer cmd,
+                           const VKPipeline& pipe,
+                           const RenderItem& it);
 
 private:
     //--------------------------------------------------------------------------
@@ -127,43 +165,33 @@ private:
 
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
-    
+
+private:
+    //--------------------------------------------------------------------------
+    // World set layouts (共有)
+    //  - set=0 : texture sampler
+    //  - set=1 : UBO 0..3
+    //--------------------------------------------------------------------------
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------
-    // Scene(Common) descriptors: set=1 (UBO 0..3)
+    // World descriptors / UBOs (set=1)
     //--------------------------------------------------------------------------
-    VkDescriptorPool             mWorldDescPool { VK_NULL_HANDLE };
-    std::vector<VkDescriptorSet> mWorldDescSets; // swapchain枚数ぶん
+    VkDescriptorPool mWorldDescPool { VK_NULL_HANDLE };
 
-    VkBuffer       mWorldCommonUBO { VK_NULL_HANDLE };
-    VkDeviceMemory mWorldCommonUBOMem { VK_NULL_HANDLE };
-
-    VkBuffer       mMaterialParamsUBO { VK_NULL_HANDLE };
-    VkDeviceMemory mMaterialParamsUBOMem { VK_NULL_HANDLE };
-
-    VkBuffer       mDirLightUBO { VK_NULL_HANDLE };
-    VkDeviceMemory mDirLightUBOMem { VK_NULL_HANDLE };
-
-    VkBuffer       mPointLightUBO { VK_NULL_HANDLE };
-    VkDeviceMemory mPointLightUBOMem { VK_NULL_HANDLE };
+    // swapchain image index 単位
+    std::vector<WorldFrameResources> mWorldFrames;
 
     bool EnsureWorldDescriptors();
     void DestroyWorldDescriptors();
 
+    // Update: 반드시 imageIndex で対象を決める
     void UpdateWorldCommonUBO(uint32_t imageIndex);
-    void UpdateMaterialParamsUBO(const RenderItem& it);
-    void UpdateDirLightUBO();
-    void UpdatePointLightUBO();
-
-    void BindWorldCommon(VkCommandBuffer cmd,
-                         const VKPipeline& pipe,
-                         const RenderItem& it);
-    void BindWorldMaterial(VkCommandBuffer cmd,
-                           const VKPipeline& pipe,
-                           const RenderItem& it);
+    void UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& it);
+    void UpdateDirLightUBO(uint32_t imageIndex);
+    void UpdatePointLightUBO(uint32_t imageIndex);
 
     // set0 (Diffuse) : Texture -> descriptor
     VkDescriptorSet GetOrCreateWorldTexDescSet(TextureHandle texH);
@@ -174,7 +202,7 @@ private:
 
 private:
     //--------------------------------------------------------------------------
-    // Upload helpers (DummyWhiteで使用)
+    // Upload helpers
     //--------------------------------------------------------------------------
     uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags props) const;
 
@@ -197,13 +225,13 @@ private:
                            VkImage image,
                            uint32_t width,
                            uint32_t height);
-    // --- UBO helper -------------------------------------------------
+
     bool CreateHostVisibleUBO(VkPhysicalDevice phys,
                               VkDevice device,
                               VkDeviceSize size,
                               VkBuffer& outBuf,
                               VkDeviceMemory& outMem);
-    
+
 private:
     //--------------------------------------------------------------------------
     // SDL

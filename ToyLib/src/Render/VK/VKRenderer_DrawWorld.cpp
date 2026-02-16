@@ -24,7 +24,7 @@ static const char* ToStr(CullMode c)
 {
     switch (c)
     {
-    case CullMode::None:  return "NoCull";    // ★重要：CreateMeshPipeline の名前に合わせる
+    case CullMode::None:  return "CullNone";   // ★ここを CullNone に戻す
     case CullMode::Front: return "CullFront";
     case CullMode::Back:  return "CullBack";
     }
@@ -115,23 +115,20 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
                                 const VKPipeline& p,
                                 const RenderItem& it)
 {
-    vkCmdPushConstants(cmd,
-                       p.pipelineLayout,
-                       VK_SHADER_STAGE_VERTEX_BIT,
-                       0,
-                       (uint32_t)sizeof(Matrix4),
-                       &it.world);
+    if (cmd == VK_NULL_HANDLE) return;
+    if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
-    if (mWorldDescSets.empty()) return;
+    vkCmdPushConstants(cmd, p.pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                       0, (uint32_t)sizeof(Matrix4), &it.world);
 
-    VkDescriptorSet set1 = mWorldDescSets[mImageIndex];
-    vkCmdBindDescriptorSets(cmd,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            p.pipelineLayout,
-                            1,
-                            1,
-                            &set1,
-                            0, nullptr);
+    if (mWorldFrames.empty()) return;
+    if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
+
+    VkDescriptorSet set1 = mWorldFrames[mImageIndex].descSet1_Common;
+    if (set1 == VK_NULL_HANDLE) return;
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            p.pipelineLayout, 1, 1, &set1, 0, nullptr);
 }
 
 //------------------------------------------------------------
@@ -189,11 +186,11 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
 
     // per-frame
     UpdateWorldCommonUBO(mImageIndex);
-    UpdateDirLightUBO();
-    UpdatePointLightUBO();
+    UpdateDirLightUBO(mImageIndex);
+    UpdatePointLightUBO(mImageIndex);
 
     // per-item
-    UpdateMaterialParamsUBO(it);
+    UpdateMaterialParamsUBO(mImageIndex, it);
 
     BindWorldCommon(cmd, *pipe, it);
     BindWorldMaterial(cmd, *pipe, it);

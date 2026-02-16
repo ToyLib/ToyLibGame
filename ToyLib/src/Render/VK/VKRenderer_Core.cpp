@@ -971,8 +971,13 @@ PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 //==============================================================================
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
-    (void)pass;
     (void)cascadeIndex;
+
+    // pass が一致しないなら無視（上位が振り分けてるなら保険）
+    if (it.pass != pass)
+    {
+        return;
+    }
 
     const PipelineHandle ph = it.pipeline;
     if (!ph.IsValidVK())
@@ -981,47 +986,51 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     auto* pipe = reinterpret_cast<VKPipeline*>(ph.ptrVKPipeline);
-    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+    if (!pipe || pipe->pipeline == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkCommandBuffer cmd = GetActiveCommandBuffer();
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
     // ---- pipeline bind
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
 
-    // ---- ここが止血ポイント：set1( WorldCommon UBO ) を必ず用意して bind
-    // Mesh系だけに限定してもいいけど、まずは "Worldを描く可能性があるもの" は全部 bind してOK
-    if (!EnsureWorldDescriptors())
+    //============================================================
+    // World pass 用の bind（set1 + push(world)）
+    //============================================================
+    if (pass == RenderPass::World)
     {
-        fprintf(stderr, "[VK] EnsureWorldDescriptors failed\n");
-        fflush(stderr);
-        return;
+        if (!EnsureWorldDescriptors())
+        {
+            std::cerr << "[VK] EnsureWorldDescriptors failed\n";
+            return;
+        }
+
+        // per-frame UBO update（imageIndex 指定版）
+        UpdateWorldCommonUBO(mImageIndex);
+        UpdateDirLightUBO(mImageIndex);
+        UpdatePointLightUBO(mImageIndex);
+
+        // per-item（material params）は DrawWorldItem_VK 側で呼ぶのが自然
+        // もし DrawItem が World描画の本体ならここで呼ぶ：
+        // UpdateMaterialParamsUBO(mImageIndex, it);
+
+        // set1 bind + push constants（一本化）
+        BindWorldCommon(cmd, *pipe, it);
+
+        // set0(texture) もこの DrawItem が world描画を担当するなら bind
+        // BindWorldMaterial(cmd, *pipe, it);
     }
 
-    // WorldCommon は毎フレーム更新（最低でも一度は書く）
-    UpdateWorldCommonUBO(mImageIndex);
-
-    // set1 bind（WorldCommon + Light + MaterialParamsUBO 等）
-    BindWorldCommon(cmd, *pipe, it);
-
-    // frame毎に更新（最低限 viewproj/camera を入れる）
-    UpdateWorldCommonUBO(mImageIndex);
-    UpdateDirLightUBO();
-    UpdatePointLightUBO();
-
-    // set=1 bind（WorldCommonなど）
-    if (mImageIndex < mWorldDescSets.size())
-    {
-        VkDescriptorSet set1 = mWorldDescSets[mImageIndex];
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->pipelineLayout,
-            1,  // firstSet = 1
-            1,  // count
-            &set1,
-            0,
-            nullptr);
-    }
-
-    // TODO: set0(テクスチャ) / push constants / VB/IB / vkCmdDraw...
+    //============================================================
+    // ここから VB/IB bind と draw
+    // （あなたの現状の設計だと DrawWorldItem_VK がやってるので、
+    //   DrawItem ではやらない or 役割を統一する）
+    //============================================================
 }
-
 } // namespace toy

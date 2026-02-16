@@ -39,6 +39,13 @@ uint32_t VKRenderer::FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags pro
     return UINT32_MAX;
 }
 
+static inline WorldFrameResources* GetWorldFrame(std::vector<WorldFrameResources>& frames, uint32_t imageIndex)
+{
+    if (frames.empty()) return nullptr;
+    if (imageIndex >= (uint32_t)frames.size()) return nullptr;
+    return &frames[imageIndex];
+}
+
 bool VKRenderer::CreateBuffer(VkDeviceSize size,
                               VkBufferUsageFlags usage,
                               VkMemoryPropertyFlags props,
@@ -244,9 +251,10 @@ static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
     return c;
 }
 
-void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
+void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
 {
-    if (!mWorldCommonUBOMem) return;
+    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
+    if (!fr || fr->worldCommonMem == VK_NULL_HANDLE) return;
 
     UBO_WorldCommon u{};
 
@@ -257,18 +265,12 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
     const Vector3 cam = GetCameraPosition();
     u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
 
-    u.uAmbientLight[0] = 0.2f;
-    u.uAmbientLight[1] = 0.2f;
-    u.uAmbientLight[2] = 0.2f;
-    u.uAmbientLight[3] = 0.0f;
-
     Vector3 ambColor = mLightingManager->GetAmbientColor();
     u.uAmbientLight[0] = ambColor.x;
     u.uAmbientLight[1] = ambColor.y;
     u.uAmbientLight[2] = ambColor.z;
     u.uAmbientLight[3] = 0.0f;
 
-    
     u.uFogMaxDist = 999999.0f;
     u.uFogMinDist = 999998.0f;
     u._pad2[0] = 0.0f;
@@ -289,42 +291,36 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t /*imageIndex*/)
     u._pad4[1] = 0.0f;
     u._pad4[2] = 0.0f;
 
-    WriteUBO(mDevice, mWorldCommonUBOMem, &u, sizeof(u));
+    WriteUBO(mDevice, fr->worldCommonMem, &u, sizeof(u));
 }
 
-void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
+void VKRenderer::UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& it)
 {
-    if (!mMaterialParamsUBOMem) return;
+    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
+    if (!fr || fr->materialParamsMem == VK_NULL_HANDLE) return;
 
-    // Material default に合わせる
+    // Material default
     Vector3 diffuse(0.8f, 0.8f, 0.8f);
     float   specPower = 32.0f;
 
-    // shader 分岐用フラグ（必ず確定値を入れる）
     int useTex      = 0;
     int overrideCol = (it.overrideColor ? 1 : 0);
 
-    // overrideColor の色（未使用でも 0 を入れておく）
     Vector3 ucol(0.0f, 0.0f, 0.0f);
 
-    // ===== Material 反映（通常メッシュ）=====
     if (it.material.ptr)
     {
         diffuse   = it.material.ptr->GetDiffuseColor();
         specPower = it.material.ptr->GetSpecPower();
 
-        // GL と同じ最終判定：意思 AND 実体
         const bool wantUseTex = it.material.ptr->WantsUseTexture();
         const bool hasMap     = it.material.ptr->HasDiffuseMap();
         useTex = (wantUseTex && hasMap) ? 1 : 0;
     }
 
-    // ===== OverrideColor（輪郭用など）=====
     if (overrideCol != 0)
     {
         ucol = it.overrideColorValue;
-
-        // override のときは必ずテクスチャ無効（安全）
         useTex = 0;
     }
 
@@ -344,12 +340,13 @@ void VKRenderer::UpdateMaterialParamsUBO(const RenderItem& it)
     u._padM1 = 0.0f;
     u._padM2 = 0.0f;
 
-    WriteUBO(mDevice, mMaterialParamsUBOMem, &u, sizeof(u));
+    WriteUBO(mDevice, fr->materialParamsMem, &u, sizeof(u));
 }
 
-void VKRenderer::UpdateDirLightUBO()
+void VKRenderer::UpdateDirLightUBO(uint32_t imageIndex)
 {
-    if (!mDirLightUBOMem) return;
+    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
+    if (!fr || fr->dirLightMem == VK_NULL_HANDLE) return;
 
     Vector3 dir(-0.4f, -1.0f, -0.2f);
     Vector3 diff(1.0f, 1.0f, 1.0f);
@@ -360,18 +357,19 @@ void VKRenderer::UpdateDirLightUBO()
     u.mDiffuseColor[0] = diff.x; u.mDiffuseColor[1] = diff.y; u.mDiffuseColor[2] = diff.z; u._p1 = 0.0f;
     u.mSpecColor[0] = spec.x; u.mSpecColor[1] = spec.y; u.mSpecColor[2] = spec.z; u._p2 = 0.0f;
 
-    WriteUBO(mDevice, mDirLightUBOMem, &u, sizeof(u));
+    WriteUBO(mDevice, fr->dirLightMem, &u, sizeof(u));
 }
 
-void VKRenderer::UpdatePointLightUBO()
+void VKRenderer::UpdatePointLightUBO(uint32_t imageIndex)
 {
-    if (!mPointLightUBOMem) return;
+    WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
+    if (!fr || fr->pointLightMem == VK_NULL_HANDLE) return;
 
     UBO_PointLightBlock u{};
     u.uNumPointLights = 0;
     u._pA = u._pB = u._pC = 0;
 
-    WriteUBO(mDevice, mPointLightUBOMem, &u, sizeof(u));
+    WriteUBO(mDevice, fr->pointLightMem, &u, sizeof(u));
 }
 
 } // namespace toy
