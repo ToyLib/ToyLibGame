@@ -112,23 +112,70 @@ VKPipeline* VKRenderer::ResolveWorldPipelineForItem(const RenderItem& it)
 // set1 + push(world)
 //------------------------------------------------------------
 void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
-                                const VKPipeline& p,
-                                const RenderItem& it)
+                                 const VKPipeline& p,
+                                 const RenderItem& it)
 {
     if (cmd == VK_NULL_HANDLE) return;
     if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
-    // push constant: world matrix
+    PushConstants_Mesh pc{};
+    pc.world = it.world;
+
+    // -------------------------
+    // Material default
+    // -------------------------
+    Vector3 diffuse(0.8f, 0.8f, 0.8f);
+    float   specPower = 32.0f;
+    int     useTex = 0;
+    int     overrideCol = (it.overrideColor ? 1 : 0);
+
+    if (it.material.ptr)
+    {
+        diffuse   = it.material.ptr->GetDiffuseColor();
+        specPower = it.material.ptr->GetSpecPower();
+
+        const bool wantUseTex = it.material.ptr->WantsUseTexture();
+        const bool hasMap     = it.material.ptr->HasDiffuseMap();
+        useTex = (wantUseTex && hasMap) ? 1 : 0;
+    }
+
+    Vector3 ucol(0.0f, 0.0f, 0.0f);
+    if (overrideCol != 0)
+    {
+        ucol = it.overrideColorValue;
+        useTex = 0;
+    }
+
+    pc.diffuse[0] = diffuse.x;
+    pc.diffuse[1] = diffuse.y;
+    pc.diffuse[2] = diffuse.z;
+    pc.diffuse[3] = 1.0f;
+
+    pc.uniformCol[0] = ucol.x;
+    pc.uniformCol[1] = ucol.y;
+    pc.uniformCol[2] = ucol.z;
+    pc.uniformCol[3] = 1.0f;
+
+    pc.flagsSpec[0] = (float)useTex;
+    pc.flagsSpec[1] = (float)overrideCol;
+    pc.flagsSpec[2] = specPower;
+    pc.flagsSpec[3] = 0.0f;
+
+    // -------------------------------------------------
+    // push constants (VS + FS)
+    // -------------------------------------------------
     vkCmdPushConstants(
         cmd,
         p.pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT,   // ← VSのみ運用ならこれでOK
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         0,
-        (uint32_t)sizeof(Matrix4),
-        &it.world
+        (uint32_t)sizeof(PushConstants_Mesh),
+        &pc
     );
 
-    // set=1 : common UBOs (per swapchain image)
+    // -------------------------------------------------
+    // set=1 : WorldCommon / DirLight / PointLight
+    // -------------------------------------------------
     if (mWorldFrames.empty()) return;
     if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
 
@@ -139,7 +186,7 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         p.pipelineLayout,
-        1,          // firstSet = 1
+        1,
         1,
         &set1,
         0, nullptr
@@ -205,7 +252,6 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     // per-item UBO only
     //  - per-frame は DrawBucket_WorldVK で 1回だけ更新する
     // ============================================================
-    UpdateMaterialParamsUBO(mImageIndex, it);
 
     // bind set1 + push(world), set0(texture)
     BindWorldCommon(cmd, *pipe, it);

@@ -12,6 +12,7 @@
 #include "Utils/MathUtil.h"             // Matrix4, Vector3
 #include "Render/LightingManager.h"
 #include "Render/VK/VKUBO.h"
+#include "Graphics/Light/PointLightComponent.h"
 
 #include <vulkan/vulkan.h>
 #include <cstring>
@@ -238,10 +239,10 @@ static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
     // x' = x
     c.mat[0][0] = 1.0f;
 
-    // y' = -y
-    c.mat[1][1] = -1.0f;
+    // y' = y   ★ここを -1 にしない（viewport側で反転する）
+    c.mat[1][1] = 1.0f;
 
-    // z' = 0.5*z + 0.5*w
+    // z' = 0.5*z + 0.5*w  (GL [-1..1] -> VK [0..1])
     c.mat[2][2] = 0.5f;
     c.mat[3][2] = 0.5f;
 
@@ -253,47 +254,56 @@ static Matrix4 MakeGLtoVK_ClipCorrection_RowVector()
 
 void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
 {
-    if (mWorldFrames.empty() || imageIndex >= (uint32_t)mWorldFrames.size()) return;
+    if (mWorldFrames.empty() || imageIndex >= (uint32_t)mWorldFrames.size())
+        return;
 
     VkDeviceMemory mem = mWorldFrames[imageIndex].worldCommonMem;
-    if (mem == VK_NULL_HANDLE) return;
+    if (mem == VK_NULL_HANDLE)
+        return;
 
     UBO_WorldCommon u{};
 
-    const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix(); // row-vector
+    // ViewProj（あなたの row-vector 運用 + 既に correction 済み）
+    const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix();
     const Matrix4 corr = MakeGLtoVK_ClipCorrection_RowVector();
     u.uViewProj = vpGL * corr;
 
     const Vector3 cam = GetCameraPosition();
-    u.uCameraPos[0] = cam.x;
-    u.uCameraPos[1] = cam.y;
-    u.uCameraPos[2] = cam.z;
-    u.uCameraPos[3] = 0.0f;
+    u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
 
-    const Vector3 ambColor = mLightingManager->GetAmbientColor();
-    u.uAmbientLight[0] = ambColor.x;
-    u.uAmbientLight[1] = ambColor.y;
-    u.uAmbientLight[2] = ambColor.z;
+    // LightingManager 経由
+    Vector3 amb = Vector3(0.8f, 0.8f, 0.8f);
+    FogInfo fog{};
+    if (mLightingManager)
+    {
+        amb = mLightingManager->GetAmbientColor();
+        fog = mLightingManager->GetFogInfo();
+    }
+
+    u.uAmbientLight[0] = amb.x;
+    u.uAmbientLight[1] = amb.y;
+    u.uAmbientLight[2] = amb.z;
     u.uAmbientLight[3] = 0.0f;
 
-    u.uFogMaxDist = 999999.0f;
-    u.uFogMinDist = 999998.0f;
+    u.uFogMaxDist = fog.MaxDist;
+    u.uFogMinDist = fog.MinDist;
     u._pad2[0] = 0.0f;
     u._pad2[1] = 0.0f;
 
-    u.uFogColor[0] = 0.0f;
-    u.uFogColor[1] = 0.0f;
-    u.uFogColor[2] = 0.0f;
+    u.uFogColor[0] = fog.Color.x;
+    u.uFogColor[1] = fog.Color.y;
+    u.uFogColor[2] = fog.Color.z;
     u.uFogColor[3] = 0.0f;
 
+    // 影系（今は無効運用）
     u.uLightViewProj0 = Matrix4::Identity;
     u.uLightViewProj1 = Matrix4::Identity;
-
     u.uCascadeSplit0 = 0.0f;
     u.uCascadeBlend  = 0.0f;
     u.uShadowBias    = 0.0f;
     u.uUseShadow     = 0;
 
+    // toon（今は0固定ならここでOK。将来は Renderer側トグルで）
     u.uUseToon = 0;
     u._pad4[0] = 0.0f;
     u._pad4[1] = 0.0f;
@@ -302,65 +312,41 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
     WriteUBO(mDevice, mem, &u, sizeof(u));
 }
 
-void VKRenderer::UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& it)
-{
-    if (mWorldFrames.empty() || imageIndex >= (uint32_t)mWorldFrames.size()) return;
-    VkDeviceMemory mem = mWorldFrames[imageIndex].materialParamsMem;
-    if (mem == VK_NULL_HANDLE) return;
-
-    Vector3 diffuse(0.8f, 0.8f, 0.8f);
-    float   specPower = 32.0f;
-
-    int useTex      = 0;
-    int overrideCol = (it.overrideColor ? 1 : 0);
-    Vector3 ucol(0.0f, 0.0f, 0.0f);
-
-    if (it.material.ptr)
-    {
-        diffuse   = it.material.ptr->GetDiffuseColor();
-        specPower = it.material.ptr->GetSpecPower();
-
-        const bool wantUseTex = it.material.ptr->WantsUseTexture();
-        const bool hasMap     = it.material.ptr->HasDiffuseMap();
-        useTex = (wantUseTex && hasMap) ? 1 : 0;
-    }
-
-    if (overrideCol != 0)
-    {
-        ucol = it.overrideColorValue;
-        useTex = 0;
-    }
-
-    UBO_MaterialParams u{};
-    u.uDiffuseColor[0] = diffuse.x;
-    u.uDiffuseColor[1] = diffuse.y;
-    u.uDiffuseColor[2] = diffuse.z;
-    u.uUseTexture      = useTex;
-
-    u.uUniformColor[0] = ucol.x;
-    u.uUniformColor[1] = ucol.y;
-    u.uUniformColor[2] = ucol.z;
-    u.uOverrideColor   = overrideCol;
-
-    u.uSpecPower = specPower;
-    u._padM0 = u._padM1 = u._padM2 = 0.0f;
-
-    WriteUBO(mDevice, mem, &u, sizeof(u));
-}
 
 void VKRenderer::UpdateDirLightUBO(uint32_t imageIndex)
 {
     WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
-    if (!fr || fr->dirLightMem == VK_NULL_HANDLE) return;
+    if (!fr || fr->dirLightMem == VK_NULL_HANDLE)
+        return;
 
-    Vector3 dir(-0.4f, -1.0f, -0.2f);
-    Vector3 diff(1.0f, 1.0f, 1.0f);
-    Vector3 spec(1.0f, 1.0f, 1.0f);
+    Vector3 dir  = Vector3::Normalize(Vector3(-0.4f, -1.0f, -0.2f));
+    Vector3 diff = Vector3(1.0f, 1.0f, 1.0f);
+    Vector3 spec = Vector3(1.0f, 1.0f, 1.0f);
+    float   sunI = 1.0f;
+
+    if (mLightingManager)
+    {
+        dir = mLightingManager->GetLightDirection();
+        if (dir.LengthSq() <= 0.000001f)
+        {
+            dir = Vector3::Normalize(Vector3(-0.4f, -1.0f, -0.2f));
+        }
+
+        const DirectionalLight& dl = mLightingManager->GetDirectionalLight();
+        diff = dl.DiffuseColor;
+        spec = dl.SpecColor;
+
+        sunI = mLightingManager->GetSunIntensity();
+        if (sunI < 0.0f) sunI = 0.0f;
+    }
+
+    diff *= sunI;
+    spec *= sunI;
 
     UBO_DirLight u{};
     u.mDirection[0] = dir.x;  u.mDirection[1] = dir.y;  u.mDirection[2] = dir.z;  u._p0 = 0.0f;
     u.mDiffuseColor[0] = diff.x; u.mDiffuseColor[1] = diff.y; u.mDiffuseColor[2] = diff.z; u._p1 = 0.0f;
-    u.mSpecColor[0] = spec.x; u.mSpecColor[1] = spec.y; u.mSpecColor[2] = spec.z; u._p2 = 0.0f;
+    u.mSpecColor[0]    = spec.x; u.mSpecColor[1]    = spec.y; u.mSpecColor[2]    = spec.z; u._p2 = 0.0f;
 
     WriteUBO(mDevice, fr->dirLightMem, &u, sizeof(u));
 }
@@ -368,13 +354,51 @@ void VKRenderer::UpdateDirLightUBO(uint32_t imageIndex)
 void VKRenderer::UpdatePointLightUBO(uint32_t imageIndex)
 {
     WorldFrameResources* fr = GetWorldFrame(mWorldFrames, imageIndex);
-    if (!fr || fr->pointLightMem == VK_NULL_HANDLE) return;
+    if (!fr || fr->pointLightMem == VK_NULL_HANDLE)
+        return;
 
     UBO_PointLightBlock u{};
     u.uNumPointLights = 0;
     u._pA = u._pB = u._pC = 0;
 
+    if (mLightingManager)
+    {
+        const auto& lights = mLightingManager->GetPointLights();
+
+        // 有効なものだけ詰める（最大8）
+        int out = 0;
+        for (size_t i = 0; i < lights.size() && out < 8; ++i)
+        {
+            const PointLightComponent* plc = lights[i];
+            if (!plc) continue;
+            if (!plc->IsEnabled()) continue;
+
+            const Vector3 pos = plc->GetPosition();
+            const Vector3 col = plc->GetColor();
+
+            UBO_PointLight& d = u.uPointLights[out];
+
+            d.position[0] = pos.x;
+            d.position[1] = pos.y;
+            d.position[2] = pos.z;
+            d.intensity   = plc->GetIntensity();
+
+            d.color[0] = col.x;
+            d.color[1] = col.y;
+            d.color[2] = col.z;
+            d.constant = plc->GetConstant();
+
+            d.linear    = plc->GetLinear();
+            d.quadratic = plc->GetQuadratic();
+            d.radius    = plc->GetRadius();
+            d._p        = 0.0f;
+
+            ++out;
+        }
+
+        u.uNumPointLights = out;
+    }
+
     WriteUBO(mDevice, fr->pointLightMem, &u, sizeof(u));
 }
-
 } // namespace toy

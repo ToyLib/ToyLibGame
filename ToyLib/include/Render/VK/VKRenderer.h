@@ -17,6 +17,16 @@
 namespace toy
 {
 
+struct PushConstants_Mesh
+{
+    Matrix4 world;
+
+    float diffuse[4];   // xyz = diffuse
+    float uniformCol[4];// xyz = override color
+    float flagsSpec[4]; // x=useTex, y=overrideColor, z=specPower, w=unused
+};
+
+
 struct FrameSync
 {
     VkSemaphore     imageAvailable { VK_NULL_HANDLE };
@@ -40,8 +50,6 @@ struct WorldFrameResources
     VkDeviceMemory worldCommonMem { VK_NULL_HANDLE };
 
     // binding=1 : MaterialParams
-    VkBuffer       materialParamsUBO { VK_NULL_HANDLE };
-    VkDeviceMemory materialParamsMem { VK_NULL_HANDLE };
 
     // binding=2 : DirLight
     VkBuffer       dirLightUBO { VK_NULL_HANDLE };
@@ -189,7 +197,6 @@ private:
 
     // Update: 반드시 imageIndex で対象を決める
     void UpdateWorldCommonUBO(uint32_t imageIndex);
-    void UpdateMaterialParamsUBO(uint32_t imageIndex, const RenderItem& it);
     void UpdateDirLightUBO(uint32_t imageIndex);
     void UpdatePointLightUBO(uint32_t imageIndex);
 

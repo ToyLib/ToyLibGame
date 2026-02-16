@@ -90,19 +90,34 @@ bool VKRenderer::CreateMeshPipeline()
     if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
     {
         std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_UBO(0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
-        b.push_back(vkutil::MakeBinding_UBO(1, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-        b.push_back(vkutil::MakeBinding_UBO(2, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
-        b.push_back(vkutil::MakeBinding_UBO(3, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
-        mWorldSetLayout1_Common = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        // binding = 0 : WorldCommon (VS + FS)
+        b.push_back(vkutil::MakeBinding_UBO(
+            0,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            1));
+
+        // binding = 2 : DirLight (FS)
+        b.push_back(vkutil::MakeBinding_UBO(
+            2,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            1));
+
+        // binding = 3 : PointLight (FS)
+        b.push_back(vkutil::MakeBinding_UBO(
+            3,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            1));
+
+        mWorldSetLayout1_Common =
+            vkutil::CreateDescriptorSetLayout(mDevice, b);
+
         if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
         {
             std::cerr << "[VK] setLayout1(Common) create failed\n";
             return false;
         }
     }
-    
     
     //========================================================
     // Load SPIR-V once
@@ -206,9 +221,10 @@ bool VKRenderer::CreateMeshPipeline()
         };
 
         VkPushConstantRange pc{};
-        pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT |
+                        VK_SHADER_STAGE_FRAGMENT_BIT;
+        pc.size       = sizeof(PushConstants_Mesh);
         pc.offset     = 0;
-        pc.size       = sizeof(Matrix4);
 
         VkPipelineLayoutCreateInfo pl{};
         pl.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

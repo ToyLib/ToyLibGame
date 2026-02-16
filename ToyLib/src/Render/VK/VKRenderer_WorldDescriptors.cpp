@@ -22,7 +22,7 @@ bool VKRenderer::EnsureWorldDescriptors()
         return false;
     }
 
-    // 共有 set layout が必要
+    // 共有 set layout が必要（set=1）
     if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
     {
         std::cerr << "[VK] mWorldSetLayout1_Common is null\n";
@@ -42,9 +42,8 @@ bool VKRenderer::EnsureWorldDescriptors()
             if (f.descSet1_Common == VK_NULL_HANDLE) return false;
 
             if (f.worldCommonUBO == VK_NULL_HANDLE || f.worldCommonMem == VK_NULL_HANDLE) return false;
-            if (f.materialParamsUBO == VK_NULL_HANDLE || f.materialParamsMem == VK_NULL_HANDLE) return false;
-            if (f.dirLightUBO == VK_NULL_HANDLE || f.dirLightMem == VK_NULL_HANDLE) return false;
-            if (f.pointLightUBO == VK_NULL_HANDLE || f.pointLightMem == VK_NULL_HANDLE) return false;
+            if (f.dirLightUBO    == VK_NULL_HANDLE || f.dirLightMem    == VK_NULL_HANDLE) return false;
+            if (f.pointLightUBO  == VK_NULL_HANDLE || f.pointLightMem  == VK_NULL_HANDLE) return false;
         }
         return true;
     };
@@ -54,13 +53,13 @@ bool VKRenderer::EnsureWorldDescriptors()
         return true;
     }
 
-    // 既存があれば破棄して作り直す（swapchain recreate 対応の基本形）
+    // 既存があれば破棄して作り直す（swapchain recreate 対応）
     DestroyWorldDescriptors();
 
-    // pool: UBO *4 * imageCount
+    // pool: UBO *3 * imageCount（0,2,3）
     VkDescriptorPoolSize poolUBO{};
     poolUBO.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolUBO.descriptorCount = imageCount * 4;
+    poolUBO.descriptorCount = imageCount * 3;
 
     VkDescriptorPoolCreateInfo pci{};
     pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -107,13 +106,6 @@ bool VKRenderer::EnsureWorldDescriptors()
             return false;
         }
 
-        if (!CreateHostVisibleUBO(mPhysicalDevice, mDevice, sizeof(UBO_MaterialParams),
-                                  f.materialParamsUBO, f.materialParamsMem))
-        {
-            DestroyWorldDescriptors();
-            return false;
-        }
-
         if (!CreateHostVisibleUBO(mPhysicalDevice, mDevice, sizeof(UBO_DirLight),
                                   f.dirLightUBO, f.dirLightMem))
         {
@@ -128,23 +120,18 @@ bool VKRenderer::EnsureWorldDescriptors()
             return false;
         }
 
-        // binding 0..3
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 0, f.worldCommonUBO,    sizeof(UBO_WorldCommon));
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 1, f.materialParamsUBO, sizeof(UBO_MaterialParams));
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 2, f.dirLightUBO,       sizeof(UBO_DirLight));
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 3, f.pointLightUBO,     sizeof(UBO_PointLightBlock));
+        // binding 0,2,3（binding=1 は空席のまま維持）
+        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 0, f.worldCommonUBO, sizeof(UBO_WorldCommon));
+        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 2, f.dirLightUBO,    sizeof(UBO_DirLight));
+        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 3, f.pointLightUBO,  sizeof(UBO_PointLightBlock));
     }
 
-    // 初期値を全imageに入れる（未初期化参照を潰す）
+    // 初期値（未初期化参照を潰す）
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         UpdateWorldCommonUBO(i);
         UpdateDirLightUBO(i);
         UpdatePointLightUBO(i);
-
-        // material は「デフォルト」でOK（overrideなどはDraw毎に上書き）
-        RenderItem dummy{};
-        UpdateMaterialParamsUBO(i, dummy);
     }
 
     return true;
@@ -164,7 +151,6 @@ void VKRenderer::DestroyWorldDescriptors()
     for (auto& f : mWorldFrames)
     {
         destroyBuf(f.worldCommonUBO,    f.worldCommonMem);
-        destroyBuf(f.materialParamsUBO, f.materialParamsMem);
         destroyBuf(f.dirLightUBO,       f.dirLightMem);
         destroyBuf(f.pointLightUBO,     f.pointLightMem);
         f.descSet1_Common = VK_NULL_HANDLE;

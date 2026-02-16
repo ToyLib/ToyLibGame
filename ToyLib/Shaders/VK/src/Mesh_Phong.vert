@@ -10,25 +10,26 @@ layout(location = 2) out vec3 fragWorldPos;
 
 //------------------------------------------------------------
 // set1: WorldCommon
-// 重要:
-// - CPU側が row-major (DirectX風 / v*M) で Matrix4 を詰めている前提なら
-//   Vulkan側でも row_major を明示して “同じ並び” として解釈させる
+// - CPU側が row-vector (v*M) / row-major 配置で詰めている前提
+// - uViewProj は CPU 側で「VK clip 補正込み」にしてある想定
 //------------------------------------------------------------
 layout(set = 1, binding = 0, std140, row_major) uniform WorldCommon
 {
     mat4 uViewProj;
-    vec3 uCameraPos; float _pad0;
 
+    vec3 uCameraPos; float _pad0;
     vec3 uAmbientLight; float _pad1;
 
     float uFogMaxDist;
     float uFogMinDist;
     vec2  _pad2;
+
     vec3  uFogColor;
     float _pad3;
 
     mat4  uLightViewProj0;
     mat4  uLightViewProj1;
+
     float uCascadeSplit0;
     float uCascadeBlend;
     float uShadowBias;
@@ -37,31 +38,29 @@ layout(set = 1, binding = 0, std140, row_major) uniform WorldCommon
     float _pad4;
 } sc;
 
-// Push constants: world
+//------------------------------------------------------------
+// Push constants (World + Material)  ※ frag と完全一致させる
+//------------------------------------------------------------
 layout(push_constant, row_major) uniform Push
 {
-    mat4 uWorldTransform;
+    mat4 pcWorld;
+
+    vec4 pcDiffuse;    // xyz = diffuse
+    vec4 pcUniform;    // xyz = override color
+    vec4 pcFlagsSpec;  // x=useTex, y=overrideColor, z=specPower, w=unused
 } pc;
 
 void main()
 {
-    // 行ベクトル運用 (v * M)
-    vec4 worldPos = vec4(inPosition, 1.0) * pc.uWorldTransform;
+    // row-vector (v * M)
+    vec4 worldPos = vec4(inPosition, 1.0) * pc.pcWorld;
     fragWorldPos  = worldPos.xyz;
 
-    vec4 clipPos  = worldPos * sc.uViewProj;
+    // uViewProj は CPU 側で VK clip 補正済み → ここで追加補正しない
+    gl_Position = worldPos * sc.uViewProj;
 
-    // Vulkan クリップ空間補正:
-    // - OpenGL用の投影行列をそのまま渡している場合は必須になりがち
-    //   (1) Y反転
-    //   (2) Z: [-1..1] -> [0..1]
-    clipPos.y = -clipPos.y;
-    clipPos.z = (clipPos.z + clipPos.w) * 0.5;
+    mat3 normalMat = mat3(transpose(inverse(pc.pcWorld)));
+    fragNormal = normalize(inNormal * normalMat);
 
-    gl_Position = clipPos;
-
-    // 法線も行ベクトルに合わせる
-    // ※ 非一様スケールがあるなら inverse-transpose が理想だけど、まずはこれでOK
-    fragNormal   = normalize(inNormal * mat3(pc.uWorldTransform));
     fragTexCoord = inTexCoord;
 }
