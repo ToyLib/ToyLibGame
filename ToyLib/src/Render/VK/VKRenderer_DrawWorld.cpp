@@ -119,7 +119,7 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
     PushConstants_Mesh pc{};
-    pc.world = it.world;
+    pc.pcWorld = it.world;
 
     // -------------------------
     // Material default
@@ -146,20 +146,20 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
         useTex = 0;
     }
 
-    pc.diffuse[0] = diffuse.x;
-    pc.diffuse[1] = diffuse.y;
-    pc.diffuse[2] = diffuse.z;
-    pc.diffuse[3] = 1.0f;
+    pc.pcDiffuse[0] = diffuse.x;
+    pc.pcDiffuse[1] = diffuse.y;
+    pc.pcDiffuse[2] = diffuse.z;
+    pc.pcDiffuse[3] = 1.0f;
 
-    pc.uniformCol[0] = ucol.x;
-    pc.uniformCol[1] = ucol.y;
-    pc.uniformCol[2] = ucol.z;
-    pc.uniformCol[3] = 1.0f;
+    pc.pcUniform[0] = ucol.x;
+    pc.pcUniform[1] = ucol.y;
+    pc.pcUniform[2] = ucol.z;
+    pc.pcUniform[3] = 1.0f;
 
-    pc.flagsSpec[0] = (float)useTex;
-    pc.flagsSpec[1] = (float)overrideCol;
-    pc.flagsSpec[2] = specPower;
-    pc.flagsSpec[3] = 0.0f;
+    pc.pcFlagsSpec[0] = (float)useTex;
+    pc.pcFlagsSpec[1] = (float)overrideCol;
+    pc.pcFlagsSpec[2] = specPower;
+    pc.pcFlagsSpec[3] = 0.0f;
 
     // -------------------------------------------------
     // push constants (VS + FS)

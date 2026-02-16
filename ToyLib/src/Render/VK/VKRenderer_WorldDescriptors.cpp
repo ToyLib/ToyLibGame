@@ -56,7 +56,7 @@ bool VKRenderer::EnsureWorldDescriptors()
     // 既存があれば破棄して作り直す（swapchain recreate 対応）
     DestroyWorldDescriptors();
 
-    // pool: UBO *3 * imageCount（0,2,3）
+    // pool: UBO *3 * imageCount（binding 0..2）
     VkDescriptorPoolSize poolUBO{};
     poolUBO.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolUBO.descriptorCount = imageCount * 3;
@@ -120,10 +120,10 @@ bool VKRenderer::EnsureWorldDescriptors()
             return false;
         }
 
-        // binding 0,2,3（binding=1 は空席のまま維持）
+        // binding 0..2（欠番なしで詰める：MoltenVK 対策）
         vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 0, f.worldCommonUBO, sizeof(UBO_WorldCommon));
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 2, f.dirLightUBO,    sizeof(UBO_DirLight));
-        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 3, f.pointLightUBO,  sizeof(UBO_PointLightBlock));
+        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 1, f.dirLightUBO,    sizeof(UBO_DirLight));
+        vkutil::WriteDesc_UBO(mDevice, f.descSet1_Common, 2, f.pointLightUBO,  sizeof(UBO_PointLightBlock));
     }
 
     // 初期値（未初期化参照を潰す）
@@ -139,26 +139,25 @@ bool VKRenderer::EnsureWorldDescriptors()
 
 void VKRenderer::DestroyWorldDescriptors()
 {
-    // per-frame UBOs
     auto destroyBuf = [&](VkBuffer& b, VkDeviceMemory& m)
     {
-        if (b) vkDestroyBuffer(mDevice, b, nullptr);
-        if (m) vkFreeMemory(mDevice, m, nullptr);
+        if (b != VK_NULL_HANDLE) vkDestroyBuffer(mDevice, b, nullptr);
+        if (m != VK_NULL_HANDLE) vkFreeMemory(mDevice, m, nullptr);
         b = VK_NULL_HANDLE;
         m = VK_NULL_HANDLE;
     };
 
     for (auto& f : mWorldFrames)
     {
-        destroyBuf(f.worldCommonUBO,    f.worldCommonMem);
-        destroyBuf(f.dirLightUBO,       f.dirLightMem);
-        destroyBuf(f.pointLightUBO,     f.pointLightMem);
+        destroyBuf(f.worldCommonUBO, f.worldCommonMem);
+        destroyBuf(f.dirLightUBO,    f.dirLightMem);
+        destroyBuf(f.pointLightUBO,  f.pointLightMem);
+
         f.descSet1_Common = VK_NULL_HANDLE;
     }
     mWorldFrames.clear();
 
-    // pool（descriptor set は pool破棄でまとめて無効化される）
-    if (mWorldDescPool)
+    if (mWorldDescPool != VK_NULL_HANDLE)
     {
         vkDestroyDescriptorPool(mDevice, mWorldDescPool, nullptr);
         mWorldDescPool = VK_NULL_HANDLE;

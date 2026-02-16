@@ -49,7 +49,7 @@ struct DirectionalLight
     vec3 mSpecColor;    float _p2;
 };
 
-layout(set = 1, binding = 2, std140) uniform DirLightBlock
+layout(set = 1, binding = 1, std140) uniform DirLightBlock
 {
     DirectionalLight uDirLight;
 } dl;
@@ -67,7 +67,7 @@ struct PointLight
     float _p;
 };
 
-layout(set = 1, binding = 3, std140) uniform PointLightBlock
+layout(set = 1, binding = 2, std140) uniform PointLightBlock
 {
     int uNumPointLights;
     int _pA; int _pB; int _pC;

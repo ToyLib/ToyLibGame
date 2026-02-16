@@ -19,11 +19,11 @@ namespace toy
 
 struct PushConstants_Mesh
 {
-    Matrix4 world;
+    Matrix4 pcWorld;
 
-    float diffuse[4];   // xyz = diffuse
-    float uniformCol[4];// xyz = override color
-    float flagsSpec[4]; // x=useTex, y=overrideColor, z=specPower, w=unused
+    float pcDiffuse[4];
+    float pcUniform[4];
+    float pcFlagsSpec[4];
 };
 
 
@@ -42,20 +42,17 @@ struct FrameSync
 //==============================================================
 struct WorldFrameResources
 {
-    // set=1 descriptor set (UBO 0..3)
     VkDescriptorSet descSet1_Common { VK_NULL_HANDLE };
 
     // binding=0 : WorldCommon
     VkBuffer       worldCommonUBO { VK_NULL_HANDLE };
     VkDeviceMemory worldCommonMem { VK_NULL_HANDLE };
 
-    // binding=1 : MaterialParams
-
-    // binding=2 : DirLight
+    // binding=1 : DirLight
     VkBuffer       dirLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory dirLightMem { VK_NULL_HANDLE };
 
-    // binding=3 : PointLight
+    // binding=2 : PointLight
     VkBuffer       pointLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
 };
@@ -175,11 +172,9 @@ private:
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
 
 private:
-    //--------------------------------------------------------------------------
     // World set layouts (共有)
     //  - set=0 : texture sampler
-    //  - set=1 : UBO 0..3
-    //--------------------------------------------------------------------------
+    //  - set=1 : UBO 0..2 (WorldCommon / DirLight / PointLight)
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
 

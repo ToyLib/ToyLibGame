@@ -41,22 +41,6 @@ struct alignas(16) UBO_WorldCommon
     float _pad4[3];
 };
 
-//==============================================================
-// UBO_MaterialParams (set=1, binding=1)
-//==============================================================
-struct alignas(16) UBO_MaterialParams
-{
-    float uDiffuseColor[3];
-    int   uUseTexture;
-
-    float uUniformColor[3];
-    int   uOverrideColor;
-
-    float uSpecPower;
-    float _padM0;
-    float _padM1;
-    float _padM2;
-};
 
 //==============================================================
 // UBO_DirLight (set=1, binding=2)
@@ -97,9 +81,6 @@ struct alignas(16) UBO_PointLightBlock
 //==============================================================
 static_assert(alignof(UBO_WorldCommon) == 16, "UBO_WorldCommon must be 16-byte aligned");
 static_assert(sizeof(UBO_WorldCommon) % 16 == 0, "UBO_WorldCommon size must be multiple of 16");
-
-static_assert(alignof(UBO_MaterialParams) == 16, "UBO_MaterialParams must be 16-byte aligned");
-static_assert(sizeof(UBO_MaterialParams) % 16 == 0, "UBO_MaterialParams size must be multiple of 16");
 
 static_assert(alignof(UBO_DirLight) == 16, "UBO_DirLight must be 16-byte aligned");
 static_assert(sizeof(UBO_DirLight) % 16 == 0, "UBO_DirLight size must be multiple of 16");
