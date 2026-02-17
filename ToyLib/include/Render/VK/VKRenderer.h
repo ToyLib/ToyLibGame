@@ -231,11 +231,10 @@ private:
     // World set layouts (共有)
     //  set=0 : texture sampler
     //  set=1 : UBO 0..2 (WorldCommon / DirLight / PointLight)
-    //  set=1(Skinned) : WorldCommon + BonePalette
+    //  mWorldSetLayout2_BonePalette
     //--------------------------------------------------------------------------
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
-    VkDescriptorSetLayout mWorldSetLayout1_Skinned { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout2_BonePalette { VK_NULL_HANDLE };
 
 private:
