@@ -184,7 +184,7 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     //========================================================
     // 例：Skinned.vert + Mesh.frag（GLと同じ分け方）
     const std::string vsPath = "ToyLib/Shaders/VK/spv/Skinned.vert.spv";
-    const std::string fsPath = "ToyLib/Shaders/VK/spv/Mesh.frag.spv";
+    const std::string fsPath = "ToyLib/Shaders/VK/spv/Mesh_Phong.frag.spv";
 
     std::vector<uint8_t> vsCode, fsCode;
     if (!vkutil::ReadFileBinary(vsPath, vsCode))
