@@ -66,7 +66,7 @@ layout(location = 4) in vec4  inSkinWeights;
 layout(location = 0) out vec2 fragTexCoord;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragWorldPos;
-
+/*
 void main()
 {
     vec4 pos = vec4(inPosition, 1.0);
@@ -91,3 +91,14 @@ void main()
 
     fragTexCoord = inTexCoord;
 }
+*/
+
+
+void main()
+{
+    vec4 wpos = vec4(inPosition, 1.0) * pc.pcWorld;
+    gl_Position = wpos * sc.uViewProj;
+}
+
+
+
