@@ -15,6 +15,8 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
+//#include <volk.h>
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -47,6 +49,9 @@ VKRenderer::VKRenderer()
 //--------------------------------------------------------------
 bool VKRenderer::Initialize(const Application* app)
 {
+    //==========================================================================
+    // 0) Basic checks / window
+    //==========================================================================
     if (!app)
     {
         std::cerr << "[VKRenderer] Initialize failed: app is null\n";
@@ -60,20 +65,33 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
 
-    // Pixel size (HiDPI)
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
-    mScreenWidth  = (float)pixelW;
-    mScreenHeight = (float)pixelH;
 
-    // DPI scale
+    mScreenWidth  = static_cast<float>(pixelW);
+    mScreenHeight = static_cast<float>(pixelH);
+
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
     if (mWindowDisplayScale <= 0.0f) mWindowDisplayScale = 1.0f;
 
-    //----------------------------------------------------------
+    //==========================================================================
+    // 0.5) Volk init (global dispatch)
+    //  - VK_NO_PROTOTYPES / Volk 構成なら「ここが超重要」
+    //==========================================================================
+    /*{
+        const VkResult vr = volkInitialize();
+        if (vr != VK_SUCCESS)
+        {
+            std::cerr << "[VKRenderer] volkInitialize failed: " << vr << "\n";
+            return false;
+        }
+    }*/
+
+    //==========================================================================
     // 1) Instance
-    //----------------------------------------------------------
+    //==========================================================================
+    // SDL required instance extensions
     Uint32 sdlExtCount = 0;
     const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(&sdlExtCount);
     if (!sdlExts || sdlExtCount == 0)
@@ -84,13 +102,13 @@ bool VKRenderer::Initialize(const Application* app)
     }
 
     std::vector<const char*> instanceExts;
-    instanceExts.reserve((size_t)sdlExtCount + 8);
+    instanceExts.reserve(static_cast<size_t>(sdlExtCount) + 8);
     for (Uint32 i = 0; i < sdlExtCount; ++i)
     {
         instanceExts.push_back(sdlExts[i]);
     }
 
-    // available instance extensions/layers
+    // enumerate available instance extensions/layers
     uint32_t availExtCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &availExtCount, nullptr);
     std::vector<VkExtensionProperties> availExts(availExtCount);
@@ -112,6 +130,7 @@ bool VKRenderer::Initialize(const Application* app)
         mEnableValidation &&
         toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
 
+    // debug utils
     if (mEnableValidation)
     {
         if (toy::vkutil::HasInstanceExt(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, availExts))
@@ -136,15 +155,15 @@ bool VKRenderer::Initialize(const Application* app)
     appInfo.engineVersion      = VK_MAKE_VERSION(0, 1, 0);
     appInfo.apiVersion         = VK_API_VERSION_1_2;
 
-    VkInstanceCreateInfo ci{};
-    ci.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    ci.pApplicationInfo        = &appInfo;
-    ci.enabledExtensionCount   = (uint32_t)instanceExts.size();
-    ci.ppEnabledExtensionNames = instanceExts.data();
+    VkInstanceCreateInfo ici{};
+    ici.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    ici.pApplicationInfo        = &appInfo;
+    ici.enabledExtensionCount   = static_cast<uint32_t>(instanceExts.size());
+    ici.ppEnabledExtensionNames = instanceExts.data();
 
     if (hasPortabilityEnum)
     {
-        ci.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        ici.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     }
 
     std::vector<const char*> layers;
@@ -152,8 +171,8 @@ bool VKRenderer::Initialize(const Application* app)
     if (mEnableValidation)
     {
         layers.push_back(kValidationLayers[0]);
-        ci.enabledLayerCount   = (uint32_t)layers.size();
-        ci.ppEnabledLayerNames = layers.data();
+        ici.enabledLayerCount   = static_cast<uint32_t>(layers.size());
+        ici.ppEnabledLayerNames = layers.data();
 
         dbgCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         dbgCI.messageSeverity =
@@ -163,26 +182,29 @@ bool VKRenderer::Initialize(const Application* app)
             VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        dbgCI.pfnUserCallback = toy::vkutil::DebugCallback; // ★VKUtil側のコールバック
+        dbgCI.pfnUserCallback = toy::vkutil::DebugCallback;
 
-        ci.pNext = &dbgCI;
+        ici.pNext = &dbgCI;
     }
 
-    VkResult vr = vkCreateInstance(&ci, nullptr, &mInstance);
+    VkResult vr = vkCreateInstance(&ici, nullptr, &mInstance);
     if (vr != VK_SUCCESS || mInstance == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateInstance failed: " << vr << "\n";
         return false;
     }
 
+    // ★ Volk: instance dispatch をロード（これが無いと device 関数で落ちる）
+    // volkLoadInstance(mInstance);
+
     if (mEnableValidation)
     {
         toy::vkutil::CreateDebugUtilsMessengerEXT(mInstance, &dbgCI, &mDebugMessenger);
     }
 
-    //----------------------------------------------------------
+    //==========================================================================
     // 2) Surface (SDL)
-    //----------------------------------------------------------
+    //==========================================================================
     if (!SDL_Vulkan_CreateSurface(mWindow, mInstance, nullptr, &mSurface))
     {
         std::cerr << "[VKRenderer] SDL_Vulkan_CreateSurface failed: "
@@ -191,9 +213,9 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
 
-    //----------------------------------------------------------
-    // 3) Physical Device selection
-    //----------------------------------------------------------
+    //==========================================================================
+    // 3) Select Physical Device
+    //==========================================================================
     uint32_t gpuCount = 0;
     vr = vkEnumeratePhysicalDevices(mInstance, &gpuCount, nullptr);
     if (vr != VK_SUCCESS || gpuCount == 0)
@@ -217,7 +239,7 @@ bool VKRenderer::Initialize(const Application* app)
 
     for (VkPhysicalDevice gpu : gpus)
     {
-        // enumerate device extensions
+        // device extensions
         uint32_t deCount = 0;
         vkEnumerateDeviceExtensionProperties(gpu, nullptr, &deCount, nullptr);
         std::vector<VkExtensionProperties> de(deCount);
@@ -226,11 +248,19 @@ bool VKRenderer::Initialize(const Application* app)
             vkEnumerateDeviceExtensionProperties(gpu, nullptr, &deCount, de.data());
         }
 
-        // required
+        // require swapchain
         if (!toy::vkutil::HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
         {
             continue;
         }
+
+        // queue families
+        const auto q = toy::vkutil::FindQueueFamilies(gpu, mSurface);
+        if (!q.IsComplete()) continue;
+
+        // swapchain support
+        const auto sc = toy::vkutil::QuerySwapchainSupport(gpu, mSurface);
+        if (sc.formats.empty() || sc.presentModes.empty()) continue;
 
         std::vector<const char*> devExts;
         devExts.reserve(4);
@@ -242,15 +272,6 @@ bool VKRenderer::Initialize(const Application* app)
             devExts.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
         }
 
-        // queue families
-        const auto q = toy::vkutil::FindQueueFamilies(gpu, mSurface);
-        if (!q.IsComplete()) continue;
-
-        // swapchain support
-        const auto sc = toy::vkutil::QuerySwapchainSupport(gpu, mSurface);
-        if (sc.formats.empty() || sc.presentModes.empty()) continue;
-
-        // choose this GPU (first suitable)
         best = gpu;
         bestDevExts = std::move(devExts);
         mQueueFamilyGraphics = q.graphics.value();
@@ -268,13 +289,15 @@ bool VKRenderer::Initialize(const Application* app)
     mPhysicalDevice   = best;
     mDeviceExtensions = std::move(bestDevExts);
 
-    VkPhysicalDeviceProperties props{};
-    vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
-    std::cerr << "[VKRenderer] GPU: " << props.deviceName << "\n";
+    {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
+        std::cerr << "[VKRenderer] GPU: " << props.deviceName << "\n";
+    }
 
-    //----------------------------------------------------------
+    //==========================================================================
     // 4) Logical Device + Queues
-    //----------------------------------------------------------
+    //==========================================================================
     std::set<uint32_t> uniqueFamilies = { mQueueFamilyGraphics, mQueueFamilyPresent };
     std::vector<VkDeviceQueueCreateInfo> qcis;
     qcis.reserve(uniqueFamilies.size());
@@ -294,18 +317,17 @@ bool VKRenderer::Initialize(const Application* app)
 
     VkDeviceCreateInfo dci{};
     dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dci.queueCreateInfoCount    = (uint32_t)qcis.size();
+    dci.queueCreateInfoCount    = static_cast<uint32_t>(qcis.size());
     dci.pQueueCreateInfos       = qcis.data();
-    dci.enabledExtensionCount   = (uint32_t)mDeviceExtensions.size();
+    dci.enabledExtensionCount   = static_cast<uint32_t>(mDeviceExtensions.size());
     dci.ppEnabledExtensionNames = mDeviceExtensions.data();
     dci.pEnabledFeatures        = &features;
 
-    // old compatibility: device layers (usually not needed)
     std::vector<const char*> deviceLayers;
     if (mEnableValidation)
     {
         deviceLayers.push_back(kValidationLayers[0]);
-        dci.enabledLayerCount   = (uint32_t)deviceLayers.size();
+        dci.enabledLayerCount   = static_cast<uint32_t>(deviceLayers.size());
         dci.ppEnabledLayerNames = deviceLayers.data();
     }
 
@@ -316,15 +338,19 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    // ★ Volk: device dispatch をロード（これが無いと descriptor 生成で落ちる）
+    //volkLoadDevice(mDevice);
 
     vkGetDeviceQueue(mDevice, mQueueFamilyGraphics, 0, &mQueueGraphics);
     vkGetDeviceQueue(mDevice, mQueueFamilyPresent,  0, &mQueuePresent);
 
-    //----------------------------------------------------------
+    //==========================================================================
     // 5) Swapchain + Images + ImageViews
-    //----------------------------------------------------------
+    //==========================================================================
     {
-        toy::vkutil::SwapchainSupport sc = toy::vkutil::QuerySwapchainSupport(mPhysicalDevice, mSurface);
+        toy::vkutil::SwapchainSupport sc =
+            toy::vkutil::QuerySwapchainSupport(mPhysicalDevice, mSurface);
+
         if (sc.formats.empty() || sc.presentModes.empty())
         {
             std::cerr << "[VKRenderer] Swapchain support incomplete.\n";
@@ -334,9 +360,7 @@ bool VKRenderer::Initialize(const Application* app)
 
         mSwapchainFormat = toy::vkutil::ChooseSurfaceFormat(sc.formats);
         mPresentMode     = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ true);
-
-        VkExtent2D extent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
-        mSwapchainExtent  = extent;
+        mSwapchainExtent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
 
         uint32_t imageCount = sc.caps.minImageCount + 1;
         if (sc.caps.maxImageCount > 0 && imageCount > sc.caps.maxImageCount)
@@ -350,16 +374,16 @@ bool VKRenderer::Initialize(const Application* app)
         sci.minImageCount    = imageCount;
         sci.imageFormat      = mSwapchainFormat.format;
         sci.imageColorSpace  = mSwapchainFormat.colorSpace;
-        sci.imageExtent      = extent;
+        sci.imageExtent      = mSwapchainExtent;
         sci.imageArrayLayers = 1;
         sci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        uint32_t queueFamilyIndices[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
+        uint32_t qIdx[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
         if (mQueueFamilyGraphics != mQueueFamilyPresent)
         {
             sci.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
             sci.queueFamilyIndexCount = 2;
-            sci.pQueueFamilyIndices   = queueFamilyIndices;
+            sci.pQueueFamilyIndices   = qIdx;
         }
         else
         {
@@ -435,9 +459,9 @@ bool VKRenderer::Initialize(const Application* app)
                   << "\n";
     }
 
-    //----------------------------------------------------------
+    //==========================================================================
     // 6) CommandPool + CommandBuffers + Sync
-    //----------------------------------------------------------
+    //==========================================================================
     {
         VkCommandPoolCreateInfo pci{};
         pci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -455,7 +479,6 @@ bool VKRenderer::Initialize(const Application* app)
         const uint32_t kFrames = 2;
         mFrames.resize(kFrames);
 
-        // command buffers: 1 per frame
         std::vector<VkCommandBuffer> cmds(kFrames, VK_NULL_HANDLE);
 
         VkCommandBufferAllocateInfo ai{};
@@ -497,9 +520,18 @@ bool VKRenderer::Initialize(const Application* app)
         }
     }
 
-    //----------------------------------------------------------
-    // 7) RenderPass + Framebuffers (Swapchain dependent)
-    //----------------------------------------------------------
+    //==========================================================================
+    // ★ RenderBackendState を「パイプライン生成より前」に確実にセット
+    //    - 後続の VertexArrayBackend / Texture / Descriptor などの保険
+    //==========================================================================
+    RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
+    RenderBackendState::Get().SetVKDevice(mDevice);
+    RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
+    RenderBackendState::Get().SetVKCommandPool(mCommandPool);
+
+    //==========================================================================
+    // 7) RenderPass + Framebuffers
+    //==========================================================================
     if (!CreateRenderPass())
     {
         Shutdown();
@@ -512,7 +544,9 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
 
-    // Sprite Pipeline
+    //==========================================================================
+    // 8) Pipelines
+    //==========================================================================
     if (!CreateSpritePipeline())
     {
         Shutdown();
@@ -523,29 +557,21 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    if (!CreateSkinnedMeshPipeline())
+    {
+        Shutdown();
+        return false;
+    }
 
-
-    RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
-    RenderBackendState::Get().SetVKDevice(mDevice);
-    RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
-    RenderBackendState::Get().SetVKCommandPool(mCommandPool);
-
-    std::cerr << "[Renderer] VK Init Complete. "
-              << "Pixels(" << pixelW << "x" << pixelH << ") "
-              << "Scale="  << mWindowDisplayScale
-              << " SwapchainImages=" << (int)mSwapchainImages.size()
-              << std::endl;
-    
-
-
-    CreateSpriteVerts();
-    
-    // Default view/proj
+    //==========================================================================
+    // 9) Default view/proj
+    //==========================================================================
     mViewMatrix = Matrix4::CreateLookAt(
         Vector3(0, 0.5f, -3),
         Vector3(0, 0, 10),
         Vector3::UnitY
     );
+
     mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
         Math::ToRadians(mPerspectiveFOV),
         mScreenWidth,
@@ -553,15 +579,29 @@ bool VKRenderer::Initialize(const Application* app)
         1.0f,
         2000.0f
     );
-    
+
+    //==========================================================================
+    // 10) Resources (dummy white / sprite quad etc.)
+    //==========================================================================
     if (!CreateDummyWhiteResources())
     {
         std::cerr << "[VKRenderer] DummyWhite create failed\n";
+        Shutdown();
         return false;
     }
 
+    // sprite verts（既存コードに合わせて呼ぶ）
+    CreateSpriteVerts();
+
+    std::cerr << "[Renderer] VK Init Complete. "
+              << "Pixels(" << pixelW << "x" << pixelH << ") "
+              << "Scale="  << mWindowDisplayScale
+              << " SwapchainImages=" << (int)mSwapchainImages.size()
+              << std::endl;
+
     return true;
 }
+
 
 //--------------------------------------------------------------
 // VKRenderer::Shutdown

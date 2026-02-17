@@ -87,6 +87,11 @@ struct alignas(16) UBO_SpriteCommon
 };
 
 
+// mat4[96]
+struct UBO_MatrixPalette
+{
+    Matrix4 bones[96];
+};
 
 //==============================================================
 // Safety checks

@@ -1,9 +1,12 @@
 //======================================================================
-// VKRenderer_CreateSpritePipeline.cpp (or inside VKRenderer.cpp)
-//  - UI Sprite 用パイプライン作成
-//  - set=0 binding=0 : CombinedImageSampler
-//  - push constants  : mat4 world + mat4 viewProj + vec4 colorAlpha (144 bytes)
-//  - vertex layout   : pos3 + normal3(dummy) + uv2  (8 floats)
+// VKRenderer_CreateSkinnedMeshPipeline.cpp
+//  - World SkinnedMesh 用パイプライン作成
+//  - set=0 : World material (combined image samplers etc)  ※既存Meshと共通
+//  - set=1 : World common + matrix palette (UBO)
+//      binding=0 : WorldCommon (view/proj, light, etc)      ※既存Meshと同等
+//      binding=4 : MatrixPalette (mat4[96])
+//  - push constants : mat4 uWorldTransform (64 bytes)
+//  - vertex layout : pos3 + normal3 + uv2 + bone(uvec4) + weight(vec4)
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -16,135 +19,151 @@
 
 namespace toy {
 
-
-// VertexArray の SpriteQuad(8 floats) を想定:
-// pos3 + normal3(dummy) + uv2
-static VkVertexInputBindingDescription MakeSpriteBinding()
+//--------------------------------------------------------------
+// Vertex input (Skinned)
+//  - location=0 vec3 pos
+//  - location=1 vec3 normal
+//  - location=2 vec2 uv
+//  - location=3 uvec4 boneIds
+//  - location=4 vec4 weights
+//
+// ストライドは「あなたのSkinned用VertexArrayの実体」に合わせる必要がある。
+// まずは float基準で組むと事故るので、ここでは明示で offsets を置く。
+// 例）pos(12) normal(12) uv(8) bone(16) weight(16) = 64 bytes
+//--------------------------------------------------------------
+static VkVertexInputBindingDescription MakeSkinnedBinding()
 {
     VkVertexInputBindingDescription b{};
     b.binding   = 0;
-    b.stride    = sizeof(float) * 8;
+    b.stride    = 64; // ★まずはこの想定。実データと違うならここを合わせる。
     b.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     return b;
 }
 
-static std::array<VkVertexInputAttributeDescription, 3> MakeSpriteAttributes()
+static std::array<VkVertexInputAttributeDescription, 5> MakeSkinnedAttributes()
 {
-    std::array<VkVertexInputAttributeDescription, 3> a{};
+    std::array<VkVertexInputAttributeDescription, 5> a{};
 
-    // location=0 vec3 inPosition
+    // location=0 pos (vec3)
     a[0].location = 0;
     a[0].binding  = 0;
     a[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
     a[0].offset   = 0;
 
-    // location=1 vec3 inNormal (unused)
+    // location=1 normal (vec3)
     a[1].location = 1;
     a[1].binding  = 0;
     a[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    a[1].offset   = sizeof(float) * 3;
+    a[1].offset   = 12;
 
-    // location=2 vec2 inTexCoord
+    // location=2 uv (vec2)
     a[2].location = 2;
     a[2].binding  = 0;
     a[2].format   = VK_FORMAT_R32G32_SFLOAT;
-    a[2].offset   = sizeof(float) * 6;
+    a[2].offset   = 24;
+
+    // location=3 boneIds (uvec4)
+    //  ここは「uint32*4」が安全。VK_FORMAT_R32G32B32A32_UINT
+    a[3].location = 3;
+    a[3].binding  = 0;
+    a[3].format   = VK_FORMAT_R32G32B32A32_UINT;
+    a[3].offset   = 32;
+
+    // location=4 weights (vec4)
+    a[4].location = 4;
+    a[4].binding  = 0;
+    a[4].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
+    a[4].offset   = 48;
 
     return a;
 }
 
 //--------------------------------------------------------------
-// VKRenderer::CreateSpritePipeline
+// VKRenderer::CreateSkinnedMeshPipeline
 //--------------------------------------------------------------
-bool VKRenderer::CreateSpritePipeline()
+bool VKRenderer::CreateSkinnedMeshPipeline()
 {
     if (!mDevice || !mRenderPass)
     {
-        std::cerr << "[VKRenderer] CreateSpritePipeline: device/renderPass not ready.\n";
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: device/renderPass not ready.\n";
         return false;
     }
-    
 
     //========================================================
-    // (0) 共有 set0(Texture) を確保（Worldと共用）
+    // (0) set=0 (World material) は Mesh と共通の想定
     //========================================================
+    // 既に Mesh pipeline 作成時に mWorldSetLayout0_Material を作っているならそれを使う。
     if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
     {
-        std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
-            0, VK_SHADER_STAGE_FRAGMENT_BIT));
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: mWorldSetLayout0_Material is null. Create Mesh pipeline first.\n";
+        return false;
+    }
 
-        mWorldSetLayout0_Texture = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
+    //========================================================
+    // (1) set=1 Skinned 用 (WorldCommon + Palette) を用意
+    //========================================================
+    // 既存 Mesh が set=1 に WorldCommon を持っているなら、Skinned は “追加で binding=4” を入れた別layoutにする（最短）
+    if (mWorldSetLayout1_Skinned == VK_NULL_HANDLE)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> b;
+
+        // binding=0 : WorldCommon UBO（Meshと共通）
+        b.push_back(vkutil::MakeBinding_UBO(
+            0,
+            VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+            1));
+
+        // binding=4 : MatrixPalette UBO（頂点シェーダ専用でOK）
+        b.push_back(vkutil::MakeBinding_UBO(
+            4,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            1));
+
+        mWorldSetLayout1_Skinned = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout1_Skinned == VK_NULL_HANDLE)
         {
-            std::cerr << "[VK] setLayout0(Texture) create failed\n";
+            std::cerr << "[VKRenderer] setLayout1(Skinned) create failed\n";
             return false;
         }
     }
 
     //========================================================
-    // (1) 既存 Sprite pipeline を破棄（共有layoutは破棄しない）
+    // (2) 既存の SkinnedMesh pipeline があれば破棄
     //========================================================
-    auto itOld = mPipelines.find("Sprite");
+    auto itOld = mPipelines.find("SkinnedMesh");
     if (itOld != mPipelines.end() && itOld->second)
     {
         VKPipeline* old = itOld->second.get();
         if (old->pipeline)       vkDestroyPipeline(mDevice, old->pipeline, nullptr);
         if (old->pipelineLayout) vkDestroyPipelineLayout(mDevice, old->pipelineLayout, nullptr);
-
-        old->pipeline       = VK_NULL_HANDLE;
+        old->pipeline = VK_NULL_HANDLE;
         old->pipelineLayout = VK_NULL_HANDLE;
-
-        // ★共有なので destroy しない
         old->setLayout0 = VK_NULL_HANDLE;
-
+        old->setLayout1 = VK_NULL_HANDLE;
         mPipelines.erase(itOld);
-    }
-    // (1b) set=1 SpriteCommon layout を VKRenderer 側で共有生成
-    if (mSpriteSetLayout1_Common == VK_NULL_HANDLE)
-    {
-        std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_UBO(
-            0, VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), 1));
-
-        mSpriteSetLayout1_Common = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (mSpriteSetLayout1_Common == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VK] setLayout1(SpriteCommon) create failed\n";
-            return false;
-        }
     }
 
     //========================================================
-    // (2) 新規
+    // (3) pipeline object
     //========================================================
     auto pipeUP = std::make_unique<VKPipeline>();
     VKPipeline* pipe = pipeUP.get();
-
-    pipe->debugName  = "Sprite";
+    pipe->debugName  = "SkinnedMesh";
     pipe->renderPass = mRenderPass;
 
-    // ★共有参照（destroyしない）
     pipe->setLayout0 = mWorldSetLayout0_Texture;
+    pipe->setLayout1 = mWorldSetLayout1_Skinned;
 
-    // push constants（サイズ一致が重要）
-    VkPushConstantRange pcr{};
-    pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pcr.offset     = 0;
-    pcr.size       = (uint32_t)sizeof(SpritePush); // 80
-
-    // PipelineLayout: set0 + push
+    //========================================================
+    // (4) pipeline layout (set0 + set1 + push(world))
+    //========================================================
     {
-        VkDescriptorSetLayout setLayouts[2] =
-        {
-            pipe->setLayout0,         // set=0 sampler
-            mSpriteSetLayout1_Common  // set=1 sprite common
-        };
+        VkDescriptorSetLayout setLayouts[2] = { pipe->setLayout0, pipe->setLayout1 };
 
         VkPushConstantRange pcr{};
-        pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         pcr.offset     = 0;
-        pcr.size       = (uint32_t)sizeof(SpritePush); // ★ 80 bytes
+        pcr.size       = (uint32_t)sizeof(Matrix4); // world only (64)
 
         VkPipelineLayoutCreateInfo lci{};
         lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -155,26 +174,27 @@ bool VKRenderer::CreateSpritePipeline()
 
         if (vkCreatePipelineLayout(mDevice, &lci, nullptr, &pipe->pipelineLayout) != VK_SUCCESS)
         {
-            std::cerr << "[VKRenderer] CreateSpritePipeline: vkCreatePipelineLayout failed.\n";
+            std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: vkCreatePipelineLayout failed.\n";
             return false;
         }
     }
 
     //========================================================
-    // (3) Shader modules
+    // (5) shaders
     //========================================================
-    const std::string vsPath = "ToyLib/Shaders/VK/spv/Sprite.vert.spv";
-    const std::string fsPath = "ToyLib/Shaders/VK/spv/Sprite.frag.spv";
+    // 例：Skinned.vert + Mesh.frag（GLと同じ分け方）
+    const std::string vsPath = "ToyLib/Shaders/VK/spv/Skinned.vert.spv";
+    const std::string fsPath = "ToyLib/Shaders/VK/spv/Mesh.frag.spv";
 
     std::vector<uint8_t> vsCode, fsCode;
     if (!vkutil::ReadFileBinary(vsPath, vsCode))
     {
-        std::cerr << "[VKRenderer] CreateSpritePipeline: failed to read VS: " << vsPath << "\n";
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: failed to read VS: " << vsPath << "\n";
         return false;
     }
     if (!vkutil::ReadFileBinary(fsPath, fsCode))
     {
-        std::cerr << "[VKRenderer] CreateSpritePipeline: failed to read FS: " << fsPath << "\n";
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: failed to read FS: " << fsPath << "\n";
         return false;
     }
 
@@ -182,7 +202,7 @@ bool VKRenderer::CreateSpritePipeline()
     VkShaderModule fs = vkutil::CreateShaderModule(mDevice, fsCode);
     if (!vs || !fs)
     {
-        std::cerr << "[VKRenderer] CreateSpritePipeline: CreateShaderModule failed.\n";
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: CreateShaderModule failed.\n";
         if (vs) vkDestroyShaderModule(mDevice, vs, nullptr);
         if (fs) vkDestroyShaderModule(mDevice, fs, nullptr);
         return false;
@@ -193,16 +213,17 @@ bool VKRenderer::CreateSpritePipeline()
     stages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
     stages[0].module = vs;
     stages[0].pName  = "main";
+
     stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
     stages[1].module = fs;
     stages[1].pName  = "main";
 
     //========================================================
-    // (4) Vertex input
+    // (6) vertex input
     //========================================================
-    const VkVertexInputBindingDescription binding = MakeSpriteBinding();
-    const auto attrs = MakeSpriteAttributes();
+    const VkVertexInputBindingDescription binding = MakeSkinnedBinding();
+    const auto attrs = MakeSkinnedAttributes();
 
     VkPipelineVertexInputStateCreateInfo vis{};
     vis.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -216,7 +237,7 @@ bool VKRenderer::CreateSpritePipeline()
     ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     //========================================================
-    // (5) Dynamic viewport/scissor
+    // (7) viewport/scissor (dynamic)
     //========================================================
     VkPipelineViewportStateCreateInfo vp{};
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -230,12 +251,12 @@ bool VKRenderer::CreateSpritePipeline()
     dyn.pDynamicStates    = dyns;
 
     //========================================================
-    // (6) Raster / MSAA / Depth / Blend（そのまま）
+    // (8) raster / msaa / depth / blend (Meshと同等にする)
     //========================================================
     VkPipelineRasterizationStateCreateInfo rs{};
     rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rs.polygonMode = VK_POLYGON_MODE_FILL;
-    rs.cullMode    = VK_CULL_MODE_NONE;
+    rs.cullMode    = VK_CULL_MODE_BACK_BIT;
     rs.frontFace   = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rs.lineWidth   = 1.0f;
 
@@ -245,9 +266,9 @@ bool VKRenderer::CreateSpritePipeline()
 
     VkPipelineDepthStencilStateCreateInfo dss{};
     dss.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    dss.depthTestEnable  = VK_FALSE;
-    dss.depthWriteEnable = VK_FALSE;
-    dss.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
+    dss.depthTestEnable  = VK_TRUE;
+    dss.depthWriteEnable = VK_TRUE;
+    dss.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     VkPipelineColorBlendAttachmentState cbA{};
     cbA.colorWriteMask =
@@ -255,15 +276,7 @@ bool VKRenderer::CreateSpritePipeline()
         VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
-
-    cbA.blendEnable         = VK_TRUE;
-    cbA.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    cbA.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    cbA.colorBlendOp        = VK_BLEND_OP_ADD;
-
-    cbA.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    cbA.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    cbA.alphaBlendOp        = VK_BLEND_OP_ADD;
+    cbA.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo cb{};
     cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -271,7 +284,7 @@ bool VKRenderer::CreateSpritePipeline()
     cb.pAttachments    = &cbA;
 
     //========================================================
-    // (7) Create pipeline
+    // (9) create pipeline
     //========================================================
     VkGraphicsPipelineCreateInfo gp{};
     gp.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -296,13 +309,14 @@ bool VKRenderer::CreateSpritePipeline()
 
     if (r != VK_SUCCESS || pipe->pipeline == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] vkCreateGraphicsPipelines(Sprite) failed: " << r << "\n";
+        std::cerr << "[VKRenderer] vkCreateGraphicsPipelines(SkinnedMesh) failed: " << r << "\n";
         vkDestroyPipelineLayout(mDevice, pipe->pipelineLayout, nullptr);
         pipe->pipelineLayout = VK_NULL_HANDLE;
         return false;
     }
 
-    mPipelines["Sprite"] = std::move(pipeUP);
+    mPipelines["SkinnedMesh"] = std::move(pipeUP);
     return true;
 }
+
 } // namespace toy

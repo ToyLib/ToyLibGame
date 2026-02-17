@@ -3,6 +3,7 @@
 #include "Render/IRenderer.h"
 #include "Render/VK/VKPipeline.h"
 #include "Render/RenderHandles.h"
+#include "Utils/MathUtil.h" // Matrix4, Vector3
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -17,6 +18,9 @@
 namespace toy
 {
 
+//==============================================================
+// Push Constants
+//==============================================================
 struct PushConstants_Mesh
 {
     Matrix4 pcWorld;
@@ -32,7 +36,9 @@ struct SpritePush
     float colorAlpha[4];
 };
 
-
+//==============================================================
+// Sprite descriptor cache (per Texture*)
+//==============================================================
 struct SpriteDescCacheEntry
 {
     std::vector<VkDescriptorSet> sets; // swapchain枚数分
@@ -40,8 +46,9 @@ struct SpriteDescCacheEntry
     VkSampler   lastSampler { VK_NULL_HANDLE };
 };
 
-
-
+//==============================================================
+// Frame sync
+//==============================================================
 struct FrameSync
 {
     VkSemaphore     imageAvailable { VK_NULL_HANDLE };
@@ -51,30 +58,43 @@ struct FrameSync
 };
 
 //==============================================================
-// WorldFrameResources
-//  - swapchain image index (= mImageIndex) 単位で保持
-//  - set=1 の UBO 0..3 と、それを参照する descriptor set
+// WorldFrameResources (swapchain image 単位)
+//  set=1 Common:
+//    binding=0 : WorldCommon
+//    binding=1 : DirLight
+//    binding=2 : PointLight
 //==============================================================
 struct WorldFrameResources
 {
     VkDescriptorSet descSet1_Common { VK_NULL_HANDLE };
 
-    // binding=0 : WorldCommon
     VkBuffer       worldCommonUBO { VK_NULL_HANDLE };
     VkDeviceMemory worldCommonMem { VK_NULL_HANDLE };
 
-    // binding=1 : DirLight
     VkBuffer       dirLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory dirLightMem { VK_NULL_HANDLE };
 
-    // binding=2 : PointLight
     VkBuffer       pointLightUBO { VK_NULL_HANDLE };
     VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
 };
 
 //==============================================================
+// SkinnedFrameResources (swapchain image 単位)
+//  set=1 Skinned:
+//    binding=0 : WorldCommon（mWorldFrames[i].worldCommonUBO を参照して共有）
+//    binding=1 : BonePalette（skinned 専用）
+//==============================================================
+struct SkinnedFrameResources
+{
+    VkDescriptorSet descSet1_Skinned { VK_NULL_HANDLE };
+
+    VkBuffer       bonePaletteUBO { VK_NULL_HANDLE };
+    VkDeviceMemory bonePaletteMem { VK_NULL_HANDLE };
+};
+
+//==============================================================
 // SpriteFrameResources (swapchain image 単位)
-//  - set=1 binding=0 : SpriteCommon(viewProj)
+//  set=1 binding=0 : SpriteCommon(viewProj)
 //==============================================================
 struct SpriteFrameResources
 {
@@ -190,7 +210,6 @@ private:
     VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex);
 
     VkDescriptorPool mSpriteDescPool { VK_NULL_HANDLE };
-    //std::unordered_map<const class Texture*, std::vector<VkDescriptorSet>> mSpriteDescSetsVK;
     std::unordered_map<const class Texture*, SpriteDescCacheEntry> mSpriteDescSetsVK;
 
     VkImageView GetVkImageViewFromTextureHandle(TextureHandle h) const;
@@ -198,7 +217,7 @@ private:
 
     VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
     VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
-    
+
     //--------------------------------------------------------------------------
     // Sprite common (set=1) : viewProj UBO
     //--------------------------------------------------------------------------
@@ -209,38 +228,50 @@ private:
     bool EnsureSpriteCommonDescriptors();
     void DestroySpriteCommonDescriptors();
     void UpdateSpriteCommonUBO(uint32_t imageIndex);
-    
 
 private:
+    //--------------------------------------------------------------------------
     // World set layouts (共有)
-    //  - set=0 : texture sampler
-    //  - set=1 : UBO 0..2 (WorldCommon / DirLight / PointLight)
+    //  set=0 : texture sampler
+    //  set=1 : UBO 0..2 (WorldCommon / DirLight / PointLight)
+    //  set=1(Skinned) : WorldCommon + BonePalette
+    //--------------------------------------------------------------------------
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
+    VkDescriptorSetLayout mWorldSetLayout1_Skinned { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------
     // World descriptors / UBOs (set=1)
     //--------------------------------------------------------------------------
     VkDescriptorPool mWorldDescPool { VK_NULL_HANDLE };
-
-    // swapchain image index 単位
     std::vector<WorldFrameResources> mWorldFrames;
 
     bool EnsureWorldDescriptors();
     void DestroyWorldDescriptors();
 
-    // Update: 반드시 imageIndex で対象を決める
     void UpdateWorldCommonUBO(uint32_t imageIndex);
     void UpdateDirLightUBO(uint32_t imageIndex);
     void UpdatePointLightUBO(uint32_t imageIndex);
 
-    // set0 (Diffuse) : Texture -> descriptor
+    // set=0 (Diffuse) : Texture -> descriptor
     VkDescriptorSet GetOrCreateWorldTexDescSet(TextureHandle texH);
 
     // Dummy white (no texture fallback)
     bool CreateDummyWhiteResources();
     void DestroyDummyWhiteResources();
+
+private:
+    //--------------------------------------------------------------------------
+    // Skinned descriptors (set=1)
+    //  - WorldCommon は mWorldFrames[i] を参照して共有
+    //  - BonePalette は mSkinnedFrames[i] に保持
+    //--------------------------------------------------------------------------
+    VkDescriptorPool mSkinnedDescPool { VK_NULL_HANDLE };
+    std::vector<SkinnedFrameResources> mSkinnedFrames;
+
+    bool EnsureSkinnedDescriptors();
+    void DestroySkinnedDescriptors();
 
 private:
     //--------------------------------------------------------------------------
@@ -332,7 +363,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
 
     //--------------------------------------------------------------------------
-    // set0 (World Diffuse) descriptor pool + cache
+    // set=0 (World Diffuse) descriptor pool + cache
     //--------------------------------------------------------------------------
     VkDescriptorPool mWorldTexDescPool { VK_NULL_HANDLE };
     std::unordered_map<const class Texture*, VkDescriptorSet> mWorldTexDescSetCache;
