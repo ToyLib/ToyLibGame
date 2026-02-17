@@ -93,12 +93,21 @@ void main()
 }
 */
 
-
+/*
 void main()
 {
     vec4 wpos = vec4(inPosition, 1.0) * pc.pcWorld;
     gl_Position = wpos * sc.uViewProj;
 }
+*/
 
-
-
+void main()
+{
+    vec4 pos  = vec4(inPosition, 1.0);
+    
+    // bone 0 だけ適用（weightは 1.0 固定）
+    mat4 skin = bp.uMatrixPalette[inSkinBones.x];
+    
+    vec4 wpos = (pos * skin) * pc.pcWorld;
+    gl_Position = wpos * sc.uViewProj;
+}
