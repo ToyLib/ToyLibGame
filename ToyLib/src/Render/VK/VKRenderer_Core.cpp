@@ -536,9 +536,9 @@ bool VKRenderer::Initialize(const Application* app)
               << " SwapchainImages=" << (int)mSwapchainImages.size()
               << std::endl;
     
+
+
     CreateSpriteVerts();
-    
-    
     
     // Default view/proj
     mViewMatrix = Matrix4::CreateLookAt(
@@ -679,6 +679,24 @@ void VKRenderer::Shutdown()
 
     mImageIndex = 0;
     mFrameIndex = 0;
+}
+
+//--------------------------------------------------------------
+// VKRenderer::WaitIdle
+//--------------------------------------------------------------
+void VKRenderer::WaitIdle()
+{
+    // device が生きてる間に呼ぶこと（Shutdownの最初が安全）
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        // RenderBackendState から拾えるなら保険で拾う
+        mDevice = (VkDevice)RenderBackendState::Get().GetVKDevice();
+    }
+
+    if (mDevice != VK_NULL_HANDLE)
+    {
+        vkDeviceWaitIdle(mDevice);
+    }
 }
 
 //--------------------------------------------------------------

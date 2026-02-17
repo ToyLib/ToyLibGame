@@ -705,7 +705,10 @@ void Mesh::LoadAnimations()
 void Mesh::Unload()
 {
     mScene = nullptr;
-
+    for (auto v : mVertexArray)
+    {
+        v->Unload();
+    }
     mVertexArray.clear();
     mMaterials.clear();
     mAnimationClips.clear();

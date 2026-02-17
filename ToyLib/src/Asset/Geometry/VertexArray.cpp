@@ -167,7 +167,6 @@ void VertexArray::Unload()
 {
     if (mBackend)
     {
-        mBackend->Unload();
         mBackend.reset();
     }
 }

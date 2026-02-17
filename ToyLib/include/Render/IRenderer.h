@@ -135,6 +135,7 @@ public:
 
     virtual bool Initialize(const class Application* app) { return false; }
     virtual void Shutdown() {};
+    virtual void WaitIdle() {};
 
     //--------------------------------------------------------------------------
     // Main draw

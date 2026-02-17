@@ -205,6 +205,11 @@ void Application::Draw()
 
 void Application::Shutdown()
 {
+    if (mRenderer)
+    {
+        mRenderer->WaitIdle();
+    }
+    
     ShutdownGame();
 	UnloadData();
 

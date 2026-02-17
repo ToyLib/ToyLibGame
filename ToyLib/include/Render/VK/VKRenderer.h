@@ -91,6 +91,7 @@ public:
 
     bool Initialize(const class Application* app) override;
     void Shutdown() override;
+    void WaitIdle() override;
 
     void UnloadData() override {}
     void OnWindowResized(int /*pixelW*/, int /*pixelH*/) override {}
