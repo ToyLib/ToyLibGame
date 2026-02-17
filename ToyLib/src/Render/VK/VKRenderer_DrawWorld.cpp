@@ -118,12 +118,10 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     if (cmd == VK_NULL_HANDLE) return;
     if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
+    // push constants（既存どおり）
     PushConstants_Mesh pc{};
     pc.pcWorld = it.world;
 
-    // -------------------------
-    // Material default
-    // -------------------------
     Vector3 diffuse(0.8f, 0.8f, 0.8f);
     float   specPower = 32.0f;
     int     useTex = 0;
@@ -161,9 +159,6 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     pc.pcFlagsSpec[2] = specPower;
     pc.pcFlagsSpec[3] = 0.0f;
 
-    // -------------------------------------------------
-    // push constants (VS + FS)
-    // -------------------------------------------------
     vkCmdPushConstants(
         cmd,
         p.pipelineLayout,
@@ -173,13 +168,28 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
         &pc
     );
 
-    // -------------------------------------------------
-    // set=1 : WorldCommon / DirLight / PointLight
-    // -------------------------------------------------
-    if (mWorldFrames.empty()) return;
-    if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
+    //========================================================
+    // set=1 を type で分岐
+    //========================================================
+    VkDescriptorSet set1 = VK_NULL_HANDLE;
 
-    const VkDescriptorSet set1 = mWorldFrames[mImageIndex].descSet1_Common;
+    if (it.type == RenderItemType::SkinnedMesh)
+    {
+        // ★Skinned は専用 set（binding=1 を含む）
+        if (mSkinnedFrames.empty()) return;
+        if (mImageIndex >= (uint32_t)mSkinnedFrames.size()) return;
+
+        set1 = mSkinnedFrames[mImageIndex].descSet2_Bone;
+    }
+    else
+    {
+        // Mesh は従来どおり
+        if (mWorldFrames.empty()) return;
+        if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
+
+        set1 = mWorldFrames[mImageIndex].descSet1_Common;
+    }
+
     if (set1 == VK_NULL_HANDLE) return;
 
     vkCmdBindDescriptorSets(

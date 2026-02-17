@@ -1,5 +1,8 @@
 //======================================================================
-// VKRenderer_CreateSkinnedMeshPipeline.cpp（修正版）
+// VKRenderer_CreateSkinnedMeshPipeline.cpp
+//  - set=0 : texture
+//  - set=1 : common (既存Meshと共有)
+//  - set=2 : bone palette（Skinned専用）
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -17,7 +20,7 @@ static VkVertexInputBindingDescription MakeSkinnedBinding()
 {
     VkVertexInputBindingDescription b{};
     b.binding   = 0;
-    b.stride    = 64; // pos3(12)+n3(12)+uv2(8)+bone4u32(16)+w4(16)=64
+    b.stride    = 64; // ★実データに合わせる
     b.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     return b;
 }
@@ -26,63 +29,70 @@ static std::array<VkVertexInputAttributeDescription, 5> MakeSkinnedAttributes()
 {
     std::array<VkVertexInputAttributeDescription, 5> a{};
 
-    a[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,       0  }; // pos
-    a[1] = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT,       12 }; // normal
-    a[2] = { 2, 0, VK_FORMAT_R32G32_SFLOAT,          24 }; // uv
-    a[3] = { 3, 0, VK_FORMAT_R32G32B32A32_UINT,      32 }; // bones
-    a[4] = { 4, 0, VK_FORMAT_R32G32B32A32_SFLOAT,    48 }; // weights
+    a[0].location = 0; a[0].binding = 0; a[0].format = VK_FORMAT_R32G32B32_SFLOAT;    a[0].offset = 0;
+    a[1].location = 1; a[1].binding = 0; a[1].format = VK_FORMAT_R32G32B32_SFLOAT;    a[1].offset = 12;
+    a[2].location = 2; a[2].binding = 0; a[2].format = VK_FORMAT_R32G32_SFLOAT;       a[2].offset = 24;
+    a[3].location = 3; a[3].binding = 0; a[3].format = VK_FORMAT_R32G32B32A32_UINT;   a[3].offset = 32;
+    a[4].location = 4; a[4].binding = 0; a[4].format = VK_FORMAT_R32G32B32A32_SFLOAT; a[4].offset = 48;
 
     return a;
 }
 
 bool VKRenderer::CreateSkinnedMeshPipeline()
 {
-    if (!mDevice || mRenderPass == VK_NULL_HANDLE)
+    if (!mDevice || !mRenderPass)
     {
         std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: device/renderPass not ready.\n";
         return false;
     }
 
     //========================================================
-    // set=0 : texture（既存 Mesh と共通）
+    // (0) set=0 (Texture) ※既存と共有
     //========================================================
     if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: mWorldSetLayout0_Texture is null.\n";
-        return false;
-    }
-
-    //========================================================
-    // set=1 : common（既存 Mesh と共通）
-    //  - ここが Mesh と一致していないと descSet1_Common が bind できない
-    //========================================================
-    if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: mWorldSetLayout1_Common is null.\n";
-        return false;
-    }
-
-    //========================================================
-    // set=2 : bone palette（Skinned専用）
-    //========================================================
-    if (mWorldSetLayout2_BonePalette == VK_NULL_HANDLE)
-    {
         std::vector<VkDescriptorSetLayoutBinding> b;
-        b.push_back(vkutil::MakeBinding_UBO(
-            0,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            1));
+        b.push_back(vkutil::MakeBinding_CombinedImageSampler(
+            0, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
 
-        mWorldSetLayout2_BonePalette = vkutil::CreateDescriptorSetLayout(mDevice, b);
-        if (mWorldSetLayout2_BonePalette == VK_NULL_HANDLE)
+        mWorldSetLayout0_Texture = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout0_Texture == VK_NULL_HANDLE)
         {
-            std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: setLayout2(BonePalette) create failed\n";
+            std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: setLayout0(Texture) create failed\n";
             return false;
         }
     }
 
     //========================================================
-    // 既存の SkinnedMesh pipeline があれば破棄
+    // (1) set=1 は既存 Mesh の common をそのまま使う
+    //     → mWorldSetLayout1_Common を既に持ってる前提
+    //========================================================
+    if (mWorldSetLayout1_Common == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: mWorldSetLayout1_Common is null. Create Mesh pipeline first.\n";
+        return false;
+    }
+
+    //========================================================
+    // (2) set=2 BonePalette layout（Skinned専用）
+    //   set=2 binding=0 : BonePalette UBO (VS)
+    //========================================================
+    if (mWorldSetLayout2_BonePalette == VK_NULL_HANDLE)
+    {
+        std::vector<VkDescriptorSetLayoutBinding> b;
+        b.push_back(vkutil::MakeBinding_UBO(
+            0, VK_SHADER_STAGE_VERTEX_BIT, 1));
+
+        mWorldSetLayout2_BonePalette = vkutil::CreateDescriptorSetLayout(mDevice, b);
+        if (mWorldSetLayout2_BonePalette == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: setLayout2(Bone) create failed\n";
+            return false;
+        }
+    }
+
+    //========================================================
+    // (3) 既存 SkinnedMesh pipeline 破棄
     //========================================================
     auto itOld = mPipelines.find("SkinnedMesh");
     if (itOld != mPipelines.end() && itOld->second)
@@ -94,32 +104,33 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     }
 
     //========================================================
-    // pipeline object
+    // (4) pipeline object
     //========================================================
     auto pipeUP = std::make_unique<VKPipeline>();
     VKPipeline* pipe = pipeUP.get();
+
     pipe->debugName  = "SkinnedMesh";
     pipe->renderPass = mRenderPass;
 
     pipe->setLayout0 = mWorldSetLayout0_Texture;
-    pipe->setLayout1 = mWorldSetLayout1_Common;         // ★共通を使う
-    pipe->setLayout2 = mWorldSetLayout2_BonePalette;    // ★追加（VKPipelineにメンバ追加推奨）
+    pipe->setLayout1 = mWorldSetLayout1_Common;
+    pipe->setLayout2 = mWorldSetLayout2_BonePalette;
 
     //========================================================
-    // pipeline layout（set0 + set1 + set2 + push）
+    // (5) pipeline layout (set0 + set1 + set2 + push)
     //========================================================
     {
         VkDescriptorSetLayout setLayouts[3] =
         {
-            pipe->setLayout0, // set=0
-            pipe->setLayout1, // set=1
-            pipe->setLayout2  // set=2
+            pipe->setLayout0,
+            pipe->setLayout1,
+            pipe->setLayout2
         };
 
         VkPushConstantRange pcr{};
         pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
         pcr.offset     = 0;
-        pcr.size       = (uint32_t)sizeof(PushConstants_Mesh); // ★重要：FSが読む
+        pcr.size       = (uint32_t)sizeof(PushConstants_Mesh); // ★あなたのpc構造体に合わせる
 
         VkPipelineLayoutCreateInfo lci{};
         lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -136,7 +147,7 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     }
 
     //========================================================
-    // shaders
+    // (6) shaders
     //========================================================
     const std::string vsPath = "ToyLib/Shaders/VK/spv/Skinned.vert.spv";
     const std::string fsPath = "ToyLib/Shaders/VK/spv/Mesh_Phong.frag.spv";
@@ -157,18 +168,25 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     VkShaderModule fs = vkutil::CreateShaderModule(mDevice, fsCode);
     if (!vs || !fs)
     {
+        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: CreateShaderModule failed.\n";
         if (vs) vkDestroyShaderModule(mDevice, vs, nullptr);
         if (fs) vkDestroyShaderModule(mDevice, fs, nullptr);
-        std::cerr << "[VKRenderer] CreateSkinnedMeshPipeline: CreateShaderModule failed.\n";
         return false;
     }
 
     VkPipelineShaderStageCreateInfo stages[2]{};
-    stages[0] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT,   vs, "main", nullptr };
-    stages[1] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fs, "main", nullptr };
+    stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = vs;
+    stages[0].pName  = "main";
+
+    stages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = fs;
+    stages[1].pName  = "main";
 
     //========================================================
-    // vertex input
+    // (7) vertex input
     //========================================================
     const VkVertexInputBindingDescription binding = MakeSkinnedBinding();
     const auto attrs = MakeSkinnedAttributes();
@@ -184,7 +202,6 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     ia.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    // dynamic viewport/scissor
     VkPipelineViewportStateCreateInfo vp{};
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
@@ -196,7 +213,6 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     dyn.dynamicStateCount = 2;
     dyn.pDynamicStates    = dyns;
 
-    // raster
     VkPipelineRasterizationStateCreateInfo rs{};
     rs.sType       = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rs.polygonMode = VK_POLYGON_MODE_FILL;
@@ -208,12 +224,11 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    // ※現状 RenderPass が color-only なら depthはOFF。depth付きにしたらONへ戻す
     VkPipelineDepthStencilStateCreateInfo dss{};
     dss.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    dss.depthTestEnable  = VK_FALSE;
-    dss.depthWriteEnable = VK_FALSE;
-    dss.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
+    dss.depthTestEnable  = VK_TRUE;
+    dss.depthWriteEnable = VK_TRUE;
+    dss.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     VkPipelineColorBlendAttachmentState cbA{};
     cbA.colorWriteMask =
@@ -221,6 +236,7 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
         VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
+    cbA.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo cb{};
     cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
