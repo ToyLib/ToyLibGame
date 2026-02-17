@@ -36,7 +36,7 @@ void VKTest::InitGame()
     mesh->SetLocalScale(0.01f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
     mesh->SetToonRender(true);
-    mesh->SetContourFactor(1.1f);
+    mesh->SetContourFactor(1.01f);
     
 }
 
