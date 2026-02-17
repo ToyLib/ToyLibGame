@@ -19,16 +19,16 @@ struct alignas(16) UBO_WorldCommon
 {
     Matrix4 uViewProj;
 
-    alignas(16) float uCameraPos[4];
-    alignas(16) float uAmbientLight[4];
+    float uCameraPos[4];
+
+    float uAmbientLight[4];
 
     float uFogMaxDist;
     float uFogMinDist;
     float _pad2[2];
 
-    alignas(16) float uFogColor[4];
+    float uFogColor[4];
 
-    // Shadow / CSM (今は未使用だが互換維持で残す)
     Matrix4 uLightViewProj0;
     Matrix4 uLightViewProj1;
 
@@ -40,6 +40,7 @@ struct alignas(16) UBO_WorldCommon
     int   uUseToon;
     float _pad4[3];
 };
+static_assert(sizeof(UBO_WorldCommon) % 16 == 0);
 
 
 //==============================================================
@@ -86,12 +87,6 @@ struct alignas(16) UBO_SpriteCommon
     Matrix4 uViewProj;
 };
 
-
-// mat4[96]
-struct UBO_MatrixPalette
-{
-    Matrix4 bones[96];
-};
 
 //==============================================================
 // Safety checks

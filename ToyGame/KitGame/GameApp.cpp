@@ -3,6 +3,7 @@
 #include "ToyLib.h"
 #include "Scenes/FieldScene.h"
 #include "Scenes/TitleScene.h"
+#include "Scenes/StageScene.h"
 
 
 GameApp::GameApp()
@@ -17,6 +18,7 @@ void GameApp::InitGame()
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
     mGameFlow->Init();
     mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
+    //mGameFlow->SetInitialScene(std::make_unique<StageScene>());
     //mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
 }
 

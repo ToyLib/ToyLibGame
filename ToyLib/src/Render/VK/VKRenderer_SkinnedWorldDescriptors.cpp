@@ -28,6 +28,7 @@
 
 #include "Render/VK/VKRenderer.h"
 #include "Render/VK/VKUtil.h"
+#include "Render/VK/VKUBO.h"
 
 #include <iostream>
 #include <vector>
@@ -36,11 +37,19 @@
 namespace toy
 {
 
+//======================================================================
+// EnsureSkinnedDescriptors
+//  - set=1 binding=0 : WorldCommon (共有: mWorldFrames[i].worldCommonUBO)
+//  - set=1 binding=1 : BonePalette (Skinned専用)
+//======================================================================
 bool VKRenderer::EnsureSkinnedDescriptors()
 {
-    if (!mDevice) return false;
+    if (!mDevice || !mPhysicalDevice)
+    {
+        return false;
+    }
 
-    const uint32_t imageCount = static_cast<uint32_t>(mSwapchainImages.size());
+    const uint32_t imageCount = (uint32_t)mSwapchainImages.size();
     if (imageCount == 0)
     {
         std::cerr << "[VK] EnsureSkinnedDescriptors: swapchain not ready.\n";
@@ -53,7 +62,7 @@ bool VKRenderer::EnsureSkinnedDescriptors()
         return false;
     }
 
-    // WorldCommon を共有するので、mWorldFrames が揃っている必要がある
+    // WorldCommon が揃っている必要
     if (mWorldFrames.size() != imageCount)
     {
         std::cerr << "[VK] EnsureSkinnedDescriptors: mWorldFrames not ready (size mismatch).\n";
@@ -72,10 +81,7 @@ bool VKRenderer::EnsureSkinnedDescriptors()
 
             if (sf.descSet1_Skinned == VK_NULL_HANDLE) return false;
 
-            // binding=0 の参照元（共有）
             if (wf.worldCommonUBO == VK_NULL_HANDLE || wf.worldCommonMem == VK_NULL_HANDLE) return false;
-
-            // binding=1（Skinned専用）
             if (sf.bonePaletteUBO == VK_NULL_HANDLE || sf.bonePaletteMem == VK_NULL_HANDLE) return false;
         }
         return true;
@@ -83,7 +89,6 @@ bool VKRenderer::EnsureSkinnedDescriptors()
 
     if (ready()) return true;
 
-    // 既存を破棄して作り直す（recreate対応の最低限）
     DestroySkinnedDescriptors();
 
     //==========================================================
@@ -96,7 +101,7 @@ bool VKRenderer::EnsureSkinnedDescriptors()
 
         VkDescriptorPoolCreateInfo pci{};
         pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        pci.maxSets       = imageCount; // set=1 を imageCount個
+        pci.maxSets       = imageCount;
         pci.poolSizeCount = 1;
         pci.pPoolSizes    = &ps;
 
@@ -109,7 +114,7 @@ bool VKRenderer::EnsureSkinnedDescriptors()
     }
 
     //==========================================================
-    // (2) DescriptorSet allocate（set=1 を per-image）
+    // (2) allocate sets
     //==========================================================
     std::vector<VkDescriptorSetLayout> layouts(imageCount, mWorldSetLayout1_Skinned);
     std::vector<VkDescriptorSet> sets(imageCount, VK_NULL_HANDLE);
@@ -130,87 +135,78 @@ bool VKRenderer::EnsureSkinnedDescriptors()
     }
 
     //==========================================================
-    // (3) BonePalette UBO 作成 + set 更新
+    // (3) bone UBO + update
     //==========================================================
+    mSkinnedFrames.clear();
     mSkinnedFrames.resize(imageCount);
+
+    const VkDeviceSize worldBytes = sizeof(UBO_WorldCommon);
+    const VkDeviceSize boneBytes  = (VkDeviceSize)(sizeof(Matrix4) * 96);
 
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         auto& sf = mSkinnedFrames[i];
         sf.descSet1_Skinned = sets[i];
 
-        // BonePalette（サイズはあなたの実装に合わせて）
-        // 例：96本 mat4 → 96 * 64 = 6144 bytes
-        const size_t kBonePaletteBytes = sizeof(Matrix4) * 96;
-
-        if (!CreateHostVisibleUBO(mPhysicalDevice, mDevice,
-                                  kBonePaletteBytes,
-                                  sf.bonePaletteUBO,
-                                  sf.bonePaletteMem))
+        if (!CreateHostVisibleUBO(mPhysicalDevice, mDevice, boneBytes, sf.bonePaletteUBO, sf.bonePaletteMem))
         {
-            std::cerr << "[VK] EnsureSkinnedDescriptors: CreateHostVisibleUBO(bonePalette) failed.\n";
+            std::cerr << "[VK] EnsureSkinnedDescriptors: CreateHostVisibleUBO(BonePalette) failed.\n";
             DestroySkinnedDescriptors();
             return false;
         }
 
-        // binding=0 : WorldCommon（共有。mWorldFrames[i] を参照）
+        // binding=0 : WorldCommon (共有)
         VkDescriptorBufferInfo bi0{};
         bi0.buffer = mWorldFrames[i].worldCommonUBO;
         bi0.offset = 0;
-        bi0.range  = VK_WHOLE_SIZE;
+        bi0.range  = worldBytes; // ★固定
 
         VkWriteDescriptorSet w0{};
         w0.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         w0.dstSet          = sf.descSet1_Skinned;
         w0.dstBinding      = 0;
+        w0.dstArrayElement = 0;
         w0.descriptorCount = 1;
         w0.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         w0.pBufferInfo     = &bi0;
 
-        // binding=1 : BonePalette（Skinned専用）
+        // binding=1 : BonePalette
         VkDescriptorBufferInfo bi1{};
         bi1.buffer = sf.bonePaletteUBO;
         bi1.offset = 0;
-        bi1.range  = kBonePaletteBytes;
+        bi1.range  = boneBytes;
 
         VkWriteDescriptorSet w1{};
         w1.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         w1.dstSet          = sf.descSet1_Skinned;
-        w1.dstBinding      = 1;
+        w1.dstBinding      = 1; // ★shaderに合わせる
+        w1.dstArrayElement = 0;
         w1.descriptorCount = 1;
         w1.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         w1.pBufferInfo     = &bi1;
 
-        std::array<VkWriteDescriptorSet, 2> writes = { w0, w1 };
-        vkUpdateDescriptorSets(mDevice,
-                               static_cast<uint32_t>(writes.size()),
-                               writes.data(),
-                               0, nullptr);
+        VkWriteDescriptorSet writes[2] = { w0, w1 };
+        vkUpdateDescriptorSets(mDevice, 2, writes, 0, nullptr);
     }
 
     return ready();
 }
 
-//--------------------------------------------------------------
-// 破棄（recreate対応の最低限）
-//--------------------------------------------------------------
+//======================================================================
+// DestroySkinnedDescriptors
+//======================================================================
 void VKRenderer::DestroySkinnedDescriptors()
 {
     if (!mDevice) return;
 
-    for (auto& sf : mSkinnedFrames)
+    for (auto& f : mSkinnedFrames)
     {
-        if (sf.bonePaletteUBO)
-        {
-            vkDestroyBuffer(mDevice, sf.bonePaletteUBO, nullptr);
-            sf.bonePaletteUBO = VK_NULL_HANDLE;
-        }
-        if (sf.bonePaletteMem)
-        {
-            vkFreeMemory(mDevice, sf.bonePaletteMem, nullptr);
-            sf.bonePaletteMem = VK_NULL_HANDLE;
-        }
-        sf.descSet1_Skinned = VK_NULL_HANDLE;
+        if (f.bonePaletteUBO) vkDestroyBuffer(mDevice, f.bonePaletteUBO, nullptr);
+        if (f.bonePaletteMem) vkFreeMemory(mDevice, f.bonePaletteMem, nullptr);
+
+        f.bonePaletteUBO   = VK_NULL_HANDLE;
+        f.bonePaletteMem   = VK_NULL_HANDLE;
+        f.descSet1_Skinned = VK_NULL_HANDLE;
     }
     mSkinnedFrames.clear();
 

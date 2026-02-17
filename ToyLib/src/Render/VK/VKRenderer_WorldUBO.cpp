@@ -263,17 +263,19 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
 
     UBO_WorldCommon u{};
 
-    // ViewProj（あなたの row-vector 運用 + 既に correction 済み）
     const Matrix4 vpGL = GetViewMatrix() * GetProjectionMatrix();
     const Matrix4 corr = MakeGLtoVK_ClipCorrection_RowVector();
     u.uViewProj = vpGL * corr;
 
     const Vector3 cam = GetCameraPosition();
-    u.uCameraPos[0] = cam.x; u.uCameraPos[1] = cam.y; u.uCameraPos[2] = cam.z; u.uCameraPos[3] = 0.0f;
+    u.uCameraPos[0] = cam.x;
+    u.uCameraPos[1] = cam.y;
+    u.uCameraPos[2] = cam.z;
+    u.uCameraPos[3] = 0.0f;
 
-    // LightingManager 経由
-    Vector3 amb = Vector3(0.8f, 0.8f, 0.8f);
+    Vector3 amb(0.8f, 0.8f, 0.8f);
     FogInfo fog{};
+
     if (mLightingManager)
     {
         amb = mLightingManager->GetAmbientColor();
@@ -295,23 +297,21 @@ void VKRenderer::UpdateWorldCommonUBO(uint32_t imageIndex)
     u.uFogColor[2] = fog.Color.z;
     u.uFogColor[3] = 0.0f;
 
-    // 影系（今は無効運用）
     u.uLightViewProj0 = Matrix4::Identity;
     u.uLightViewProj1 = Matrix4::Identity;
+
     u.uCascadeSplit0 = 0.0f;
     u.uCascadeBlend  = 0.0f;
     u.uShadowBias    = 0.0f;
     u.uUseShadow     = 0;
 
-    // toon（今は0固定ならここでOK。将来は Renderer側トグルで）
     u.uUseToon = 0;
     u._pad4[0] = 0.0f;
     u._pad4[1] = 0.0f;
     u._pad4[2] = 0.0f;
 
-    WriteUBO(mDevice, mem, &u, sizeof(u));
+    WriteUBO(mDevice, mem, &u, sizeof(UBO_WorldCommon));
 }
-
 
 void VKRenderer::UpdateDirLightUBO(uint32_t imageIndex)
 {
