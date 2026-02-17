@@ -1037,7 +1037,8 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     // World は “World専用経路” に一本化
     if (pass == RenderPass::World)
     {
-        DrawWorldItem_VK(it);
+        
+        (it);
         return;
     }
 

@@ -1,113 +1,93 @@
 #version 450
 
-//============================================================
-// set=0 : Material
-//============================================================
-layout(set = 0, binding = 0) uniform sampler2D uDiffuse;
+// set=0 : texture sampler（FS が uTexture を使う想定でも、binding一致が本質）
+layout(set = 0, binding = 0) uniform sampler2D uTexture;
 
-//============================================================
-// set=1 : World common / lights  （Mesh と同じ binding を維持）
-//============================================================
+//------------------------------------------------------------
+// set=1 : WorldCommon（Mesh_Phong.vert/frag と一致させる）
+//------------------------------------------------------------
 layout(set = 1, binding = 0, std140, row_major) uniform WorldCommon
 {
     mat4 uViewProj;
 
-    vec4 uCameraPos;
-    vec4 uAmbientLight;
+    vec3 uCameraPos;     float _pad0;
+    vec3 uAmbientLight;  float _pad1;
 
     float uFogMaxDist;
     float uFogMinDist;
     vec2  _pad2;
 
-    vec4 uFogColor;
+    vec3  uFogColor;
+    float _pad3;
 
-    mat4 uLightViewProj0;
-    mat4 uLightViewProj1;
+    mat4  uLightViewProj0;
+    mat4  uLightViewProj1;
 
-    vec4 uShadowParams0; // (split0, blend, bias, useShadow-as-float/int) ※既存に合わせる
-    vec4 uToonParams0;   // (useToon, ..., ..., ...)                    ※既存に合わせる
-} wc;
+    float uCascadeSplit0;
+    float uCascadeBlend;
+    float uShadowBias;
+    int   uUseShadow;
+    int   uUseToon;
+    float _pad4;
+} sc;
 
-// ※ Skinned.vert ではライトを使わないので宣言不要でもOK。
-//   ただし「Mesh と同じ set=1 binding=1/2 が存在する」前提で
-//   パイプライン側の DescriptorSetLayout は作る。
-//   （frag が binding=1/2 を読むので）
-
-//============================================================
-// set=1 : Bone palette（衝突しない binding=4）
-//============================================================
-layout(set = 1, binding = 4, std140, row_major) uniform BonePalette
+//------------------------------------------------------------
+// set=2 : BonePalette（Skinned 専用）
+//------------------------------------------------------------
+layout(set = 2, binding = 0, std140, row_major) uniform BonePalette
 {
     mat4 uMatrixPalette[96];
 } bp;
 
-//============================================================
-// push constants（Mesh と同じ）
-//============================================================
+//------------------------------------------------------------
+// Push constants（★Mesh_Phong.frag と完全一致させる）
+//------------------------------------------------------------
 layout(push_constant, row_major) uniform Push
 {
     mat4 pcWorld;
 
-    vec4 pcDiffuse;
-    vec4 pcUniform;
-    vec4 pcFlagsSpec;
+    vec4 pcDiffuse;    // xyz = diffuse
+    vec4 pcUniform;    // xyz = override color
+    vec4 pcFlagsSpec;  // x=useTex, y=overrideColor, z=specPower, w=unused
 } pc;
 
-//============================================================
+//------------------------------------------------------------
 // Attributes
-//============================================================
+//------------------------------------------------------------
 layout(location = 0) in vec3  inPosition;
 layout(location = 1) in vec3  inNormal;
 layout(location = 2) in vec2  inTexCoord;
 layout(location = 3) in uvec4 inSkinBones;
 layout(location = 4) in vec4  inSkinWeights;
 
-//============================================================
-// Varyings（Mesh_Phong.frag に合わせる）
-//============================================================
+//------------------------------------------------------------
+// Varyings（Mesh_Phong.frag と整合）
+//------------------------------------------------------------
 layout(location = 0) out vec2 fragTexCoord;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragWorldPos;
 
 void main()
 {
-    // -----------------------------
-    // normalize weights (safety)
-    // -----------------------------
-    vec4 w = inSkinWeights;
-    float sumW = (w.x + w.y + w.z + w.w);
-    if (sumW > 0.0)
-    {
-        w /= sumW;
-    }
-    else
-    {
-        w = vec4(1.0, 0.0, 0.0, 0.0);
-    }
+    vec4 pos = vec4(inPosition, 1.0);
 
-    // -----------------------------
-    // skin matrix (row-vector)
-    // -----------------------------
     mat4 skinMat =
-          bp.uMatrixPalette[inSkinBones.x] * w.x
-        + bp.uMatrixPalette[inSkinBones.y] * w.y
-        + bp.uMatrixPalette[inSkinBones.z] * w.z
-        + bp.uMatrixPalette[inSkinBones.w] * w.w;
+          bp.uMatrixPalette[inSkinBones.x] * inSkinWeights.x
+        + bp.uMatrixPalette[inSkinBones.y] * inSkinWeights.y
+        + bp.uMatrixPalette[inSkinBones.z] * inSkinWeights.z
+        + bp.uMatrixPalette[inSkinBones.w] * inSkinWeights.w;
 
-    // position
-    vec4 localPos = vec4(inPosition, 1.0);
-    vec4 skinned  = localPos * skinMat;
-    vec4 worldPos = skinned * pc.pcWorld;
+    // row-vector : v * M
+    vec4 worldPos = (pos * skinMat) * pc.pcWorld;
 
-    fragWorldPos  = worldPos.xyz;
-    fragTexCoord  = inTexCoord;
+    fragWorldPos = worldPos.xyz;
+    gl_Position  = worldPos * sc.uViewProj;
 
-    // normal (Mesh と同様に pcWorld から normalMat を作る)
-    mat3 normalMat = mat3(transpose(inverse(mat3(pc.pcWorld))));
+    // normal
+    vec4 n = vec4(inNormal, 0.0);
+    n = n * skinMat;
+    n = n * pc.pcWorld;
+    fragNormal = normalize(n.xyz);
 
-    vec3 nLocalSkinned = (vec4(inNormal, 0.0) * skinMat).xyz;
-    fragNormal = normalize(nLocalSkinned * normalMat);
-
-    // ViewProj は CPU 側で VK clip 補正済みの前提（Mesh と同じ）
-    gl_Position = worldPos * wc.uViewProj;
+    fragTexCoord = inTexCoord;
 }

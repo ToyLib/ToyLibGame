@@ -78,15 +78,10 @@ struct WorldFrameResources
     VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
 };
 
-//==============================================================
-// SkinnedFrameResources (swapchain image 単位)
-//  set=1 Skinned:
-//    binding=0 : WorldCommon（mWorldFrames[i].worldCommonUBO を参照して共有）
-//    binding=1 : BonePalette（skinned 専用）
-//==============================================================
+
 struct SkinnedFrameResources
 {
-    VkDescriptorSet descSet1_Skinned { VK_NULL_HANDLE };
+    VkDescriptorSet descSet2_Bone { VK_NULL_HANDLE }; // ★set=2 用
 
     VkBuffer       bonePaletteUBO { VK_NULL_HANDLE };
     VkDeviceMemory bonePaletteMem { VK_NULL_HANDLE };
@@ -185,6 +180,8 @@ private:
     void BindWorldMaterial(VkCommandBuffer cmd,
                            const VKPipeline& pipe,
                            const RenderItem& it);
+    void BindSkinnedBones(VkCommandBuffer cmd,
+                                      const VKPipeline& p);
 
 private:
     //--------------------------------------------------------------------------
@@ -239,6 +236,7 @@ private:
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Skinned { VK_NULL_HANDLE };
+    VkDescriptorSetLayout mWorldSetLayout2_BonePalette { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------

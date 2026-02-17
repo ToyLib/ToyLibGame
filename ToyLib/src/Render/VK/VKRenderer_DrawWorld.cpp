@@ -223,6 +223,33 @@ void VKRenderer::BindWorldMaterial(VkCommandBuffer cmd,
                             0, nullptr);
 }
 
+//------------------------------------------------------------
+// set=2 : BonePalette (Skinned only)
+//------------------------------------------------------------
+void VKRenderer::BindSkinnedBones(VkCommandBuffer cmd,
+                                  const VKPipeline& p)
+{
+    if (cmd == VK_NULL_HANDLE) return;
+    if (p.pipelineLayout == VK_NULL_HANDLE) return;
+
+    // per-swapchain-image
+    if (mSkinnedFrames.empty()) return;
+    if (mImageIndex >= (uint32_t)mSkinnedFrames.size()) return;
+
+    const VkDescriptorSet set2 = mSkinnedFrames[mImageIndex].descSet2_Bone; // ★名前はあなたの struct に合わせて
+    if (set2 == VK_NULL_HANDLE) return;
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        p.pipelineLayout,
+        2,          // ★set=2
+        1,
+        &set2,
+        0, nullptr
+    );
+}
+
 void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
 {
     if (it.pass != RenderPass::World) return;
@@ -248,14 +275,19 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, &vb, offsets);
 
-    // ============================================================
-    // per-item UBO only
-    //  - per-frame は DrawBucket_WorldVK で 1回だけ更新する
-    // ============================================================
-
-    // bind set1 + push(world), set0(texture)
+    // ------------------------------------------------------
+    // set=1 + push(world/material flags)  &  set=0(texture)
+    // ------------------------------------------------------
     BindWorldCommon(cmd, *pipe, it);
     BindWorldMaterial(cmd, *pipe, it);
+
+    // ------------------------------------------------------
+    // ★SkinnedMesh だけ set=2(BonePalette) を追加 bind
+    // ------------------------------------------------------
+    if (it.type == RenderItemType::SkinnedMesh)
+    {
+        BindSkinnedBones(cmd, *pipe);
+    }
 
     // draw
     if (it.indexCount > 0 && ib != VK_NULL_HANDLE)
@@ -283,6 +315,33 @@ void VKRenderer::DrawBucket_WorldVK(const std::vector<uint32_t>& bucket)
 
     // set=1 UBO & descriptor set を保証
     if (!EnsureWorldDescriptors()) return;
+
+    // ★Skinned がこの bucket に居るなら set=2 を準備
+    {
+        bool hasSkinned = false;
+        auto& items = mRenderQueue.Items();
+        for (uint32_t idx : bucket)
+        {
+            if (idx >= items.size()) continue;
+            if (items[idx].pass != RenderPass::World) continue;
+            if (items[idx].type == RenderItemType::SkinnedMesh)
+            {
+                hasSkinned = true;
+                break;
+            }
+        }
+
+        if (hasSkinned)
+        {
+            if (!EnsureSkinnedDescriptors())
+            {
+                // ここで return するかどうかは方針次第
+                // Skinnedだけ落とすなら return せず描けるものだけ描く、でもOK
+                // いまは安全側
+                return;
+            }
+        }
+    }
 
     // per-frame UBO update（この bucket で 1回だけ）
     UpdateWorldCommonUBO(mImageIndex);
