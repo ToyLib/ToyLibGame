@@ -109,7 +109,8 @@ VKPipeline* VKRenderer::ResolveWorldPipelineForItem(const RenderItem& it)
 }
 
 //------------------------------------------------------------
-// set1 + push(world)
+// set=1 + push(world)
+//  - set=1 は Mesh/Skinned 共通（WorldCommon/Dir/Point）
 //------------------------------------------------------------
 void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
                                  const VKPipeline& p,
@@ -140,7 +141,7 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     Vector3 ucol(0.0f, 0.0f, 0.0f);
     if (overrideCol != 0)
     {
-        ucol = it.overrideColorValue;
+        ucol   = it.overrideColorValue;
         useTex = 0;
     }
 
@@ -169,40 +170,24 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     );
 
     //========================================================
-    // set=1 を type で分岐
+    // set=1 : Common descriptor（Mesh/Skinned 共通で必須）
     //========================================================
-    VkDescriptorSet set1 = VK_NULL_HANDLE;
+    if (mWorldFrames.empty()) return;
+    if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
 
-    if (it.type == RenderItemType::SkinnedMesh)
-    {
-        // ★Skinned は専用 set（binding=1 を含む）
-        if (mSkinnedFrames.empty()) return;
-        if (mImageIndex >= (uint32_t)mSkinnedFrames.size()) return;
-
-        set1 = mSkinnedFrames[mImageIndex].descSet2_Bone;
-    }
-    else
-    {
-        // Mesh は従来どおり
-        if (mWorldFrames.empty()) return;
-        if (mImageIndex >= (uint32_t)mWorldFrames.size()) return;
-
-        set1 = mWorldFrames[mImageIndex].descSet1_Common;
-    }
-
+    const VkDescriptorSet set1 = mWorldFrames[mImageIndex].descSet1_Common;
     if (set1 == VK_NULL_HANDLE) return;
 
     vkCmdBindDescriptorSets(
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         p.pipelineLayout,
-        1,
+        1,      // ★ set=1 固定
         1,
         &set1,
         0, nullptr
     );
 }
-
 //------------------------------------------------------------
 // set0: diffuse texture
 //------------------------------------------------------------
@@ -242,24 +227,22 @@ void VKRenderer::BindSkinnedBones(VkCommandBuffer cmd,
     if (cmd == VK_NULL_HANDLE) return;
     if (p.pipelineLayout == VK_NULL_HANDLE) return;
 
-    // per-swapchain-image
     if (mSkinnedFrames.empty()) return;
     if (mImageIndex >= (uint32_t)mSkinnedFrames.size()) return;
 
-    const VkDescriptorSet set2 = mSkinnedFrames[mImageIndex].descSet2_Bone; // ★名前はあなたの struct に合わせて
+    const VkDescriptorSet set2 = mSkinnedFrames[mImageIndex].descSet2_Bone;
     if (set2 == VK_NULL_HANDLE) return;
 
     vkCmdBindDescriptorSets(
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         p.pipelineLayout,
-        2,          // ★set=2
+        2,          // ★ set=2
         1,
         &set2,
         0, nullptr
     );
 }
-
 void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
 {
     if (it.pass != RenderPass::World) return;
@@ -270,10 +253,8 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     VkCommandBuffer cmd = GetActiveCommandBuffer();
     if (cmd == VK_NULL_HANDLE) return;
 
-    // pipeline bind
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
 
-    // geometry
     if (!it.geometry.ptr) return;
     auto* backend = it.geometry.ptr->GetBackend();
     if (!backend || !backend->IsVK()) return;
@@ -285,21 +266,18 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, &vb, offsets);
 
-    // ------------------------------------------------------
-    // set=1 + push(world/material flags)  &  set=0(texture)
-    // ------------------------------------------------------
+    // set=1 + push(world + material params)
     BindWorldCommon(cmd, *pipe, it);
-    BindWorldMaterial(cmd, *pipe, it);
 
-    // ------------------------------------------------------
-    // ★SkinnedMesh だけ set=2(BonePalette) を追加 bind
-    // ------------------------------------------------------
+    // set=2 (Skinned専用)
     if (it.type == RenderItemType::SkinnedMesh)
     {
-        BindSkinnedBones(cmd, *pipe); // firstSet=2
+        BindSkinnedBones(cmd, *pipe);
     }
 
-    // draw
+    // set=0 texture
+    BindWorldMaterial(cmd, *pipe, it);
+
     if (it.indexCount > 0 && ib != VK_NULL_HANDLE)
     {
         VkIndexType indexType = (VkIndexType)backend->GetVKIndexType();
