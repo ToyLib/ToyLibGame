@@ -129,7 +129,7 @@ void FieldScene::InitField()
     shadow->SetGridDiv(4);              // まずは4で十分
     shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
 
-    
+    /*
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();
     mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
@@ -165,6 +165,7 @@ void FieldScene::InitField()
     waterComp->SetFlip(true, true);
     waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
     waterComp->SetOpacity(0.7f);
+     */
 
 }
 
@@ -228,6 +229,7 @@ void FieldScene::DeployBrick(Vector3 pos)
 
 void FieldScene::DeployFire(Vector3 pos)
 {
+    /*
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -300,6 +302,6 @@ void FieldScene::DeployFire(Vector3 pos)
     particle->Init(desc);
     //particle->InitFromFile("ToyGame/Settings/Fire.json");
     particle->Start();
-    
+    */
     
 }

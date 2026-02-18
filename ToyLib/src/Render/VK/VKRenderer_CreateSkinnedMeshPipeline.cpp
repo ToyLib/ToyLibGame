@@ -224,9 +224,11 @@ bool VKRenderer::CreateSkinnedMeshPipeline()
 
     VkPipelineDepthStencilStateCreateInfo dss{};
     dss.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    dss.depthTestEnable  = VK_FALSE;
-    dss.depthWriteEnable = VK_FALSE;
-    dss.depthCompareOp   = VK_COMPARE_OP_ALWAYS;
+    dss.depthTestEnable  = VK_TRUE;
+    dss.depthWriteEnable = VK_TRUE;
+    dss.depthCompareOp   = VK_COMPARE_OP_LESS_OR_EQUAL;
+    dss.depthBoundsTestEnable = VK_FALSE;
+    dss.stencilTestEnable     = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState cbA{};
     cbA.colorWriteMask =

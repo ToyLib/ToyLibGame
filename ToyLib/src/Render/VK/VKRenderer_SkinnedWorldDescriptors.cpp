@@ -248,7 +248,7 @@ void VKRenderer::UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palett
     if (sf.bonePaletteMem == VK_NULL_HANDLE) return;
 
     const uint32_t maxBones = 96;
-    const uint32_t n = (paletteCount > maxBones) ? maxBones : paletteCount;
+    const uint32_t n = (paletteCount > maxBones) ? maxBones : (uint32_t)paletteCount;
 
     // GPU に渡す配列（不足分は Identity）
     Matrix4 mats[maxBones];
