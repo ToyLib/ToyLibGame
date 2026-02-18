@@ -235,8 +235,7 @@ private:
     //--------------------------------------------------------------------------
     VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
     VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
-    VkDescriptorSetLayout mWorldSetLayout1_Skinned { VK_NULL_HANDLE };
-    VkDescriptorSetLayout mWorldSetLayout2_BonePalette { VK_NULL_HANDLE };
+    VkDescriptorSetLayout mWorldSetLayout2_Bone { VK_NULL_HANDLE };
 
 private:
     //--------------------------------------------------------------------------

@@ -296,7 +296,7 @@ void VKRenderer::DrawWorldItem_VK(const RenderItem& it)
     // ------------------------------------------------------
     if (it.type == RenderItemType::SkinnedMesh)
     {
-        BindSkinnedBones(cmd, *pipe);
+        BindSkinnedBones(cmd, *pipe); // firstSet=2
     }
 
     // draw

@@ -38,12 +38,15 @@ bool VKRenderer::EnsureSkinnedDescriptors()
         return false;
     }
 
-    if (mWorldSetLayout1_Skinned == VK_NULL_HANDLE)
+    // set=2 layout（BonePalette 専用）が必要
+    if (mWorldSetLayout2_Bone == VK_NULL_HANDLE)
     {
-        std::cerr << "[VK] EnsureSkinnedDescriptors: mWorldSetLayout1_Skinned is null.\n";
+        std::cerr << "[VK] EnsureSkinnedDescriptors: mWorldSetLayout2_Bone is null.\n";
         return false;
     }
 
+    // set=1(common) は別系統（EnsureWorldDescriptors）で作る前提だが、
+    // WorldFrames が揃ってることだけはチェックしておく（デバッグ用）
     if (mWorldFrames.size() != imageCount)
     {
         std::cerr << "[VK] EnsureSkinnedDescriptors: mWorldFrames not ready (size mismatch).\n";
@@ -57,19 +60,8 @@ bool VKRenderer::EnsureSkinnedDescriptors()
 
         for (uint32_t i = 0; i < imageCount; ++i)
         {
-            const auto& wf = mWorldFrames[i];
             const auto& sf = mSkinnedFrames[i];
-
             if (sf.descSet2_Bone == VK_NULL_HANDLE) return false;
-
-            // World common
-            if (wf.worldCommonUBO == VK_NULL_HANDLE || wf.worldCommonMem == VK_NULL_HANDLE) return false;
-
-            // Lights (あなたの WorldFrames 側の名前に合わせてください)
-            if (wf.dirLightUBO == VK_NULL_HANDLE || wf.dirLightMem == VK_NULL_HANDLE) return false;
-            if (wf.pointLightUBO == VK_NULL_HANDLE || wf.pointLightMem == VK_NULL_HANDLE) return false;
-
-            // Bone palette
             if (sf.bonePaletteUBO == VK_NULL_HANDLE || sf.bonePaletteMem == VK_NULL_HANDLE) return false;
         }
         return true;
@@ -80,12 +72,12 @@ bool VKRenderer::EnsureSkinnedDescriptors()
     DestroySkinnedDescriptors();
 
     //==========================================================
-    // (1) DescriptorPool
+    // (1) DescriptorPool : UBO x1 / image（BonePalette だけ）
     //==========================================================
     {
         VkDescriptorPoolSize ps{};
         ps.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        ps.descriptorCount = imageCount * 4; // WorldCommon + BonePalette + Dir + Point
+        ps.descriptorCount = imageCount * 1;
 
         VkDescriptorPoolCreateInfo pci{};
         pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -102,9 +94,9 @@ bool VKRenderer::EnsureSkinnedDescriptors()
     }
 
     //==========================================================
-    // (2) allocate sets
+    // (2) allocate sets : set=2 を per-image
     //==========================================================
-    std::vector<VkDescriptorSetLayout> layouts(imageCount, mWorldSetLayout1_Skinned);
+    std::vector<VkDescriptorSetLayout> layouts(imageCount, mWorldSetLayout2_Bone);
     std::vector<VkDescriptorSet> sets(imageCount, VK_NULL_HANDLE);
 
     {
@@ -123,15 +115,12 @@ bool VKRenderer::EnsureSkinnedDescriptors()
     }
 
     //==========================================================
-    // (3) bone UBO + update
+    // (3) BonePalette UBO 作成 + set=2(binding=0) 更新
     //==========================================================
     mSkinnedFrames.clear();
     mSkinnedFrames.resize(imageCount);
 
-    const VkDeviceSize worldBytes = sizeof(UBO_WorldCommon);
-    const VkDeviceSize boneBytes  = (VkDeviceSize)(sizeof(Matrix4) * 96);
-    const VkDeviceSize dirBytes   = sizeof(UBO_DirLight);
-    const VkDeviceSize ptBytes    = sizeof(UBO_PointLightBlock);
+    const VkDeviceSize boneBytes = (VkDeviceSize)(sizeof(Matrix4) * 96);
 
     for (uint32_t i = 0; i < imageCount; ++i)
     {
@@ -145,74 +134,29 @@ bool VKRenderer::EnsureSkinnedDescriptors()
             return false;
         }
 
-        // ★超重要：初期化（Identity）
+        // 初期化（Identity）— “bp を使うと消える”対策
         {
             Matrix4 mats[96];
-            for (int j = 0; j < 96; ++j)
-            {
-                mats[j] = Matrix4::Identity;
-            }
+            for (int j = 0; j < 96; ++j) mats[j] = Matrix4::Identity;
             WriteUBO(mDevice, sf.bonePaletteMem, mats, sizeof(mats));
         }
 
-        // binding=0 : WorldCommon (共有)
-        VkDescriptorBufferInfo bi0{};
-        bi0.buffer = mWorldFrames[i].worldCommonUBO;
-        bi0.offset = 0;
-        bi0.range  = worldBytes;
+        // set=2 binding=0 : BonePalette
+        VkDescriptorBufferInfo bi{};
+        bi.buffer = sf.bonePaletteUBO;
+        bi.offset = 0;
+        bi.range  = boneBytes;
 
-        VkWriteDescriptorSet w0{};
-        w0.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w0.dstSet          = sf.descSet2_Bone;
-        w0.dstBinding      = 0;
-        w0.descriptorCount = 1;
-        w0.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w0.pBufferInfo     = &bi0;
+        VkWriteDescriptorSet w{};
+        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet          = sf.descSet2_Bone;
+        w.dstBinding      = 0; // ★set=2 の layout と shader に合わせる
+        w.dstArrayElement = 0;
+        w.descriptorCount = 1;
+        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo     = &bi;
 
-        // binding=1 : BonePalette
-        VkDescriptorBufferInfo bi1{};
-        bi1.buffer = sf.bonePaletteUBO;
-        bi1.offset = 0;
-        bi1.range  = boneBytes;
-
-        VkWriteDescriptorSet w1{};
-        w1.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w1.dstSet          = sf.descSet2_Bone;
-        w1.dstBinding      = 1;
-        w1.descriptorCount = 1;
-        w1.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w1.pBufferInfo     = &bi1;
-
-        // binding=2 : DirLight (共有)
-        VkDescriptorBufferInfo bi2{};
-        bi2.buffer = mWorldFrames[i].dirLightUBO;
-        bi2.offset = 0;
-        bi2.range  = dirBytes;
-
-        VkWriteDescriptorSet w2{};
-        w2.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w2.dstSet          = sf.descSet2_Bone;
-        w2.dstBinding      = 2;
-        w2.descriptorCount = 1;
-        w2.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w2.pBufferInfo     = &bi2;
-
-        // binding=3 : PointLight (共有)
-        VkDescriptorBufferInfo bi3{};
-        bi3.buffer = mWorldFrames[i].pointLightUBO;
-        bi3.offset = 0;
-        bi3.range  = ptBytes;
-
-        VkWriteDescriptorSet w3{};
-        w3.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w3.dstSet          = sf.descSet2_Bone;
-        w3.dstBinding      = 3;
-        w3.descriptorCount = 1;
-        w3.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w3.pBufferInfo     = &bi3;
-
-        VkWriteDescriptorSet writes[4] = { w0, w1, w2, w3 };
-        vkUpdateDescriptorSets(mDevice, 4, writes, 0, nullptr);
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }
 
     return ready();
