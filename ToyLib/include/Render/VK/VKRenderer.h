@@ -270,7 +270,7 @@ private:
     bool EnsureSkinnedDescriptors();
     void DestroySkinnedDescriptors();
     
-    void UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palette, uint32_t paletteCount);
+    void UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palette, size_t paletteCount);
 
 private:
     //--------------------------------------------------------------------------

@@ -321,12 +321,31 @@ void VKRenderer::DrawBucket_WorldVK(const std::vector<uint32_t>& bucket)
 
         if (hasSkinned)
         {
-            if (!EnsureSkinnedDescriptors())
+            if (EnsureSkinnedDescriptors())
             {
-                // ここで return するかどうかは方針次第
-                // Skinnedだけ落とすなら return せず描けるものだけ描く、でもOK
-                // いまは安全側
-                return;
+                // ★ここで “今描くフレームの imageIndex” に対して骨パレットを書き込む
+                // まずは bucket 内の最初の SkinnedMesh の palette を使う（テスト用）
+                const Matrix4* palette = nullptr;
+                size_t paletteCount = 0;
+
+                auto& items = mRenderQueue.Items();
+                for (uint32_t idx : bucket)
+                {
+                    if (idx >= items.size()) continue;
+                    const RenderItem& it = items[idx];
+                    if (it.pass != RenderPass::World) continue;
+                    if (it.type != RenderItemType::SkinnedMesh) continue;
+
+                    // ここはあなたの RenderItem の持ち方に合わせて置き換え
+                    palette      = it.matrixPalette;      // (例)
+                    paletteCount = it.paletteCount; // (例)
+                    break;
+                }
+
+                if (palette && paletteCount > 0)
+                {
+                    UpdateBonePaletteUBO(mImageIndex, palette, paletteCount);
+                }
             }
         }
     }

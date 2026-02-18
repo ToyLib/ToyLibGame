@@ -237,7 +237,7 @@ void VKRenderer::DestroySkinnedDescriptors()
 //  - set=2 binding=0 : BonePalette (mat4[96])
 //  - imageIndex は “いま記録しているコマンドの swapchain image” を渡す
 //======================================================================
-void VKRenderer::UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palette, uint32_t paletteCount)
+void VKRenderer::UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palette, size_t paletteCount)
 {
     if (!palette || paletteCount == 0) return;
 
