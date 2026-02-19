@@ -43,15 +43,15 @@ bool GLRenderer::LoadShaders()
         return false;
 
     // Mesh (Phong)
-    vShaderName = mShaderPath + "Phong.vert";
-    fShaderName = mShaderPath + "Phong.frag";
+    vShaderName = mShaderPath + "StaticMesh.vert";
+    fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Mesh"] = std::make_shared<GLShader>();
     if (!mShaders["Mesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Skinned
-    vShaderName = mShaderPath + "Skinned.vert";
-    fShaderName = mShaderPath + "Phong.frag";
+    vShaderName = mShaderPath + "SkinnedMesh.vert";
+    fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Skinned"] = std::make_shared<GLShader>();
     if (!mShaders["Skinned"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
@@ -78,7 +78,7 @@ bool GLRenderer::LoadShaders()
     }
 
     // GPU particle update (Transform Feedback)
-    vShaderName = mShaderPath + "ParticleUpdate.vert";
+    vShaderName = mShaderPath + "Particle/ParticleUpdate.vert";
     {
         auto update = std::make_shared<GLShader>();
         update->LoadWithTransformFeedback(
@@ -91,8 +91,8 @@ bool GLRenderer::LoadShaders()
     }
 
     // Particle render
-    vShaderName = mShaderPath + "Particle.vert";
-    fShaderName = mShaderPath + "Particle.frag";
+    vShaderName = mShaderPath + "Particle/Particle.vert";
+    fShaderName = mShaderPath + "Particle/Particle.frag";
     {
         auto render = std::make_shared<GLShader>();
         render->Load(vShaderName, fShaderName);

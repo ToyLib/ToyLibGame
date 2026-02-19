@@ -129,7 +129,7 @@ void FieldScene::InitField()
     shadow->SetGridDiv(4);              // まずは4で十分
     shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
 
-    /*
+    
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();
     mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
@@ -165,7 +165,7 @@ void FieldScene::InitField()
     waterComp->SetFlip(true, true);
     waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
     waterComp->SetOpacity(0.7f);
-     */
+     
 
 }
 
@@ -213,12 +213,11 @@ void FieldScene::DeployBrick(Vector3 pos)
     actor->SetScale(4.0f);
     
     //Quaternion q = Quaternion(Vector3::UnitZ, Math::ToRadians(20.0f));
-    Quaternion q = Quaternion(Vector3(1,1,0), Math::ToRadians(-30.0f));
-    //qactor->SetRotation(q);
+    Quaternion q = Quaternion(Vector3(1,0,0), Math::ToRadians(-12.0f));
+    actor->SetRotation(q);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
     mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.x"));
-    
 
     auto coll = actor->CreateComponent<toy::ColliderComponent>();
     coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.x")->GetVertexArray());
@@ -229,7 +228,7 @@ void FieldScene::DeployBrick(Vector3 pos)
 
 void FieldScene::DeployFire(Vector3 pos)
 {
-    /*
+    
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -302,6 +301,5 @@ void FieldScene::DeployFire(Vector3 pos)
     particle->Init(desc);
     //particle->InitFromFile("ToyGame/Settings/Fire.json");
     particle->Start();
-    */
     
 }

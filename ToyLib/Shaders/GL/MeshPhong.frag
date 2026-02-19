@@ -1,7 +1,7 @@
 #version 410
 
 //======================================================================
-//  Phong.frag
+//  MeshPhong.frag
 //  ・Phong + Toon 切り替え可能なライティング
 //  ・Directional + Point + Fog
 //  ・CSM(2 cascades) + PCF 3x3
