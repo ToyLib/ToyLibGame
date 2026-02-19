@@ -180,7 +180,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::RAIN);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }
 
 
