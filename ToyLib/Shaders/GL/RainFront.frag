@@ -1,6 +1,97 @@
 #version 410 core
 
 //======================================================================
+// ToyLib Uniform Contract (v1) - generated
+//   See Render/GL/UniformNamesGL.h
+//======================================================================
+
+struct DirLight
+{
+    vec3 direction;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+struct PointLight
+{
+    vec3  position;
+    vec3  color;
+    float intensity;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    float radius;
+};
+
+struct FogInfo
+{
+    float maxDist;
+    float minDist;
+    vec3  color;
+};
+
+struct SceneData
+{
+    mat4 viewProj;
+
+    vec3 cameraPos;
+
+    vec3  ambientLight;
+    float sunIntensity;
+
+    DirLight dirLight;
+
+    int        numPointLights;
+    PointLight pointLights[8];
+
+    FogInfo fog;
+
+    sampler2DShadow shadowMap0;
+    sampler2DShadow shadowMap1;
+
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    float cascadeSplit0;
+    float cascadeBlend;
+    float shadowBias;
+};
+
+struct ObjectData
+{
+    mat4 world;
+};
+
+struct MaterialData
+{
+    sampler2D baseMap;
+
+    vec3 baseColor;
+    bool useTexture;
+
+    bool toon;
+
+    bool overrideEnabled;
+    vec3 overrideColor;
+
+    float specPower;
+};
+
+// Max palette size must match engine-side upload
+const int kMaxPalette = 96;
+
+struct SkinnedData
+{
+    mat4 matrixPalette[kMaxPalette];
+};
+
+uniform SceneData    uScene;
+uniform ObjectData   uObject;
+uniform MaterialData uMaterial;
+uniform SkinnedData  uSkinned;
+
+//======================================================================
 //  RainFront.frag
 //  ・画面前面に合成する「雨ストリーク」エフェクト
 //  ・スクリーンスペースで動作（カメラ位置に依存しない）
@@ -8,7 +99,6 @@
 //======================================================================
 
 out vec4 FragColor;
-
 
 //======================================================================
 //  Uniforms
@@ -24,7 +114,6 @@ uniform vec2 uResolution;
 // WeatherComponent が時間・天候に応じて調整
 uniform float uRainAmount;
 
-
 //======================================================================
 //  ハッシュノイズ（ランダム性の種）
 //======================================================================
@@ -32,7 +121,6 @@ float hash(vec2 p)
 {
     return fract(sin(dot(p, vec2(27.619, 57.583))) * 43758.5453);
 }
-
 
 //======================================================================
 //  雨ストリーク生成
@@ -63,7 +151,6 @@ float rainPattern(vec2 uv)
 
     return brightness;
 }
-
 
 //======================================================================
 //  main()

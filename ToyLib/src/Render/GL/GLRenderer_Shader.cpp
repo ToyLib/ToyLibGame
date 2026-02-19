@@ -78,7 +78,7 @@ bool GLRenderer::LoadShaders()
     }
 
     // GPU particle update (Transform Feedback)
-    vShaderName = mShaderPath + "Particle/ParticleUpdate.vert";
+    vShaderName = mShaderPath + "ParticleUpdate.vert";
     {
         auto update = std::make_shared<GLShader>();
         update->LoadWithTransformFeedback(
@@ -91,8 +91,8 @@ bool GLRenderer::LoadShaders()
     }
 
     // Particle render
-    vShaderName = mShaderPath + "Particle/Particle.vert";
-    fShaderName = mShaderPath + "Particle/Particle.frag";
+    vShaderName = mShaderPath + "Particle.vert";
+    fShaderName = mShaderPath + "Particle.frag";
     {
         auto render = std::make_shared<GLShader>();
         render->Load(vShaderName, fShaderName);

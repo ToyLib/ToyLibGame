@@ -13,7 +13,7 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
     //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
@@ -180,7 +180,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::RAIN);
 }
 
 

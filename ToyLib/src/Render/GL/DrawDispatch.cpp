@@ -7,6 +7,7 @@
 #include "Render/LightingManager.h"
 #include "Render/IRenderer.h"
 #include "Render/GL/GLShader.h"
+#include "Render/GL/UniformNamesGL.h"
 
 namespace toy {
 
@@ -33,8 +34,6 @@ static bool DispatchSprite(IRenderer& r,
     Vector3 color = Vector3::Zero;
     float   alpha = 1.0f;
 
-    // 例：payloadIndexが有効なときだけ使う、みたいなルールにする
-    // （0番が常に有効payloadになる設計なら、この条件は別のフラグに）
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         const SpritePayload& sp = r.GetSpritePayload(it.payloadIndex);
@@ -42,6 +41,8 @@ static bool DispatchSprite(IRenderer& r,
         alpha = sp.alpha;
     }
 
+    // NOTE:
+    // Sprite系は contract(v1) に含めてない想定なので、従来名を維持（動作維持）
     sh->SetVectorUniform("uSpriteColor", color);
     sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
@@ -58,6 +59,7 @@ static bool DispatchSprite(IRenderer& r,
 
     return false;
 }
+
 //============================================================
 // Mesh
 //============================================================
@@ -77,30 +79,41 @@ static bool DispatchMesh(IRenderer& r,
         return true;
     }
 
+    using namespace toy::glsl;
+
+    //========================================================
+    // ★追加：StaticMesh.vert / MeshPhong.frag が参照する契約(v1)
+    //   - uObject.world
+    //   - uScene.viewProj
+    //========================================================
+    sh->SetMatrixUniform(Object::World,  it.world);
+    sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
+
+    // ライティング（中で Scene::* を使うよう後で直す前提）
     if (r.GetLightingManager())
     {
         const Matrix4 view = r.GetViewMatrix();
         r.GetLightingManager()->ApplyToShader(sh, view);
     }
 
+    // Shadow maps bind
     if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
     if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
-    sh->SetTextureUniform("uShadowMap0", 6);
-    sh->SetTextureUniform("uShadowMap1", 7);
+    sh->SetTextureUniform(Scene::ShadowMap0, 6);
+    sh->SetTextureUniform(Scene::ShadowMap1, 7);
 
-    sh->SetMatrixUniform("uLightViewProj0", r.GetLightSpaceMatrix(0));
-    sh->SetMatrixUniform("uLightViewProj1", r.GetLightSpaceMatrix(1));
+    sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
+    sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
 
-    sh->SetFloatUniform("uCascadeSplit0", r.GetCascadeSplit0());
-    sh->SetFloatUniform("uCascadeBlend",  r.GetCascadeBlend());
-    sh->SetFloatUniform("uShadowBias",    0.005f);
+    sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
+    sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
+    sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
 
-    sh->SetBooleanUniform("uUseToon", it.toon);
+    // Toon
+    sh->SetBooleanUniform(toy::glsl::Material::Toon, it.toon);
 
-    // ----------------------------
-    // Material（輪郭の override color 対応）
-    // ----------------------------
+    // Material（輪郭 override color 対応）: 振る舞い維持
     if (it.material.ptr)
     {
         if (it.overrideColor)
@@ -122,26 +135,30 @@ static bool DispatchMesh(IRenderer& r,
 // SkinnedMesh
 //============================================================
 static bool DispatchSkinnedMesh(IRenderer& r,
-                                const RenderItem& it,
-                                RenderPass pass,
-                                int)
+                               const RenderItem& it,
+                               RenderPass pass,
+                               int)
 {
     auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
     {
-        return true; // 何もしない（安全弁）
+        return true;
     }
 
+    using namespace toy::glsl;
+
     //============================================================
-    // Shadow pass（通常は ShadowSkinned 側で処理する想定）
+    // Shadow pass
     //============================================================
     if (pass == RenderPass::Shadow)
     {
-        sh->SetMatrixUniform("uWorldTransform", it.world);
+        // 旧 uWorldTransform -> 新 uObject.world
+        sh->SetMatrixUniform(Object::World, it.world);
 
         if (it.matrixPalette && it.paletteCount > 0)
         {
-            sh->SetMatrixUniforms("uMatrixPalette",
+            // 旧 uMatrixPalette -> 新 uSkinned.matrixPalette[0]
+            sh->SetMatrixUniforms(Skinned::MatrixPalette0,
                                   it.matrixPalette,
                                   static_cast<unsigned int>(it.paletteCount));
         }
@@ -156,8 +173,9 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         return false;
     }
 
-    sh->SetMatrixUniform("uWorldTransform", it.world);
-    sh->SetMatrixUniform("uViewProj",       it.viewProj);
+    // Object world / Scene viewProj
+    sh->SetMatrixUniform(Object::World, it.world);
+    sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
 
     // ライティング
     if (r.GetLightingManager())
@@ -166,26 +184,27 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         r.GetLightingManager()->ApplyToShader(sh, view);
     }
 
-    // シャドウ（輪郭は不要なので overrideColor でスキップ）
+    // シャドウ（輪郭は不要なので overrideColor でスキップ）: 振る舞い維持
     if (!it.overrideColor)
     {
         if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
         if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
-        sh->SetTextureUniform("uShadowMap0", 6);
-        sh->SetTextureUniform("uShadowMap1", 7);
+        sh->SetTextureUniform(Scene::ShadowMap0, 6);
+        sh->SetTextureUniform(Scene::ShadowMap1, 7);
 
-        sh->SetMatrixUniform("uLightViewProj0", r.GetLightSpaceMatrix(0));
-        sh->SetMatrixUniform("uLightViewProj1", r.GetLightSpaceMatrix(1));
+        sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
+        sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
 
-        sh->SetFloatUniform("uCascadeSplit0", r.GetCascadeSplit0());
-        sh->SetFloatUniform("uCascadeBlend",  r.GetCascadeBlend());
-        sh->SetFloatUniform("uShadowBias",    0.005f);
+        sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
+        sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
+        sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
     }
 
-    sh->SetBooleanUniform("uUseToon", it.toon);
+    // Toon
+    sh->SetBooleanUniform(toy::glsl::Material::Toon, it.toon);
 
-    // Material bind（overrideColor 反映→bind→戻す）
+    // Material bind（overrideColor 反映→bind→戻す）: 振る舞い維持
     if (it.material.ptr)
     {
         if (it.overrideColor)
@@ -204,12 +223,12 @@ static bool DispatchSkinnedMesh(IRenderer& r,
     // matrix palette
     if (it.matrixPalette && it.paletteCount > 0)
     {
-        sh->SetMatrixUniforms("uMatrixPalette",
+        sh->SetMatrixUniforms(Skinned::MatrixPalette0,
                               it.matrixPalette,
                               static_cast<unsigned int>(it.paletteCount));
     }
 
-    return false; // DrawDefaultGeometry に流す
+    return false;
 }
 
 //============================================================
@@ -221,11 +240,15 @@ static bool DispatchBillboard(IRenderer& r,
                               int)
 {
     if (pass == RenderPass::Shadow)
+    {
         return true;
+    }
 
     auto* sh = it.pipeline.ptrGLShader;
     if (!sh)
+    {
         return true;
+    }
 
     Vector3 color = Vector3(1.0f, 1.0f, 1.0f);
     float   alpha = 1.0f;
@@ -237,20 +260,42 @@ static bool DispatchBillboard(IRenderer& r,
         alpha = bp.alpha;
     }
 
-    // もし billboard shader が色/αを受けるなら
+    // NOTE: Billboard系は contract(v1) に含めてない想定なので、従来名も維持
     sh->SetVectorUniform("uSpriteColor", color);
     sh->SetFloatUniform ("uSpriteAlpha", alpha);
+
+    // ------------------------------------------------------------
+    // ★Unlit 対応：
+    // Unlit.frag は uMaterial.* を参照するので、ここでセットする
+    // ------------------------------------------------------------
+    // baseColor（テクスチャ無しの保険）
+    sh->SetVectorUniform(toy::glsl::Material::BaseColor, Vector3(1.0f, 1.0f, 1.0f));
 
     if (it.texture.ptr)
     {
         it.texture.ptr->SetActive(it.textureUnit);
+
+        // 新契約（Unlit / MeshPhong 互換）
+        sh->SetTextureUniform(toy::glsl::Material::BaseMap, it.textureUnit);
+        sh->SetBooleanUniform(toy::glsl::Material::UseTexture, true);
+
+        // 旧契約（他の古い billboard shader 用に残す）
         sh->SetTextureUniform("uTexture", it.textureUnit);
         sh->SetBooleanUniform("uUseTexture", true);
     }
     else
     {
+        // 新契約
+        sh->SetBooleanUniform(toy::glsl::Material::UseTexture, false);
+
+        // 旧契約
         sh->SetBooleanUniform("uUseTexture", false);
     }
+
+    // Unlit の tint 拡張が必要ならここで：
+    // sh->SetIntUniform("uUseTint", 1);
+    // sh->SetVectorUniform("uTint", color);
+    // sh->SetFloatUniform("uAlpha", alpha);
 
     return false;
 }
@@ -288,10 +333,11 @@ static bool DispatchParticle(IRenderer& r,
         size     = pp.particleSize;
     }
 
+    // NOTE: Particle固有uniformは contract(v1) 外の想定なので従来名維持
     sh->SetVectorUniform("uCameraRight", camRight);
     sh->SetVectorUniform("uCameraUp",    camUp);
-    sh->SetFloatUniform ("uLifeMax",      lifeMax);
-    sh->SetFloatUniform ("uSize",         size);
+    sh->SetFloatUniform ("uLifeMax",     lifeMax);
+    sh->SetFloatUniform ("uSize",        size);
 
     if (it.texture.ptr)
     {
@@ -299,11 +345,11 @@ static bool DispatchParticle(IRenderer& r,
         sh->SetTextureUniform("uTexture", it.textureUnit);
     }
 
-    return false; // instanced draw に流す
+    return false;
 }
 
 //============================================================
-// SkyDome（完全自前描画）
+// SkyDome
 //============================================================
 static bool DispatchSkyDome(IRenderer& r,
                             const RenderItem& it,
@@ -321,13 +367,13 @@ static bool DispatchSkyDome(IRenderer& r,
         return true;
     }
 
-    // payload（無ければデフォルトで安全）
     SkyDomePayload sky {};
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         sky = r.GetSkyDomePayload(it.payloadIndex);
     }
 
+    // NOTE: SkyDomeは contract(v1) 外なので従来名維持
     if (sky.useMVP)
     {
         sh->SetMatrixUniform("uMVP", sky.mvp);
@@ -342,18 +388,15 @@ static bool DispatchSkyDome(IRenderer& r,
     sh->SetVectorUniform("uRawSkyColor",   sky.skyRawSkyColor);
     sh->SetVectorUniform("uRawCloudColor", sky.skyRawCloudColor);
 
-    // もし fog uniform があるなら
-    // sh->SetVectorUniform("uFogColor", sky.skyFogColor);
-    // sh->SetFloatUniform ("uFogDensity", sky.skyFogDensity);
-
     it.geometry.ptr->SetActive();
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     r.AddDrawCall();
-    return true; // ここで描いた
+    return true;
 }
+
 //============================================================
-// Overlay（フルスクリーン系）
+// Overlay
 //============================================================
 static bool DispatchOverlay(IRenderer& r,
                             const RenderItem& it,
@@ -371,15 +414,13 @@ static bool DispatchOverlay(IRenderer& r,
         return true;
     }
 
-    // ---- payload ----
     OverlayPayload op {};
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
-        // Renderer側に GetOverlayPayload を持たせてる前提なら r.GetOverlayPayload()
-        // RenderQueueに持たせてる前提なら r.GetRenderQueue().GetOverlayPayload() 等に差し替えてOK
         op = r.GetOverlayPayload(it.payloadIndex);
     }
 
+    // NOTE: Overlayは contract(v1) 外なので従来名維持
     sh->SetFloatUniform("uTime", op.time);
 
     sh->SetFloatUniform("uRainAmount", op.rainAmount);
@@ -398,6 +439,7 @@ static bool DispatchOverlay(IRenderer& r,
     r.AddDrawCall();
     return true;
 }
+
 //============================================================
 // Debug
 //============================================================
@@ -427,11 +469,12 @@ static bool DispatchDebug(IRenderer& r,
         alpha = dp.alpha;
     }
 
+    // NOTE: Debugは contract(v1) 外なので従来名を維持
     sh->SetVectorUniform("uSolColor", color);
-    // sh->SetFloatUniform("uAlpha", alpha); // 必要なら
 
     return false;
 }
+
 //============================================================
 // Surface
 //============================================================
@@ -453,19 +496,18 @@ static bool DispatchSurface(IRenderer& r,
 
     sh->SetActive();
 
-    // 行列（Surface用は分解してる前提）
+    // NOTE: Surface は別契約（uWorld/uView/uProj）を維持（動作維持）
     sh->SetMatrixUniform("uWorld", it.world);
     sh->SetMatrixUniform("uView",  r.GetViewMatrix());
     sh->SetMatrixUniform("uProj",  r.GetProjectionMatrix());
 
-    // payload
     bool    flipX   = false;
     bool    flipY   = false;
     float   opacity = 1.0f;
     Vector3 tint    = Vector3(1.0f, 1.0f, 1.0f);
     int     mode    = 0;
     float   time    = 0.0f;
-    float  scanlineStrength = 1.0f;
+    float   scanlineStrength = 1.0f;
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
@@ -487,14 +529,13 @@ static bool DispatchSurface(IRenderer& r,
     sh->SetFloatUniform  ("uTime",    time);
     sh->SetFloatUniform  ("uScanlineStrength", scanlineStrength);
 
-    // テクスチャ
     if (it.texture.ptr)
     {
         it.texture.ptr->SetActive(it.textureUnit);
         sh->SetIntUniform("uSurfaceTex", it.textureUnit);
     }
 
-    return false; // DrawDefaultGeometry に流す
+    return false;
 }
 
 //============================================================
