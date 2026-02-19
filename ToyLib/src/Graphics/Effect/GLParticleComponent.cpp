@@ -7,6 +7,7 @@
 #include "Render/GL/GLShader.h"
 #include "Render/RenderQueue.h"
 #include "Render/RenderItem.h"
+#include "Render/GL/UniformNamesGL.h"
 
 #include "Asset/Material/Texture.h"
 #include "Utils/JsonHelper.h"
@@ -397,25 +398,27 @@ void GLParticleComponent::UpdateParticlesGPU(float deltaTime)
         return;
     }
 
+    using namespace toy::glsl;
+
     mUpdateShader->SetActive();
-    mUpdateShader->SetFloatUniform("uDeltaTime", deltaTime);
-    mUpdateShader->SetFloatUniform("uTime",      mTimeAcc);
-    mUpdateShader->SetFloatUniform("uLifeMax",   mDesc.particleLife);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::DeltaTime, deltaTime);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::Time,      mTimeAcc);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::LifeMax,   mDesc.particleLife);
 
     // ★追加：emitter（ワールド）
     const Matrix4 actorWorld = GetOwner()->GetWorldTransform();
     const Vector3 emitterWorld = Vector3::Transform(mDesc.emitterOffset, actorWorld);
-    mUpdateShader->SetVectorUniform("uEmitterPos", emitterWorld);
+    mUpdateShader->SetVectorUniform(ParticleUpdate::EmitterPos, emitterWorld);
 
     // ★追加：mode/forces
-    mUpdateShader->SetIntUniform  ("uMode",   (int)mDesc.mode);
-    mUpdateShader->SetFloatUniform("uGravity", mDesc.gravity);
-    mUpdateShader->SetFloatUniform("uLift",    mDesc.lift);
-    mUpdateShader->SetFloatUniform("uSpread",  mDesc.spread);
+    mUpdateShader->SetIntUniform  (ParticleUpdate::Mode,    (int)mDesc.mode);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::Gravity, mDesc.gravity);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::Lift,    mDesc.lift);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::Spread,  mDesc.spread);
 
     // ★追加：spawn
-    mUpdateShader->SetFloatUniform("uSpawnRate",    mDesc.spawnRatePerSec);
-    mUpdateShader->SetFloatUniform("uSpawnRampSec", mDesc.spawnRampSec);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::SpawnRate,    mDesc.spawnRatePerSec);
+    mUpdateShader->SetFloatUniform(ParticleUpdate::SpawnRampSec, mDesc.spawnRampSec);
 
     glEnable(GL_RASTERIZER_DISCARD);
     glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, dst);
@@ -424,13 +427,12 @@ void GLParticleComponent::UpdateParticlesGPU(float deltaTime)
     glDrawArrays(GL_POINTS, 0, (GLsizei)mDesc.maxParticles);
     glEndTransformFeedback();
 
-    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0); // ★保険
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
     glDisable(GL_RASTERIZER_DISCARD);
     glBindVertexArray(0);
 
     mPingPong = !mPingPong;
 }
-
 //======================================================================
 // Attribute bind / helpers
 //======================================================================

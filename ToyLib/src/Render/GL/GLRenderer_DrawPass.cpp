@@ -5,6 +5,7 @@
 #include "Render/GL/GLShader.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Texture.h"
+#include "Render/GL/UniformNamesGL.h"
 
 // GL
 #include "glad/glad.h"
@@ -96,25 +97,55 @@ inline bool ValidateGeometryForDraw(const RenderItem& it)
 }
 
 inline void SetCommonUniforms(IRenderer& r,
-                             const RenderItem& it,
-                             RenderPass pass,
-                             int cascadeIndex)
+                              const RenderItem& it,
+                              RenderPass pass,
+                              int cascadeIndex)
 {
     auto* sh = it.pipeline.ptrGLShader;
     if (!sh) return;
 
+    using namespace toy::glsl;
+
+    //========================================================
+    // World/UI : contract(v1)
+    //========================================================
     if (pass == RenderPass::World || pass == RenderPass::UI)
     {
-        sh->SetMatrixUniform("uViewProj",       it.viewProj);
-        sh->SetMatrixUniform("uWorldTransform", it.world);
+        // v1 contract
+        sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
+        sh->SetMatrixUniform(Object::World,   it.world);
+
+        // (Optional) legacy fallback (消したいならここを後で削除)
+        sh->SetMatrixUniform(Legacy::ViewProj,       it.viewProj);
+        sh->SetMatrixUniform(Legacy::WorldTransform, it.world);
+        return;
     }
-    else if (pass == RenderPass::Shadow)
+
+    //========================================================
+    // Shadow : contract(v1) + legacy fallback
+    //========================================================
+    if (pass == RenderPass::Shadow)
     {
-        sh->SetMatrixUniform("uWorldTransform",   it.world);
-        sh->SetMatrixUniform("uLightSpaceMatrix", r.GetLightSpaceMatrix(cascadeIndex));
+        const Matrix4 lightVP = r.GetLightSpaceMatrix(cascadeIndex);
+
+        // v1 contract
+        sh->SetMatrixUniform(Object::World, it.world);
+
+        if (cascadeIndex == 0)
+        {
+            sh->SetMatrixUniform(Scene::LightVP0, lightVP);
+        }
+        else
+        {
+            sh->SetMatrixUniform(Scene::LightVP1, lightVP);
+        }
+
+        // (Optional) legacy fallback
+        sh->SetMatrixUniform(Legacy::WorldTransform,   it.world);
+        sh->SetMatrixUniform(Legacy::LightSpaceMatrix, lightVP);
+        return;
     }
 }
-
 inline void DrawDefaultGeometry_GL(IRenderer& r, const RenderItem& it)
 {
     if (it.type == RenderItemType::Particle)
@@ -476,15 +507,9 @@ void GLRenderer::DrawPostEffectPass()
     auto sceneTex = mSceneRT->GetColorTexture();
     if (!sceneTex) return;
 
-    //========================================================
-    // 1) バックバッファへ戻す（重要）
-    //========================================================
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
 
-    //========================================================
-    // 2) 画面全体に貼るだけなので、深度/ブレンドOFF
-    //========================================================
     glDisable(GL_BLEND);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -497,75 +522,64 @@ void GLRenderer::DrawPostEffectPass()
         return;
     }
 
+    using namespace toy::glsl;
+
     sh->SetActive();
 
-    //========================================================
-    // 3) 入力テクスチャ（SceneRTのカラー）
-    //========================================================
+    // input texture
     sceneTex->SetActive(0);
-    sh->SetTextureUniform("uSceneTex", 0);
+    sh->SetTextureUniform(Post::SceneTex, 0);
 
-    // SDL_GetTicks() は ms なので seconds へ
     const float timeSec = (float)SDL_GetTicks() * 0.001f;
 
-    //========================================================
-    // 4) Uniforms
-    //========================================================
     switch (mPost.type)
     {
         case PostEffectType::None:
         case PostEffectType::Sepia:
         case PostEffectType::CRT:
         {
-            sh->SetIntUniform("uPostType", (int)mPost.type);
-            sh->SetFloatUniform("uIntensity", mPost.intensity);
-            sh->SetFloatUniform("uTime", timeSec);
-            sh->SetIntUniform("uFlipY", 0);
-            sh->SetIntUniform("uUsePaperTex", 0);
+            sh->SetIntUniform  (Post::PostType,   (int)mPost.type);
+            sh->SetFloatUniform(Post::Intensity,  mPost.intensity);
+            sh->SetFloatUniform(Post::Time,       timeSec);
+            sh->SetIntUniform  (Post::FlipY,      0);
+            sh->SetIntUniform  (Post::UsePaperTex,0);
             break;
         }
 
         case PostEffectType::FeilyLand:
         {
-            sh->SetIntUniform("uPostType", 3);
-            sh->SetFloatUniform("uIntensity", 1.0f);
-            sh->SetFloatUniform("uTime", timeSec);
-            sh->SetIntUniform("uFlipY", 0);
-            sh->SetIntUniform("uUsePaperTex", 0);
+            sh->SetIntUniform  (Post::PostType,   3);
+            sh->SetFloatUniform(Post::Intensity,  1.0f);
+            sh->SetFloatUniform(Post::Time,       timeSec);
+            sh->SetIntUniform  (Post::FlipY,      0);
+            sh->SetIntUniform  (Post::UsePaperTex,0);
             break;
         }
 
         case PostEffectType::Watercolor:
         {
-            sh->SetIntUniform("uPostType", 4);
-            sh->SetFloatUniform("uIntensity", 1.0f);
-            sh->SetFloatUniform("uTime", timeSec);
-            sh->SetIntUniform("uFlipY", 0);
+            sh->SetIntUniform  (Post::PostType,   4);
+            sh->SetFloatUniform(Post::Intensity,  1.0f);
+            sh->SetFloatUniform(Post::Time,       timeSec);
+            sh->SetIntUniform  (Post::FlipY,      0);
 
-            sh->SetIntUniform("uUsePaperTex", 1);
+            sh->SetIntUniform(Post::UsePaperTex, 1);
             if (mPost.paperTex)
             {
                 mPost.paperTex->SetActive(1);
-                sh->SetTextureUniform("uPaperTex", 1);
+                sh->SetTextureUniform(Post::PaperTex, 1);
             }
             else
             {
-                // paperTex 無い時は sceneTex を指す、などにしたいならここで0でもOK
-                sh->SetTextureUniform("uPaperTex", 0);
+                sh->SetTextureUniform(Post::PaperTex, 0);
             }
             break;
         }
     }
 
-    //========================================================
-    // 5) Fullscreen Quad
-    //========================================================
     mFullScreenQuad->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    //========================================================
-    // 6) 復帰（最低限）
-    //========================================================
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }

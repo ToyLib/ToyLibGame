@@ -1,6 +1,97 @@
 #version 410 core
 
 //======================================================================
+// ToyLib Uniform Contract (v1) - generated
+//   See Render/GL/UniformNamesGL.h
+//======================================================================
+
+struct DirLight
+{
+    vec3 direction;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+struct PointLight
+{
+    vec3  position;
+    vec3  color;
+    float intensity;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    float radius;
+};
+
+struct FogInfo
+{
+    float maxDist;
+    float minDist;
+    vec3  color;
+};
+
+struct SceneData
+{
+    mat4 viewProj;
+
+    vec3 cameraPos;
+
+    vec3  ambientLight;
+    float sunIntensity;
+
+    DirLight dirLight;
+
+    int        numPointLights;
+    PointLight pointLights[8];
+
+    FogInfo fog;
+
+    sampler2DShadow shadowMap0;
+    sampler2DShadow shadowMap1;
+
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    float cascadeSplit0;
+    float cascadeBlend;
+    float shadowBias;
+};
+
+struct ObjectData
+{
+    mat4 world;
+};
+
+struct MaterialData
+{
+    sampler2D baseMap;
+
+    vec3 baseColor;
+    bool useTexture;
+
+    bool toon;
+
+    bool overrideEnabled;
+    vec3 overrideColor;
+
+    float specPower;
+};
+
+// Max palette size must match engine-side upload
+const int kMaxPalette = 96;
+
+struct SkinnedData
+{
+    mat4 matrixPalette[kMaxPalette];
+};
+
+uniform SceneData    uScene;
+uniform ObjectData   uObject;
+uniform MaterialData uMaterial;
+uniform SkinnedData  uSkinned;
+
+//======================================================================
 // WeatherDome.frag
 //
 // ・全天を覆うスカイドーム用フラグメントシェーダ
@@ -36,7 +127,6 @@ uniform vec3 uMoonDir;         // 月方向
 // C++ 側から渡される「素」の空色・雲色
 uniform vec3 uRawSkyColor;
 uniform vec3 uRawCloudColor;
-
 
 //======================================================================
 // ハッシュ / ノイズ（2D）
@@ -77,7 +167,6 @@ float fbm(vec2 p)
     }
     return value;
 }
-
 
 //======================================================================
 // ハッシュ / ノイズ（3D）
@@ -134,7 +223,6 @@ float fbm3(vec3 p)
     return value;
 }
 
-
 //======================================================================
 // メイン
 //======================================================================
@@ -170,7 +258,6 @@ void main()
     vec3 skyColor = mix(baseSky * 0.6, baseSky, t);
 
     float cloudAlpha = 0.0;
-
 
     //==================================================================
     // 雲ノイズ：天候タイプごとの密度・色補正
@@ -241,7 +328,6 @@ void main()
     //------------------------------------------------------------------
     vec3 finalColor = mix(skyColor, cloudColor, cloudAlpha * 0.8);
 
-
     //==================================================================
     // ★ 夜空の星（Clear のみ / 夜間のみ）
     //==================================================================
@@ -266,7 +352,6 @@ void main()
 
         finalColor += starColor * starIntensity;
     }
-
 
     //==================================================================
     // ★ 月 (Moon) — 固定方向の簡易実装
@@ -297,7 +382,6 @@ void main()
         finalColor += moonColor * moonIntensity;
     }
 
-
     //==================================================================
     // ★ 天の川 (Milky Way) — 3D ノイズベース / 継ぎ目対策済み
     //==================================================================
@@ -320,7 +404,6 @@ void main()
 
         finalColor += milkyColor * milkyMask * 0.7;
     }
-
 
     //==================================================================
     // ★ 太陽ハイライト（サンディスク＆グロー）

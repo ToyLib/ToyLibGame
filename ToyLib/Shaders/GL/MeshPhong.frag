@@ -1,72 +1,21 @@
 #version 410
 
 //======================================================================
-//  Phong.frag
-//  ・Phong + Toon 切り替え可能なライティング
-//  ・Directional + Point + Fog
-//  ・CSM(2 cascades) + PCF 3x3
+// ToyLib Uniform Contract (v1) - generated
+//   See Render/GL/UniformNamesGL.h
 //======================================================================
 
-
-//======================================================================
-//  Varyings（頂点シェーダーから）
-//======================================================================
-
-in vec2 fragTexCoord;
-in vec3 fragNormal;
-in vec3 fragWorldPos;
-
-
-//======================================================================
-//  出力
-//======================================================================
-out vec4 outColor;
-
-
-//======================================================================
-//  Uniforms - マテリアル/カメラ/ライティング
-//======================================================================
-
-uniform sampler2D uTexture;
-
-uniform vec3 uUniformColor;
-uniform bool uOverrideColor;
-
-uniform vec3  uCameraPos;
-uniform float uSpecPower;
-
-uniform vec3 uAmbientLight;
-
-uniform float uShadowBias;
-uniform bool  uUseToon;
-
-//======================================================================
-//  Uniforms - マテリアル基本色
-//======================================================================
-
-uniform vec3 uDiffuseColor;
-uniform bool uUseTexture;
-
-
-//======================================================================
-//  Directional Light（平行光源）
-//======================================================================
-struct DirectionalLight
+struct DirLight
 {
-    vec3 mDirection;    // 光の向き（ライト → シーン）
-    vec3 mDiffuseColor; // 拡散反射色
-    vec3 mSpecColor;    // 鏡面反射色
+    vec3 direction;
+    vec3 diffuse;
+    vec3 specular;
 };
-uniform DirectionalLight uDirLight;
 
-
-//======================================================================
-//  Point Light
-//======================================================================
 struct PointLight
 {
-    vec3 position;
-    vec3 color;
+    vec3  position;
+    vec3  color;
     float intensity;
 
     float constant;
@@ -76,44 +25,125 @@ struct PointLight
     float radius;
 };
 
-uniform int uNumPointLights;
-uniform PointLight uPointLights[8];
-
-
-//======================================================================
-//  Fog
-//======================================================================
 struct FogInfo
 {
     float maxDist;
     float minDist;
     vec3  color;
 };
-uniform FogInfo uFoginfo;
 
+struct SceneData
+{
+    mat4 viewProj;
+
+    vec3 cameraPos;
+
+    vec3  ambientLight;
+    float sunIntensity;
+
+    DirLight dirLight;
+
+    int        numPointLights;
+    PointLight pointLights[8];
+
+    FogInfo fog;
+
+    sampler2DShadow shadowMap0;
+    sampler2DShadow shadowMap1;
+
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    float cascadeSplit0;
+    float cascadeBlend;
+    float shadowBias;
+};
+
+struct ObjectData
+{
+    mat4 world;
+};
+
+struct MaterialData
+{
+    sampler2D baseMap;
+
+    vec3 baseColor;
+    bool useTexture;
+
+    bool toon;
+
+    bool overrideEnabled;
+    vec3 overrideColor;
+
+    float specPower;
+};
+
+// Max palette size must match engine-side upload
+const int kMaxPalette = 96;
+
+struct SkinnedData
+{
+    mat4 matrixPalette[kMaxPalette];
+};
+
+uniform SceneData    uScene;
+uniform ObjectData   uObject;
+uniform MaterialData uMaterial;
+uniform SkinnedData  uSkinned;
+
+//======================================================================
+//  MeshPhong.frag
+//  ・Phong + Toon 切り替え可能なライティング
+//  ・Directional + Point + Fog
+//  ・CSM(2 cascades) + PCF 3x3
+//======================================================================
+
+//======================================================================
+//  Varyings（頂点シェーダーから）
+//======================================================================
+
+in vec2 fragTexCoord;
+in vec3 fragNormal;
+in vec3 fragWorldPos;
+
+//======================================================================
+//  出力
+//======================================================================
+out vec4 outColor;
+
+//======================================================================
+//  Uniforms - マテリアル/カメラ/ライティング
+//======================================================================
+
+//======================================================================
+//  Uniforms - マテリアル基本色
+//======================================================================
+
+//======================================================================
+//  Directional Light（平行光源）
+//======================================================================
+
+//======================================================================
+//  Point Light
+//======================================================================
+
+//======================================================================
+//  Fog
+//======================================================================
 
 //======================================================================
 //  Shadow Mapping (CSM 2 cascades)
 //======================================================================
-uniform sampler2DShadow uShadowMap0;
-uniform sampler2DShadow uShadowMap1;
-
-uniform mat4 uLightViewProj0;
-uniform mat4 uLightViewProj1;
 
 // どこで近景→遠景に切り替えるか（ワールド距離ベースでOK）
-uniform float uCascadeSplit0;
 
 // 境界でのフェード幅（大きいほど切り替えが目立ちにくい）
-uniform float uCascadeBlend;
-
 
 //======================================================================
 //  定数（Toon 関連）
 //======================================================================
 const float toonDiffuseThreshold = 0.5;
 const float toonSpecThreshold    = 0.95;
-
 
 //======================================================================
 //  関数：ライティング計算（Phong / Toon 切り替え）
@@ -125,22 +155,22 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 
     if (NdotL > 0.0)
     {
-        if (uUseToon)
+        if (uMaterial.toon)
         {
             float diffIntensity = step(toonDiffuseThreshold, NdotL);
 
-            float specIntensity = pow(max(dot(reflect(-L, N), V), 0.0), uSpecPower);
+            float specIntensity = pow(max(dot(reflect(-L, N), V), 0.0), uMaterial.specPower);
             specIntensity = step(toonSpecThreshold, specIntensity);
 
-            result += uDirLight.mDiffuseColor * diffIntensity;
-            result += uDirLight.mSpecColor   * specIntensity;
+            result += uScene.dirLight.diffuse * diffIntensity;
+            result += uScene.dirLight.specular   * specIntensity;
         }
         else
         {
-            vec3 diffuse = uDirLight.mDiffuseColor * NdotL;
+            vec3 diffuse = uScene.dirLight.diffuse * NdotL;
 
-            vec3 specular = uDirLight.mSpecColor *
-                            pow(max(dot(reflect(-L, N), V), 0.0), uSpecPower);
+            vec3 specular = uScene.dirLight.specular *
+                            pow(max(dot(reflect(-L, N), V), 0.0), uMaterial.specPower);
 
             result += diffuse + specular;
         }
@@ -148,7 +178,6 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 
     return result;
 }
-
 
 //======================================================================
 //  関数：Point Light 計算（Phong / Toon 両対応）
@@ -179,11 +208,11 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 
     vec3 result = vec3(0.0);
 
-    if (uUseToon)
+    if (uMaterial.toon)
     {
         float diffIntensity = step(toonDiffuseThreshold, NdotL);
 
-        float specIntensity = pow(max(dot(reflect(-L, N), V), 0.0), uSpecPower);
+        float specIntensity = pow(max(dot(reflect(-L, N), V), 0.0), uMaterial.specPower);
         specIntensity = step(toonSpecThreshold, specIntensity);
 
         result += light.color * diffIntensity;
@@ -194,7 +223,7 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
         vec3 diffuse = light.color * NdotL;
 
         vec3 R = reflect(-L, N);
-        float spec = pow(max(dot(V, R), 0.0), uSpecPower);
+        float spec = pow(max(dot(V, R), 0.0), uMaterial.specPower);
         vec3 specular = light.color * spec;
 
         result += diffuse + specular;
@@ -202,7 +231,6 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 
     return result * light.intensity * attenuation;
 }
-
 
 //======================================================================
 //  関数：CSM 用 Shadow PCF（3x3）
@@ -232,7 +260,7 @@ float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
         {
             vec2 offset = vec2(x, y) * texelSize;
             sum += texture(smp, vec3(projCoords.xy + offset,
-                                     projCoords.z - uShadowBias));
+                                     projCoords.z - uScene.shadowBias));
         }
     }
 
@@ -242,7 +270,6 @@ float ShadowPCF(sampler2DShadow smp, mat4 lightVP, vec3 worldPos)
     return mix(0.5, 1.0, lit);
 }
 
-
 //======================================================================
 //  main()
 //======================================================================
@@ -251,9 +278,9 @@ void main()
     //------------------------------------------------------------------
     // Step 1 : フォグ係数
     //------------------------------------------------------------------
-    float dist = length(uCameraPos - fragWorldPos);
+    float dist = length(uScene.cameraPos - fragWorldPos);
     float fogFactor = clamp(
-        (uFoginfo.maxDist - dist) / (uFoginfo.maxDist - uFoginfo.minDist),
+        (uScene.fog.maxDist - dist) / (uScene.fog.maxDist - uScene.fog.minDist),
         0.0,
         1.0
     );
@@ -261,9 +288,9 @@ void main()
     //------------------------------------------------------------------
     // Step 2 : 単色描画モード
     //------------------------------------------------------------------
-    if (uOverrideColor)
+    if (uMaterial.overrideEnabled)
     {
-        vec3 col = mix(uFoginfo.color, uUniformColor, fogFactor);
+        vec3 col = mix(uScene.fog.color, uMaterial.overrideColor, fogFactor);
         outColor = vec4(col, 1.0);
         return;
     }
@@ -272,32 +299,32 @@ void main()
     // Step 3 : 基本ベクトル
     //------------------------------------------------------------------
     vec3 N = normalize(fragNormal);
-    vec3 V = normalize(uCameraPos - fragWorldPos);
-    vec3 L = normalize(-uDirLight.mDirection);
+    vec3 V = normalize(uScene.cameraPos - fragWorldPos);
+    vec3 L = normalize(-uScene.dirLight.direction);
 
     //------------------------------------------------------------------
     // Step 4 : ディレクショナルライト
     //------------------------------------------------------------------
     vec3 dirLight = ComputeLighting(N, V, L);
-    vec3 lighting = uAmbientLight + dirLight;
+    vec3 lighting = uScene.ambientLight + dirLight;
 
     //------------------------------------------------------------------
     // Step 4.5 : Point Lights
     //------------------------------------------------------------------
-    for (int i = 0; i < uNumPointLights; ++i)
+    for (int i = 0; i < uScene.numPointLights; ++i)
     {
-        lighting += ComputePointLight(uPointLights[i], N, V, fragWorldPos);
+        lighting += ComputePointLight(uScene.pointLights[i], N, V, fragWorldPos);
     }
 
     //------------------------------------------------------------------
     // Step 5 : CSM シャドウ（2枚を距離でブレンド）
     //------------------------------------------------------------------
-    float s0 = ShadowPCF(uShadowMap0, uLightViewProj0, fragWorldPos);
-    float s1 = ShadowPCF(uShadowMap1, uLightViewProj1, fragWorldPos);
+    float s0 = ShadowPCF(uScene.shadowMap0, uScene.lightViewProj0, fragWorldPos);
+    float s1 = ShadowPCF(uScene.shadowMap1, uScene.lightViewProj1, fragWorldPos);
 
     float t = smoothstep(
-        uCascadeSplit0 - uCascadeBlend,
-        uCascadeSplit0 + uCascadeBlend,
+        uScene.cascadeSplit0 - uScene.cascadeBlend,
+        uScene.cascadeSplit0 + uScene.cascadeBlend,
         dist
     );
 
@@ -307,7 +334,7 @@ void main()
     // Step 6 : テクスチャ取得 + ライティング適用
     //------------------------------------------------------------------
     /*
-     vec4 texColor = texture(uTexture, fragTexCoord);
+     vec4 texColor = texture(uMaterial.baseMap, fragTexCoord);
     texColor.rgb *= lighting * shadowFactor;
     */
     //------------------------------------------------------------------
@@ -315,13 +342,13 @@ void main()
     //------------------------------------------------------------------
     vec4 baseColor;
 
-    if (uUseTexture)
+    if (uMaterial.useTexture)
     {
-        baseColor = texture(uTexture, fragTexCoord);
+        baseColor = texture(uMaterial.baseMap, fragTexCoord);
     }
     else
     {
-        baseColor = vec4(uDiffuseColor, 1.0);
+        baseColor = vec4(uMaterial.baseColor, 1.0);
     }
 
     // ライティング適用
@@ -330,7 +357,7 @@ void main()
     //------------------------------------------------------------------
     // Step 7 : フォグ合成
     //------------------------------------------------------------------
-    //vec3 finalColor = mix(uFoginfo.color, texColor.rgb, fogFactor);
-    vec3 finalColor = mix(uFoginfo.color, baseColor.rgb, fogFactor);
+    //vec3 finalColor = mix(uScene.fog.color, texColor.rgb, fogFactor);
+    vec3 finalColor = mix(uScene.fog.color, baseColor.rgb, fogFactor);
     outColor = vec4(finalColor, baseColor.a);
 }

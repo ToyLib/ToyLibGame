@@ -43,15 +43,15 @@ bool GLRenderer::LoadShaders()
         return false;
 
     // Mesh (Phong)
-    vShaderName = mShaderPath + "Phong.vert";
-    fShaderName = mShaderPath + "Phong.frag";
+    vShaderName = mShaderPath + "StaticMesh.vert";
+    fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Mesh"] = std::make_shared<GLShader>();
     if (!mShaders["Mesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Skinned
-    vShaderName = mShaderPath + "Skinned.vert";
-    fShaderName = mShaderPath + "Phong.frag";
+    vShaderName = mShaderPath + "SkinnedMesh.vert";
+    fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Skinned"] = std::make_shared<GLShader>();
     if (!mShaders["Skinned"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;

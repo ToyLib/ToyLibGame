@@ -1,13 +1,103 @@
 #version 410 core
 
 //======================================================================
+// ToyLib Uniform Contract (v1) - generated
+//   See Render/GL/UniformNamesGL.h
+//======================================================================
+
+struct DirLight
+{
+    vec3 direction;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+struct PointLight
+{
+    vec3  position;
+    vec3  color;
+    float intensity;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    float radius;
+};
+
+struct FogInfo
+{
+    float maxDist;
+    float minDist;
+    vec3  color;
+};
+
+struct SceneData
+{
+    mat4 viewProj;
+
+    vec3 cameraPos;
+
+    vec3  ambientLight;
+    float sunIntensity;
+
+    DirLight dirLight;
+
+    int        numPointLights;
+    PointLight pointLights[8];
+
+    FogInfo fog;
+
+    sampler2DShadow shadowMap0;
+    sampler2DShadow shadowMap1;
+
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    float cascadeSplit0;
+    float cascadeBlend;
+    float shadowBias;
+};
+
+struct ObjectData
+{
+    mat4 world;
+};
+
+struct MaterialData
+{
+    sampler2D baseMap;
+
+    vec3 baseColor;
+    bool useTexture;
+
+    bool toon;
+
+    bool overrideEnabled;
+    vec3 overrideColor;
+
+    float specPower;
+};
+
+// Max palette size must match engine-side upload
+const int kMaxPalette = 96;
+
+struct SkinnedData
+{
+    mat4 matrixPalette[kMaxPalette];
+};
+
+uniform SceneData    uScene;
+uniform ObjectData   uObject;
+uniform MaterialData uMaterial;
+uniform SkinnedData  uSkinned;
+
+//======================================================================
 //  FogFront.frag
 //  ・画面前面に表示する「前景フォグ（白いもや）」
 //  ・距離ベースのアルファ + FBMノイズによるゆらぎ
 //======================================================================
 
 out vec4 FragColor;
-
 
 //======================================================================
 //  Uniforms
@@ -17,7 +107,6 @@ uniform float uTime;        // 時間（ノイズアニメーション用）
 uniform vec2  uResolution;  // 画面サイズ（UV 正規化）
 uniform float uFogAmount;   // 全体の霧量スケール
 
-
 //======================================================================
 //  ハッシュベースの簡易ノイズ関数
 //  ・軽量で速い疑似乱数生成
@@ -26,7 +115,6 @@ float hash(vec2 p)
 {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
-
 
 //======================================================================
 //  2D Value Noise
@@ -51,7 +139,6 @@ float noise(vec2 p)
          + (d - b) * u.x * u.y;
 }
 
-
 //======================================================================
 //  FBM (Fractal Brownian Motion)
 //  ・周波数を倍にしながら4層のノイズを合成
@@ -71,7 +158,6 @@ float fbm(vec2 p)
     return value;
 }
 
-
 //======================================================================
 //  main()
 //======================================================================
@@ -82,7 +168,6 @@ void main()
     //------------------------------------------------------------------
     vec2 uv = gl_FragCoord.xy / uResolution;
 
-
     //------------------------------------------------------------------
     // Step 2 : 中心基準の座標に変更（-0.5〜0.5）
     //          さらにアスペクト比補正で円形フォグを歪ませない
@@ -90,25 +175,21 @@ void main()
     vec2 centeredUV = uv - 0.5;
     centeredUV.x *= uResolution.x / uResolution.y;
 
-
     //------------------------------------------------------------------
     // Step 3 : 距離ベースのフォグ（中心 → 外側へ強くなる）
     //------------------------------------------------------------------
     float dist    = length(centeredUV);
     float baseFog = smoothstep(0.3, 0.8, dist);
 
-
     //------------------------------------------------------------------
     // Step 4 : FBM ノイズで揺れを加える
     //------------------------------------------------------------------
     float n = fbm(centeredUV * 3.5 + vec2(uTime * 0.05, 0.0));
 
-
     //------------------------------------------------------------------
     // Step 5 : フォグの強さをノイズと合成
     //------------------------------------------------------------------
     float fog = baseFog * mix(0.7, 1.0, n);
-
 
     //------------------------------------------------------------------
     // Step 6 : 出力（白いフォグ、アルファ付き）

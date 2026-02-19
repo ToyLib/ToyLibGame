@@ -1,5 +1,96 @@
 #version 410 core
 
+//======================================================================
+// ToyLib Uniform Contract (v1) - generated
+//   See Render/GL/UniformNamesGL.h
+//======================================================================
+
+struct DirLight
+{
+    vec3 direction;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+struct PointLight
+{
+    vec3  position;
+    vec3  color;
+    float intensity;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    float radius;
+};
+
+struct FogInfo
+{
+    float maxDist;
+    float minDist;
+    vec3  color;
+};
+
+struct SceneData
+{
+    mat4 viewProj;
+
+    vec3 cameraPos;
+
+    vec3  ambientLight;
+    float sunIntensity;
+
+    DirLight dirLight;
+
+    int        numPointLights;
+    PointLight pointLights[8];
+
+    FogInfo fog;
+
+    sampler2DShadow shadowMap0;
+    sampler2DShadow shadowMap1;
+
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    float cascadeSplit0;
+    float cascadeBlend;
+    float shadowBias;
+};
+
+struct ObjectData
+{
+    mat4 world;
+};
+
+struct MaterialData
+{
+    sampler2D baseMap;
+
+    vec3 baseColor;
+    bool useTexture;
+
+    bool toon;
+
+    bool overrideEnabled;
+    vec3 overrideColor;
+
+    float specPower;
+};
+
+// Max palette size must match engine-side upload
+const int kMaxPalette = 96;
+
+struct SkinnedData
+{
+    mat4 matrixPalette[kMaxPalette];
+};
+
+uniform SceneData    uScene;
+uniform ObjectData   uObject;
+uniform MaterialData uMaterial;
+uniform SkinnedData  uSkinned;
+
 //==============================================================
 // Particle.vert
 //----------------------------------------------------------------------
@@ -11,7 +102,7 @@
 // ・寿命から vAlpha を計算し、フラグメント側で discard する
 //
 // 注意：行列の掛け順は ToyLib 規約に合わせている
-//   gl_Position = vec4(worldPos,1) * uViewProj;
+//   gl_Position = vec4(worldPos,1) * uScene.viewProj;
 //==============================================================
 
 //==============================================================
@@ -29,7 +120,6 @@ layout(location = 4) in float iLife;    // 粒の寿命（経過秒）
 //==============================================================
 // Uniforms
 //==============================================================
-uniform mat4 uViewProj;        // View * Projection（ToyLib の構築規約に従う）
 
 // billboard basis（ワールド空間）
 // カメラの右方向/上方向ベクトル（正規化済み想定）
@@ -92,7 +182,7 @@ void main()
 
     //----------------------------------------------------------
     // クリップ空間へ
-    // ToyLib convention: vec4(worldPos,1) * uViewProj
+    // ToyLib convention: vec4(worldPos,1) * uScene.viewProj
     //----------------------------------------------------------
-    gl_Position = vec4(worldPos, 1.0) * uViewProj;
+    gl_Position = vec4(worldPos, 1.0) * uScene.viewProj;
 }

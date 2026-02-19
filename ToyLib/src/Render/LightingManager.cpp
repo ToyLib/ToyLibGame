@@ -1,17 +1,16 @@
 #include "Render/LightingManager.h"
 #include "Render/GL/GLShader.h"
+#include "Render/GL/UniformNamesGL.h"
 #include "Graphics/Light/PointLightComponent.h"
 
 #include <algorithm>
+#include <string>
 
 namespace toy {
 
 //-------------------------------------------------------------
 // ApplyToShader()
-// ・現在のライティング関連パラメーターを GLSL シェーダーに送る
-// ・Renderer → 各 VisualComponent 描画時に呼ばれる想定
 //-------------------------------------------------------------
-// LightingManager.cpp
 void LightingManager::ApplyToShader(std::shared_ptr<GLShader> shader,
                                     const Matrix4& viewMatrix)
 {
@@ -23,29 +22,54 @@ void LightingManager::ApplyToShader(GLShader* shader,
 {
     if (!shader) return;
 
+    using namespace toy::glsl;
+
+    //---------------------------------------------------------
+    // Camera
+    //---------------------------------------------------------
     Matrix4 invView = viewMatrix;
     invView.Invert();
-    shader->SetVectorUniform("uCameraPos", invView.GetTranslation());
 
-    shader->SetVectorUniform("uAmbientLight", mAmbientColor);
-    shader->SetFloatUniform ("uSunIntensity", mSunIntensity);
+    shader->SetVectorUniform(Scene::CameraPos, invView.GetTranslation());
 
-    shader->SetVectorUniform("uDirLight.mDirection",    mDirLight.GetDirection());
-    shader->SetVectorUniform("uDirLight.mDiffuseColor", mDirLight.DiffuseColor);
-    shader->SetVectorUniform("uDirLight.mSpecColor",    mDirLight.SpecColor);
+    //---------------------------------------------------------
+    // Ambient / Sun
+    //---------------------------------------------------------
+    shader->SetVectorUniform(Scene::AmbientLight, mAmbientColor);
+    shader->SetFloatUniform (Scene::SunIntensity, mSunIntensity);
 
+    //---------------------------------------------------------
+    // Directional light
+    //---------------------------------------------------------
+    shader->SetVectorUniform(Scene::Dir_Direction, mDirLight.GetDirection());
+    shader->SetVectorUniform(Scene::Dir_Diffuse,   mDirLight.DiffuseColor);
+    shader->SetVectorUniform(Scene::Dir_Specular,  mDirLight.SpecColor);
+
+    //---------------------------------------------------------
+    // Point lights
+    //---------------------------------------------------------
     const int maxPointLights = 8;
-    int numAll = (int)mPointLights.size();
-    if (numAll > maxPointLights) numAll = maxPointLights;
+
+    int numAll = static_cast<int>(mPointLights.size());
+    if (numAll > maxPointLights)
+    {
+        numAll = maxPointLights;
+    }
 
     int num = 0;
+
     for (int i = 0; i < numAll; ++i)
     {
         auto* comp = mPointLights[i];
-        if (!comp || !comp->IsEnabled()) continue;
+        if (!comp || !comp->IsEnabled())
+        {
+            continue;
+        }
 
-        int idx = num++;
-        std::string base = "uPointLights[" + std::to_string(idx) + "].";
+        const int idx = num++;
+
+        const std::string base =
+            std::string(Scene::PointPrefix) + std::to_string(idx) + "].";
 
         shader->SetVectorUniform((base + "position").c_str(),  comp->GetPosition());
         shader->SetVectorUniform((base + "color").c_str(),     comp->GetColor());
@@ -55,20 +79,21 @@ void LightingManager::ApplyToShader(GLShader* shader,
         shader->SetFloatUniform ((base + "quadratic").c_str(), comp->GetQuadratic());
         shader->SetFloatUniform ((base + "radius").c_str(),    comp->GetRadius());
     }
-    shader->SetIntUniform("uNumPointLights", num);
 
-    shader->SetFloatUniform ("uFoginfo.maxDist", mFog.MaxDist);
-    shader->SetFloatUniform ("uFoginfo.minDist", mFog.MinDist);
-    shader->SetVectorUniform("uFoginfo.color",   mFog.Color);
+    shader->SetIntUniform(Scene::NumPointLights, num);
+
+    //---------------------------------------------------------
+    // Fog
+    //---------------------------------------------------------
+    shader->SetFloatUniform (Scene::Fog_MaxDist, mFog.MaxDist);
+    shader->SetFloatUniform (Scene::Fog_MinDist, mFog.MinDist);
+    shader->SetVectorUniform(Scene::Fog_Color,   mFog.Color);
 }
-
 
 void LightingManager::RegisterPointLight(PointLightComponent* light)
 {
-    if (!light)
-    {
-        return;
-    }
+    if (!light) return;
+
     auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
     if (it == mPointLights.end())
     {
@@ -78,10 +103,8 @@ void LightingManager::RegisterPointLight(PointLightComponent* light)
 
 void LightingManager::UnregisterPointLight(PointLightComponent* light)
 {
-    if (!light)
-    {
-        return;
-    }
+    if (!light) return;
+
     auto it = std::find(mPointLights.begin(), mPointLights.end(), light);
     if (it != mPointLights.end())
     {
