@@ -79,17 +79,31 @@ static bool DispatchMesh(IRenderer& r,
         return true;
     }
 
-    using namespace toy::glsl;
 
     //========================================================
-    // ★追加：StaticMesh.vert / MeshPhong.frag が参照する契約(v1)
+    // Contract(v1)
     //   - uObject.world
     //   - uScene.viewProj
     //========================================================
-    sh->SetMatrixUniform(Object::World,  it.world);
-    sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
+    sh->SetMatrixUniform(toy::glsl::Object::World,   it.world);
+    sh->SetMatrixUniform(toy::glsl::Scene::ViewProj, it.viewProj);
 
-    // ライティング（中で Scene::* を使うよう後で直す前提）
+    //========================================================
+    // Payload（toon / overrideColor）
+    //========================================================
+    bool    toon          = false;
+    bool    overrideColor = false;
+    Vector3 overrideValue = Vector3(0.0f, 0.0f, 0.0f);
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const MeshPayload& mp = r.GetMeshPayload(it.payloadIndex);
+        toon          = mp.toon;
+        overrideColor = mp.overrideColor;
+        overrideValue = mp.overrideColorValue;
+    }
+
+    // ライティング
     if (r.GetLightingManager())
     {
         const Matrix4 view = r.GetViewMatrix();
@@ -100,25 +114,25 @@ static bool DispatchMesh(IRenderer& r,
     if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
     if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
-    sh->SetTextureUniform(Scene::ShadowMap0, 6);
-    sh->SetTextureUniform(Scene::ShadowMap1, 7);
+    sh->SetTextureUniform(toy::glsl::Scene::ShadowMap0, 6);
+    sh->SetTextureUniform(toy::glsl::Scene::ShadowMap1, 7);
 
-    sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
-    sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
+    sh->SetMatrixUniform(toy::glsl::Scene::LightVP0, r.GetLightSpaceMatrix(0));
+    sh->SetMatrixUniform(toy::glsl::Scene::LightVP1, r.GetLightSpaceMatrix(1));
 
-    sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
-    sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
-    sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
+    sh->SetFloatUniform(toy::glsl::Scene::CascadeSplit0, r.GetCascadeSplit0());
+    sh->SetFloatUniform(toy::glsl::Scene::CascadeBlend,  r.GetCascadeBlend());
+    sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    0.005f);
 
     // Toon
-    sh->SetBooleanUniform(toy::glsl::Material::Toon, it.toon);
+    sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
 
-    // Material（輪郭 override color 対応）: 振る舞い維持
+    // Material（overrideColor 対応）
     if (it.material.ptr)
     {
-        if (it.overrideColor)
+        if (overrideColor)
         {
-            it.material.ptr->SetOverrideColor(true, it.overrideColorValue);
+            it.material.ptr->SetOverrideColor(true, overrideValue);
             it.material.ptr->BindToShader(sh, 0);
             it.material.ptr->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
         }
@@ -147,17 +161,27 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 
     using namespace toy::glsl;
 
+    // Payload（toon / override）
+    const SkinnedMeshPayload* p = nullptr;
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        p = &r.GetSkinnedMeshPayload(it.payloadIndex);
+    }
+
+    const bool    toon = (p ? p->toon : false);
+    const bool    overrideColor = (p ? p->overrideColor : false);
+    const Vector3 overrideColorValue =
+        (p ? p->overrideColorValue : Vector3(0.0f, 0.0f, 0.0f));
+
     //============================================================
     // Shadow pass
     //============================================================
     if (pass == RenderPass::Shadow)
     {
-        // 旧 uWorldTransform -> 新 uObject.world
         sh->SetMatrixUniform(Object::World, it.world);
 
         if (it.matrixPalette && it.paletteCount > 0)
         {
-            // 旧 uMatrixPalette -> 新 uSkinned.matrixPalette[0]
             sh->SetMatrixUniforms(Skinned::MatrixPalette0,
                                   it.matrixPalette,
                                   static_cast<unsigned int>(it.paletteCount));
@@ -173,19 +197,16 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         return false;
     }
 
-    // Object world / Scene viewProj
     sh->SetMatrixUniform(Object::World, it.world);
     sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
 
-    // ライティング
     if (r.GetLightingManager())
     {
         const Matrix4 view = r.GetViewMatrix();
         r.GetLightingManager()->ApplyToShader(sh, view);
     }
 
-    // シャドウ（輪郭は不要なので overrideColor でスキップ）: 振る舞い維持
-    if (!it.overrideColor)
+    if (!overrideColor)
     {
         if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
         if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
@@ -201,26 +222,23 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
     }
 
-    // Toon
-    sh->SetBooleanUniform(toy::glsl::Material::Toon, it.toon);
+    sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
 
-    // Material bind（overrideColor 反映→bind→戻す）: 振る舞い維持
     if (it.material.ptr)
     {
-        if (it.overrideColor)
+        if (overrideColor)
         {
-            it.material.ptr->SetOverrideColor(true, it.overrideColorValue);
+            it.material.ptr->SetOverrideColor(true, overrideColorValue);
         }
 
         it.material.ptr->BindToShader(sh, 0);
 
-        if (it.overrideColor)
+        if (overrideColor)
         {
             it.material.ptr->SetOverrideColor(false, Vector3(0.0f, 0.0f, 0.0f));
         }
     }
 
-    // matrix palette
     if (it.matrixPalette && it.paletteCount > 0)
     {
         sh->SetMatrixUniforms(Skinned::MatrixPalette0,
@@ -250,25 +268,26 @@ static bool DispatchBillboard(IRenderer& r,
         return true;
     }
 
-    Vector3 color = Vector3(1.0f, 1.0f, 1.0f);
+    // Payload
+    Vector3 tint  = Vector3(1.0f, 1.0f, 1.0f);
     float   alpha = 1.0f;
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         const BillboardPayload& bp = r.GetBillboardPayload(it.payloadIndex);
-        color = bp.color;
+        tint  = bp.tint;   // ★ここ
         alpha = bp.alpha;
     }
 
     // NOTE: Billboard系は contract(v1) に含めてない想定なので、従来名も維持
-    sh->SetVectorUniform("uSpriteColor", color);
+    // （古い billboard shader が uSpriteColor/uSpriteAlpha を見ている想定）
+    sh->SetVectorUniform("uSpriteColor", tint);
     sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
     // ------------------------------------------------------------
-    // ★Unlit 対応：
+    // Unlit 対応：
     // Unlit.frag は uMaterial.* を参照するので、ここでセットする
     // ------------------------------------------------------------
-    // baseColor（テクスチャ無しの保険）
     sh->SetVectorUniform(toy::glsl::Material::BaseColor, Vector3(1.0f, 1.0f, 1.0f));
 
     if (it.texture.ptr)
@@ -279,7 +298,7 @@ static bool DispatchBillboard(IRenderer& r,
         sh->SetTextureUniform(toy::glsl::Material::BaseMap, it.textureUnit);
         sh->SetBooleanUniform(toy::glsl::Material::UseTexture, true);
 
-        // 旧契約（他の古い billboard shader 用に残す）
+        // 旧契約（古い billboard shader 用）
         sh->SetTextureUniform("uTexture", it.textureUnit);
         sh->SetBooleanUniform("uUseTexture", true);
     }
@@ -292,10 +311,14 @@ static bool DispatchBillboard(IRenderer& r,
         sh->SetBooleanUniform("uUseTexture", false);
     }
 
-    // Unlit の tint 拡張が必要ならここで：
-    // sh->SetIntUniform("uUseTint", 1);
-    // sh->SetVectorUniform("uTint", color);
-    // sh->SetFloatUniform("uAlpha", alpha);
+    // ------------------------------------------------------------
+    // ★Unlit tint 拡張（ここを入れると FootSprite/ShadowSprite も統一できる）
+    //   - TextBillboard は uUseTint を触らない運用でもいいけど、
+    //     触っても tint=1, alpha=1 なら見た目は同じ。
+    // ------------------------------------------------------------
+    sh->SetIntUniform   ("uUseTint", 1);
+    sh->SetVectorUniform("uTint",    tint);
+    sh->SetFloatUniform ("uAlpha",   alpha);
 
     return false;
 }

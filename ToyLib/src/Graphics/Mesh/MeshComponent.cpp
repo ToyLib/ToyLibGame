@@ -45,7 +45,13 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         return;
     }
 
-    auto* renderer = GetOwner()->GetApp()->GetRenderer();
+    auto* owner = GetOwner();
+    if (!owner)
+    {
+        return;
+    }
+
+    auto* renderer = owner->GetApp()->GetRenderer();
     if (!renderer)
     {
         return;
@@ -56,11 +62,11 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
         Matrix4::CreateFromQuaternion(mLocalRot) *
         Matrix4::CreateTranslation(mLocalPos) *
         Matrix4::CreateScale(mLocalScale) *
-        GetOwner()->GetRenderWorldTransform();
+        owner->GetRenderWorldTransform();
 
     // 共有：ビュー・プロジェクション
-    const Matrix4 view = renderer->GetViewMatrix();
-    const Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 view     = renderer->GetViewMatrix();
+    const Matrix4 proj     = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
 
     // サブメッシュごとに積む（Materialが違うため）
@@ -72,55 +78,98 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
             continue;
         }
 
-        // ---- 通常描画 ----
-        RenderItem it {};
-        it.pass      = RenderPass::World;
-        it.layer     = mLayer;
-        it.drawOrder = mDrawOrder;
+        //=====================================================
+        // 通常描画
+        //=====================================================
+        {
+            // Payload（toon / override）
+            MeshPayload mp {};
+            mp.toon = mIsToon;
+            mp.overrideColor = false;
+            mp.overrideColorValue = Vector3(0.0f, 0.0f, 0.0f);
 
-        it.type     = RenderItemType::Mesh;
-        it.dispatch = GetDispatch(it.type);
+            const uint32_t payloadIndex = queue.PushMeshPayload(mp);
 
-        it.topology     = PrimitiveTopology::Triangles;
-        it.geometry.ptr = v.get();
-        it.indexCount   = static_cast<int>(v->GetNumIndices());
+            RenderItem it {};
+            it.pass      = RenderPass::World;
+            it.layer     = mLayer;
+            it.drawOrder = mDrawOrder;
 
-        it.pipeline = renderer->GetPipelineHandle("Mesh");
-        it.world    = worldMatrix;
-        it.viewProj = viewProj;
+            it.type     = RenderItemType::Mesh;
+            it.dispatch = GetDispatch(it.type);
 
-        it.toon = mIsToon;
+            it.payloadIndex = payloadIndex;
 
-        it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque);
-        it.depthTest  = true;
-        it.depthWrite = true;
-        it.cull       = CullMode::Back;
-        it.frontFace  = FrontFace::CCW;
+            it.topology     = PrimitiveTopology::Triangles;
+            it.geometry.ptr = v.get();
+            it.indexCount   = static_cast<int>(v->GetNumIndices());
 
-        auto mat = mMesh->GetMaterial(v->GetTextureID());
-        it.material = renderer->ToHandle(mat);
+            it.pipeline = renderer->GetPipelineHandle("Mesh");
 
-        queue.Push(it);
+            it.world    = worldMatrix;
+            it.viewProj = viewProj;
 
-        // ---- アウトライン ----
+            it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Opaque);
+            it.depthTest  = true;
+            it.depthWrite = true;
+            it.cull       = CullMode::Back;
+            it.frontFace  = FrontFace::CCW;
+
+            auto mat = mMesh->GetMaterial(v->GetTextureID());
+            it.material = renderer->ToHandle(mat);
+
+            queue.Push(it);
+        }
+
+        //=====================================================
+        // アウトライン
+        //=====================================================
         if (mContourFactor > 1.0f)
         {
-            RenderItem o = it;
+            MeshPayload mp {};
+            mp.toon = mIsToon;
+            mp.overrideColor = true;
+            mp.overrideColorValue = mContourColor;
+
+            const uint32_t payloadIndex = queue.PushMeshPayload(mp);
+
+            RenderItem o {};
+            o.pass      = RenderPass::World;
+            o.layer     = mLayer;
+            o.drawOrder = mDrawOrder - 1; // 先に描きたい場合
+
+            o.type     = RenderItemType::Mesh;
+            o.dispatch = GetDispatch(o.type);
+
+            o.payloadIndex = payloadIndex;
+
+            o.topology     = PrimitiveTopology::Triangles;
+            o.geometry.ptr = v.get();
+            o.indexCount   = static_cast<int>(v->GetNumIndices());
+
+            o.pipeline = renderer->GetPipelineHandle("Mesh");
 
             const Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
             o.world = scaleOutline * worldMatrix;
 
-            o.frontFace = FrontFace::CW;
+            o.viewProj = viewProj;
 
-            o.overrideColor      = true;
-            o.overrideColorValue = mContourColor;
+            // outline は裏面描画（膨張した裏側を見せる）
+            o.blend      = BlendMode::Opaque;
+            o.depthTest  = true;
+            o.depthWrite = false;
 
-            o.drawOrder = mDrawOrder - 1;
+            o.cull       = CullMode::Back;
+            o.frontFace  = FrontFace::CW;
+
+            auto mat = mMesh->GetMaterial(v->GetTextureID());
+            o.material = renderer->ToHandle(mat);
 
             queue.Push(o);
         }
     }
 }
+
 void MeshComponent::GatherShadowItems(RenderQueue& queue)
 {
     if (!mIsVisible || !mEnableShadow || !mMesh)

@@ -391,10 +391,16 @@ void GroundConformSpriteComponent::RebuildGridIfNeeded()
 //------------------------------------------------------------------------------
 void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
 {
-    if (!mIsVisible) return;
+    if (!mIsVisible)
+    {
+        return;
+    }
 
     auto* renderer = GetOwner()->GetApp()->GetRenderer();
-    if (!renderer) return;
+    if (!renderer)
+    {
+        return;
+    }
 
     if (!mTexture)
     {
@@ -412,10 +418,14 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     // Payload（Billboard tint/alpha 用）
     // ----------------------------------------------------------
     BillboardPayload bp {};
-    bp.color = mTint;   // 無ければ Vector3(1,1,1) でOK
-    bp.alpha = mAlpha;  // 無ければ 1.0f でOK
+    bp.tint = mTint;
+    bp.alpha = mAlpha;
+
     const uint32_t payloadIndex = queue.PushBillboardPayload(bp);
 
+    // ----------------------------------------------------------
+    // RenderItem
+    // ----------------------------------------------------------
     RenderItem it {};
     it.pass      = RenderPass::World;
     it.layer     = mLayer;
@@ -433,7 +443,9 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     const Matrix4 view = renderer->GetViewMatrix();
     const Matrix4 proj = renderer->GetProjectionMatrix();
     it.viewProj = view * proj;
-    it.world    = Matrix4::Identity;
+
+    // GroundConformSprite はワールド変形済み頂点を持つ想定なら Identity のままでOK
+    it.world = Matrix4::Identity;
 
     it.blend      = (mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha);
     it.depthTest  = true;

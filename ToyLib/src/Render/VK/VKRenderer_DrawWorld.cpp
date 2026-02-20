@@ -126,7 +126,7 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     Vector3 diffuse(0.8f, 0.8f, 0.8f);
     float   specPower = 32.0f;
     int     useTex = 0;
-    int     overrideCol = (it.overrideColor ? 1 : 0);
+    //int     overrideCol = (it.overrideColor ? 1 : 0);
 
     if (it.material.ptr)
     {
@@ -139,9 +139,9 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     }
 
     Vector3 ucol(0.0f, 0.0f, 0.0f);
-    if (overrideCol != 0)
+    //if (overrideCol != 0)
     {
-        ucol   = it.overrideColorValue;
+    //    ucol   = it.overrideColorValue;
         useTex = 0;
     }
 
@@ -156,7 +156,7 @@ void VKRenderer::BindWorldCommon(VkCommandBuffer cmd,
     pc.pcUniform[3] = 1.0f;
 
     pc.pcFlagsSpec[0] = (float)useTex;
-    pc.pcFlagsSpec[1] = (float)overrideCol;
+    //pc.pcFlagsSpec[1] = (float)overrideCol;
     pc.pcFlagsSpec[2] = specPower;
     pc.pcFlagsSpec[3] = 0.0f;
 

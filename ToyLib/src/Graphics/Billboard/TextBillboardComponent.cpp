@@ -90,7 +90,7 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
     //  - 透過はテクスチャの alpha を使う前提（必要なら mAlpha 等に差し替え）
     //==========================================================
     BillboardPayload bp {};
-    bp.color = Vector3(1.0f, 1.0f, 1.0f);
+    bp.tint = Vector3(1.0f, 1.0f, 1.0f);
     bp.alpha = 1.0f;
 
     const uint32_t payloadIndex = out.PushBillboardPayload(bp);
