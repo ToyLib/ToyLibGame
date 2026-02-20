@@ -79,15 +79,14 @@ static bool DispatchMesh(IRenderer& r,
         return true;
     }
 
-    using namespace toy::glsl;
 
     //========================================================
     // Contract(v1)
     //   - uObject.world
     //   - uScene.viewProj
     //========================================================
-    sh->SetMatrixUniform(Object::World,   it.world);
-    sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
+    sh->SetMatrixUniform(toy::glsl::Object::World,   it.world);
+    sh->SetMatrixUniform(toy::glsl::Scene::ViewProj, it.viewProj);
 
     //========================================================
     // Payload（toon / overrideColor）
@@ -115,15 +114,15 @@ static bool DispatchMesh(IRenderer& r,
     if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
     if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
-    sh->SetTextureUniform(Scene::ShadowMap0, 6);
-    sh->SetTextureUniform(Scene::ShadowMap1, 7);
+    sh->SetTextureUniform(toy::glsl::Scene::ShadowMap0, 6);
+    sh->SetTextureUniform(toy::glsl::Scene::ShadowMap1, 7);
 
-    sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
-    sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
+    sh->SetMatrixUniform(toy::glsl::Scene::LightVP0, r.GetLightSpaceMatrix(0));
+    sh->SetMatrixUniform(toy::glsl::Scene::LightVP1, r.GetLightSpaceMatrix(1));
 
-    sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
-    sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
-    sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
+    sh->SetFloatUniform(toy::glsl::Scene::CascadeSplit0, r.GetCascadeSplit0());
+    sh->SetFloatUniform(toy::glsl::Scene::CascadeBlend,  r.GetCascadeBlend());
+    sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    0.005f);
 
     // Toon
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
