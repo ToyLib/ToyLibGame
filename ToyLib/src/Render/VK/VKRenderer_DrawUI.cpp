@@ -176,19 +176,19 @@ void VKRenderer::DrawUIPass()
         //======================================================
         // ★ SpritePayload を常に反映（0も有効値の可能性があるため）
         //======================================================
-        Vector3 col = it.color;
-        float   alp = it.alpha;
+        //Vector3 col = it.color;
+        //float   alp = it.alpha;
 
         {
             const SpritePayload& sp = mRenderQueue.GetSpritePayload(it.payloadIndex);
-            col = sp.color;
-            alp = sp.alpha;
+            //col = sp.color;
+            //alp = sp.alpha;
         }
 
-        pc.colorAlpha[0] = col.x;
-        pc.colorAlpha[1] = col.y;
-        pc.colorAlpha[2] = col.z;
-        pc.colorAlpha[3] = alp;
+        //pc.colorAlpha[0] = col.x;
+        //pc.colorAlpha[1] = col.y;
+        //pc.colorAlpha[2] = col.z;
+        //pc.colorAlpha[3] = alp;
 
         vkCmdPushConstants(frame.cmd,
                            pipe->pipelineLayout,
