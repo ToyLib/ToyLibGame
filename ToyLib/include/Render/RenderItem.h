@@ -38,8 +38,8 @@ struct RenderItem
         RenderPass        pass,
         int               cascadeIndex);
 
-    DispatchFn    dispatch { nullptr };
-    RenderItemType type    { RenderItemType::Sprite };
+    DispatchFn     dispatch { nullptr };
+    RenderItemType type     { RenderItemType::Sprite };
 
     static constexpr uint32_t kInvalidPayload = 0xFFFFFFFFu;
     uint32_t payloadIndex { kInvalidPayload }; // type で解釈する
@@ -84,8 +84,8 @@ struct RenderItem
     //========================
     // GPUParticle-only (描画形態)
     //========================
-    unsigned int gpuVAO        { 0 };
-    int          instanceCount { 0 };
+    uint32_t gpuVAO        { 0 };
+    int      instanceCount { 0 };
 };
 
 RenderItem::DispatchFn GetDispatch(RenderItemType type);

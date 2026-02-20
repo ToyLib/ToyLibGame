@@ -45,7 +45,6 @@ struct SkinnedMeshPayload
 //==============================
 struct BillboardPayload
 {
-    // 互換：uUseTint==0 なら無視される想定
     bool    useTint { false };
     Vector3 tint    { 1.0f, 1.0f, 1.0f };
     float   alpha   { 1.0f };
@@ -56,8 +55,8 @@ struct BillboardPayload
 //==============================
 struct ParticlePayload
 {
-    Vector3 cameraRight;
-    Vector3 cameraUp;
+    Vector3 cameraRight { 1.0f, 0.0f, 0.0f };
+    Vector3 cameraUp    { 0.0f, 1.0f, 0.0f };
 
     float particleLifeMax { 1.0f };
     float particleSize    { 1.0f };
@@ -77,7 +76,6 @@ struct SkyDomePayload
     Vector3 skyRawSkyColor   { Vector3::Zero };
     Vector3 skyRawCloudColor { Vector3::Zero };
 
-    // MVP 直指定（旧互換）
     Matrix4 mvp    { Matrix4::Identity };
     bool    useMVP { false };
 };
