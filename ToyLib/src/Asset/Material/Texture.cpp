@@ -3,8 +3,8 @@
 #include "Asset/AssetManager.h"
 
 #include "Render/ITextureGPU.h"
-#include "Render/GL/GLTextureGPU.h"
-#include "Render/VK/VKTextureGPU.h"
+#include "Asset/Material/GLTextureGPU.h"
+#include "Asset/Material/VKTextureGPU.h"
 
 #include "Render/RenderBackendState.h"
 

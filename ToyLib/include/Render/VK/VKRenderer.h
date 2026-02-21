@@ -1,378 +1,155 @@
+// Render/VK/VKRenderer.h
 #pragma once
 
 #include "Render/IRenderer.h"
-#include "Render/VK/VKPipeline.h"
-#include "Render/RenderHandles.h"
-#include "Utils/MathUtil.h" // Matrix4, Vector3
 
+#include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
-#include <vulkan/vulkan.h>
 
-#include <cstdint>
 #include <vector>
 #include <string>
-#include <unordered_map>
 #include <memory>
+#include <cstdint>
 
 namespace toy
 {
 
-//==============================================================
-// Push Constants
-//==============================================================
-struct PushConstants_Mesh
-{
-    Matrix4 pcWorld;
+class Application;
 
-    float pcDiffuse[4];
-    float pcUniform[4];
-    float pcFlagsSpec[4];
-};
-
-struct SpritePush
-{
-    float world[16];
-    float colorAlpha[4];
-};
-
-//==============================================================
-// Sprite descriptor cache (per Texture*)
-//==============================================================
-struct SpriteDescCacheEntry
-{
-    std::vector<VkDescriptorSet> sets; // swapchain枚数分
-    VkImageView lastView    { VK_NULL_HANDLE };
-    VkSampler   lastSampler { VK_NULL_HANDLE };
-};
-
-//==============================================================
-// Frame sync
-//==============================================================
-struct FrameSync
-{
-    VkSemaphore     imageAvailable { VK_NULL_HANDLE };
-    VkSemaphore     renderFinished { VK_NULL_HANDLE };
-    VkFence         inFlight       { VK_NULL_HANDLE };
-    VkCommandBuffer cmd            { VK_NULL_HANDLE };
-};
-
-//==============================================================
-// WorldFrameResources (swapchain image 単位)
-//  set=1 Common:
-//    binding=0 : WorldCommon
-//    binding=1 : DirLight
-//    binding=2 : PointLight
-//==============================================================
-struct WorldFrameResources
-{
-    VkDescriptorSet descSet1_Common { VK_NULL_HANDLE };
-
-    VkBuffer       worldCommonUBO { VK_NULL_HANDLE };
-    VkDeviceMemory worldCommonMem { VK_NULL_HANDLE };
-
-    VkBuffer       dirLightUBO { VK_NULL_HANDLE };
-    VkDeviceMemory dirLightMem { VK_NULL_HANDLE };
-
-    VkBuffer       pointLightUBO { VK_NULL_HANDLE };
-    VkDeviceMemory pointLightMem { VK_NULL_HANDLE };
-};
-
-
-struct SkinnedFrameResources
-{
-    VkDescriptorSet descSet2_Bone { VK_NULL_HANDLE }; // ★set=2 用
-
-    VkBuffer       bonePaletteUBO { VK_NULL_HANDLE };
-    VkDeviceMemory bonePaletteMem { VK_NULL_HANDLE };
-};
-
-//==============================================================
-// SpriteFrameResources (swapchain image 単位)
-//  set=1 binding=0 : SpriteCommon(viewProj)
-//==============================================================
-struct SpriteFrameResources
-{
-    VkDescriptorSet descSet1_SpriteCommon { VK_NULL_HANDLE };
-    VkBuffer        spriteCommonUBO      { VK_NULL_HANDLE };
-    VkDeviceMemory  spriteCommonMem      { VK_NULL_HANDLE };
-};
-
-class VKRenderer final : public IRenderer
+//==============================================================================
+// VKRenderer
+//  - Minimal Vulkan renderer: clear color only (swapchain present)
+//  - Fits into IRenderer::Draw() pipeline (DrawWorldPass does clear)
+//==============================================================================
+class VKRenderer : public IRenderer
 {
 public:
     VKRenderer();
-    ~VKRenderer() override { Shutdown(); }
+    virtual ~VKRenderer();
 
-    bool Initialize(const class Application* app) override;
+    bool Initialize(const Application* app) override;
     void Shutdown() override;
     void WaitIdle() override;
 
-    void UnloadData() override {}
-    void OnWindowResized(int /*pixelW*/, int /*pixelH*/) override {}
-
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
-    void SetClearColor(const Vector3& color) override { mClearColor = color; }
-    std::shared_ptr<class IRenderTarget> CreateRenderTarget() override { return nullptr; }
-
-    VkCommandBuffer GetActiveCommandBuffer() const
-    {
-        if (mFrames.empty() || mFrameIndex >= (uint32_t)mFrames.size())
-        {
-            return VK_NULL_HANDLE;
-        }
-        return mFrames[mFrameIndex].cmd;
-    }
+    void OnWindowResized(int pixelW, int pixelH) override;
 
 protected:
-    void ApplyState(const RenderItem& /*it*/) override {}
-    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
-
-    bool InitializeShadowMapping() override { return false; }
-    void DrawToRenderTarget(const struct SceneCaptureRequest& /*req*/) override {}
-
+    // IRenderer draw phases
     bool BeginFrame() override;
-    void EndFrame() override;
 
-    void DrawShadowPass() override {}
-    void RestoreAfterShadowPass() override {}
+    void DrawShadowPass() override;
+    void RestoreAfterShadowPass() override;
 
-    void DrawSkyPass() override {}
+    void DrawSkyPass() override;
     void DrawWorldPass() override;
-    void DrawOverlayScreenPass() override {}
-    void DrawFadePass() override {}
-    void DrawPostEffectPass() override {}
+    void DrawOverlayScreenPass() override;
+    void DrawFadePass() override;
+    void DrawPostEffectPass() override;
     void DrawUIPass() override;
 
+    void EndFrame() override;
+
 private:
     //--------------------------------------------------------------------------
-    // Core VK init
+    // Init steps
     //--------------------------------------------------------------------------
+    bool CreateInstance(SDL_Window* window);
+    bool CreateDebugMessenger();
+    bool CreateSurface(SDL_Window* window);
+
+    bool PickPhysicalDevice();
+    bool CreateDeviceAndQueues();
+
+    bool CreateSwapchain();
+    bool CreateImageViews();
     bool CreateRenderPass();
     bool CreateFramebuffers();
+
+    bool CreateCommandPool();
     bool CreateCommandBuffers();
-    void DestroyFramebuffers();
+
+    bool CreateSyncObjects();
 
     //--------------------------------------------------------------------------
-    // Pipelines
+    // Runtime
     //--------------------------------------------------------------------------
-    bool CreateSpritePipeline();
-    bool CreateMeshPipeline();
-    bool CreateSkinnedMeshPipeline();
+    bool RecordCommandBuffer(uint32_t imageIndex);
+    bool Present(uint32_t imageIndex);
 
-    PipelineHandle FindPipelineHandle(const std::string& name) const;
-
-    //--------------------------------------------------------------------------
-    // World draw helpers
-    //--------------------------------------------------------------------------
-    void DrawBucket_WorldVK(const std::vector<uint32_t>& bucket);
-    void DrawWorldItem_VK(const RenderItem& it);
-    VKPipeline* ResolveWorldPipelineForItem(const RenderItem& it);
+    bool RecreateSwapchain();
+    void CleanupSwapchain();
 
     //--------------------------------------------------------------------------
-    // World bind helpers
+    // Destroy helpers
     //--------------------------------------------------------------------------
-    void BindWorldCommon(VkCommandBuffer cmd,
-                         const VKPipeline& pipe,
-                         const RenderItem& it);
-
-    void BindWorldMaterial(VkCommandBuffer cmd,
-                           const VKPipeline& pipe,
-                           const RenderItem& it);
-    void BindSkinnedBones(VkCommandBuffer cmd,
-                                      const VKPipeline& p);
+    void DestroyDeviceRelated();
+    void DestroyInstanceRelated();
 
 private:
     //--------------------------------------------------------------------------
-    // Sprite (既存のまま)
+    // Core handles
     //--------------------------------------------------------------------------
-    struct VKGeometry
-    {
-        VkBuffer       vb { VK_NULL_HANDLE };
-        VkDeviceMemory vbMem { VK_NULL_HANDLE };
-        VkBuffer       ib { VK_NULL_HANDLE };
-        VkDeviceMemory ibMem { VK_NULL_HANDLE };
-        uint32_t       indexCount { 0 };
-        VkDeviceSize   vbBytes { 0 };
-        VkDeviceSize   ibBytes { 0 };
-    };
+    VkInstance               mInstance  = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT mDebugMsgr = VK_NULL_HANDLE;
+    VkSurfaceKHR             mSurface   = VK_NULL_HANDLE;
 
-    bool EnsureSpriteGeometryVK();
-    void DestroySpriteGeometryVK();
+    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice         mDevice         = VK_NULL_HANDLE;
 
-    std::unordered_map<const class VertexArray*, VKGeometry> mSpriteGeoVK;
-
-    bool EnsureSpriteDescriptorPool();
-    VkDescriptorSet GetOrCreateSpriteDescSet(TextureHandle tex);
-
-    VkDescriptorPool mSpriteDescPool { VK_NULL_HANDLE };
-    std::unordered_map<const class Texture*, SpriteDescCacheEntry> mSpriteDescSetsVK;
-
-    VkImageView GetVkImageViewFromTextureHandle(TextureHandle h) const;
-    VkSampler   GetVkSamplerFromTextureHandle(TextureHandle h) const;
-
-    VkImageView mSpriteFallbackImageView { VK_NULL_HANDLE };
-    VkSampler   mSpriteFallbackSampler   { VK_NULL_HANDLE };
-
-    //--------------------------------------------------------------------------
-    // Sprite common (set=1) : viewProj UBO
-    //--------------------------------------------------------------------------
-    VkDescriptorSetLayout mSpriteSetLayout1_Common { VK_NULL_HANDLE };
-    VkDescriptorPool      mSpriteCommonDescPool   { VK_NULL_HANDLE };
-    std::vector<SpriteFrameResources> mSpriteFrames;
-
-    bool EnsureSpriteCommonDescriptors();
-    void DestroySpriteCommonDescriptors();
-    void UpdateSpriteCommonUBO(uint32_t imageIndex);
-
-private:
-    //--------------------------------------------------------------------------
-    // World set layouts (共有)
-    //  set=0 : texture sampler
-    //  set=1 : UBO 0..2 (WorldCommon / DirLight / PointLight)
-    //  mWorldSetLayout2_BonePalette
-    //--------------------------------------------------------------------------
-    VkDescriptorSetLayout mWorldSetLayout0_Texture { VK_NULL_HANDLE };
-    VkDescriptorSetLayout mWorldSetLayout1_Common  { VK_NULL_HANDLE };
-    VkDescriptorSetLayout mWorldSetLayout2_Bone { VK_NULL_HANDLE };
-
-private:
-    //--------------------------------------------------------------------------
-    // World descriptors / UBOs (set=1)
-    //--------------------------------------------------------------------------
-    VkDescriptorPool mWorldDescPool { VK_NULL_HANDLE };
-    std::vector<WorldFrameResources> mWorldFrames;
-
-    bool EnsureWorldDescriptors();
-    void DestroyWorldDescriptors();
-
-    void UpdateWorldCommonUBO(uint32_t imageIndex);
-    void UpdateDirLightUBO(uint32_t imageIndex);
-    void UpdatePointLightUBO(uint32_t imageIndex);
-
-    // set=0 (Diffuse) : Texture -> descriptor
-    VkDescriptorSet GetOrCreateWorldTexDescSet(TextureHandle texH);
-
-    // Dummy white (no texture fallback)
-    bool CreateDummyWhiteResources();
-    void DestroyDummyWhiteResources();
-
-private:
-    //--------------------------------------------------------------------------
-    // Skinned descriptors (set=1)
-    //  - WorldCommon は mWorldFrames[i] を参照して共有
-    //  - BonePalette は mSkinnedFrames[i] に保持
-    //--------------------------------------------------------------------------
-    VkDescriptorPool mSkinnedDescPool { VK_NULL_HANDLE };
-    std::vector<SkinnedFrameResources> mSkinnedFrames;
-
-    bool EnsureSkinnedDescriptors();
-    void DestroySkinnedDescriptors();
-    
-    void UpdateBonePaletteUBO(uint32_t imageIndex, const Matrix4* palette, size_t paletteCount);
-
-private:
-    //--------------------------------------------------------------------------
-    // Upload helpers
-    //--------------------------------------------------------------------------
-    uint32_t FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags props) const;
-
-    bool CreateBuffer(VkDeviceSize size,
-                      VkBufferUsageFlags usage,
-                      VkMemoryPropertyFlags props,
-                      VkBuffer& outBuf,
-                      VkDeviceMemory& outMem);
-
-    bool BeginOneShot(VkCommandBuffer& outCmd);
-    void EndOneShot(VkCommandBuffer cmd);
-
-    void TransitionImageLayout(VkCommandBuffer cmd,
-                               VkImage image,
-                               VkImageLayout oldLayout,
-                               VkImageLayout newLayout);
-
-    void CopyBufferToImage(VkCommandBuffer cmd,
-                           VkBuffer buffer,
-                           VkImage image,
-                           uint32_t width,
-                           uint32_t height);
-
-    bool CreateHostVisibleUBO(VkPhysicalDevice phys,
-                              VkDevice device,
-                              VkDeviceSize size,
-                              VkBuffer& outBuf,
-                              VkDeviceMemory& outMem);
-
-private:
-    //--------------------------------------------------------------------------
-    // SDL
-    //--------------------------------------------------------------------------
-    SDL_Window* mWindow { nullptr };
-
-    //--------------------------------------------------------------------------
-    // Instance / Surface
-    //--------------------------------------------------------------------------
-    bool                     mEnableValidation { true };
-    VkInstance               mInstance         { VK_NULL_HANDLE };
-    VkDebugUtilsMessengerEXT mDebugMessenger   { VK_NULL_HANDLE };
-    VkSurfaceKHR             mSurface          { VK_NULL_HANDLE };
-
-    //--------------------------------------------------------------------------
-    // Device / Queues
-    //--------------------------------------------------------------------------
-    VkPhysicalDevice         mPhysicalDevice      { VK_NULL_HANDLE };
-    VkDevice                 mDevice              { VK_NULL_HANDLE };
-    VkQueue                  mQueueGraphics       { VK_NULL_HANDLE };
-    VkQueue                  mQueuePresent        { VK_NULL_HANDLE };
-    uint32_t                 mQueueFamilyGraphics { UINT32_MAX };
-    uint32_t                 mQueueFamilyPresent  { UINT32_MAX };
-    std::vector<const char*> mDeviceExtensions;
+    VkQueue  mGraphicsQueue  = VK_NULL_HANDLE;
+    VkQueue  mPresentQueue   = VK_NULL_HANDLE;
+    uint32_t mGraphicsFamily = 0;
+    uint32_t mPresentFamily  = 0;
 
     //--------------------------------------------------------------------------
     // Swapchain
     //--------------------------------------------------------------------------
-    VkSwapchainKHR           mSwapchain       { VK_NULL_HANDLE };
-    VkExtent2D               mSwapchainExtent {};
-    VkSurfaceFormatKHR       mSwapchainFormat {};
-    VkPresentModeKHR         mPresentMode     { VK_PRESENT_MODE_FIFO_KHR };
+    VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
+    VkFormat        mSwapchainFormat = VK_FORMAT_UNDEFINED;
+    VkExtent2D      mSwapchainExtent {};
     std::vector<VkImage>     mSwapchainImages;
     std::vector<VkImageView> mSwapchainImageViews;
 
-    bool mNeedRecreateSwapchain { true };
-
     //--------------------------------------------------------------------------
-    // RenderPass / Framebuffers
+    // Render pass / FB
     //--------------------------------------------------------------------------
-    VkRenderPass               mRenderPass  { VK_NULL_HANDLE };
+    VkRenderPass mRenderPass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> mFramebuffers;
 
     //--------------------------------------------------------------------------
-    // Commands / Sync
+    // Commands
     //--------------------------------------------------------------------------
-    VkCommandPool          mCommandPool { VK_NULL_HANDLE };
-    std::vector<FrameSync> mFrames;
-    uint32_t               mFrameIndex { 0 };
-    uint32_t               mImageIndex { 0 };
+    VkCommandPool mCmdPool = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> mCmdBuffers; // one per swapchain image
 
     //--------------------------------------------------------------------------
-    // Pipelines storage
+    // Sync (frames in flight)
     //--------------------------------------------------------------------------
-    std::unordered_map<std::string, std::unique_ptr<VKPipeline>> mPipelines;
+    static constexpr int kMaxFramesInFlight = 2;
+
+    std::vector<VkSemaphore> mImageAvailable;
+    std::vector<VkSemaphore> mRenderFinished;
+    std::vector<VkFence>     mInFlightFences;
+
+    std::vector<VkFence>     mImagesInFlight; // per swapchain image
+
+    uint32_t mFrameIndex = 0;
 
     //--------------------------------------------------------------------------
-    // set=0 (World Diffuse) descriptor pool + cache
+    // Frame state
     //--------------------------------------------------------------------------
-    VkDescriptorPool mWorldTexDescPool { VK_NULL_HANDLE };
-    std::unordered_map<const class Texture*, VkDescriptorSet> mWorldTexDescSetCache;
-    VkDescriptorSet mWorldTexDescSetDummyWhite { VK_NULL_HANDLE };
+    bool     mFrameBegan   = false;
+    uint32_t mImageIndex   = 0;
 
-    // Dummy white resources
-    VkImage        mDummyWhiteImage { VK_NULL_HANDLE };
-    VkDeviceMemory mDummyWhiteMemory { VK_NULL_HANDLE };
-    VkImageView    mDummyWhiteImageView { VK_NULL_HANDLE };
-    VkSampler      mDummyWhiteSampler { VK_NULL_HANDLE };
+    // resize / recreate
+    bool mFramebufferResized = false;
+
+    // keep window pointer if you want (optional)
+    SDL_Window* mSDLWindow = nullptr;
 };
 
 } // namespace toy
