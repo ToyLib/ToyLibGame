@@ -1,32 +1,31 @@
-// Render/VK/VKRenderer.h
+//==============================================================================
+// VKRenderer.h
+//  - New VKRenderer aligned with rewritten cpp
+//==============================================================================
+
 #pragma once
 
 #include "Render/IRenderer.h"
+#include "Render/VK/VKPipeline.h"
 
 #include <vulkan/vulkan.h>
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_vulkan.h>
-
 #include <vector>
 #include <string>
 #include <memory>
 #include <cstdint>
+#include <unordered_map>
 
 namespace toy
 {
 
-class Application;
-
 //==============================================================================
 // VKRenderer
-//  - Minimal Vulkan renderer: clear color only (swapchain present)
-//  - Fits into IRenderer::Draw() pipeline (DrawWorldPass does clear)
 //==============================================================================
 class VKRenderer : public IRenderer
 {
 public:
     VKRenderer();
-    virtual ~VKRenderer();
+    virtual ~VKRenderer() = default;
 
     bool Initialize(const Application* app) override;
     void Shutdown() override;
@@ -34,83 +33,69 @@ public:
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
-    void OnWindowResized(int pixelW, int pixelH) override;
+    void OnWindowResized(int pixelW, int pixelH) override {}
 
 protected:
-    // IRenderer draw phases
+    // IRenderer phases
     bool BeginFrame() override;
 
-    void DrawShadowPass() override;
-    void RestoreAfterShadowPass() override;
+    void DrawShadowPass() override {}
+    void RestoreAfterShadowPass() override {}
 
-    void DrawSkyPass() override;
-    void DrawWorldPass() override;
-    void DrawOverlayScreenPass() override;
-    void DrawFadePass() override;
-    void DrawPostEffectPass() override;
-    void DrawUIPass() override;
+    void DrawSkyPass() override {}
+    void DrawWorldPass() override {}
+    void DrawOverlayScreenPass() override {}
+    void DrawFadePass() override {}
+    void DrawPostEffectPass() override {}
+    void DrawUIPass() override {}
 
     void EndFrame() override;
 
-private:
-    //--------------------------------------------------------------------------
-    // Init steps
-    //--------------------------------------------------------------------------
-    bool CreateInstance(SDL_Window* window);
-    bool CreateDebugMessenger();
-    bool CreateSurface(SDL_Window* window);
-
-    bool PickPhysicalDevice();
-    bool CreateDeviceAndQueues();
-
-    bool CreateSwapchain();
-    bool CreateImageViews();
-    bool CreateRenderPass();
-    bool CreateFramebuffers();
-
-    bool CreateCommandPool();
-    bool CreateCommandBuffers();
-
-    bool CreateSyncObjects();
-
-    //--------------------------------------------------------------------------
-    // Runtime
-    //--------------------------------------------------------------------------
-    bool RecordCommandBuffer(uint32_t imageIndex);
-    bool Present(uint32_t imageIndex);
-
-    bool RecreateSwapchain();
-    void CleanupSwapchain();
-
-    //--------------------------------------------------------------------------
-    // Destroy helpers
-    //--------------------------------------------------------------------------
-    void DestroyDeviceRelated();
-    void DestroyInstanceRelated();
+    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
 
 private:
+    //--------------------------------------------------------------------------
+    // FrameSync
+    //--------------------------------------------------------------------------
+    struct FrameSync
+    {
+        VkCommandBuffer cmd = VK_NULL_HANDLE;
+
+        VkSemaphore imageAvailable = VK_NULL_HANDLE;
+        VkSemaphore renderFinished = VK_NULL_HANDLE;
+        VkFence     inFlight       = VK_NULL_HANDLE;
+    };
+
+private:
+    bool mEnableValidation { false };
+
     //--------------------------------------------------------------------------
     // Core handles
     //--------------------------------------------------------------------------
-    VkInstance               mInstance  = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT mDebugMsgr = VK_NULL_HANDLE;
-    VkSurfaceKHR             mSurface   = VK_NULL_HANDLE;
+    VkInstance               mInstance       = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
+    VkSurfaceKHR             mSurface        = VK_NULL_HANDLE;
 
     VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
     VkDevice         mDevice         = VK_NULL_HANDLE;
 
-    VkQueue  mGraphicsQueue  = VK_NULL_HANDLE;
-    VkQueue  mPresentQueue   = VK_NULL_HANDLE;
-    uint32_t mGraphicsFamily = 0;
-    uint32_t mPresentFamily  = 0;
+    VkQueue  mQueueGraphics = VK_NULL_HANDLE;
+    VkQueue  mQueuePresent  = VK_NULL_HANDLE;
+
+    uint32_t mQueueFamilyGraphics = UINT32_MAX;
+    uint32_t mQueueFamilyPresent  = UINT32_MAX;
+
+    std::vector<const char*> mDeviceExtensions;
 
     //--------------------------------------------------------------------------
     // Swapchain
     //--------------------------------------------------------------------------
     VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 
-    VkFormat        mSwapchainFormat = VK_FORMAT_UNDEFINED;
-    VkExtent2D      mSwapchainExtent {};
+    VkSurfaceFormatKHR mSwapchainFormat {};
+    VkPresentModeKHR   mPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+    VkExtent2D         mSwapchainExtent {};
+
     std::vector<VkImage>     mSwapchainImages;
     std::vector<VkImageView> mSwapchainImageViews;
 
@@ -121,35 +106,37 @@ private:
     std::vector<VkFramebuffer> mFramebuffers;
 
     //--------------------------------------------------------------------------
-    // Commands
+    // Commands / sync
     //--------------------------------------------------------------------------
-    VkCommandPool mCmdPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> mCmdBuffers; // one per swapchain image
-
-    //--------------------------------------------------------------------------
-    // Sync (frames in flight)
-    //--------------------------------------------------------------------------
-    static constexpr int kMaxFramesInFlight = 2;
-
-    std::vector<VkSemaphore> mImageAvailable;
-    std::vector<VkSemaphore> mRenderFinished;
-    std::vector<VkFence>     mInFlightFences;
-
-    std::vector<VkFence>     mImagesInFlight; // per swapchain image
+    VkCommandPool mCommandPool = VK_NULL_HANDLE;
+    std::vector<FrameSync> mFrames;
 
     uint32_t mFrameIndex = 0;
+    uint32_t mImageIndex = 0;
+
+    bool mFrameBegan = false;
+
+    // swapchain recreate
+    bool mNeedRecreateSwapchain = false;
 
     //--------------------------------------------------------------------------
-    // Frame state
+    // Pipelines
     //--------------------------------------------------------------------------
-    bool     mFrameBegan   = false;
-    uint32_t mImageIndex   = 0;
+    std::unordered_map<std::string, std::unique_ptr<class VKPipeline>> mPipelines;
 
-    // resize / recreate
-    bool mFramebufferResized = false;
+private:
+    // swapchain dependent
+    bool CreateRenderPass();
+    bool CreateFramebuffers();
 
-    // keep window pointer if you want (optional)
-    SDL_Window* mSDLWindow = nullptr;
+    // pipelines (existing functions from your cpp)
+    //bool CreateSpritePipeline();
+    //bool CreateMeshPipeline();
+    //bool CreateSkinnedMeshPipeline();
+
+    // dummy resources (existing)
+    //bool CreateDummyWhiteResources();
+    //void DestroyDummyWhiteResources();
 };
 
 } // namespace toy

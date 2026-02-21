@@ -48,7 +48,7 @@ static float ang = 30.0f;
 void VKTest::UpdateGame(float deltaTime)
 {
     auto renderer = GetRenderer();
-    //r += 0.01f;
+    r += 0.01f;
     if (r > 1.0f) r = 0.0f;
 
     renderer->SetClearColor(Vector3(r, g, b));
