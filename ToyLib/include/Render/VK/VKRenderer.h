@@ -81,6 +81,10 @@ private:
     // one-time command helpers (安全版：submitだけ待つ想定に拡張しやすい)
     VkCommandBuffer BeginOneTimeCommands();
     void EndOneTimeCommands(VkCommandBuffer cmd);
+    
+    
+    std::string MakeVKSpvPath(const std::string& filename) const;
+    VkShaderModule LoadShaderModule(const std::string& spvFile);
 
 private:
     //==============================================================
@@ -145,6 +149,13 @@ private:
 
     // window scale
     float  mWindowDisplayScale = 1.0f;
+
+private:
+    // Triangle
+    bool CreatePipelineLayout_Triangle();
+    bool CreatePipeline_Triangle();
+    VkPipelineLayout mPipeLayoutTriangle = VK_NULL_HANDLE;
+    VkPipeline mPipelineTriangle = VK_NULL_HANDLE;
 };
 
 } // namespace toy

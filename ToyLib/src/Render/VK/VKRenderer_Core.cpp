@@ -90,6 +90,7 @@ bool VKRenderer::Initialize(const Application* app)
     CreateSpriteVerts();
     CreateFullScreenQuad();
     CreateSurfaceQuad();
+    
 
     std::cerr << "[VKRenderer] Init OK. Swapchain("
               << mSwapchainExtent.width << "x" << mSwapchainExtent.height

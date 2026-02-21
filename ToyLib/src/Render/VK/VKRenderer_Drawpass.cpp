@@ -117,7 +117,12 @@ void VKRenderer::DrawSkyPass() {}
 
 void VKRenderer::DrawWorldPass()
 {
-    // clear-only: ここで bucket を回して描画していく
+    if (!CreatePipeline_Triangle()) return;
+
+    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineTriangle);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+
 }
 
 void VKRenderer::DrawOverlayScreenPass() {}
