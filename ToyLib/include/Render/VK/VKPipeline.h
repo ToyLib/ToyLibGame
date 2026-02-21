@@ -1,53 +1,64 @@
 #pragma once
 
+#include "Render/RenderEnums.h"
+#include "Render/RenderItem.h"
+
 #include <vulkan/vulkan.h>
+
 #include <string>
+#include <vector>
 
 namespace toy
 {
 
-//==============================================================================
-// VKPipelineDesc
-//  - Pipeline state description (RTT + depth aware)
-//==============================================================================
-struct VKPipelineDesc
+struct VKPipelineKey
 {
-    bool depthTest  = true;
-    bool depthWrite = true;
+    RenderItemType type {};
+    VkRenderPass   renderPass { VK_NULL_HANDLE };
 
-    bool blending   = false;
-
-    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    bool operator==(const VKPipelineKey& r) const
+    {
+        return type == r.type &&
+               renderPass == r.renderPass;
+    }
 };
 
-//==============================================================================
-// VKPipeline
-//==============================================================================
 class VKPipeline
 {
 public:
     VKPipeline() = default;
     ~VKPipeline();
 
+    bool Create(
+        VkDevice device,
+        const VKPipelineKey& key,
+        VkExtent2D extent,
+        const std::string& vertSpvPath,
+        const std::string& fragSpvPath,
+        bool enableDepth);
+
     void Destroy();
 
-    bool CreateGraphics(
-        VkDevice device,
-        VkRenderPass renderPass,     // ← ScenePass を渡す
-        const VKPipelineDesc& desc,
-        VkExtent2D extent,
-        VkShaderModule vs,
-        VkShaderModule fs
-    );
-
-    VkPipeline Get() const { return mPipeline; }
+    VkPipeline       Get() const { return mPipeline; }
     VkPipelineLayout GetLayout() const { return mLayout; }
 
 private:
-    VkDevice mDevice = VK_NULL_HANDLE;
+    static bool ReadFileBinary(const std::string& path, std::vector<uint8_t>& out);
 
-    VkPipelineLayout mLayout = VK_NULL_HANDLE;
-    VkPipeline mPipeline     = VK_NULL_HANDLE;
+    static VkShaderModule CreateShaderModule(VkDevice device, const std::vector<uint8_t>& code);
+
+    bool CreateLayout(VkDevice device);
+    bool CreateGraphicsPipeline(VkDevice device,
+                                const VKPipelineKey& key,
+                                VkExtent2D extent,
+                                const std::string& vertSpvPath,
+                                const std::string& fragSpvPath,
+                                bool enableDepth);
+
+private:
+    VkDevice         mDevice   { VK_NULL_HANDLE };
+    VkPipeline       mPipeline { VK_NULL_HANDLE };
+    VkPipelineLayout mLayout   { VK_NULL_HANDLE };
 };
 
-}
+} // namespace toy

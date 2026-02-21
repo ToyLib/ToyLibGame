@@ -1,19 +1,17 @@
 //======================================================================
-// VKRenderer.cpp
-//  - SDL3 + Vulkan
-//  - Swapchain + Depth (Z enabled)
-//  - RTT via VKSceneRenderTarget
+// Render/VK/VKRenderer_Core.cpp
+//  - SDL3 + Vulkan (MoltenVK)
+//  - Init / Shutdown / Swapchain / Depth / RenderPass / Cmd / Sync
 //======================================================================
-
 #include "Render/VK/VKRenderer.h"
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
-
+#include "Render/VK/VKUtil.h"
 #include "Render/VK/VKSceneRenderTarget.h"
 
-// util (あなたのVKUtilに合わせて適宜置換してOK)
-#include "Render/VK/VKUtil.h"
+#include <vulkan/vulkan.h>
+#include <SDL3/SDL_vulkan.h>
 
 #include <iostream>
 #include <vector>
@@ -28,6 +26,9 @@ static const char* kValidationLayers[] =
     "VK_LAYER_KHRONOS_validation"
 };
 
+//--------------------------------------------------------------
+// ctor/dtor
+//--------------------------------------------------------------
 VKRenderer::VKRenderer()
     : IRenderer()
 {
@@ -49,7 +50,6 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
 
-    // IRenderer 側の protected mWindow を使う（前提どおり）
     mWindow = app->GetSDLWindow();
     if (!mWindow)
     {
@@ -66,82 +66,27 @@ bool VKRenderer::Initialize(const Application* app)
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
     if (mWindowDisplayScale <= 0.0f) mWindowDisplayScale = 1.0f;
 
-    // 1) Instance
-    if (!CreateInstance())
-    {
-        Shutdown();
-        return false;
-    }
+    if (!CreateInstance()) { Shutdown(); return false; }
+    if (!CreateSurface())  { Shutdown(); return false; }
+    if (!PickPhysicalDevice()) { Shutdown(); return false; }
+    if (!CreateDeviceAndQueues()) { Shutdown(); return false; }
 
-    // 2) Surface
-    if (!CreateSurface())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // 3) Physical device
-    if (!PickPhysicalDevice())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // 4) Logical device + queues
-    if (!CreateDeviceAndQueues())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // ★ RenderBackendState は「VKリソース生成の前」に必ずセット
+    // RenderBackendState は VKリソース生成の前にセット
     RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
     RenderBackendState::Get().SetVKDevice(mDevice);
     RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
 
-    // 5) Swapchain + Views
-    if (!CreateSwapchainAndViews())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // 6) Depth for swapchain
-    if (!CreateDepthForSwapchain())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // 7) RenderPass + Framebuffers (swapchain)
-    if (!CreateRenderPass())
-    {
-        Shutdown();
-        return false;
-    }
-    if (!CreateFramebuffers())
-    {
-        Shutdown();
-        return false;
-    }
-
-    // 8) CommandPool + per-frame command buffers
-    if (!CreateCommandPoolAndBuffers())
-    {
-        Shutdown();
-        return false;
-    }
+    if (!CreateSwapchainAndViews()) { Shutdown(); return false; }
+    if (!CreateDepthForSwapchain()) { Shutdown(); return false; }
+    if (!CreateRenderPass())        { Shutdown(); return false; }
+    if (!CreateFramebuffers())      { Shutdown(); return false; }
+    if (!CreateCommandPoolAndBuffers()) { Shutdown(); return false; }
 
     RenderBackendState::Get().SetVKCommandPool(mCommandPool);
 
-    // 9) Sync
-    if (!CreateSyncObjects())
-    {
-        Shutdown();
-        return false;
-    }
+    if (!CreateSyncObjects()) { Shutdown(); return false; }
 
-    // 10) Common geometry (既存経路)
+    // common geometry (既存経路)
     CreateSpriteVerts();
     CreateFullScreenQuad();
     CreateSurfaceQuad();
@@ -170,7 +115,7 @@ void VKRenderer::Shutdown()
     mSpriteQuad.reset();
     mSurfaceQuad.reset();
 
-    // Sync objects
+    // Sync
     for (auto& f : mFrames)
     {
         if (mDevice)
@@ -195,35 +140,36 @@ void VKRenderer::Shutdown()
 
     CleanupSwapchain();
 
-    // Device
     if (mDevice)
     {
         vkDestroyDevice(mDevice, nullptr);
         mDevice = VK_NULL_HANDLE;
     }
 
-    // Surface
     if (mInstance && mSurface)
     {
         vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
         mSurface = VK_NULL_HANDLE;
     }
 
-    // Debug messenger (optional)
     if (mEnableValidation && mDebugMessenger && mInstance)
     {
         toy::vkutil::DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger);
         mDebugMessenger = VK_NULL_HANDLE;
     }
 
-    // Instance
     if (mInstance)
     {
         vkDestroyInstance(mInstance, nullptr);
         mInstance = VK_NULL_HANDLE;
     }
 
-    // reset
+    // RenderBackendState を “無効化” しておく（潜在バグ対策）
+    RenderBackendState::Get().SetVKPhysicalDevice(VK_NULL_HANDLE);
+    RenderBackendState::Get().SetVKDevice(VK_NULL_HANDLE);
+    RenderBackendState::Get().SetVKGraphicsQueue(VK_NULL_HANDLE);
+    RenderBackendState::Get().SetVKCommandPool(VK_NULL_HANDLE);
+
     mPhysicalDevice = VK_NULL_HANDLE;
     mQueueGraphics  = VK_NULL_HANDLE;
     mQueuePresent   = VK_NULL_HANDLE;
@@ -244,118 +190,11 @@ void VKRenderer::WaitIdle()
 }
 
 //--------------------------------------------------------------
-// RTT: CreateRenderTarget
+// CreateRenderTarget
 //--------------------------------------------------------------
 std::shared_ptr<IRenderTarget> VKRenderer::CreateRenderTarget()
 {
-    // VK版 RTT
     return std::make_shared<VKSceneRenderTarget>();
-}
-
-//--------------------------------------------------------------
-// RTT: DrawToRenderTarget
-//  - まずは安全に「別submit」で描く（ビルド通し優先）
-//  - 後で同一フレーム内に統合可能
-//--------------------------------------------------------------
-void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
-{
-    if (!req.rt)
-    {
-        return;
-    }
-
-    auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
-    if (!vkrt)
-    {
-        // GLRenderTarget 等が来たらここでは何もしない
-        return;
-    }
-
-    if (mDevice == VK_NULL_HANDLE || mQueueGraphics == VK_NULL_HANDLE || mCommandPool == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    // 作成されていなければ Create（サイズは仮に screen と同じにしておく）
-    if (vkrt->GetWidth() <= 0 || vkrt->GetHeight() <= 0 ||
-        vkrt->GetFramebuffer() == VK_NULL_HANDLE)
-    {
-        const int w = (int)mScreenWidth;
-        const int h = (int)mScreenHeight;
-        if (!vkrt->Create(w, h))
-        {
-            std::cerr << "[VKRenderer] DrawToRenderTarget: vkrt->Create failed.\n";
-            return;
-        }
-    }
-
-    VkCommandBuffer cmd = BeginOneTimeCommands();
-    if (cmd == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    // camera override
-    PushCameraState();
-    {
-        CameraState s{};
-        s.view     = req.view;
-        s.proj     = req.proj;
-        s.invView  = req.view; // note: inv not required for minimal
-        s.invView.Invert();
-        SetCameraState(s);
-        mViewProjMatrix = mViewMatrix * mProjectionMatrix;
-    }
-
-    // Begin RenderPass (RTT)
-    VkClearValue clears[2]{};
-    clears[0].color.float32[0] = mClearColor.x;
-    clears[0].color.float32[1] = mClearColor.y;
-    clears[0].color.float32[2] = mClearColor.z;
-    clears[0].color.float32[3] = 1.0f;
-
-    clears[1].depthStencil.depth   = 1.0f;
-    clears[1].depthStencil.stencil = 0;
-
-    VkRenderPassBeginInfo rp{};
-    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass  = vkrt->GetRenderPass();
-    rp.framebuffer = vkrt->GetFramebuffer();
-    rp.renderArea.offset = { 0, 0 };
-    rp.renderArea.extent = vkrt->GetExtent();
-    rp.clearValueCount   = 2;
-    rp.pClearValues      = clears;
-
-    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-    // viewport/scissor
-    VkViewport vp{};
-    vp.x = 0.0f;
-    vp.y = 0.0f;
-    vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = (float)rp.renderArea.extent.height;
-    vp.minDepth = 0.0f;
-    vp.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-
-    VkRect2D sc{};
-    sc.offset = { 0, 0 };
-    sc.extent = rp.renderArea.extent;
-    vkCmdSetScissor(cmd, 0, 1, &sc);
-
-    // TODO: ここで bucket を回して DrawItem(...) を呼ぶ
-    // - 今は「ビルド通し」なので、clear だけでもOK
-    // - req.drawSky / req.drawWorld / req.drawUI に応じて bucketを分ける想定
-
-    vkCmdEndRenderPass(cmd);
-
-    // camera restore
-    PopCameraState();
-
-    EndOneTimeCommands(cmd);
-
-    // Debug counter: RTT 側に切り替えて加算したいなら
-    // ChangeDebugRTT(); AddDrawCall(); ChangeDebugOnScreen();
 }
 
 //--------------------------------------------------------------
@@ -423,7 +262,6 @@ bool VKRenderer::BeginFrame()
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(frame.cmd, &bi);
 
-    // swapchain renderpass begin（Depthあり）
     VkClearValue clears[2]{};
     clears[0].color.float32[0] = mClearColor.x;
     clears[0].color.float32[1] = mClearColor.y;
@@ -444,7 +282,6 @@ bool VKRenderer::BeginFrame()
 
     vkCmdBeginRenderPass(frame.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    // dynamic viewport/scissor
     VkViewport vp{};
     vp.x = 0.0f;
     vp.y = 0.0f;
@@ -521,41 +358,11 @@ void VKRenderer::EndFrame()
     mFrameIndex = (mFrameIndex + 1) % (uint32_t)mFrames.size();
 }
 
-//--------------------------------------------------------------
-// Draw phases (今は clear-only / 既存に合わせて拡張)
-//--------------------------------------------------------------
-void VKRenderer::DrawShadowPass() {}
-void VKRenderer::RestoreAfterShadowPass() {}
-void VKRenderer::DrawSkyPass() {}
-
-void VKRenderer::DrawWorldPass()
-{
-    // clear-only: ここで bucket を回して描画していく
-}
-
-void VKRenderer::DrawOverlayScreenPass() {}
-void VKRenderer::DrawFadePass() {}
-void VKRenderer::DrawPostEffectPass() {}
-void VKRenderer::DrawUIPass() {}
-
-//--------------------------------------------------------------
-// DrawItem (bucketed draw path)
-//--------------------------------------------------------------
-void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
-{
-    (void)it;
-    (void)pass;
-    (void)cascadeIndex;
-
-    // 次の Step で VKPipeline を入れて実装していく
-}
-
 //======================================================================
 // Vulkan init steps
 //======================================================================
 bool VKRenderer::CreateInstance()
 {
-    // SDL required instance extensions
     Uint32 sdlExtCount = 0;
     const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(&sdlExtCount);
     if (!sdlExts || sdlExtCount == 0)
@@ -571,24 +378,9 @@ bool VKRenderer::CreateInstance()
         exts.push_back(sdlExts[i]);
     }
 
-    // enumerate available
-    uint32_t availExtCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &availExtCount, nullptr);
-    std::vector<VkExtensionProperties> availExts(availExtCount);
-    if (availExtCount)
-    {
-        vkEnumerateInstanceExtensionProperties(nullptr, &availExtCount, availExts.data());
-    }
+    const auto availExts   = toy::vkutil::GetInstanceExts();
+    const auto availLayers = toy::vkutil::GetInstanceLayers();
 
-    uint32_t availLayerCount = 0;
-    vkEnumerateInstanceLayerProperties(&availLayerCount, nullptr);
-    std::vector<VkLayerProperties> availLayers(availLayerCount);
-    if (availLayerCount)
-    {
-        vkEnumerateInstanceLayerProperties(&availLayerCount, availLayers.data());
-    }
-
-    // validation
 #if !defined(NDEBUG)
     mEnableValidation =
         mEnableValidation &&
@@ -605,7 +397,6 @@ bool VKRenderer::CreateInstance()
     mEnableValidation = false;
 #endif
 
-    // portability enum (MoltenVK)
     const bool hasPortEnum =
         toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
     if (hasPortEnum)
@@ -702,25 +493,15 @@ bool VKRenderer::PickPhysicalDevice()
 
     for (auto dev : devs)
     {
-        // queue families
         const auto q = toy::vkutil::FindQueueFamilies(dev, mSurface);
         if (!q.IsComplete()) continue;
 
-        // device exts
-        uint32_t deCount = 0;
-        vkEnumerateDeviceExtensionProperties(dev, nullptr, &deCount, nullptr);
-        std::vector<VkExtensionProperties> de(deCount);
-        if (deCount)
-        {
-            vkEnumerateDeviceExtensionProperties(dev, nullptr, &deCount, de.data());
-        }
-
+        const auto de = toy::vkutil::GetDeviceExts(dev);
         if (!toy::vkutil::HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
         {
             continue;
         }
 
-        // swapchain support
         const auto sc = toy::vkutil::QuerySwapchainSupport(dev, mSurface);
         if (sc.formats.empty() || sc.presentModes.empty())
         {
@@ -761,9 +542,6 @@ bool VKRenderer::CreateDeviceAndQueues()
 
     std::vector<const char*> devExts;
     devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-    // MoltenVK portability subset (あるなら有効化しておく)
-    // ※ device extension enumerate はここでは省略（後でVKUtilで統一してOK）
 
     VkPhysicalDeviceFeatures features{};
 
@@ -898,47 +676,76 @@ bool VKRenderer::CreateSwapchainAndViews()
 }
 
 //--------------------------------------------------------------
-// Depth for swapchain
+// Depth for swapchain (唯一のdepth生成経路)
 //--------------------------------------------------------------
 bool VKRenderer::CreateDepthForSwapchain()
 {
-    mDepthFormat = ChooseDepthFormat();
-    if (mDepthFormat == VK_FORMAT_UNDEFINED)
+    if (!mPhysicalDevice || !mDevice)
     {
-        std::cerr << "[VKRenderer] ChooseDepthFormat failed.\n";
         return false;
     }
 
-    // destroy old
-    if (mDepthView)  { vkDestroyImageView(mDevice, mDepthView, nullptr); mDepthView = VK_NULL_HANDLE; }
-    if (mDepthImage) { vkDestroyImage(mDevice, mDepthImage, nullptr);     mDepthImage = VK_NULL_HANDLE; }
-    if (mDepthMem)   { vkFreeMemory(mDevice, mDepthMem, nullptr);         mDepthMem = VK_NULL_HANDLE; }
+    mDepthFormat = toy::vkutil::ChooseDepthFormat(mPhysicalDevice);
+    if (mDepthFormat == VK_FORMAT_UNDEFINED)
+    {
+        std::cerr << "[VKRenderer] ChooseDepthFormat returned UNDEFINED\n";
+        return false;
+    }
 
-    if (!CreateImage2D(
+    DestroyDepthForSwapchain();
+
+    if (!toy::vkutil::CreateImage2D(
+            mPhysicalDevice,
+            mDevice,
             mSwapchainExtent.width,
             mSwapchainExtent.height,
             mDepthFormat,
+            VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             mDepthImage,
-            mDepthMem))
+            mDepthMemory,
+            VK_IMAGE_LAYOUT_UNDEFINED))
     {
+        std::cerr << "[VKRenderer] CreateImage2D(depth) failed\n";
         return false;
     }
 
     VkImageAspectFlags aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-    if (mDepthFormat == VK_FORMAT_D24_UNORM_S8_UINT ||
-        mDepthFormat == VK_FORMAT_D32_SFLOAT_S8_UINT)
+    if (toy::vkutil::HasStencilComponent(mDepthFormat))
     {
         aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    if (!CreateImageView2D(mDepthImage, mDepthFormat, aspect, mDepthView))
+    mDepthImageView = toy::vkutil::CreateImageView2D(mDevice, mDepthImage, mDepthFormat, aspect);
+    if (mDepthImageView == VK_NULL_HANDLE)
     {
+        std::cerr << "[VKRenderer] CreateImageView2D(depth) failed\n";
         return false;
     }
 
     return true;
+}
+
+void VKRenderer::DestroyDepthForSwapchain()
+{
+    if (!mDevice) return;
+
+    if (mDepthImageView)
+    {
+        vkDestroyImageView(mDevice, mDepthImageView, nullptr);
+        mDepthImageView = VK_NULL_HANDLE;
+    }
+    if (mDepthImage)
+    {
+        vkDestroyImage(mDevice, mDepthImage, nullptr);
+        mDepthImage = VK_NULL_HANDLE;
+    }
+    if (mDepthMemory)
+    {
+        vkFreeMemory(mDevice, mDepthMemory, nullptr);
+        mDepthMemory = VK_NULL_HANDLE;
+    }
 }
 
 //--------------------------------------------------------------
@@ -949,6 +756,16 @@ bool VKRenderer::CreateRenderPass()
     if (mRenderPass != VK_NULL_HANDLE)
     {
         return true;
+    }
+    if (!mDevice)
+    {
+        std::cerr << "[VKRenderer] CreateRenderPass: mDevice is null\n";
+        return false;
+    }
+    if (mDepthFormat == VK_FORMAT_UNDEFINED)
+    {
+        std::cerr << "[VKRenderer] CreateRenderPass: depth format undefined\n";
+        return false;
     }
 
     VkAttachmentDescription color{};
@@ -979,18 +796,18 @@ bool VKRenderer::CreateRenderPass()
     depthRef.attachment = 1;
     depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    VkSubpassDescription sub{};
-    sub.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    sub.colorAttachmentCount    = 1;
-    sub.pColorAttachments       = &colorRef;
-    sub.pDepthStencilAttachment = &depthRef;
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount    = 1;
+    subpass.pColorAttachments       = &colorRef;
+    subpass.pDepthStencilAttachment = &depthRef;
 
     VkSubpassDependency dep{};
     dep.srcSubpass    = VK_SUBPASS_EXTERNAL;
     dep.dstSubpass    = 0;
-    dep.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dep.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkAttachmentDescription atts[2] = { color, depth };
 
@@ -999,12 +816,12 @@ bool VKRenderer::CreateRenderPass()
     rpci.attachmentCount = 2;
     rpci.pAttachments    = atts;
     rpci.subpassCount    = 1;
-    rpci.pSubpasses      = &sub;
+    rpci.pSubpasses      = &subpass;
     rpci.dependencyCount = 1;
     rpci.pDependencies   = &dep;
 
     VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
-    if (vr != VK_SUCCESS)
+    if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateRenderPass failed: " << vr << "\n";
         return false;
@@ -1015,6 +832,27 @@ bool VKRenderer::CreateRenderPass()
 
 bool VKRenderer::CreateFramebuffers()
 {
+    if (!mDevice)
+    {
+        std::cerr << "[VKRenderer] CreateFramebuffers: mDevice is null\n";
+        return false;
+    }
+    if (mRenderPass == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateFramebuffers: mRenderPass is null\n";
+        return false;
+    }
+    if (mSwapchainImageViews.empty())
+    {
+        std::cerr << "[VKRenderer] CreateFramebuffers: no swapchain image views\n";
+        return false;
+    }
+    if (mDepthImageView == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateFramebuffers: depth view is null\n";
+        return false;
+    }
+
     for (auto fb : mFramebuffers)
     {
         if (fb) vkDestroyFramebuffer(mDevice, fb, nullptr);
@@ -1025,21 +863,26 @@ bool VKRenderer::CreateFramebuffers()
 
     for (size_t i = 0; i < mSwapchainImageViews.size(); ++i)
     {
-        VkImageView atts[2] = { mSwapchainImageViews[i], mDepthView };
+        VkImageView attachments[] =
+        {
+            mSwapchainImageViews[i],
+            mDepthImageView
+        };
 
         VkFramebufferCreateInfo fci{};
         fci.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fci.renderPass      = mRenderPass;
         fci.attachmentCount = 2;
-        fci.pAttachments    = atts;
+        fci.pAttachments    = attachments;
         fci.width           = mSwapchainExtent.width;
         fci.height          = mSwapchainExtent.height;
         fci.layers          = 1;
 
         VkResult vr = vkCreateFramebuffer(mDevice, &fci, nullptr, &mFramebuffers[i]);
-        if (vr != VK_SUCCESS)
+        if (vr != VK_SUCCESS || mFramebuffers[i] == VK_NULL_HANDLE)
         {
-            std::cerr << "[VKRenderer] vkCreateFramebuffer failed: " << vr << " (i=" << i << ")\n";
+            std::cerr << "[VKRenderer] vkCreateFramebuffer failed: " << vr
+                      << " (i=" << i << ")\n";
             return false;
         }
     }
@@ -1130,14 +973,13 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateSwapchainAndViews()) return false;
     if (!CreateDepthForSwapchain()) return false;
 
-    // renderpass は swapchain format に依存 → 作り直すのが安全
+    // renderpass は swapchain format に依存 → 作り直す
     if (mRenderPass)
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
         mRenderPass = VK_NULL_HANDLE;
     }
     if (!CreateRenderPass()) return false;
-
     if (!CreateFramebuffers()) return false;
 
     return true;
@@ -1162,10 +1004,7 @@ void VKRenderer::CleanupSwapchain()
         mRenderPass = VK_NULL_HANDLE;
     }
 
-    // depth
-    if (mDepthView)  { vkDestroyImageView(mDevice, mDepthView, nullptr); mDepthView = VK_NULL_HANDLE; }
-    if (mDepthImage) { vkDestroyImage(mDevice, mDepthImage, nullptr);     mDepthImage = VK_NULL_HANDLE; }
-    if (mDepthMem)   { vkFreeMemory(mDevice, mDepthMem, nullptr);         mDepthMem = VK_NULL_HANDLE; }
+    DestroyDepthForSwapchain();
 
     for (auto v : mSwapchainImageViews)
     {
@@ -1186,6 +1025,11 @@ void VKRenderer::CleanupSwapchain()
 //--------------------------------------------------------------
 VkCommandBuffer VKRenderer::BeginOneTimeCommands()
 {
+    if (!mDevice || !mCommandPool)
+    {
+        return VK_NULL_HANDLE;
+    }
+
     VkCommandBufferAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     ai.commandPool        = mCommandPool;
@@ -1208,151 +1052,28 @@ VkCommandBuffer VKRenderer::BeginOneTimeCommands()
 
 void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 {
+    if (!cmd) return;
+
     vkEndCommandBuffer(cmd);
+
+    VkFence fence = VK_NULL_HANDLE;
+    VkFenceCreateInfo fci{};
+    fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    vkCreateFence(mDevice, &fci, nullptr, &fence);
 
     VkSubmitInfo si{};
     si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
     si.pCommandBuffers    = &cmd;
 
-    vkQueueSubmit(mQueueGraphics, 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(mQueueGraphics);
+    vkQueueSubmit(mQueueGraphics, 1, &si, fence);
+
+    // “その submit だけ待つ” (Queue全体WaitIdleより将来拡張しやすい)
+    vkWaitForFences(mDevice, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    if (fence) vkDestroyFence(mDevice, fence, nullptr);
 
     vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
-}
-
-//--------------------------------------------------------------
-// Format / Memory helpers
-//--------------------------------------------------------------
-VkFormat VKRenderer::ChooseDepthFormat() const
-{
-    const VkFormat candidates[] =
-    {
-        VK_FORMAT_D24_UNORM_S8_UINT,
-        VK_FORMAT_D32_SFLOAT,
-        VK_FORMAT_D32_SFLOAT_S8_UINT
-    };
-
-    for (VkFormat fmt : candidates)
-    {
-        VkFormatProperties fp{};
-        vkGetPhysicalDeviceFormatProperties(mPhysicalDevice, fmt, &fp);
-        if ((fp.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
-        {
-            return fmt;
-        }
-    }
-    return VK_FORMAT_UNDEFINED;
-}
-
-uint32_t VKRenderer::FindMemoryType(uint32_t typeBits, VkMemoryPropertyFlags props) const
-{
-    VkPhysicalDeviceMemoryProperties mp{};
-    vkGetPhysicalDeviceMemoryProperties(mPhysicalDevice, &mp);
-
-    for (uint32_t i = 0; i < mp.memoryTypeCount; ++i)
-    {
-        const bool typeOk = (typeBits & (1u << i)) != 0;
-        const bool propOk = (mp.memoryTypes[i].propertyFlags & props) == props;
-        if (typeOk && propOk)
-        {
-            return i;
-        }
-    }
-    return UINT32_MAX;
-}
-
-bool VKRenderer::CreateImage2D(
-    uint32_t w,
-    uint32_t h,
-    VkFormat format,
-    VkImageUsageFlags usage,
-    VkMemoryPropertyFlags memProps,
-    VkImage& outImage,
-    VkDeviceMemory& outMem)
-{
-    VkImageCreateInfo ici{};
-    ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    ici.imageType     = VK_IMAGE_TYPE_2D;
-    ici.format        = format;
-    ici.extent.width  = w;
-    ici.extent.height = h;
-    ici.extent.depth  = 1;
-    ici.mipLevels     = 1;
-    ici.arrayLayers   = 1;
-    ici.samples       = VK_SAMPLE_COUNT_1_BIT;
-    ici.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    ici.usage         = usage;
-    ici.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VkResult vr = vkCreateImage(mDevice, &ici, nullptr, &outImage);
-    if (vr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkCreateImage failed: " << vr << "\n";
-        return false;
-    }
-
-    VkMemoryRequirements req{};
-    vkGetImageMemoryRequirements(mDevice, outImage, &req);
-
-    VkMemoryAllocateInfo mai{};
-    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize  = req.size;
-    mai.memoryTypeIndex = FindMemoryType(req.memoryTypeBits, memProps);
-    if (mai.memoryTypeIndex == UINT32_MAX)
-    {
-        std::cerr << "[VKRenderer] FindMemoryType failed.\n";
-        return false;
-    }
-
-    vr = vkAllocateMemory(mDevice, &mai, nullptr, &outMem);
-    if (vr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkAllocateMemory failed: " << vr << "\n";
-        return false;
-    }
-
-    vr = vkBindImageMemory(mDevice, outImage, outMem, 0);
-    if (vr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkBindImageMemory failed: " << vr << "\n";
-        return false;
-    }
-
-    return true;
-}
-
-bool VKRenderer::CreateImageView2D(
-    VkImage image,
-    VkFormat format,
-    VkImageAspectFlags aspect,
-    VkImageView& outView)
-{
-    VkImageViewCreateInfo iv{};
-    iv.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    iv.image    = image;
-    iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    iv.format   = format;
-    iv.subresourceRange.aspectMask     = aspect;
-    iv.subresourceRange.baseMipLevel   = 0;
-    iv.subresourceRange.levelCount     = 1;
-    iv.subresourceRange.baseArrayLayer = 0;
-    iv.subresourceRange.layerCount     = 1;
-
-    VkResult vr = vkCreateImageView(mDevice, &iv, nullptr, &outView);
-    if (vr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkCreateImageView failed: " << vr << "\n";
-        return false;
-    }
-    return true;
-}
-
-PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
-{
-    (void)name;
-    return {}; // 次の Step: VKPipeline を入れて返す
 }
 
 } // namespace toy
