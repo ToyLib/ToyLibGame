@@ -101,6 +101,21 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    
+    
+    // Default view/proj
+    mViewMatrix = Matrix4::CreateLookAt(
+        Vector3(0, 0.5f, -3),
+        Vector3(0, 0, 10),
+        Vector3::UnitY
+    );
+    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mPerspectiveFOV),
+        mScreenWidth,
+        mScreenHeight,
+        1.0f,
+        2000.0f
+    );
 
     //==========================================================
     // Descriptors (minimum for Sprite(Texture))
@@ -126,20 +141,6 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
     
-    // Default view/proj
-    mViewMatrix = Matrix4::CreateLookAt(
-        Vector3(0, 0.5f, -3),
-        Vector3(0, 0, 10),
-        Vector3::UnitY
-    );
-    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(mPerspectiveFOV),
-        mScreenWidth,
-        mScreenHeight,
-        1.0f,
-        2000.0f
-    );
-
     std::cerr << "[VKRenderer] Init OK. Swapchain("
               << mSwapchainExtent.width << "x" << mSwapchainExtent.height
               << ") Scale=" << mWindowDisplayScale
@@ -239,6 +240,9 @@ void VKRenderer::Shutdown()
     mImageIndex = 0;
 
     // scene set handle safety
+    //mSceneSet_Sprite      = VK_NULL_HANDLE;
+    //mSceneSet_Mesh        = VK_NULL_HANDLE;
+    //mSceneSet_SkinnedMesh = VK_NULL_HANDLE;]
     mSceneSet = VK_NULL_HANDLE;
 }
 
@@ -343,11 +347,14 @@ bool VKRenderer::BeginFrame()
 
     vkCmdBeginRenderPass(frame.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
+    // ★★★ 最重要：SceneUBO更新 ★★★
+    UpdateSceneUBO();
+
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = (float)rp.renderArea.extent.height;   // ★上端を高さに
+    vp.y = (float)rp.renderArea.extent.height;
     vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = -(float)rp.renderArea.extent.height; // ★負で反転
+    vp.height = -(float)rp.renderArea.extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(frame.cmd, 0, 1, &vp);
@@ -1024,7 +1031,13 @@ bool VKRenderer::RecreateSwapchain()
     SDL_GetWindowSizeInPixels(mWindow, &w, &h);
     if (w <= 0 || h <= 0)
     {
+        // minimized 等：今は成功扱いでOK
         return true;
+    }
+
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        return false;
     }
 
     vkDeviceWaitIdle(mDevice);
@@ -1034,6 +1047,7 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateSwapchainAndViews()) return false;
     if (!CreateDepthForSwapchain()) return false;
 
+    // CleanupSwapchain() が mRenderPass を壊す設計なので、ここは二重破棄にならないが一応安全
     if (mRenderPass)
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
@@ -1043,19 +1057,42 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateFramebuffers()) return false;
 
     //==========================================================
-    // ★ここが超重要：古い layout で確保された DescriptorSet を先に全部 free
-    //   （この後 pipeline を rebuild すると、setLayout が作り直されるため）
+    // ★重要：新しい extent に合わせてスクリーンサイズとProjectionを更新
     //==========================================================
-    if (mDevice && mDescPool)
-    {
-        if (mSceneSet != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &mSceneSet);
-            mSceneSet = VK_NULL_HANDLE; // ★必ず NULL に戻す
-        }
+    mScreenWidth  = (float)mSwapchainExtent.width;
+    mScreenHeight = (float)mSwapchainExtent.height;
 
-        // SpriteTextureSetCache をやめたなら、こっちでOK
-        ClearBaseMapSetCache(); // ★中で vkFreeDescriptorSets すること
+    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mPerspectiveFOV),
+        mScreenWidth,
+        mScreenHeight,
+        1.0f,
+        2000.0f
+    );
+
+    //==========================================================
+    // ★超重要：古い pipeline(setLayout) で確保された DescriptorSet を全て free
+    //   → その後 BuildDefaultPipelines() で setLayout が作り直される
+    //==========================================================
+    if (mDescPool != VK_NULL_HANDLE)
+    {
+        auto freeOne = [&](VkDescriptorSet& ds)
+        {
+            if (ds != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+                ds = VK_NULL_HANDLE;
+            }
+        };
+
+        // set=0 Scene sets（pipelineごと）
+        //freeOne(mSceneSet_Sprite);
+        //freeOne(mSceneSet_Mesh);
+        //freeOne(mSceneSet_SkinnedMesh);
+        freeOne(mSceneSet);
+
+        // set=1 BaseMap cache（中で vkFreeDescriptorSets）
+        ClearBaseMapSetCache();
     }
 
     //==========================================================
@@ -1065,6 +1102,12 @@ bool VKRenderer::RecreateSwapchain()
     {
         return false;
     }
+
+    //==========================================================
+    // ★新しい viewProj を SceneUBO に反映（set=0 の中身を最新化）
+    //   ※ SceneUBO 自体は swapchain 非依存なので作り直し不要
+    //==========================================================
+    UpdateSceneUBO();
 
     //==========================================================
     // ★新しい set layout(set=0) で SceneSet を作り直す
@@ -1171,6 +1214,11 @@ void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
+
+    //==========================================================
+    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    //==========================================================
+    mPipelines.DestroyAll();
 
     // Sprite
     {

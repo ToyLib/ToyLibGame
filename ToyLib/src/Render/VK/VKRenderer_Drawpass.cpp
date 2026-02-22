@@ -1,7 +1,5 @@
 //======================================================================
 // Render/VK/VKRenderer_Drawpass.cpp
-//  - Draw phases / DrawToRenderTarget / DrawItem
-//  - DrawItem: Sprite / Mesh / SkinnedMesh
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -18,24 +16,12 @@
 namespace toy
 {
 
-//==============================================================
-// Sprite PushConstants (80 bytes)
-//  - mat4 world (64)
-//  - vec4 colorAlpha (16)
-//==============================================================
 struct VKSpritePC
 {
     float world[16];
     float colorAlpha[4];
 };
 
-//==============================================================
-// Mesh/Skinned PushConstants (112 bytes)
-//  - mat4 world (64)
-//  - vec4 baseColor_useTex (16)  : rgb + useTex(0/1)
-//  - vec4 misc (16)              : specPower, toon(0/1), overrideEnabled(0/1), alpha
-//  - vec4 overrideColor (16)     : rgb + pad
-//==============================================================
 struct VKMeshPC
 {
     float world[16];
@@ -86,10 +72,6 @@ static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
     return true;
 }
 
-//--------------------------------------------------------------
-// RTT: DrawToRenderTarget
-//  - まずは安全に「別submit」で描く（ビルド通し優先）
-//--------------------------------------------------------------
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
     if (!req.rt)
@@ -126,7 +108,6 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         return;
     }
 
-    // camera override
     PushCameraState();
     {
         CameraState s{};
@@ -136,7 +117,6 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         s.invView.Invert();
         SetCameraState(s);
 
-        // SceneUBO は view/proj から毎回詰める運用に寄せる
         UpdateSceneUBO();
     }
 
@@ -173,9 +153,7 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
-    // TODO:
-    // ここで bucket を回して DrawItem(...) を呼ぶ
-    // 現状は clear-only でOK（RTT 経路は後で拡張）
+    // TODO: bucket draw
 
     vkCmdEndRenderPass(cmd);
 
@@ -184,16 +162,12 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     EndOneTimeCommands(cmd);
 }
 
-//--------------------------------------------------------------
-// Draw phases（GL と同じ構造で拡張していく）
-//--------------------------------------------------------------
 void VKRenderer::DrawShadowPass() {}
 void VKRenderer::RestoreAfterShadowPass() {}
 void VKRenderer::DrawSkyPass() {}
 
 void VKRenderer::DrawWorldPass()
 {
-    // SceneUBO（view/proj）を最新化
     UpdateSceneUBO();
 
     DrawBucket_World(mBuckets.worldOpaque);
@@ -209,17 +183,13 @@ void VKRenderer::DrawPostEffectPass() {}
 
 void VKRenderer::DrawUIPass()
 {
-    // UI も SceneUBO（view/proj）を使うなら、ここで更新してもOK
     UpdateSceneUBO();
-
     DrawBucket_World(mBuckets.ui);
 }
 
-//--------------------------------------------------------------
-// DrawItem (bucketed draw path)
-//  - Sprite(Texture) / Mesh / SkinnedMesh の最低限
-//  - depth/blend/cull 等は「いまは pipeline preset 固定」
-//--------------------------------------------------------------
+//======================================================================
+// DrawItem
+//======================================================================
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
     (void)pass;
@@ -231,20 +201,37 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (!cmd)
+    if (cmd == VK_NULL_HANDLE)
     {
         return;
     }
 
-    // 共通: Geometry
+    // debug
+    // std::cerr << "[VK] DrawItem type=" << (int)it.type
+    //           << " vtx=" << it.vertexCount << " idx=" << it.indexCount
+    //           << " geo=" << (void*)it.geometry.ptr << " tex=" << (void*)it.texture.ptr << "\n";
+
     if (!BindVertexArrayVK(cmd, it.geometry))
     {
         return;
     }
 
-    // 共通: Scene set
+    // set=0 Scene
     if (mSceneSet == VK_NULL_HANDLE)
     {
+        return;
+    }
+
+    // set=1 BaseMap (nullでもfallbackが返る)
+    const char* pipelineName = nullptr;
+    if (it.type == RenderItemType::Sprite)      pipelineName = "Sprite";
+    if (it.type == RenderItemType::Mesh)        pipelineName = "Mesh";
+    if (it.type == RenderItemType::SkinnedMesh) pipelineName = "SkinnedMesh";
+
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
+        // fallbackが無い状態は描けない
         return;
     }
 
@@ -253,24 +240,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //==========================================================
     if (it.type == RenderItemType::Sprite)
     {
-        
         VKPipeline* pipe = mPipelines.Get("Sprite");
         if (!pipe || !pipe->IsValid())
         {
             return;
         }
 
-        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "Sprite");
-        if (baseMapSet == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        VkDescriptorSet sets[2] =
-        {
-            mSceneSet,     // set=0
-            baseMapSet     // set=1
-        };
+        VkDescriptorSet sets[2] = { mSceneSet, baseMapSet };
 
         pipe->Bind(cmd);
 
@@ -296,7 +272,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         VKSpritePC pc{};
         StoreMat4(pc.world, it.world);
-
         pc.colorAlpha[0] = color.x;
         pc.colorAlpha[1] = color.y;
         pc.colorAlpha[2] = color.z;
@@ -329,30 +304,14 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //==========================================================
     if (it.type == RenderItemType::Mesh)
     {
+        
         VKPipeline* pipe = mPipelines.Get("Mesh");
         if (!pipe || !pipe->IsValid())
         {
             return;
         }
 
-        // baseMap (set=1)
-        if (!it.texture.ptr)
-        {
-            // 「まず表示経路」優先：テクスチャ無しは一旦スキップ
-            return;
-        }
-
-        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "Mesh");
-        if (baseMapSet == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        VkDescriptorSet sets[2] =
-        {
-            mSceneSet,    // set=0
-            baseMapSet    // set=1
-        };
+        VkDescriptorSet sets[2] = { mSceneSet, baseMapSet };
 
         pipe->Bind(cmd);
 
@@ -369,11 +328,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
-        // 最小：payload未整備でも描ける固定値
+        // fallbackが白なので useTex=1 でも破綻しない
         pc.baseColor_useTex[0] = 1.0f;
         pc.baseColor_useTex[1] = 1.0f;
         pc.baseColor_useTex[2] = 1.0f;
-        pc.baseColor_useTex[3] = 1.0f; // useTex=1
+        pc.baseColor_useTex[3] = 1.0f;
 
         pc.misc[0] = 64.0f; // specPower
         pc.misc[1] = 0.0f;  // toon
@@ -403,12 +362,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             vkCmdDraw(cmd, (uint32_t)it.vertexCount, 1, 0, 0);
             AddDrawCall();
         }
+        
 
         return;
     }
 
     //==========================================================
-    // SkinnedMesh
+    // SkinnedMesh (set=2 が未整備なら描かない方針のまま)
     //==========================================================
     if (it.type == RenderItemType::SkinnedMesh)
     {
@@ -417,32 +377,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         {
             return;
         }
-
-        // baseMap (set=1)
-        if (!it.texture.ptr)
-        {
-            return;
-        }
-
-        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "SkinnedMesh");
-        if (baseMapSet == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        // set=2 (palette UBO/SSBO) が RenderItem/Payload にまだ無いなら、ここは次の段階。
-        // いまは「経路を壊さない」ためにスキップでOK。
-        (void)baseMapSet;
-
         return;
     }
-
-    // 未対応は何もしない
 }
 
-//--------------------------------------------------------------
-// PipelineHandle
-//--------------------------------------------------------------
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 {
     (void)name;

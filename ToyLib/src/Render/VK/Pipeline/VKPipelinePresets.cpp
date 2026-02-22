@@ -48,7 +48,6 @@ static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
 
 static void AddPC_ObjectMaterial(VKPipelineDesc& d)
 {
-    // mat4(64) + vec4(16)*3 = 112
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
@@ -67,16 +66,15 @@ VKPipelineDesc MakeSprite(const std::string& base)
     d.depthWrite = false;
     d.alphaBlend = true;
 
-    d.cullMode   = VK_CULL_MODE_BACK_BIT;
-    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+    d.cullMode   = VK_CULL_MODE_NONE;
 
-    // set=0 Scene UBO（Spriteも共通化）
+    // ★viewport を負heightで反転しているので CCW が自然
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
     AddSet0_SceneUBO(d);
-
-    // set=1 baseMap
     AddSet1_BaseMap(d);
 
-    // PC : mat4(64) + vec4(16) = 80（Sprite専用）
+    // PC : 80 bytes
     {
         VKPushConstantDesc pc{};
         pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -100,7 +98,9 @@ VKPipelineDesc MakeMesh(const std::string& base)
     d.alphaBlend = false;
 
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
-    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+
+    // ★viewport反転に合わせて CCW
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
@@ -121,7 +121,9 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
     d.alphaBlend = false;
 
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
-    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+
+    // ★viewport反転に合わせて CCW
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);

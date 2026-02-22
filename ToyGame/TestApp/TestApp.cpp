@@ -32,8 +32,8 @@ void VKTest::InitGame()
     
     mAct = CreateActor<toy::Actor>();
     auto mesh = mAct->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetAssetManager()->GetMesh("glider.x"));
-    mesh->SetLocalScale(0.01f);
+    mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
+    mesh->SetLocalScale(0.3f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
     mesh->SetToonRender(true);
     mesh->SetContourFactor(1.01f);
@@ -54,8 +54,8 @@ void VKTest::UpdateGame(float deltaTime)
     renderer->SetClearColor(Vector3(r, g, b));
     
     
-    ang += 0.5f;
-    Quaternion q = Quaternion(Vector3(0.0f, 1.0f, 1.0f), Math::ToRadians(ang));
+    ang += 2.0f;
+    Quaternion q = Quaternion(Vector3(0.0f, 0.0f, 1.0f), Math::ToRadians(ang));
     mAct->SetRotation(q);
 }
 

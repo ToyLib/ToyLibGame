@@ -1,13 +1,16 @@
 //======================================================================
 // Render/VK/VKRenderer_Descriptors.cpp
-//  - DescriptorPool / SceneUBO / SceneSet / BaseMapSet cache / SkinnedUBO
+//  - DescriptorPool / SceneUBO / SceneSet / BaseMapSet cache
+//  - + Fallback(1x1 white) texture & set=1
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
 
+#include "Render/VK/VKUtil.h"
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Asset/Material/VKTextureGPU.h"
 #include "Asset/Material/ITextureGPU.h"
+#include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
 
 #include <iostream>
@@ -16,27 +19,8 @@
 namespace toy
 {
 
-static uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
-                              uint32_t typeBits,
-                              VkMemoryPropertyFlags props)
-{
-    VkPhysicalDeviceMemoryProperties memProps{};
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
-
-    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
-    {
-        const bool typeOk = (typeBits & (1u << i)) != 0;
-        const bool propOk = (memProps.memoryTypes[i].propertyFlags & props) == props;
-        if (typeOk && propOk)
-        {
-            return i;
-        }
-    }
-    return UINT32_MAX;
-}
-
 //--------------------------------------------------------------
-// “基準Pipeline” から setLayout を取る（set互換を前提に運用）
+// “基準Pipeline” から setLayout を取る
 //--------------------------------------------------------------
 static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
                                                   const char* pipelineName,
@@ -48,6 +32,12 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
         return VK_NULL_HANDLE;
     }
     return p->GetSetLayout(setIndex);
+}
+
+static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
+{
+    if (!device || !pool || !set) return;
+    vkFreeDescriptorSets(device, pool, 1, &set);
 }
 
 //==============================================================
@@ -66,24 +56,20 @@ bool VKRenderer::CreateDescriptorPool()
 
     constexpr uint32_t kMaxSceneSets     = 8;
     constexpr uint32_t kMaxBaseMapSets   = 1024;
-    constexpr uint32_t kMaxSkinnedSets   = 256;
 
-    VkDescriptorPoolSize sizes[3]{};
+    VkDescriptorPoolSize sizes[2]{};
 
     sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    sizes[0].descriptorCount = kMaxSceneSets + kMaxSkinnedSets;
+    sizes[0].descriptorCount = kMaxSceneSets;
 
     sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[1].descriptorCount = kMaxBaseMapSets;
-
-    sizes[2].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    sizes[2].descriptorCount = kMaxSkinnedSets;
+    sizes[1].descriptorCount = kMaxBaseMapSets + 4; // +fallback分の余裕
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + kMaxSkinnedSets;
-    ci.poolSizeCount = 3;
+    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + 4;
+    ci.poolSizeCount = 2;
     ci.pPoolSizes    = sizes;
 
     const VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);
@@ -97,12 +83,6 @@ bool VKRenderer::CreateDescriptorPool()
     return true;
 }
 
-static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
-{
-    if (!device || !pool || !set) return;
-    vkFreeDescriptorSets(device, pool, 1, &set);
-}
-
 void VKRenderer::DestroyDescriptorPool()
 {
     if (!mDevice)
@@ -110,23 +90,32 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
-    if (mSceneSet != VK_NULL_HANDLE)
-    {
-        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
-        mSceneSet = VK_NULL_HANDLE;
-    }
-
-    ClearBaseMapSetCache();
-
     if (mDescPool != VK_NULL_HANDLE)
     {
+        // sets
+        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
+        mSceneSet = VK_NULL_HANDLE;
+
+        DestroyFallbackBaseMapSet();
+        ClearBaseMapSetCache();
+
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
     }
+    else
+    {
+        mSceneSet = VK_NULL_HANDLE;
+        mBaseMapSetCache.clear();
+        mSpriteTexSetCache.clear();
+        mFallbackBaseMapSet = VK_NULL_HANDLE;
+    }
+
+    // fallback image/sampler are not owned by pool
+    DestroyFallbackWhiteTexture();
 }
 
 //==============================================================
-// Scene UBO (Mesh/Skinned 用に拡張)
+// Scene UBO
 //==============================================================
 struct VKSceneUBO
 {
@@ -194,25 +183,33 @@ void VKRenderer::UpdateSceneUBO()
     }
 
     VKSceneUBO ubo{};
-    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
 
+    // ToyLib: row-vector v*M 前提 → ViewProj は View*Proj
+    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
-    // ここは “まず表示” のために最低限埋める
-    // あなたの Renderer が既に持ってる値に置き換えてOK
     Vector3 cameraPos = GetCameraPosition();
     ubo.cameraPos[0] = cameraPos.x;
     ubo.cameraPos[1] = cameraPos.y;
     ubo.cameraPos[2] = cameraPos.z;
     ubo.cameraPos[3] = 1.0f;
 
-    Vector3 ambient = GetLightingManager()->GetAmbientColor();
+    Vector3 ambient(0.2f, 0.2f, 0.2f);
+    DirectionalLight dirLight{};
+    dirLight.DiffuseColor = Vector3(1.0f, 1.0f, 1.0f);
+    dirLight.SpecColor    = Vector3(1.0f, 1.0f, 1.0f);
+
+    if (auto lm = GetLightingManager())
+    {
+        ambient  = lm->GetAmbientColor();
+        dirLight = lm->GetDirectionalLight();
+    }
+
     ubo.ambient[0] = ambient.x;
     ubo.ambient[1] = ambient.y;
     ubo.ambient[2] = ambient.z;
     ubo.ambient[3] = 1.0f;
 
-    DirectionalLight dirLight = GetLightingManager()->GetDirectionalLight();
     ubo.dirDir[0] = dirLight.GetDirection().x;
     ubo.dirDir[1] = dirLight.GetDirection().y;
     ubo.dirDir[2] = dirLight.GetDirection().z;
@@ -231,12 +228,6 @@ void VKRenderer::UpdateSceneUBO()
     (void)UploadToBuffer(mSceneUBOMem, &ubo, (VkDeviceSize)mSceneUBOSize);
 }
 
-//==============================================================
-// Scene UBO update (override)
-//  - viewProjOverride は「Row-vector v*M」前提で、
-//    シェーダ側の掛け算順（worldPos * viewProj）に合わせて
-//    そのまま渡す。
-//==============================================================
 void VKRenderer::UpdateSceneUBO(const Matrix4& viewProjOverride)
 {
     if (!mDevice || mSceneUBOMem == VK_NULL_HANDLE || mSceneUBOSize == 0)
@@ -256,6 +247,7 @@ void VKRenderer::UpdateSceneUBOFromMatrix(const Matrix4& viewProj)
 
 //==============================================================
 // Scene Descriptor Set (set=0 binding=0 UBO)
+//  - set0 layout は Sprite/Mesh/Skinned で同一運用
 //==============================================================
 bool VKRenderer::CreateSceneDescriptorSet()
 {
@@ -263,21 +255,25 @@ bool VKRenderer::CreateSceneDescriptorSet()
     {
         return false;
     }
-    if (mSceneSet != VK_NULL_HANDLE)
-    {
-        return true;
-    }
+
     if (mSceneUBO == VK_NULL_HANDLE || mSceneUBOSize == 0)
     {
         std::cerr << "[VKRenderer] CreateSceneDescriptorSet: SceneUBO not created\n";
         return false;
     }
 
-    // set互換の基準は Mesh
-    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Mesh", 0);
+    // 既存を解放
+    if (mSceneSet != VK_NULL_HANDLE)
+    {
+        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
+        mSceneSet = VK_NULL_HANDLE;
+    }
+
+    // 基準は Sprite の set=0（Mesh/Skinned と同じ）
+    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
     if (set0 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: Mesh set0 layout is null\n";
+        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: Sprite set0 layout is null\n";
         return false;
     }
 
@@ -291,7 +287,6 @@ bool VKRenderer::CreateSceneDescriptorSet()
     if (vr != VK_SUCCESS || mSceneSet == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkAllocateDescriptorSets(SceneSet) failed: " << vr << "\n";
-        mSceneSet = VK_NULL_HANDLE;
         return false;
     }
 
@@ -309,6 +304,22 @@ bool VKRenderer::CreateSceneDescriptorSet()
     w.pBufferInfo     = &bi;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+
+    // fallback set=1 は pipeline layout 依存なのでここで作り直す
+    if (!CreateFallbackWhiteTexture())
+    {
+        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: CreateFallbackWhiteTexture failed\n";
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet())
+    {
+        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: CreateFallbackBaseMapSet failed\n";
+        return false;
+    }
+
+    std::cerr << "[VKRenderer] SceneSet created: " << (void*)mSceneSet
+              << " FallbackBaseMapSet=" << (void*)mFallbackBaseMapSet << "\n";
+
     return true;
 }
 
@@ -321,51 +332,61 @@ void VKRenderer::ClearBaseMapSetCache()
     {
         for (auto& kv : mBaseMapSetCache)
         {
-            VkDescriptorSet ds = kv.second;
-            if (ds != VK_NULL_HANDLE)
+            if (kv.second != VK_NULL_HANDLE)
             {
-                FreeDescriptorSetIfPossible(mDevice, mDescPool, ds);
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &kv.second);
             }
         }
     }
     mBaseMapSetCache.clear();
+
+    // 旧互換mapも空に
+    mSpriteTexSetCache.clear();
+
+    // pipeline recreate に備え、fallback DS は作り直す必要がある
+    DestroyFallbackBaseMapSet();
 }
 
-//==============================================================
-// Backward compatible: Sprite cache API
-//  - 旧コードが残っていてもビルドできるように維持
-//  - 実体は BaseMap cache に寄せる
-//==============================================================
 void VKRenderer::ClearSpriteTextureSetCache()
 {
-    // 互換：古い map も一応クリア（ただし実際の DS は BaseMap 側で管理）
     mSpriteTexSetCache.clear();
     ClearBaseMapSetCache();
 }
 
 VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
 {
-    // Sprite pipeline の set=1 を使う
     return GetOrCreateBaseMapSet(tex, "Sprite");
 }
 
 VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
 {
-    if (!tex || !mDevice || !mDescPool)
+    if (!mDevice || !mDescPool || !pipelineName)
     {
+        std::cerr << "[VK] BaseMapSet: invalid state dev/pool/name\n";
         return VK_NULL_HANDLE;
     }
 
-    auto it = mBaseMapSetCache.find(tex);
-    if (it != mBaseMapSetCache.end())
+    // tex が無いなら fallback を返す（既存メンバー名に合わせる）
+    if (!tex)
     {
-        return it->second;
+        std::cerr << "[VK] BaseMapSet: tex is NULL (" << pipelineName << ")\n";
+        return mFallbackBaseMapSet; // ★既存
     }
 
+    // 単一キャッシュ（既存メンバー名に合わせる）
+    {
+        auto it = mBaseMapSetCache.find(tex); // ★既存
+        if (it != mBaseMapSetCache.end())
+        {
+            return it->second;
+        }
+    }
+
+    // set=1 layout は pipeline から取る（ただし presets 的には互換のはず）
     VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] BaseMap set1 layout is null\n";
+        std::cerr << "[VK] BaseMapSet: set1 layout NULL (" << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
@@ -380,33 +401,40 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &ds);
     if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(BaseMapSet) failed: " << vr << "\n";
+        std::cerr << "[VK] BaseMapSet: alloc failed vr=" << vr
+                  << " (" << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
     auto fail = [&](const char* msg) -> VkDescriptorSet
     {
-        std::cerr << msg << "\n";
-        FreeDescriptorSetIfPossible(mDevice, mDescPool, ds);
-        ds = VK_NULL_HANDLE;
+        std::cerr << msg << " (" << pipelineName << ")\n";
+        if (ds != VK_NULL_HANDLE)
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+            ds = VK_NULL_HANDLE;
+        }
         return VK_NULL_HANDLE;
     };
 
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {
-        return fail("[VKRenderer] texture GPU is null");
+        return fail("[VK] BaseMapSet: tex GPU is NULL");
     }
 
     auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
     if (!vkgpu)
     {
-        return fail("[VKRenderer] texture GPU is not VKTextureGPU");
+        return fail("[VK] BaseMapSet: GPU is not VKTextureGPU");
     }
 
     if (vkgpu->GetSampler() == VK_NULL_HANDLE || vkgpu->GetImageView() == VK_NULL_HANDLE)
     {
-        return fail("[VKRenderer] VKTextureGPU sampler/view is null");
+        std::cerr << "[VK] BaseMapSet: sampler/view NULL sampler=" << (void*)vkgpu->GetSampler()
+                  << " view=" << (void*)vkgpu->GetImageView()
+                  << " (" << pipelineName << ")\n";
+        return fail("[VK] BaseMapSet: sampler/view NULL");
     }
 
     VkDescriptorImageInfo ii{};
@@ -424,17 +452,279 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
+    // 単一キャッシュに保存（既存メンバー）
     mBaseMapSetCache[tex] = ds;
+
+    std::cerr << "[VK] BaseMapSet: created ds=" << (void*)ds
+              << " tex=" << tex
+              << " view=" << (void*)ii.imageView
+              << " sampler=" << (void*)ii.sampler
+              << " (" << pipelineName << ")\n";
+
     return ds;
 }
 
 //==============================================================
-// Host-visible buffer helpers（あなたの既存のまま）
+// Fallback White Texture (1x1 RGBA8) : Image/View/Sampler
+//==============================================================
+bool VKRenderer::CreateFallbackWhiteTexture()
+{
+    if (!mDevice || !mPhysicalDevice)
+    {
+        return false;
+    }
+    if (mFallbackWhiteImg != VK_NULL_HANDLE &&
+        mFallbackWhiteView != VK_NULL_HANDLE &&
+        mFallbackWhiteSampler != VK_NULL_HANDLE)
+    {
+        return true;
+    }
+
+    DestroyFallbackWhiteTexture();
+
+    // 1x1 RGBA8 white
+    const uint32_t w = 1;
+    const uint32_t h = 1;
+    const uint32_t pixel = 0xFFFFFFFFu;
+
+    // staging buffer
+    VkBuffer staging = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
+
+    if (!toy::vkutil::CreateBuffer_HostVisible(
+            mPhysicalDevice,
+            mDevice,
+            sizeof(uint32_t),
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            staging,
+            stagingMem))
+    {
+        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: staging buffer create failed\n";
+        return false;
+    }
+
+    void* mapped = nullptr;
+    if (vkMapMemory(mDevice, stagingMem, 0, sizeof(uint32_t), 0, &mapped) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(mDevice, staging, nullptr);
+        vkFreeMemory(mDevice, stagingMem, nullptr);
+        return false;
+    }
+    std::memcpy(mapped, &pixel, sizeof(uint32_t));
+    vkUnmapMemory(mDevice, stagingMem);
+
+    // image
+    if (!toy::vkutil::CreateImage2D(
+            mPhysicalDevice,
+            mDevice,
+            w,
+            h,
+            VK_FORMAT_R8G8B8A8_UNORM,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            mFallbackWhiteImg,
+            mFallbackWhiteMem,
+            VK_IMAGE_LAYOUT_UNDEFINED))
+    {
+        vkDestroyBuffer(mDevice, staging, nullptr);
+        vkFreeMemory(mDevice, stagingMem, nullptr);
+        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: CreateImage2D failed\n";
+        return false;
+    }
+
+    // record copy & transitions
+    VkCommandBuffer cmd = BeginOneTimeCommands();
+    if (cmd == VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(mDevice, staging, nullptr);
+        vkFreeMemory(mDevice, stagingMem, nullptr);
+        DestroyFallbackWhiteTexture();
+        return false;
+    }
+
+    toy::vkutil::CmdTransitionImageLayout(
+        cmd,
+        mFallbackWhiteImg,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = { w, h, 1 };
+
+    vkCmdCopyBufferToImage(
+        cmd,
+        staging,
+        mFallbackWhiteImg,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region);
+
+    toy::vkutil::CmdTransitionImageLayout(
+        cmd,
+        mFallbackWhiteImg,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_ACCESS_SHADER_READ_BIT);
+
+    EndOneTimeCommands(cmd);
+
+    // staging cleanup
+    vkDestroyBuffer(mDevice, staging, nullptr);
+    vkFreeMemory(mDevice, stagingMem, nullptr);
+
+    // view
+    mFallbackWhiteView = toy::vkutil::CreateImageView2D(
+        mDevice,
+        mFallbackWhiteImg,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_ASPECT_COLOR_BIT);
+
+    if (mFallbackWhiteView == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: CreateImageView2D failed\n";
+        DestroyFallbackWhiteTexture();
+        return false;
+    }
+
+    // sampler
+    VkSamplerCreateInfo sci{};
+    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sci.magFilter = VK_FILTER_LINEAR;
+    sci.minFilter = VK_FILTER_LINEAR;
+    sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sci.minLod = 0.0f;
+    sci.maxLod = 0.0f;
+    sci.maxAnisotropy = 1.0f;
+
+    if (vkCreateSampler(mDevice, &sci, nullptr, &mFallbackWhiteSampler) != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: vkCreateSampler failed\n";
+        DestroyFallbackWhiteTexture();
+        return false;
+    }
+
+    return true;
+}
+
+void VKRenderer::DestroyFallbackWhiteTexture()
+{
+    if (!mDevice) return;
+
+    if (mFallbackWhiteSampler)
+    {
+        vkDestroySampler(mDevice, mFallbackWhiteSampler, nullptr);
+        mFallbackWhiteSampler = VK_NULL_HANDLE;
+    }
+    if (mFallbackWhiteView)
+    {
+        vkDestroyImageView(mDevice, mFallbackWhiteView, nullptr);
+        mFallbackWhiteView = VK_NULL_HANDLE;
+    }
+    if (mFallbackWhiteImg)
+    {
+        vkDestroyImage(mDevice, mFallbackWhiteImg, nullptr);
+        mFallbackWhiteImg = VK_NULL_HANDLE;
+    }
+    if (mFallbackWhiteMem)
+    {
+        vkFreeMemory(mDevice, mFallbackWhiteMem, nullptr);
+        mFallbackWhiteMem = VK_NULL_HANDLE;
+    }
+}
+
+bool VKRenderer::CreateFallbackBaseMapSet()
+{
+    if (!mDevice || !mDescPool)
+    {
+        return false;
+    }
+    if (mFallbackBaseMapSet != VK_NULL_HANDLE)
+    {
+        return true;
+    }
+    if (mFallbackWhiteView == VK_NULL_HANDLE || mFallbackWhiteSampler == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "Sprite", 1);
+    if (set1 == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateFallbackBaseMapSet: Sprite set1 layout is null\n";
+        return false;
+    }
+
+    VkDescriptorSetAllocateInfo ai{};
+    ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    ai.descriptorPool     = mDescPool;
+    ai.descriptorSetCount = 1;
+    ai.pSetLayouts        = &set1;
+
+    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mFallbackBaseMapSet);
+    if (vr != VK_SUCCESS || mFallbackBaseMapSet == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(FallbackBaseMapSet) failed: " << vr << "\n";
+        mFallbackBaseMapSet = VK_NULL_HANDLE;
+        return false;
+    }
+
+    VkDescriptorImageInfo ii{};
+    ii.sampler     = mFallbackWhiteSampler;
+    ii.imageView   = mFallbackWhiteView;
+    ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet w{};
+    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet          = mFallbackBaseMapSet;
+    w.dstBinding      = 0;
+    w.descriptorCount = 1;
+    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.pImageInfo      = &ii;
+
+    vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+
+    return true;
+}
+
+void VKRenderer::DestroyFallbackBaseMapSet()
+{
+    if (!mDevice || !mDescPool) { mFallbackBaseMapSet = VK_NULL_HANDLE; return; }
+
+    if (mFallbackBaseMapSet != VK_NULL_HANDLE)
+    {
+        FreeDescriptorSetIfPossible(mDevice, mDescPool, mFallbackBaseMapSet);
+        mFallbackBaseMapSet = VK_NULL_HANDLE;
+    }
+}
+
+//==============================================================
+// Host-visible buffer helpers（既存）
 //==============================================================
 bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
-                                        VkBufferUsageFlags usage,
-                                        VkBuffer& outBuf,
-                                        VkDeviceMemory& outMem)
+                                         VkBufferUsageFlags usage,
+                                         VkBuffer& outBuf,
+                                         VkDeviceMemory& outMem)
 {
     outBuf = VK_NULL_HANDLE;
     outMem = VK_NULL_HANDLE;
@@ -459,9 +749,9 @@ bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
     vkGetBufferMemoryRequirements(mDevice, outBuf, &req);
 
     const uint32_t typeIndex =
-        FindMemoryType(mPhysicalDevice,
-                       req.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        toy::vkutil::FindMemoryType(mPhysicalDevice,
+                                    req.memoryTypeBits,
+                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     if (typeIndex == UINT32_MAX)
     {
