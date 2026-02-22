@@ -7,6 +7,55 @@ namespace toy
 namespace VKPipelinePresets
 {
 
+static void AddSet0_SceneUBO(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set0{};
+    set0.set = 0;
+    set0.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+    d.setLayouts.push_back(set0);
+}
+
+static void AddSet1_BaseMap(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set1{};
+    set1.set = 1;
+    set1.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+    d.setLayouts.push_back(set1);
+}
+
+static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set2{};
+    set2.set = 2;
+    set2.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_VERTEX_BIT
+    });
+    d.setLayouts.push_back(set2);
+}
+
+static void AddPC_ObjectMaterial(VKPipelineDesc& d)
+{
+    // mat4(64) + vec4(16)*3 = 112
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 112;
+    d.pushConstants.push_back(pc);
+}
+
 VKPipelineDesc MakeSprite(const std::string& base)
 {
     VKPipelineDesc d{};
@@ -14,50 +63,20 @@ VKPipelineDesc MakeSprite(const std::string& base)
     d.fsPath     = base + "Sprite.frag.spv";
     d.layout     = VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2;
 
-    //==========================================================
-    // Sprite の “正” の基本状態（UI 前提）
-    //==========================================================
     d.depthTest  = false;
     d.depthWrite = false;
     d.alphaBlend = true;
 
-    // UI なのでカリング事故を避ける（まず確実に出す）
-    d.cullMode   = VK_CULL_MODE_NONE;
-    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
 
-    //==========================================================
-    // set=0 : Scene UBO（viewProj）
-    //==========================================================
-    {
-        VKDescriptorSetLayoutDesc set0{};
-        set0.set = 0;
-        set0.bindings.push_back({
-            .binding = 0,
-            .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .count   = 1,
-            .stages  = VK_SHADER_STAGE_VERTEX_BIT
-        });
-        d.setLayouts.push_back(set0);
-    }
+    // set=0 Scene UBO（Spriteも共通化）
+    AddSet0_SceneUBO(d);
 
-    //==========================================================
-    // set=1 : baseMap sampler2D
-    //==========================================================
-    {
-        VKDescriptorSetLayoutDesc set1{};
-        set1.set = 1;
-        set1.bindings.push_back({
-            .binding = 0,
-            .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .count   = 1,
-            .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
-        });
-        d.setLayouts.push_back(set1);
-    }
+    // set=1 baseMap
+    AddSet1_BaseMap(d);
 
-    //==========================================================
-    // PushConstants : mat4(64) + vec4(16) = 80
-    //==========================================================
+    // PC : mat4(64) + vec4(16) = 80（Sprite専用）
     {
         VKPushConstantDesc pc{};
         pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -71,12 +90,43 @@ VKPipelineDesc MakeSprite(const std::string& base)
 
 VKPipelineDesc MakeMesh(const std::string& base)
 {
-    // いまは Sprite をベースにする（差分は後で）
-    VKPipelineDesc d = MakeSprite(base);
+    VKPipelineDesc d{};
+    d.vsPath     = base + "Mesh.vert.spv";
+    d.fsPath     = base + "MeshPhong.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
-    // Mesh は通常 depth ON / alpha OFF / cull ON を想定するが、
-    // ここは “Sprite を最低限出す” のが目的なので当面は触らない。
-    // 必要になったら Mesh 専用 preset を作る。
+    d.depthTest  = true;
+    d.depthWrite = true;
+    d.alphaBlend = false;
+
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+
+    AddSet0_SceneUBO(d);
+    AddSet1_BaseMap(d);
+    AddPC_ObjectMaterial(d);
+
+    return d;
+}
+
+VKPipelineDesc MakeSkinnedMesh(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "SkinnedMesh.vert.spv";
+    d.fsPath     = base + "MeshPhong.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4;
+
+    d.depthTest  = true;
+    d.depthWrite = true;
+    d.alphaBlend = false;
+
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+
+    AddSet0_SceneUBO(d);
+    AddSet1_BaseMap(d);
+    AddSet2_SkinnedUBO(d);
+    AddPC_ObjectMaterial(d);
 
     return d;
 }

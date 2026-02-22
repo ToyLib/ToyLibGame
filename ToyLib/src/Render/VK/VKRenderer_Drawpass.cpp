@@ -1,7 +1,6 @@
 //======================================================================
 // Render/VK/VKRenderer_Drawpass.cpp
-//  - Draw phases / DrawToRenderTarget / DrawItem
-//  - “build通し＆clear-only” を維持しつつ、Sprite(Texture) を最低限描けるようにする
+//  - DrawItem: Sprite / Mesh / SkinnedMesh
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -19,14 +18,24 @@ namespace toy
 {
 
 //==============================================================
-// Sprite PushConstants (must match Sprite shaders)
-//  - mat4 world (64)
-//  - vec4 colorAlpha (16)
+// Sprite PC (80 bytes): mat4 + vec4
 //==============================================================
 struct VKSpritePC
 {
     float world[16];
     float colorAlpha[4];
+};
+
+//==============================================================
+// Mesh/Skinned PC (112 bytes)
+//  ※GLの uMaterial/uObject を “まず通す” ための最小PC
+//==============================================================
+struct VKMeshPC
+{
+    float world[16];            // 64
+    float baseColor_useTex[4];  // baseColor.xyz + useTex(0/1)
+    float misc[4];              // specPower, toon, overrideEnabled, alpha
+    float overrideColor[4];     // overrideColor.xyz + (unused)
 };
 
 static void StoreMat4(float out16[16], const Matrix4& m)
@@ -36,30 +45,16 @@ static void StoreMat4(float out16[16], const Matrix4& m)
 
 static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
 {
-    if (!cmd)
-    {
-        return false;
-    }
+    if (!cmd) return false;
 
     const VertexArray* va = gh.ptr;
-    if (!va)
-    {
-        return false;
-    }
+    if (!va) return false;
 
-    const IVertexArrayBackend* base = va->GetBackend();
-    if (!base || !base->IsVK())
-    {
-        return false;
-    }
-
-    auto* backend = (VKVertexArrayBackend*)base;
+    auto* backend = (VKVertexArrayBackend*)va->GetBackend();
+    if (!backend) return false;
 
     VkBuffer vb = (VkBuffer)backend->GetVKVertexBuffer();
-    if (vb == VK_NULL_HANDLE)
-    {
-        return false;
-    }
+    if (vb == VK_NULL_HANDLE) return false;
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &offset);
@@ -74,28 +69,21 @@ static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
 }
 
 //--------------------------------------------------------------
-// RTT: DrawToRenderTarget
+// RTT: DrawToRenderTarget（現状 clear-only）
 //--------------------------------------------------------------
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
-    if (!req.rt)
-    {
-        return;
-    }
+    if (!req.rt) return;
 
     auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
-    if (!vkrt)
-    {
-        return;
-    }
+    if (!vkrt) return;
 
     if (mDevice == VK_NULL_HANDLE || mQueueGraphics == VK_NULL_HANDLE || mCommandPool == VK_NULL_HANDLE)
     {
         return;
     }
 
-    if (vkrt->GetWidth() <= 0 || vkrt->GetHeight() <= 0 ||
-        vkrt->GetFramebuffer() == VK_NULL_HANDLE)
+    if (vkrt->GetWidth() <= 0 || vkrt->GetHeight() <= 0 || vkrt->GetFramebuffer() == VK_NULL_HANDLE)
     {
         const int w = (int)mScreenWidth;
         const int h = (int)mScreenHeight;
@@ -107,12 +95,8 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     }
 
     VkCommandBuffer cmd = BeginOneTimeCommands();
-    if (cmd == VK_NULL_HANDLE)
-    {
-        return;
-    }
+    if (cmd == VK_NULL_HANDLE) return;
 
-    // camera override
     PushCameraState();
     {
         CameraState s{};
@@ -122,7 +106,7 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         s.invView.Invert();
         SetCameraState(s);
 
-        UpdateSceneUBO(); // renderer camera
+        UpdateSceneUBO();
     }
 
     VkClearValue clears[2]{};
@@ -146,9 +130,9 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = (float)rp.renderArea.extent.height;   // ★上端を高さに
+    vp.y = 0.0f;
     vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = -(float)rp.renderArea.extent.height; // ★負で反転
+    vp.height = (float)rp.renderArea.extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
@@ -158,7 +142,8 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
-    // TODO: bucket draw
+    // clear-only
+
     vkCmdEndRenderPass(cmd);
 
     PopCameraState();
@@ -166,7 +151,7 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 }
 
 //--------------------------------------------------------------
-// Draw phases
+// Draw phases（GL と同じ構造で拡張）
 //--------------------------------------------------------------
 void VKRenderer::DrawShadowPass() {}
 void VKRenderer::RestoreAfterShadowPass() {}
@@ -187,14 +172,12 @@ void VKRenderer::DrawPostEffectPass() {}
 
 void VKRenderer::DrawUIPass()
 {
-    // UI は item.viewProj を毎 draw で反映するので、ここは更新しなくても良いが
-    // “UI以外が混ざったときの保険”で renderer camera を入れておく
     UpdateSceneUBO();
     DrawBucket_World(mBuckets.ui);
 }
 
 //--------------------------------------------------------------
-// DrawItem
+// DrawItem: Sprite / Mesh / SkinnedMesh
 //--------------------------------------------------------------
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
@@ -212,102 +195,200 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         return;
     }
 
-    //==========================================================
-    // Sprite(Texture) : minimum but “correct”
-    //==========================================================
-    if (it.type != RenderItemType::Sprite)
-    {
-        return;
-    }
-
-    // Pipeline
-    VKPipeline* pipe = mPipelines.Get("Sprite");
-    if (!pipe || !pipe->IsValid())
-    {
-        return;
-    }
-
-    // Geometry
+    // 共通: Geometry
     if (!BindVertexArrayVK(cmd, it.geometry))
     {
         return;
     }
 
-    // Descriptors
+    // 共通: Scene set（set=0）
     if (mSceneSet == VK_NULL_HANDLE)
     {
         return;
     }
 
-    VkDescriptorSet texSet = GetOrCreateSpriteTextureSet(it.texture.ptr);
-    if (texSet == VK_NULL_HANDLE)
+    //==========================================================
+    // Sprite
+    //==========================================================
+    if (it.type == RenderItemType::Sprite)
     {
+        VKPipeline* pipe = mPipelines.Get("Sprite");
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        // set=1 baseMap
+        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "Sprite");
+        if (baseMapSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        VkDescriptorSet sets[2] = { mSceneSet, baseMapSet };
+
+        pipe->Bind(cmd);
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0,
+            2,
+            sets,
+            0,
+            nullptr);
+
+        Vector3 color(1.0f, 1.0f, 1.0f);
+        float   alpha = 1.0f;
+
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            const SpritePayload& sp = GetSpritePayload(it.payloadIndex);
+            color = sp.color;
+            alpha = sp.alpha;
+        }
+
+        VKSpritePC pc{};
+        StoreMat4(pc.world, it.world);
+        pc.colorAlpha[0] = color.x;
+        pc.colorAlpha[1] = color.y;
+        pc.colorAlpha[2] = color.z;
+        pc.colorAlpha[3] = alpha;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(VKSpritePC),
+            &pc);
+
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(cmd, (uint32_t)it.indexCount, 1, 0, 0, 0);
+            AddDrawCall();
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(cmd, (uint32_t)it.vertexCount, 1, 0, 0);
+            AddDrawCall();
+        }
+
         return;
     }
 
-    // ★重要：GL と同じ意味にする
-    // SpriteComponent が詰めた it.viewProj（CreateSimpleViewProj）を SceneUBO に反映
-    // これをしないと UI sprite は 3D camera 行列で飛ぶことがある。
-    UpdateSceneUBO(it.viewProj);
-
-    VkDescriptorSet sets[2] =
+    //==========================================================
+    // Mesh
+    //==========================================================
+    if (it.type == RenderItemType::Mesh)
     {
-        mSceneSet, // set=0
-        texSet     // set=1
-    };
+        VKPipeline* pipe = mPipelines.Get("Mesh");
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
 
-    pipe->Bind(cmd);
+        // まずは “表示優先” で baseMap 必須運用にする（後で useTexture=0 を対応）
+        if (!it.texture.ptr)
+        {
+            return;
+        }
 
-    vkCmdBindDescriptorSets(
-        cmd,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipe->GetPipelineLayout(),
-        0,
-        2,
-        sets,
-        0,
-        nullptr);
+        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "Mesh");
+        if (baseMapSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
 
-    // PushConstants
-    Vector3 color(1.0f, 1.0f, 1.0f);
-    float   alpha = 1.0f;
+        VkDescriptorSet sets[2] = { mSceneSet, baseMapSet };
 
-    if (it.payloadIndex != RenderItem::kInvalidPayload)
-    {
-        const SpritePayload& sp = GetSpritePayload(it.payloadIndex);
-        color = sp.color;
-        alpha = sp.alpha;
+        pipe->Bind(cmd);
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0,
+            2,
+            sets,
+            0,
+            nullptr);
+
+        VKMeshPC pc{};
+        StoreMat4(pc.world, it.world);
+
+        pc.baseColor_useTex[0] = 1.0f;
+        pc.baseColor_useTex[1] = 1.0f;
+        pc.baseColor_useTex[2] = 1.0f;
+        pc.baseColor_useTex[3] = 1.0f; // useTex=1
+
+        pc.misc[0] = 64.0f; // specPower
+        pc.misc[1] = 0.0f;  // toon
+        pc.misc[2] = 0.0f;  // overrideEnabled
+        pc.misc[3] = 1.0f;  // alpha
+
+        pc.overrideColor[0] = 1.0f;
+        pc.overrideColor[1] = 0.0f;
+        pc.overrideColor[2] = 1.0f;
+        pc.overrideColor[3] = 1.0f;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(VKMeshPC),
+            &pc);
+
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(cmd, (uint32_t)it.indexCount, 1, 0, 0, 0);
+            AddDrawCall();
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(cmd, (uint32_t)it.vertexCount, 1, 0, 0);
+            AddDrawCall();
+        }
+
+        return;
     }
 
-    VKSpritePC pc{};
-    StoreMat4(pc.world, it.world);
-
-    pc.colorAlpha[0] = color.x;
-    pc.colorAlpha[1] = color.y;
-    pc.colorAlpha[2] = color.z;
-    pc.colorAlpha[3] = alpha;
-
-    vkCmdPushConstants(
-        cmd,
-        pipe->GetPipelineLayout(),
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(VKSpritePC),
-        &pc);
-
-    // Draw
-    if (it.indexCount > 0)
+    //==========================================================
+    // SkinnedMesh（骨パレットset=2がまだならここはスキップでOK）
+    //==========================================================
+    if (it.type == RenderItemType::SkinnedMesh)
     {
-        vkCmdDrawIndexed(cmd, (uint32_t)it.indexCount, 1, 0, 0, 0);
-        AddDrawCall();
+        VKPipeline* pipe = mPipelines.Get("SkinnedMesh");
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        if (!it.texture.ptr)
+        {
+            return;
+        }
+
+        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "SkinnedMesh");
+        if (baseMapSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        // set=2（palette）は次段階：SkinnedPayload に持たせて作る
+        // 今は “経路だけ” 用意して沈黙させる
+        (void)baseMapSet;
+        return;
     }
-    else if (it.vertexCount > 0)
-    {
-        vkCmdDraw(cmd, (uint32_t)it.vertexCount, 1, 0, 0);
-        AddDrawCall();
-    }
+
+    // 未対応は何もしない
 }
 
+//--------------------------------------------------------------
+// PipelineHandle
+//--------------------------------------------------------------
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 {
     (void)name;

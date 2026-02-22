@@ -1,7 +1,6 @@
 //======================================================================
 // Render/VK/VKRenderer_Descriptors.cpp
-//  - Sprite(Texture) を出すための最低限を集約
-//  - DescriptorPool / SceneUBO / SceneSet / SpriteTextureSet cache
+//  - DescriptorPool / SceneUBO / SceneSet / BaseMapSet cache
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -39,17 +38,40 @@ static uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
 }
 
 //--------------------------------------------------------------
-// local helper: Sprite pipeline set layout getter
+// local helper: Pipeline set layout getter（ここが “ブレない入口”）
 //--------------------------------------------------------------
-static VkDescriptorSetLayout GetSpritePipelineSetLayout(VKPipelineLibrary& lib,
-                                                        uint32_t setIndex)
+static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
+                                                  const char* pipelineName,
+                                                  uint32_t setIndex)
 {
-    auto* p = lib.Get("Sprite");
+    if (!pipelineName)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    auto* p = lib.Get(pipelineName);
     if (!p)
     {
         return VK_NULL_HANDLE;
     }
+
     return p->GetSetLayout(setIndex);
+}
+
+// 互換用：Sprite 専用 getter（呼び出し側が残ってもOK）
+static VkDescriptorSetLayout GetSpritePipelineSetLayout(VKPipelineLibrary& lib,
+                                                        uint32_t setIndex)
+{
+    return GetPipelineSetLayout(lib, "Sprite", setIndex);
+}
+
+//--------------------------------------------------------------
+// small helper: Free descriptor set (if possible)
+//--------------------------------------------------------------
+static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
+{
+    if (!device || !pool || !set) return;
+    vkFreeDescriptorSets(device, pool, 1, &set);
 }
 
 //==============================================================
@@ -66,20 +88,21 @@ bool VKRenderer::CreateDescriptorPool()
         return true;
     }
 
-    constexpr uint32_t kMaxSceneSets   = 8;
-    constexpr uint32_t kMaxTextureSets = 512;
+    // 必要数：Scene(set0) + BaseMap(set1) が主。余裕を見て確保。
+    constexpr uint32_t kMaxSceneSets   = 16;
+    constexpr uint32_t kMaxBaseMapSets = 1024;
 
     VkDescriptorPoolSize sizes[2]{};
     sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     sizes[0].descriptorCount = kMaxSceneSets;
 
     sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[1].descriptorCount = kMaxTextureSets;
+    sizes[1].descriptorCount = kMaxBaseMapSets;
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    ci.maxSets       = kMaxSceneSets + kMaxTextureSets;
+    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets;
     ci.poolSizeCount = 2;
     ci.pPoolSizes    = sizes;
 
@@ -94,15 +117,6 @@ bool VKRenderer::CreateDescriptorPool()
     return true;
 }
 
-//--------------------------------------------------------------
-// small helper: Free descriptor set (if possible)
-//--------------------------------------------------------------
-static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
-{
-    if (!device || !pool || !set) return;
-    vkFreeDescriptorSets(device, pool, 1, &set);
-}
-
 void VKRenderer::DestroyDescriptorPool()
 {
     if (!mDevice)
@@ -110,13 +124,14 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
+    // 個別に解放（FREE_DESCRIPTOR_SET_BIT 前提）
     if (mSceneSet != VK_NULL_HANDLE)
     {
         FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
         mSceneSet = VK_NULL_HANDLE;
     }
 
-    ClearSpriteTextureSetCache();
+    ClearBaseMapSetCache();
 
     if (mDescPool != VK_NULL_HANDLE)
     {
@@ -126,7 +141,7 @@ void VKRenderer::DestroyDescriptorPool()
 }
 
 //==============================================================
-// Scene UBO (min) : row_major mat4 viewProj をそのまま詰める想定
+// Scene UBO (minimum)
 //==============================================================
 struct VKSceneUBO_Min
 {
@@ -156,7 +171,6 @@ bool VKRenderer::CreateSceneUBO()
         return false;
     }
 
-    // 初期値
     UpdateSceneUBO();
     return true;
 }
@@ -182,14 +196,25 @@ void VKRenderer::DestroySceneUBO()
     mSceneUBOSize = 0;
 }
 
-void VKRenderer::UpdateSceneUBO()
+bool VKRenderer::UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size)
 {
-    // renderer の camera state から viewProj を作る従来版
-    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
-    UpdateSceneUBO(viewProj);
+    if (!mDevice || mem == VK_NULL_HANDLE || !data || size == 0)
+    {
+        return false;
+    }
+
+    void* mapped = nullptr;
+    if (vkMapMemory(mDevice, mem, 0, size, 0, &mapped) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    std::memcpy(mapped, data, (size_t)size);
+    vkUnmapMemory(mDevice, mem);
+    return true;
 }
 
-void VKRenderer::UpdateSceneUBO(const Matrix4& viewProj)
+void VKRenderer::UpdateSceneUBO()
 {
     if (!mDevice || mSceneUBOMem == VK_NULL_HANDLE || mSceneUBOSize == 0)
     {
@@ -197,6 +222,9 @@ void VKRenderer::UpdateSceneUBO(const Matrix4& viewProj)
     }
 
     VKSceneUBO_Min ubo{};
+
+    // ★順番は変えない（ユーザー指定）
+    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
     (void)UploadToBuffer(mSceneUBOMem, &ubo, (VkDeviceSize)mSceneUBOSize);
@@ -221,6 +249,7 @@ bool VKRenderer::CreateSceneDescriptorSet()
         return false;
     }
 
+    // まず Sprite pipeline の set0 を基準にする（Scene契約を統一）
     VkDescriptorSetLayout set0 = GetSpritePipelineSetLayout(mPipelines, 0);
     if (set0 == VK_NULL_HANDLE)
     {
@@ -260,13 +289,13 @@ bool VKRenderer::CreateSceneDescriptorSet()
 }
 
 //==============================================================
-// Sprite Texture Set cache
+// BaseMap set cache (set=1 binding=0 CombinedImageSampler)
 //==============================================================
-void VKRenderer::ClearSpriteTextureSetCache()
+void VKRenderer::ClearBaseMapSetCache()
 {
     if (mDevice && mDescPool)
     {
-        for (auto& kv : mSpriteTexSetCache)
+        for (auto& kv : mBaseMapSetCache)
         {
             VkDescriptorSet ds = kv.second;
             if (ds != VK_NULL_HANDLE)
@@ -275,29 +304,32 @@ void VKRenderer::ClearSpriteTextureSetCache()
             }
         }
     }
-    mSpriteTexSetCache.clear();
+    mBaseMapSetCache.clear();
 }
 
-//==============================================================
-// Sprite Texture Set (set=1 binding=0 CombinedImageSampler)
-//==============================================================
-VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
+VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
 {
-    if (!tex || !mDevice || !mDescPool)
+    if (!tex || !pipelineName || !mDevice || !mDescPool)
     {
         return VK_NULL_HANDLE;
     }
 
-    auto it = mSpriteTexSetCache.find(tex);
-    if (it != mSpriteTexSetCache.end())
+    BaseMapKey key{};
+    key.tex  = tex;
+    key.pipe = pipelineName;
+
+    auto it = mBaseMapSetCache.find(key);
+    if (it != mBaseMapSetCache.end())
     {
         return it->second;
     }
 
-    VkDescriptorSetLayout set1 = GetSpritePipelineSetLayout(mPipelines, 1);
+    // pipeline の set=1 layout を必ず使う（ここが “扇/無表示” の分岐点になりがち）
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] Sprite set1 layout is null\n";
+        std::cerr << "[VKRenderer] GetOrCreateBaseMapSet: set1 layout is null (pipe="
+                  << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
@@ -312,7 +344,8 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
     VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &ds);
     if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(SpriteTexSet) failed: " << vr << "\n";
+        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(BaseMapSet) failed: " << vr
+                  << " (pipe=" << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
@@ -324,21 +357,22 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
         return VK_NULL_HANDLE;
     };
 
+    // Texture -> GPU
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {
-        return fail("[VKRenderer] texture GPU is null");
+        return fail("[VKRenderer] GetOrCreateBaseMapSet: texture GPU is null");
     }
 
     auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
     if (!vkgpu)
     {
-        return fail("[VKRenderer] texture GPU is not VKTextureGPU");
+        return fail("[VKRenderer] GetOrCreateBaseMapSet: texture GPU is not VKTextureGPU");
     }
 
     if (vkgpu->GetSampler() == VK_NULL_HANDLE || vkgpu->GetImageView() == VK_NULL_HANDLE)
     {
-        return fail("[VKRenderer] VKTextureGPU sampler/view is null");
+        return fail("[VKRenderer] GetOrCreateBaseMapSet: sampler/view is null");
     }
 
     VkDescriptorImageInfo ii{};
@@ -356,7 +390,7 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
-    mSpriteTexSetCache[tex] = ds;
+    mBaseMapSetCache.emplace(std::move(key), ds);
     return ds;
 }
 
@@ -424,24 +458,6 @@ bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
         return false;
     }
 
-    return true;
-}
-
-bool VKRenderer::UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size)
-{
-    if (!mDevice || mem == VK_NULL_HANDLE || !data || size == 0)
-    {
-        return false;
-    }
-
-    void* mapped = nullptr;
-    if (vkMapMemory(mDevice, mem, 0, size, 0, &mapped) != VK_SUCCESS)
-    {
-        return false;
-    }
-
-    std::memcpy(mapped, data, (size_t)size);
-    vkUnmapMemory(mDevice, mem);
     return true;
 }
 

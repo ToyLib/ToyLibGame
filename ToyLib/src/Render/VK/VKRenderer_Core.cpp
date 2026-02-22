@@ -170,6 +170,8 @@ void VKRenderer::Shutdown()
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
     mSurfaceQuad.reset();
+    
+    mPipelines.DestroyAll();
 
     // Sync
     for (auto& f : mFrames)
@@ -1022,7 +1024,7 @@ bool VKRenderer::RecreateSwapchain()
     SDL_GetWindowSizeInPixels(mWindow, &w, &h);
     if (w <= 0 || h <= 0)
     {
-        return true; // minimized etc.
+        return true;
     }
 
     vkDeviceWaitIdle(mDevice);
@@ -1032,7 +1034,6 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateSwapchainAndViews()) return false;
     if (!CreateDepthForSwapchain()) return false;
 
-    // renderpass は swapchain format に依存 → 作り直す
     if (mRenderPass)
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
@@ -1042,22 +1043,23 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateFramebuffers()) return false;
 
     //==========================================================
-    // IMPORTANT:
-    // DescriptorSets must be freed BEFORE pipelines destroy
-    // their VkDescriptorSetLayout (VKPipeline::Destroy()).
+    // ★ここが超重要：古い layout で確保された DescriptorSet を先に全部 free
+    //   （この後 pipeline を rebuild すると、setLayout が作り直されるため）
     //==========================================================
     if (mDevice && mDescPool)
     {
         if (mSceneSet != VK_NULL_HANDLE)
         {
             vkFreeDescriptorSets(mDevice, mDescPool, 1, &mSceneSet);
-            mSceneSet = VK_NULL_HANDLE;
+            mSceneSet = VK_NULL_HANDLE; // ★必ず NULL に戻す
         }
-        ClearSpriteTextureSetCache();
+
+        // SpriteTextureSetCache をやめたなら、こっちでOK
+        ClearBaseMapSetCache(); // ★中で vkFreeDescriptorSets すること
     }
 
     //==========================================================
-    // Pipelines depend on RenderPass and Extent -> rebuild
+    // RenderPass/Extent 依存の Pipeline を作り直す
     //==========================================================
     if (!BuildDefaultPipelines())
     {
@@ -1065,7 +1067,7 @@ bool VKRenderer::RecreateSwapchain()
     }
 
     //==========================================================
-    // Recreate SceneSet with NEW set layout (set=0)
+    // ★新しい set layout(set=0) で SceneSet を作り直す
     //==========================================================
     if (!CreateSceneDescriptorSet())
     {
@@ -1184,8 +1186,16 @@ bool VKRenderer::BuildDefaultPipelines()
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
         if (!mPipelines.CreatePipeline("Mesh", mDevice, mRenderPass, mSwapchainExtent, mesh))
         {
-            // Mesh.frag が無いならここを “許容” にしてもOK
-            // return false;
+            return false;
+        }
+    }
+
+    // SkinnedMesh
+    {
+        VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
+        if (!mPipelines.CreatePipeline("SkinnedMesh", mDevice, mRenderPass, mSwapchainExtent, sk))
+        {
+            return false;
         }
     }
 
