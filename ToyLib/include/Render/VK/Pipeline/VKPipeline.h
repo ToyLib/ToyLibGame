@@ -57,10 +57,10 @@ struct VKPipelineDesc
     };
 
     VertexLayout layout = VertexLayout::Sprite_Pos3Nrm3Uv2;
-    
+
     // ★追加：pipeline layout を Desc で駆動するための set layout 情報
     std::vector<VKDescriptorSetLayoutDesc> setLayouts {};
-    
+
     // ★追加：PipelineLayout の push constant ranges
     std::vector<VKPushConstantDesc> pushConstants {};
 };
@@ -88,22 +88,42 @@ public:
 
     void Bind(VkCommandBuffer cmd) const;
 
+    //==============================================================
+    // DescriptorSetLayout access
+    //  - VKRenderer が set=0/1 を allocate するために参照する
+    //==============================================================
+    VkDescriptorSetLayout GetSetLayout(uint32_t setIndex) const
+    {
+        // setIndex は「作成した順に mSetLayouts[0]=set0, [1]=set1...」前提。
+        // もし set 番号が飛ぶ運用をするなら map 化（後でOK）。
+        if (setIndex >= (uint32_t)mSetLayouts.size())
+        {
+            return VK_NULL_HANDLE;
+        }
+        return mSetLayouts[setIndex];
+    }
+
+    uint32_t GetSetLayoutCount() const
+    {
+        return (uint32_t)mSetLayouts.size();
+    }
+
 private:
     VkDevice         mDevice   { VK_NULL_HANDLE };
     VkPipeline       mPipeline { VK_NULL_HANDLE };
     VkPipelineLayout mLayout   { VK_NULL_HANDLE };
 
-
+    // CreateDescriptorSetLayouts() が生成した set layouts
     std::vector<VkDescriptorSetLayout> mSetLayouts {};
+
 private:
     static void BuildVertexInput(VKPipelineDesc::VertexLayout layout,
                                  VkVertexInputBindingDescription& outBinding,
                                  std::vector<VkVertexInputAttributeDescription>& outAttrs);
 
     static VkShaderModule LoadShaderModule(VkDevice device, const std::string& spvPath);
-    
-    bool CreateDescriptorSetLayouts(const VKPipelineDesc& desc);
 
+    bool CreateDescriptorSetLayouts(const VKPipelineDesc& desc);
 };
 
 } // namespace toy

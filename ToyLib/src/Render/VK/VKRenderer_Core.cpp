@@ -2,6 +2,7 @@
 // Render/VK/VKRenderer_Core.cpp
 //  - SDL3 + Vulkan (MoltenVK)
 //  - Init / Shutdown / Swapchain / Depth / RenderPass / Cmd / Sync
+//  - (Add) DescriptorPool / SceneUBO / SceneSet (minimum for Sprite(Texture))
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -10,7 +11,6 @@
 #include "Render/VK/VKUtil.h"
 #include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
-
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
@@ -51,63 +51,87 @@ bool VKRenderer::Initialize(const Application* app)
         std::cerr << "[VKRenderer] Initialize failed: app is null\n";
         return false;
     }
-    
+
     mWindow = app->GetSDLWindow();
     if (!mWindow)
     {
         std::cerr << "[VKRenderer] Initialize failed: SDL window is null\n";
         return false;
     }
-    
+
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
     mScreenWidth  = static_cast<float>(pixelW);
     mScreenHeight = static_cast<float>(pixelH);
-    
+
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
     if (mWindowDisplayScale <= 0.0f) mWindowDisplayScale = 1.0f;
-    
+
     if (!CreateInstance()) { Shutdown(); return false; }
     if (!CreateSurface())  { Shutdown(); return false; }
     if (!PickPhysicalDevice()) { Shutdown(); return false; }
     if (!CreateDeviceAndQueues()) { Shutdown(); return false; }
-    
+
     // RenderBackendState は VKリソース生成の前にセット
     RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
     RenderBackendState::Get().SetVKDevice(mDevice);
     RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
-    
+
     if (!CreateSwapchainAndViews()) { Shutdown(); return false; }
     if (!CreateDepthForSwapchain()) { Shutdown(); return false; }
     if (!CreateRenderPass())        { Shutdown(); return false; }
     if (!CreateFramebuffers())      { Shutdown(); return false; }
     if (!CreateCommandPoolAndBuffers()) { Shutdown(); return false; }
-    
+
     RenderBackendState::Get().SetVKCommandPool(mCommandPool);
-    
+
     if (!CreateSyncObjects()) { Shutdown(); return false; }
-    
+
     // common geometry (既存経路)
     CreateSpriteVerts();
     CreateFullScreenQuad();
     CreateSurfaceQuad();
-    
-    // Pipeline
+
+    //==========================================================
+    // Pipeline (RenderPass/Extent に依存するので先に作る)
+    //==========================================================
     if (!BuildDefaultPipelines())
     {
         Shutdown();
         return false;
     }
-    
-    
-    
+
+    //==========================================================
+    // Descriptors (minimum for Sprite(Texture))
+    //  - set=0 : Scene UBO
+    //  - set=1 : Texture (cache)
+    //
+    // 重要: SceneSet は Pipeline の SetLayout に依存する想定なので
+    //       BuildDefaultPipelines() の後で生成する。
+    //==========================================================
+    if (!CreateDescriptorPool())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateSceneUBO())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateSceneDescriptorSet())
+    {
+        Shutdown();
+        return false;
+    }
+
     std::cerr << "[VKRenderer] Init OK. Swapchain("
-    << mSwapchainExtent.width << "x" << mSwapchainExtent.height
-    << ") Scale=" << mWindowDisplayScale
-    << " Images=" << (int)mSwapchainImages.size()
-    << "\n";
-    
+              << mSwapchainExtent.width << "x" << mSwapchainExtent.height
+              << ") Scale=" << mWindowDisplayScale
+              << " Images=" << (int)mSwapchainImages.size()
+              << "\n";
+
     return true;
 }
 
@@ -120,12 +144,19 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
-    
+
+    //==========================================================
+    // Descriptors (must be destroyed before VkDevice)
+    //==========================================================
+    ClearSpriteTextureSetCache();
+    DestroySceneUBO();
+    DestroyDescriptorPool();
+
     // IRenderer resources
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
     mSurfaceQuad.reset();
-    
+
     // Sync
     for (auto& f : mFrames)
     {
@@ -141,52 +172,52 @@ void VKRenderer::Shutdown()
         f.cmd            = VK_NULL_HANDLE;
     }
     mFrames.clear();
-    
+
     // Command pool
     if (mDevice && mCommandPool)
     {
         vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
         mCommandPool = VK_NULL_HANDLE;
     }
-    
+
     CleanupSwapchain();
-    
+
     if (mDevice)
     {
         vkDestroyDevice(mDevice, nullptr);
         mDevice = VK_NULL_HANDLE;
     }
-    
+
     if (mInstance && mSurface)
     {
         vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
         mSurface = VK_NULL_HANDLE;
     }
-    
+
     if (mEnableValidation && mDebugMessenger && mInstance)
     {
         toy::vkutil::DestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger);
         mDebugMessenger = VK_NULL_HANDLE;
     }
-    
+
     if (mInstance)
     {
         vkDestroyInstance(mInstance, nullptr);
         mInstance = VK_NULL_HANDLE;
     }
-    
+
     // RenderBackendState を “無効化” しておく（潜在バグ対策）
     RenderBackendState::Get().SetVKPhysicalDevice(VK_NULL_HANDLE);
     RenderBackendState::Get().SetVKDevice(VK_NULL_HANDLE);
     RenderBackendState::Get().SetVKGraphicsQueue(VK_NULL_HANDLE);
     RenderBackendState::Get().SetVKCommandPool(VK_NULL_HANDLE);
-    
+
     mPhysicalDevice = VK_NULL_HANDLE;
     mQueueGraphics  = VK_NULL_HANDLE;
     mQueuePresent   = VK_NULL_HANDLE;
     mQueueFamilyGraphics = UINT32_MAX;
     mQueueFamilyPresent  = UINT32_MAX;
-    
+
     mNeedRecreateSwapchain = false;
     mFrameIndex = 0;
     mImageIndex = 0;
@@ -217,10 +248,10 @@ void VKRenderer::OnWindowResized(int pixelW, int pixelH)
     {
         return;
     }
-    
+
     mScreenWidth  = (float)pixelW;
     mScreenHeight = (float)pixelH;
-    
+
     mNeedRecreateSwapchain = true;
 }
 
@@ -233,7 +264,7 @@ bool VKRenderer::BeginFrame()
     {
         return false;
     }
-    
+
     if (mNeedRecreateSwapchain)
     {
         if (!RecreateSwapchain())
@@ -242,20 +273,20 @@ bool VKRenderer::BeginFrame()
         }
         mNeedRecreateSwapchain = false;
     }
-    
+
     FrameSync& frame = mFrames[mFrameIndex];
-    
+
     vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
     vkResetFences(mDevice, 1, &frame.inFlight);
-    
+
     VkResult ar = vkAcquireNextImageKHR(
-                                        mDevice,
-                                        mSwapchain,
-                                        UINT64_MAX,
-                                        frame.imageAvailable,
-                                        VK_NULL_HANDLE,
-                                        &mImageIndex);
-    
+        mDevice,
+        mSwapchain,
+        UINT64_MAX,
+        frame.imageAvailable,
+        VK_NULL_HANDLE,
+        &mImageIndex);
+
     if (ar == VK_ERROR_OUT_OF_DATE_KHR)
     {
         mNeedRecreateSwapchain = true;
@@ -266,22 +297,22 @@ bool VKRenderer::BeginFrame()
         std::cerr << "[VKRenderer] Acquire failed: " << ar << "\n";
         return false;
     }
-    
+
     vkResetCommandBuffer(frame.cmd, 0);
-    
+
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(frame.cmd, &bi);
-    
+
     VkClearValue clears[2]{};
     clears[0].color.float32[0] = mClearColor.x;
     clears[0].color.float32[1] = mClearColor.y;
     clears[0].color.float32[2] = mClearColor.z;
     clears[0].color.float32[3] = 1.0f;
-    
+
     clears[1].depthStencil.depth   = 1.0f;
     clears[1].depthStencil.stencil = 0;
-    
+
     VkRenderPassBeginInfo rp{};
     rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass  = mRenderPass;
@@ -290,9 +321,9 @@ bool VKRenderer::BeginFrame()
     rp.renderArea.extent = mSwapchainExtent;
     rp.clearValueCount   = 2;
     rp.pClearValues      = clears;
-    
+
     vkCmdBeginRenderPass(frame.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-    
+
     VkViewport vp{};
     vp.x = 0.0f;
     vp.y = 0.0f;
@@ -301,12 +332,12 @@ bool VKRenderer::BeginFrame()
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(frame.cmd, 0, 1, &vp);
-    
+
     VkRect2D sc{};
     sc.offset = { 0, 0 };
     sc.extent = mSwapchainExtent;
     vkCmdSetScissor(frame.cmd, 0, 1, &sc);
-    
+
     return true;
 }
 
@@ -316,20 +347,20 @@ void VKRenderer::EndFrame()
     {
         return;
     }
-    
+
     FrameSync& frame = mFrames[mFrameIndex];
-    
+
     vkCmdEndRenderPass(frame.cmd);
-    
+
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkEndCommandBuffer failed: " << er << "\n";
         return;
     }
-    
+
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    
+
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.waitSemaphoreCount   = 1;
@@ -339,14 +370,14 @@ void VKRenderer::EndFrame()
     si.pCommandBuffers      = &frame.cmd;
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores    = &frame.renderFinished;
-    
+
     VkResult sr = vkQueueSubmit(mQueueGraphics, 1, &si, frame.inFlight);
     if (sr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkQueueSubmit failed: " << sr << "\n";
         return;
     }
-    
+
     VkPresentInfoKHR pi{};
     pi.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     pi.waitSemaphoreCount = 1;
@@ -354,9 +385,9 @@ void VKRenderer::EndFrame()
     pi.swapchainCount     = 1;
     pi.pSwapchains        = &mSwapchain;
     pi.pImageIndices      = &mImageIndex;
-    
+
     VkResult pr = vkQueuePresentKHR(mQueuePresent, &pi);
-    
+
     if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR)
     {
         mNeedRecreateSwapchain = true;
@@ -365,7 +396,7 @@ void VKRenderer::EndFrame()
     {
         std::cerr << "[VKRenderer] vkQueuePresentKHR failed: " << pr << "\n";
     }
-    
+
     mFrameIndex = (mFrameIndex + 1) % (uint32_t)mFrames.size();
 }
 
@@ -381,22 +412,22 @@ bool VKRenderer::CreateInstance()
         std::cerr << "[VKRenderer] SDL_Vulkan_GetInstanceExtensions failed: " << SDL_GetError() << "\n";
         return false;
     }
-    
+
     std::vector<const char*> exts;
     exts.reserve((size_t)sdlExtCount + 8);
     for (Uint32 i = 0; i < sdlExtCount; ++i)
     {
         exts.push_back(sdlExts[i]);
     }
-    
+
     const auto availExts   = toy::vkutil::GetInstanceExts();
     const auto availLayers = toy::vkutil::GetInstanceLayers();
-    
+
 #if !defined(NDEBUG)
     mEnableValidation =
-    mEnableValidation &&
-    toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
-    
+        mEnableValidation &&
+        toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
+
     if (mEnableValidation)
     {
         if (toy::vkutil::HasInstanceExt(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, availExts))
@@ -407,14 +438,14 @@ bool VKRenderer::CreateInstance()
 #else
     mEnableValidation = false;
 #endif
-    
+
     const bool hasPortEnum =
-    toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
+        toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
     if (hasPortEnum)
     {
         exts.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     }
-    
+
     VkApplicationInfo appInfo{};
     appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName   = "ToyLibGame";
@@ -422,18 +453,18 @@ bool VKRenderer::CreateInstance()
     appInfo.pEngineName        = "ToyLib";
     appInfo.engineVersion      = VK_MAKE_VERSION(0, 1, 0);
     appInfo.apiVersion         = VK_API_VERSION_1_2;
-    
+
     VkInstanceCreateInfo ici{};
     ici.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     ici.pApplicationInfo        = &appInfo;
     ici.enabledExtensionCount   = (uint32_t)exts.size();
     ici.ppEnabledExtensionNames = exts.data();
-    
+
     if (hasPortEnum)
     {
         ici.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     }
-    
+
     std::vector<const char*> layers;
     VkDebugUtilsMessengerCreateInfoEXT dbgCI{};
 #if !defined(NDEBUG)
@@ -442,35 +473,35 @@ bool VKRenderer::CreateInstance()
         layers.push_back(kValidationLayers[0]);
         ici.enabledLayerCount   = (uint32_t)layers.size();
         ici.ppEnabledLayerNames = layers.data();
-        
+
         dbgCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         dbgCI.messageSeverity =
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         dbgCI.messageType =
-        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         dbgCI.pfnUserCallback = toy::vkutil::DebugCallback;
-        
+
         ici.pNext = &dbgCI;
     }
 #endif
-    
+
     VkResult vr = vkCreateInstance(&ici, nullptr, &mInstance);
     if (vr != VK_SUCCESS || mInstance == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateInstance failed: " << vr << "\n";
         return false;
     }
-    
+
 #if !defined(NDEBUG)
     if (mEnableValidation)
     {
         toy::vkutil::CreateDebugUtilsMessengerEXT(mInstance, &dbgCI, &mDebugMessenger);
     }
 #endif
-    
+
     return true;
 }
 
@@ -493,7 +524,7 @@ bool VKRenderer::PickPhysicalDevice()
         std::cerr << "[VKRenderer] No Vulkan physical devices. vr=" << vr << "\n";
         return false;
     }
-    
+
     std::vector<VkPhysicalDevice> devs(count);
     vr = vkEnumeratePhysicalDevices(mInstance, &count, devs.data());
     if (vr != VK_SUCCESS)
@@ -501,34 +532,34 @@ bool VKRenderer::PickPhysicalDevice()
         std::cerr << "[VKRenderer] vkEnumeratePhysicalDevices(list) failed. vr=" << vr << "\n";
         return false;
     }
-    
+
     for (auto dev : devs)
     {
         const auto q = toy::vkutil::FindQueueFamilies(dev, mSurface);
         if (!q.IsComplete()) continue;
-        
+
         const auto de = toy::vkutil::GetDeviceExts(dev);
         if (!toy::vkutil::HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
         {
             continue;
         }
-        
+
         const auto sc = toy::vkutil::QuerySwapchainSupport(dev, mSurface);
         if (sc.formats.empty() || sc.presentModes.empty())
         {
             continue;
         }
-        
+
         mPhysicalDevice = dev;
         mQueueFamilyGraphics = q.graphics.value();
         mQueueFamilyPresent  = q.present.value();
-        
+
         VkPhysicalDeviceProperties props{};
         vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
         std::cerr << "[VKRenderer] GPU: " << props.deviceName << "\n";
         return true;
     }
-    
+
     std::cerr << "[VKRenderer] No suitable GPU found.\n";
     return false;
 }
@@ -536,11 +567,11 @@ bool VKRenderer::PickPhysicalDevice()
 bool VKRenderer::CreateDeviceAndQueues()
 {
     std::set<uint32_t> uniqueFamilies = { mQueueFamilyGraphics, mQueueFamilyPresent };
-    
+
     float prio = 1.0f;
     std::vector<VkDeviceQueueCreateInfo> qcis;
     qcis.reserve(uniqueFamilies.size());
-    
+
     for (uint32_t fam : uniqueFamilies)
     {
         VkDeviceQueueCreateInfo qci{};
@@ -550,12 +581,12 @@ bool VKRenderer::CreateDeviceAndQueues()
         qci.pQueuePriorities = &prio;
         qcis.push_back(qci);
     }
-    
+
     std::vector<const char*> devExts;
     devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    
+
     VkPhysicalDeviceFeatures features{};
-    
+
     VkDeviceCreateInfo dci{};
     dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dci.queueCreateInfoCount    = (uint32_t)qcis.size();
@@ -563,7 +594,7 @@ bool VKRenderer::CreateDeviceAndQueues()
     dci.enabledExtensionCount   = (uint32_t)devExts.size();
     dci.ppEnabledExtensionNames = devExts.data();
     dci.pEnabledFeatures        = &features;
-    
+
 #if !defined(NDEBUG)
     std::vector<const char*> layers;
     if (mEnableValidation)
@@ -573,17 +604,17 @@ bool VKRenderer::CreateDeviceAndQueues()
         dci.ppEnabledLayerNames = layers.data();
     }
 #endif
-    
+
     VkResult vr = vkCreateDevice(mPhysicalDevice, &dci, nullptr, &mDevice);
     if (vr != VK_SUCCESS || mDevice == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateDevice failed: " << vr << "\n";
         return false;
     }
-    
+
     vkGetDeviceQueue(mDevice, mQueueFamilyGraphics, 0, &mQueueGraphics);
     vkGetDeviceQueue(mDevice, mQueueFamilyPresent,  0, &mQueuePresent);
-    
+
     return (mQueueGraphics != VK_NULL_HANDLE && mQueuePresent != VK_NULL_HANDLE);
 }
 
@@ -592,24 +623,24 @@ bool VKRenderer::CreateSwapchainAndViews()
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
-    
+
     const auto sc = toy::vkutil::QuerySwapchainSupport(mPhysicalDevice, mSurface);
     if (sc.formats.empty() || sc.presentModes.empty())
     {
         std::cerr << "[VKRenderer] Swapchain support incomplete.\n";
         return false;
     }
-    
+
     mSwapchainFormat = toy::vkutil::ChooseSurfaceFormat(sc.formats);
     const VkPresentModeKHR pm = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ true);
     mSwapchainExtent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
-    
+
     uint32_t imageCount = sc.caps.minImageCount + 1;
     if (sc.caps.maxImageCount > 0 && imageCount > sc.caps.maxImageCount)
     {
         imageCount = sc.caps.maxImageCount;
     }
-    
+
     VkSwapchainCreateInfoKHR sci{};
     sci.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     sci.surface          = mSurface;
@@ -619,7 +650,7 @@ bool VKRenderer::CreateSwapchainAndViews()
     sci.imageExtent      = mSwapchainExtent;
     sci.imageArrayLayers = 1;
     sci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    
+
     uint32_t qIdx[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
     if (mQueueFamilyGraphics != mQueueFamilyPresent)
     {
@@ -631,20 +662,20 @@ bool VKRenderer::CreateSwapchainAndViews()
     {
         sci.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
     }
-    
+
     sci.preTransform   = sc.caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     sci.presentMode    = pm;
     sci.clipped        = VK_TRUE;
     sci.oldSwapchain   = VK_NULL_HANDLE;
-    
+
     VkResult vr = vkCreateSwapchainKHR(mDevice, &sci, nullptr, &mSwapchain);
     if (vr != VK_SUCCESS || mSwapchain == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateSwapchainKHR failed: " << vr << "\n";
         return false;
     }
-    
+
     uint32_t scImgCount = 0;
     vr = vkGetSwapchainImagesKHR(mDevice, mSwapchain, &scImgCount, nullptr);
     if (vr != VK_SUCCESS || scImgCount == 0)
@@ -652,7 +683,7 @@ bool VKRenderer::CreateSwapchainAndViews()
         std::cerr << "[VKRenderer] vkGetSwapchainImagesKHR(count) failed: " << vr << "\n";
         return false;
     }
-    
+
     mSwapchainImages.resize(scImgCount, VK_NULL_HANDLE);
     vr = vkGetSwapchainImagesKHR(mDevice, mSwapchain, &scImgCount, mSwapchainImages.data());
     if (vr != VK_SUCCESS)
@@ -660,7 +691,7 @@ bool VKRenderer::CreateSwapchainAndViews()
         std::cerr << "[VKRenderer] vkGetSwapchainImagesKHR(list) failed: " << vr << "\n";
         return false;
     }
-    
+
     mSwapchainImageViews.resize(scImgCount, VK_NULL_HANDLE);
     for (uint32_t i = 0; i < scImgCount; ++i)
     {
@@ -674,7 +705,7 @@ bool VKRenderer::CreateSwapchainAndViews()
         iv.subresourceRange.levelCount     = 1;
         iv.subresourceRange.baseArrayLayer = 0;
         iv.subresourceRange.layerCount     = 1;
-        
+
         vr = vkCreateImageView(mDevice, &iv, nullptr, &mSwapchainImageViews[i]);
         if (vr != VK_SUCCESS)
         {
@@ -682,7 +713,7 @@ bool VKRenderer::CreateSwapchainAndViews()
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -695,53 +726,53 @@ bool VKRenderer::CreateDepthForSwapchain()
     {
         return false;
     }
-    
+
     mDepthFormat = toy::vkutil::ChooseDepthFormat(mPhysicalDevice);
     if (mDepthFormat == VK_FORMAT_UNDEFINED)
     {
         std::cerr << "[VKRenderer] ChooseDepthFormat returned UNDEFINED\n";
         return false;
     }
-    
+
     DestroyDepthForSwapchain();
-    
+
     if (!toy::vkutil::CreateImage2D(
-                                    mPhysicalDevice,
-                                    mDevice,
-                                    mSwapchainExtent.width,
-                                    mSwapchainExtent.height,
-                                    mDepthFormat,
-                                    VK_IMAGE_TILING_OPTIMAL,
-                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                    mDepthImage,
-                                    mDepthMemory,
-                                    VK_IMAGE_LAYOUT_UNDEFINED))
+            mPhysicalDevice,
+            mDevice,
+            mSwapchainExtent.width,
+            mSwapchainExtent.height,
+            mDepthFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            mDepthImage,
+            mDepthMemory,
+            VK_IMAGE_LAYOUT_UNDEFINED))
     {
         std::cerr << "[VKRenderer] CreateImage2D(depth) failed\n";
         return false;
     }
-    
+
     VkImageAspectFlags aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
     if (toy::vkutil::HasStencilComponent(mDepthFormat))
     {
         aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
-    
+
     mDepthImageView = toy::vkutil::CreateImageView2D(mDevice, mDepthImage, mDepthFormat, aspect);
     if (mDepthImageView == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] CreateImageView2D(depth) failed\n";
         return false;
     }
-    
+
     return true;
 }
 
 void VKRenderer::DestroyDepthForSwapchain()
 {
     if (!mDevice) return;
-    
+
     if (mDepthImageView)
     {
         vkDestroyImageView(mDevice, mDepthImageView, nullptr);
@@ -778,7 +809,7 @@ bool VKRenderer::CreateRenderPass()
         std::cerr << "[VKRenderer] CreateRenderPass: depth format undefined\n";
         return false;
     }
-    
+
     VkAttachmentDescription color{};
     color.format         = mSwapchainFormat.format;
     color.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -788,7 +819,7 @@ bool VKRenderer::CreateRenderPass()
     color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     color.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     color.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    
+
     VkAttachmentDescription depth{};
     depth.format         = mDepthFormat;
     depth.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -798,30 +829,30 @@ bool VKRenderer::CreateRenderPass()
     depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    
+
     VkAttachmentReference colorRef{};
     colorRef.attachment = 0;
     colorRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    
+
     VkAttachmentReference depthRef{};
     depthRef.attachment = 1;
     depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount    = 1;
     subpass.pColorAttachments       = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
-    
+
     VkSubpassDependency dep{};
     dep.srcSubpass    = VK_SUBPASS_EXTERNAL;
     dep.dstSubpass    = 0;
     dep.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dep.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    
+
     VkAttachmentDescription atts[2] = { color, depth };
-    
+
     VkRenderPassCreateInfo rpci{};
     rpci.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     rpci.attachmentCount = 2;
@@ -830,14 +861,14 @@ bool VKRenderer::CreateRenderPass()
     rpci.pSubpasses      = &subpass;
     rpci.dependencyCount = 1;
     rpci.pDependencies   = &dep;
-    
+
     VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
     if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateRenderPass failed: " << vr << "\n";
         return false;
     }
-    
+
     return true;
 }
 
@@ -863,15 +894,15 @@ bool VKRenderer::CreateFramebuffers()
         std::cerr << "[VKRenderer] CreateFramebuffers: depth view is null\n";
         return false;
     }
-    
+
     for (auto fb : mFramebuffers)
     {
         if (fb) vkDestroyFramebuffer(mDevice, fb, nullptr);
     }
     mFramebuffers.clear();
-    
+
     mFramebuffers.resize(mSwapchainImageViews.size(), VK_NULL_HANDLE);
-    
+
     for (size_t i = 0; i < mSwapchainImageViews.size(); ++i)
     {
         VkImageView attachments[] =
@@ -879,7 +910,7 @@ bool VKRenderer::CreateFramebuffers()
             mSwapchainImageViews[i],
             mDepthImageView
         };
-        
+
         VkFramebufferCreateInfo fci{};
         fci.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fci.renderPass      = mRenderPass;
@@ -888,16 +919,16 @@ bool VKRenderer::CreateFramebuffers()
         fci.width           = mSwapchainExtent.width;
         fci.height          = mSwapchainExtent.height;
         fci.layers          = 1;
-        
+
         VkResult vr = vkCreateFramebuffer(mDevice, &fci, nullptr, &mFramebuffers[i]);
         if (vr != VK_SUCCESS || mFramebuffers[i] == VK_NULL_HANDLE)
         {
             std::cerr << "[VKRenderer] vkCreateFramebuffer failed: " << vr
-            << " (i=" << i << ")\n";
+                      << " (i=" << i << ")\n";
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -907,37 +938,37 @@ bool VKRenderer::CreateCommandPoolAndBuffers()
     pci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pci.queueFamilyIndex = mQueueFamilyGraphics;
     pci.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    
+
     VkResult vr = vkCreateCommandPool(mDevice, &pci, nullptr, &mCommandPool);
     if (vr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkCreateCommandPool failed: " << vr << "\n";
         return false;
     }
-    
+
     const uint32_t kFrames = 2;
     mFrames.resize(kFrames);
-    
+
     std::vector<VkCommandBuffer> cmds(kFrames, VK_NULL_HANDLE);
-    
+
     VkCommandBufferAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     ai.commandPool        = mCommandPool;
     ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = kFrames;
-    
+
     vr = vkAllocateCommandBuffers(mDevice, &ai, cmds.data());
     if (vr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkAllocateCommandBuffers failed: " << vr << "\n";
         return false;
     }
-    
+
     for (uint32_t i = 0; i < kFrames; ++i)
     {
         mFrames[i].cmd = cmds[i];
     }
-    
+
     return true;
 }
 
@@ -945,11 +976,11 @@ bool VKRenderer::CreateSyncObjects()
 {
     VkSemaphoreCreateInfo sci{};
     sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    
+
     VkFenceCreateInfo fci{};
     fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    
+
     for (auto& f : mFrames)
     {
         if (vkCreateSemaphore(mDevice, &sci, nullptr, &f.imageAvailable) != VK_SUCCESS ||
@@ -960,7 +991,7 @@ bool VKRenderer::CreateSyncObjects()
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -976,14 +1007,14 @@ bool VKRenderer::RecreateSwapchain()
     {
         return true; // minimized etc.
     }
-    
+
     vkDeviceWaitIdle(mDevice);
-    
+
     CleanupSwapchain();
-    
+
     if (!CreateSwapchainAndViews()) return false;
     if (!CreateDepthForSwapchain()) return false;
-    
+
     // renderpass は swapchain format に依存 → 作り直す
     if (mRenderPass)
     {
@@ -992,7 +1023,27 @@ bool VKRenderer::RecreateSwapchain()
     }
     if (!CreateRenderPass()) return false;
     if (!CreateFramebuffers()) return false;
-    
+
+    //==========================================================
+    // IMPORTANT:
+    // Pipelines typically depend on RenderPass and Extent.
+    // After swapchain recreation, rebuild pipelines that are using mRenderPass.
+    //
+    // NOTE:
+    // The actual destroy API depends on your VKPipelineLibrary implementation.
+    // Add the proper call here.
+    //==========================================================
+    // TODO: mPipelines.DestroyAll(mDevice);
+    if (!BuildDefaultPipelines())
+    {
+        return false;
+    }
+
+    // Descriptor set layouts should remain compatible if presets are the same.
+    // Texture descriptor sets cache can stay, but if you change layouts later,
+    // clear it here.
+    // ClearSpriteTextureSetCache();
+
     return true;
 }
 
@@ -1002,28 +1053,28 @@ void VKRenderer::CleanupSwapchain()
     {
         return;
     }
-    
+
     for (auto fb : mFramebuffers)
     {
         if (fb) vkDestroyFramebuffer(mDevice, fb, nullptr);
     }
     mFramebuffers.clear();
-    
+
     if (mRenderPass)
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
         mRenderPass = VK_NULL_HANDLE;
     }
-    
+
     DestroyDepthForSwapchain();
-    
+
     for (auto v : mSwapchainImageViews)
     {
         if (v) vkDestroyImageView(mDevice, v, nullptr);
     }
     mSwapchainImageViews.clear();
     mSwapchainImages.clear();
-    
+
     if (mSwapchain)
     {
         vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
@@ -1040,23 +1091,23 @@ VkCommandBuffer VKRenderer::BeginOneTimeCommands()
     {
         return VK_NULL_HANDLE;
     }
-    
+
     VkCommandBufferAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     ai.commandPool        = mCommandPool;
     ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = 1;
-    
+
     VkCommandBuffer cmd = VK_NULL_HANDLE;
     if (vkAllocateCommandBuffers(mDevice, &ai, &cmd) != VK_SUCCESS)
     {
         return VK_NULL_HANDLE;
     }
-    
+
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    
+
     vkBeginCommandBuffer(cmd, &bi);
     return cmd;
 }
@@ -1064,33 +1115,33 @@ VkCommandBuffer VKRenderer::BeginOneTimeCommands()
 void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 {
     if (!cmd) return;
-    
+
     vkEndCommandBuffer(cmd);
-    
+
     VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fci{};
     fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     vkCreateFence(mDevice, &fci, nullptr, &fence);
-    
+
     VkSubmitInfo si{};
     si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
     si.pCommandBuffers    = &cmd;
-    
+
     vkQueueSubmit(mQueueGraphics, 1, &si, fence);
-    
+
     // “その submit だけ待つ” (Queue全体WaitIdleより将来拡張しやすい)
     vkWaitForFences(mDevice, 1, &fence, VK_TRUE, UINT64_MAX);
-    
+
     if (fence) vkDestroyFence(mDevice, fence, nullptr);
-    
+
     vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
 }
 
 bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
-    
+
     // Sprite
     {
         VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
@@ -1099,7 +1150,7 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
     // Mesh
     {
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
@@ -1109,7 +1160,7 @@ bool VKRenderer::BuildDefaultPipelines()
             // return false;
         }
     }
-    
+
     return true;
 }
 

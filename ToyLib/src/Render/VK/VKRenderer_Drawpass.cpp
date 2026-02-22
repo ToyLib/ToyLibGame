@@ -116,11 +116,25 @@ void VKRenderer::DrawShadowPass() {}
 void VKRenderer::RestoreAfterShadowPass() {}
 void VKRenderer::DrawSkyPass() {}
 
-void VKRenderer::DrawWorldPass() {}
+void VKRenderer::DrawWorldPass()
+{
+    // だいたい GL と同じ構造でOK（Bucketは IRenderer 側で作られてる）
+    DrawBucket_World(mBuckets.worldOpaque);
+    DrawBucket_World(mBuckets.effectPre);
+
+    // 透明は後ろ
+    DrawBucket_World(mBuckets.worldTransparent);
+    DrawBucket_World(mBuckets.effectOverlay);
+}
+
+
 void VKRenderer::DrawOverlayScreenPass() {}
 void VKRenderer::DrawFadePass() {}
 void VKRenderer::DrawPostEffectPass() {}
-void VKRenderer::DrawUIPass() {}
+void VKRenderer::DrawUIPass()
+{
+    DrawBucket_World(mBuckets.ui); // UIも DrawItem は pass=UI として来る
+}
 
 //--------------------------------------------------------------
 // DrawItem (bucketed draw path)

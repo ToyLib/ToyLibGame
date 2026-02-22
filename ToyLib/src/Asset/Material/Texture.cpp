@@ -2,7 +2,7 @@
 
 #include "Asset/AssetManager.h"
 
-#include "Render/ITextureGPU.h"
+#include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/GLTextureGPU.h"
 #include "Asset/Material/VKTextureGPU.h"
 

@@ -15,6 +15,22 @@ void VKPipeline::Destroy()
 {
     if (!mDevice) return;
 
+    // NOTE:
+    // 破棄順は「Pipeline -> PipelineLayout -> DescriptorSetLayouts」が安全。
+    // PipelineLayout が setLayout を参照しているため、先に setLayout を壊すと危険。
+
+    if (mPipeline)
+    {
+        vkDestroyPipeline(mDevice, mPipeline, nullptr);
+        mPipeline = VK_NULL_HANDLE;
+    }
+
+    if (mLayout)
+    {
+        vkDestroyPipelineLayout(mDevice, mLayout, nullptr);
+        mLayout = VK_NULL_HANDLE;
+    }
+
     if (!mSetLayouts.empty())
     {
         for (auto& sl : mSetLayouts)
@@ -22,20 +38,10 @@ void VKPipeline::Destroy()
             if (sl)
             {
                 vkDestroyDescriptorSetLayout(mDevice, sl, nullptr);
+                sl = VK_NULL_HANDLE;
             }
         }
         mSetLayouts.clear();
-    }
-    
-    if (mPipeline)
-    {
-        vkDestroyPipeline(mDevice, mPipeline, nullptr);
-        mPipeline = VK_NULL_HANDLE;
-    }
-    if (mLayout)
-    {
-        vkDestroyPipelineLayout(mDevice, mLayout, nullptr);
-        mLayout = VK_NULL_HANDLE;
     }
 
     mDevice = VK_NULL_HANDLE;
@@ -116,19 +122,56 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
 
 bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
 {
+    // desc.setLayouts が空なら「setLayoutなし」の pipeline layout を作る
     if (desc.setLayouts.empty())
     {
+        // 既に Destroy() 済み前提だが、念のため安全に
         mSetLayouts.clear();
         return true;
     }
 
+    if (!mDevice)
+    {
+        std::cerr << "[VKPipeline] CreateDescriptorSetLayouts: mDevice is null\n";
+        return false;
+    }
+
+    // set番号の最大を見て、mSetLayouts[set] 方式にする
     uint32_t maxSet = 0;
     for (const auto& s : desc.setLayouts)
     {
         if (s.set > maxSet) maxSet = s.set;
     }
 
+    // 既存があれば破棄（Create()の先頭で Destroy() 呼んでるが、安全に）
+    if (!mSetLayouts.empty())
+    {
+        for (auto& sl : mSetLayouts)
+        {
+            if (sl)
+            {
+                vkDestroyDescriptorSetLayout(mDevice, sl, nullptr);
+                sl = VK_NULL_HANDLE;
+            }
+        }
+        mSetLayouts.clear();
+    }
+
     mSetLayouts.assign(maxSet + 1, VK_NULL_HANDLE);
+
+    // 失敗時の後始末用
+    auto cleanupOnFail = [&]()
+    {
+        for (auto& sl : mSetLayouts)
+        {
+            if (sl)
+            {
+                vkDestroyDescriptorSetLayout(mDevice, sl, nullptr);
+                sl = VK_NULL_HANDLE;
+            }
+        }
+        mSetLayouts.clear();
+    };
 
     for (const auto& s : desc.setLayouts)
     {
@@ -157,6 +200,7 @@ bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
         {
             std::cerr << "[VKPipeline] vkCreateDescriptorSetLayout failed: " << vr
                       << " (set=" << s.set << ")\n";
+            cleanupOnFail();
             return false;
         }
 
@@ -298,9 +342,7 @@ bool VKPipeline::Create(VkDevice device,
         return false;
     }
 
-    // ------------------------------------------------------------
-    // Step2: Push constants（Desc 駆動）
-    // ------------------------------------------------------------
+    // Push constants（Desc 駆動）
     std::vector<VkPushConstantRange> pcRanges;
     pcRanges.reserve(desc.pushConstants.size());
 
@@ -317,7 +359,6 @@ bool VKPipeline::Create(VkDevice device,
     lci.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     lci.setLayoutCount = static_cast<uint32_t>(mSetLayouts.size());
     lci.pSetLayouts    = mSetLayouts.empty() ? nullptr : mSetLayouts.data();
-
     lci.pushConstantRangeCount = static_cast<uint32_t>(pcRanges.size());
     lci.pPushConstantRanges    = pcRanges.empty() ? nullptr : pcRanges.data();
 

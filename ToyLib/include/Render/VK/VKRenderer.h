@@ -1,13 +1,14 @@
 //======================================================================
-// Render/VK/VKRenderer.h  (整理版：宣言をCore/Drawpass分割に合わせて統一)
+// Render/VK/VKRenderer.h  (整理版：Core/Drawpass分割に合わせて統一)
 //  - swapchain depth は CreateDepthForSwapchain/DestroyDepthForSwapchain のみ
-//  - CreateDepthResources/DestroyDepthResources は廃止
 //  - ChooseDepthFormat/FindMemoryType/CreateImage2D/CreateImageView2D は vkutil に寄せる
+//  - Sprite(Texture) 表示までの最低限 descriptor を保持
 //======================================================================
 #pragma once
 
 #include "Render/IRenderer.h"
 #include "Render/VK/Pipeline/VKPipelineLibrary.h"
+#include "Asset/Material/Texture.h"
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -16,6 +17,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <unordered_map>
 
 namespace toy
 {
@@ -79,11 +81,24 @@ private:
     bool RecreateSwapchain();
     void CleanupSwapchain();
 
-    // one-time command helpers (安全版：submitだけ待つ想定に拡張しやすい)
+    // one-time command helpers（安全版：submitだけ待つ想定に拡張しやすい）
     VkCommandBuffer BeginOneTimeCommands();
     void EndOneTimeCommands(VkCommandBuffer cmd);
-    
-    
+
+    // current frame helpers（Drawpass で使う）
+    VkCommandBuffer GetCurrentCommandBuffer() const
+    {
+        if (mFrames.empty())
+        {
+            return VK_NULL_HANDLE;
+        }
+        if (mFrameIndex >= (uint32_t)mFrames.size())
+        {
+            return VK_NULL_HANDLE;
+        }
+        return mFrames[mFrameIndex].cmd;
+    }
+
     std::string MakeVKSpvPath(const std::string& filename) const;
     VkShaderModule LoadShaderModule(const std::string& spvFile);
 
@@ -93,26 +108,26 @@ private:
     //==============================================================
     struct FrameSync
     {
-        VkCommandBuffer cmd           = VK_NULL_HANDLE;
-        VkSemaphore     imageAvailable= VK_NULL_HANDLE;
-        VkSemaphore     renderFinished= VK_NULL_HANDLE;
-        VkFence         inFlight      = VK_NULL_HANDLE;
+        VkCommandBuffer cmd            = VK_NULL_HANDLE;
+        VkSemaphore     imageAvailable = VK_NULL_HANDLE;
+        VkSemaphore     renderFinished = VK_NULL_HANDLE;
+        VkFence         inFlight       = VK_NULL_HANDLE;
     };
 
 private:
     //==============================================================
     // Vulkan core handles
     //==============================================================
-    VkInstance       mInstance       = VK_NULL_HANDLE;
+    VkInstance       mInstance        = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
 
-    VkSurfaceKHR     mSurface        = VK_NULL_HANDLE;
+    VkSurfaceKHR     mSurface         = VK_NULL_HANDLE;
 
-    VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-    VkDevice         mDevice         = VK_NULL_HANDLE;
+    VkPhysicalDevice mPhysicalDevice  = VK_NULL_HANDLE;
+    VkDevice         mDevice          = VK_NULL_HANDLE;
 
-    VkQueue          mQueueGraphics  = VK_NULL_HANDLE;
-    VkQueue          mQueuePresent   = VK_NULL_HANDLE;
+    VkQueue          mQueueGraphics   = VK_NULL_HANDLE;
+    VkQueue          mQueuePresent    = VK_NULL_HANDLE;
     uint32_t         mQueueFamilyGraphics = UINT32_MAX;
     uint32_t         mQueueFamilyPresent  = UINT32_MAX;
 
@@ -127,10 +142,10 @@ private:
     std::vector<VkFramebuffer>   mFramebuffers;
 
     // swapchain depth (single shared depth)
-    VkFormat       mDepthFormat   = VK_FORMAT_UNDEFINED;
-    VkImage        mDepthImage    = VK_NULL_HANDLE;
-    VkDeviceMemory mDepthMemory   = VK_NULL_HANDLE;
-    VkImageView    mDepthImageView= VK_NULL_HANDLE;
+    VkFormat       mDepthFormat    = VK_FORMAT_UNDEFINED;
+    VkImage        mDepthImage     = VK_NULL_HANDLE;
+    VkDeviceMemory mDepthMemory    = VK_NULL_HANDLE;
+    VkImageView    mDepthImageView = VK_NULL_HANDLE;
 
     // command pool + per-frame command buffers
     VkCommandPool              mCommandPool = VK_NULL_HANDLE;
@@ -142,26 +157,62 @@ private:
     bool   mEnableValidation = true;
     bool   mNeedRecreateSwapchain = false;
 
-    // IRenderer の mWindow を使う前提（protected）
-    // SDL_Window* mWindow;  // IRenderer 側
-
-    // geometry (IRenderer が持つ shared_ptr などに合わせている前提)
-    // mFullScreenQuad / mSpriteQuad / mSurfaceQuad は IRenderer 側メンバを利用
-
     // window scale
     float  mWindowDisplayScale = 1.0f;
 
 private:
-    // Triangle
-    bool CreatePipelineLayout_Triangle();
-    bool CreatePipeline_Triangle();
-    VkPipelineLayout mPipeLayoutTriangle = VK_NULL_HANDLE;
-    VkPipeline mPipelineTriangle = VK_NULL_HANDLE;
-    
-private:
+    //==============================================================
     // Pipelines
+    //==============================================================
     VKPipelineLibrary mPipelines;
     bool BuildDefaultPipelines();
+
+private:
+    //==============================================================
+    // Descriptors (最低限：Sprite(Texture) まで)
+    //==============================================================
+    // Descriptor pool（Sprite の set=0/1 を確保する）
+    VkDescriptorPool mDescPool = VK_NULL_HANDLE;
+
+    bool CreateDescriptorPool();
+    void DestroyDescriptorPool();
+
+    // set=0 : Scene UBO（今は最小でOK。後で Scene/Object/Material に拡張）
+    VkDescriptorSet mSceneSet = VK_NULL_HANDLE;
+
+    // Scene UBO buffer（set=0 binding=0 を満たすために必要）
+    VkBuffer        mSceneUBO     = VK_NULL_HANDLE;
+    VkDeviceMemory  mSceneUBOMem  = VK_NULL_HANDLE;
+    size_t          mSceneUBOSize = 0;
+
+    bool CreateSceneUBO();
+    void DestroySceneUBO();
+    void UpdateSceneUBO(); // frameごとに更新（中身は後で拡張）
+
+    bool CreateSceneDescriptorSet(); // set=0 を確保して write
+
+    // set=1 : Sprite Texture（Texture* をキーに descriptor set をキャッシュ）
+    std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
+
+    VkDescriptorSet GetOrCreateSpriteTextureSet(const Texture* tex);
+    void ClearSpriteTextureSetCache()
+    {
+        mSpriteTexSetCache.clear();
+    }
+
+private:
+    //==============================================================
+    // Small helpers (resource)
+    //==============================================================
+    // ※ FindMemoryType / CreateImage2D / CreateImageView2D 等は vkutil に寄せる前提
+    // ここには「VKRendererが使う最小のラッパ」だけ残す
+
+    bool CreateBufferHostVisible(VkDeviceSize size,
+                                 VkBufferUsageFlags usage,
+                                 VkBuffer& outBuf,
+                                 VkDeviceMemory& outMem);
+
+    bool UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size);
 };
 
 } // namespace toy
