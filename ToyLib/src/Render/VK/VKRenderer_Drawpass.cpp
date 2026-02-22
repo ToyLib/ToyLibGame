@@ -6,7 +6,8 @@
 #include "Render/VK/VKRenderer.h"
 
 #include "Render/VK/VKSceneRenderTarget.h"
-
+#include "Asset/Geometry/VertexArray.h"
+#include "Asset/Geometry/VK/VKVertexArrayBackend.h"
 #include <iostream>
 
 namespace toy
@@ -115,16 +116,7 @@ void VKRenderer::DrawShadowPass() {}
 void VKRenderer::RestoreAfterShadowPass() {}
 void VKRenderer::DrawSkyPass() {}
 
-void VKRenderer::DrawWorldPass()
-{
-    if (!CreatePipeline_Triangle()) return;
-
-    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineTriangle);
-    vkCmdDraw(cmd, 3, 1, 0, 0);
-
-}
-
+void VKRenderer::DrawWorldPass() {}
 void VKRenderer::DrawOverlayScreenPass() {}
 void VKRenderer::DrawFadePass() {}
 void VKRenderer::DrawPostEffectPass() {}

@@ -1,62 +1,109 @@
+// Render/VK/VKPipeline.h
 #pragma once
 
 #include <vulkan/vulkan.h>
-#include <vector>
 #include <string>
+#include <vector>
+#include <cstdint>
 
 namespace toy
 {
 
+struct VKDescriptorBindingDesc
+{
+    uint32_t            binding = 0;
+    VkDescriptorType    type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uint32_t            count   = 1;
+    VkShaderStageFlags  stages  = 0;
+};
+
+struct VKDescriptorSetLayoutDesc
+{
+    uint32_t set = 0; // set index
+    std::vector<VKDescriptorBindingDesc> bindings {};
+};
+
+struct VKPushConstantDesc
+{
+    VkShaderStageFlags stages = 0;
+    uint32_t offset = 0;
+    uint32_t size   = 0;
+};
+
 struct VKPipelineDesc
 {
-    // 基本
-    VkRenderPass renderPass = VK_NULL_HANDLE;
-    uint32_t     subpass    = 0;
+    // shader paths (spv)
+    std::string vsPath;
+    std::string fsPath;
 
-    // シェーダ（SPIR-V）
-    std::string vertSpvPath;
-    std::string fragSpvPath;
+    // fixed states
+    bool depthTest  = true;
+    bool depthWrite = true;
 
-    // 固定機能（当面これだけでOK）
-    VkPrimitiveTopology topology  = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    VkCullModeFlags     cullMode  = VK_CULL_MODE_BACK_BIT;
-    VkFrontFace         frontFace = VK_FRONT_FACE_CLOCKWISE; // ←今回の学び
-    VkBool32            depthTest  = VK_TRUE;
-    VkBool32            depthWrite = VK_TRUE;
+    bool alphaBlend = false;
 
-    // ブレンド（Spriteは alpha blend を使いたいので後でON）
-    VkBool32 enableAlphaBlend = VK_FALSE;
+    VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 
-    // vertex input（まずはSpriteだけ / Meshは後で拡張）
-    std::vector<VkVertexInputBindingDescription>   bindings;
-    std::vector<VkVertexInputAttributeDescription> attributes;
+    // ★重要：ここが “見えない原因” の本丸になりやすい
+    //   GLと同じ頂点並びでも、投影のY反転や座標系で表裏が逆転する。
+    VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-    // descriptor set layouts（まず空でOK→後で追加）
-    std::vector<VkDescriptorSetLayout> setLayouts;
+    enum class VertexLayout
+    {
+        Sprite_Pos3Nrm3Uv2, // 8 floats interleaved (32 bytes)
+        Mesh_Pos3Nrm3Uv2,   // same as sprite for now
+        Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4, // 64 bytes
+        Vec2_Pos2           // 2 floats interleaved (8 bytes)
+    };
 
-    // push constants（まず無しでOK→後で追加）
-    std::vector<VkPushConstantRange> pushConstants;
+    VertexLayout layout = VertexLayout::Sprite_Pos3Nrm3Uv2;
+    
+    // ★追加：pipeline layout を Desc で駆動するための set layout 情報
+    std::vector<VKDescriptorSetLayoutDesc> setLayouts {};
+    
+    // ★追加：PipelineLayout の push constant ranges
+    std::vector<VKPushConstantDesc> pushConstants {};
 };
 
 class VKPipeline
 {
 public:
     VKPipeline() = default;
-    ~VKPipeline() { Destroy(); }
+    ~VKPipeline();
 
-    bool Create(VkDevice device, const VKPipelineDesc& desc);
+    VKPipeline(const VKPipeline&) = delete;
+    VKPipeline& operator=(const VKPipeline&) = delete;
+
+    bool Create(VkDevice device,
+                VkRenderPass renderPass,
+                VkExtent2D extent,
+                const VKPipelineDesc& desc);
+
     void Destroy();
 
-    VkPipeline       GetPipeline() const { return mPipeline; }
-    VkPipelineLayout GetLayout()   const { return mLayout; }
+    bool IsValid() const { return mPipeline != VK_NULL_HANDLE; }
+
+    VkPipeline       GetPipeline()       const { return mPipeline; }
+    VkPipelineLayout GetPipelineLayout() const { return mLayout;   }
+
+    void Bind(VkCommandBuffer cmd) const;
 
 private:
-    VkDevice         mDevice   = VK_NULL_HANDLE;
-    VkPipeline       mPipeline = VK_NULL_HANDLE;
-    VkPipelineLayout mLayout   = VK_NULL_HANDLE;
+    VkDevice         mDevice   { VK_NULL_HANDLE };
+    VkPipeline       mPipeline { VK_NULL_HANDLE };
+    VkPipelineLayout mLayout   { VK_NULL_HANDLE };
 
-    // internal
-    bool CreateLayout(const VKPipelineDesc& desc);
+
+    std::vector<VkDescriptorSetLayout> mSetLayouts {};
+private:
+    static void BuildVertexInput(VKPipelineDesc::VertexLayout layout,
+                                 VkVertexInputBindingDescription& outBinding,
+                                 std::vector<VkVertexInputAttributeDescription>& outAttrs);
+
+    static VkShaderModule LoadShaderModule(VkDevice device, const std::string& spvPath);
+    
+    bool CreateDescriptorSetLayouts(const VKPipelineDesc& desc);
+
 };
 
 } // namespace toy

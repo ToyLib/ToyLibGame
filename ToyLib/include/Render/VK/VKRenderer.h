@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Render/IRenderer.h"
+#include "Render/VK/Pipeline/VKPipelineLibrary.h"
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -156,6 +157,11 @@ private:
     bool CreatePipeline_Triangle();
     VkPipelineLayout mPipeLayoutTriangle = VK_NULL_HANDLE;
     VkPipeline mPipelineTriangle = VK_NULL_HANDLE;
+    
+private:
+    // Pipelines
+    VKPipelineLibrary mPipelines;
+    bool BuildDefaultPipelines();
 };
 
 } // namespace toy
