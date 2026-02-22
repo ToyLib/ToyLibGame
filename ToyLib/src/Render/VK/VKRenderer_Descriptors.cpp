@@ -1,7 +1,13 @@
 //======================================================================
 // Render/VK/VKRenderer_Descriptors.cpp
-//  - DescriptorPool / SceneUBO / SceneSet / BaseMapSet cache
-//  - + Fallback(1x1 white) texture & set=1
+//  - DescriptorPool / SceneUBO(World+UI) / SceneSet(World+UI)
+//  - BaseMap set cache (set=1)
+//  - Fallback(1x1 white) texture & set=1
+//
+// 方針（確定）:
+//  - SceneUBO は World と UI を分離（mSceneUBO / mSceneUBO_UI）
+//  - SceneSet も World と UI を分離（mSceneSet / mSceneSet_UI）
+//  - Update は UpdateSceneUBO_World / UpdateSceneUBO_UI のみを使う
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -36,7 +42,10 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
 
 static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
 {
-    if (!device || !pool || !set) return;
+    if (!device || !pool || !set)
+    {
+        return;
+    }
     vkFreeDescriptorSets(device, pool, 1, &set);
 }
 
@@ -54,8 +63,10 @@ bool VKRenderer::CreateDescriptorPool()
         return true;
     }
 
-    constexpr uint32_t kMaxSceneSets     = 8;
-    constexpr uint32_t kMaxBaseMapSets   = 1024;
+    // per-frame (World + UI) の SceneSet を想定して余裕を持たせる
+    // 例: frames=2 なら SceneSets は 4 個程度
+    constexpr uint32_t kMaxSceneSets   = 16;
+    constexpr uint32_t kMaxBaseMapSets = 2048;
 
     VkDescriptorPoolSize sizes[2]{};
 
@@ -63,12 +74,12 @@ bool VKRenderer::CreateDescriptorPool()
     sizes[0].descriptorCount = kMaxSceneSets;
 
     sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[1].descriptorCount = kMaxBaseMapSets + 4; // +fallback分の余裕
+    sizes[1].descriptorCount = kMaxBaseMapSets + 8; // fallback等の余裕
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + 4;
+    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + 8;
     ci.poolSizeCount = 2;
     ci.pPoolSizes    = sizes;
 
@@ -90,32 +101,62 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
+    // pool が存在するなら pool でまとめて解放しても良いが、
+    // 今回はハンドルを確実に無効化するため、キャッシュ等は明示的にクリアする。
     if (mDescPool != VK_NULL_HANDLE)
     {
-        // sets
-        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
-        mSceneSet = VK_NULL_HANDLE;
+        //------------------------------------------------------
+        // Scene descriptor sets（per-frame, World/UI）
+        //------------------------------------------------------
+        for (auto& set : mSceneSet)
+        {
+            if (set != VK_NULL_HANDLE)
+            {
+                FreeDescriptorSetIfPossible(mDevice, mDescPool, set);
+                set = VK_NULL_HANDLE;
+            }
+        }
+        mSceneSet.clear();
 
+        for (auto& set : mSceneSet_UI)
+        {
+            if (set != VK_NULL_HANDLE)
+            {
+                FreeDescriptorSetIfPossible(mDevice, mDescPool, set);
+                set = VK_NULL_HANDLE;
+            }
+        }
+        mSceneSet_UI.clear();
+
+        //------------------------------------------------------
+        // BaseMap / Sprite caches
+        //------------------------------------------------------
         DestroyFallbackBaseMapSet();
         ClearBaseMapSetCache();
 
+        //------------------------------------------------------
+        // pool destroy
+        //------------------------------------------------------
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
     }
     else
     {
-        mSceneSet = VK_NULL_HANDLE;
+        mSceneSet.clear();
+        mSceneSet_UI.clear();
         mBaseMapSetCache.clear();
         mSpriteTexSetCache.clear();
         mFallbackBaseMapSet = VK_NULL_HANDLE;
     }
 
-    // fallback image/sampler are not owned by pool
+    //----------------------------------------------------------
+    // fallback image/sampler（pool所有ではない）
+    //----------------------------------------------------------
     DestroyFallbackWhiteTexture();
 }
 
 //==============================================================
-// Scene UBO
+// Scene UBO layout (Shader 側 set=0 binding=0)
 //==============================================================
 struct VKSceneUBO
 {
@@ -127,30 +168,69 @@ struct VKSceneUBO
     float dirSpecular[4];   // vec4
 };
 
+//==============================================================
+// Scene UBO (World + UI)
+//==============================================================
 bool VKRenderer::CreateSceneUBO()
 {
     if (!mDevice || !mPhysicalDevice)
     {
         return false;
     }
-    if (mSceneUBO != VK_NULL_HANDLE)
+
+    // 既に作成済みならOK（両方揃っていること）
+    if (!mSceneUBO.empty() && !mSceneUBO_UI.empty())
     {
         return true;
     }
 
     mSceneUBOSize = sizeof(VKSceneUBO);
 
-    if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize,
-                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                 mSceneUBO,
-                                 mSceneUBOMem))
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
     {
-        std::cerr << "[VKRenderer] CreateSceneUBO: CreateBufferHostVisible failed\n";
-        DestroySceneUBO();
         return false;
     }
 
-    UpdateSceneUBO();
+    //----------------------------------------------------------
+    // resize
+    //----------------------------------------------------------
+    mSceneUBO.resize(frameCount, VK_NULL_HANDLE);
+    mSceneUBOMem.resize(frameCount, VK_NULL_HANDLE);
+
+    mSceneUBO_UI.resize(frameCount, VK_NULL_HANDLE);
+    mSceneUBOMem_UI.resize(frameCount, VK_NULL_HANDLE);
+
+    //----------------------------------------------------------
+    // create buffers
+    //----------------------------------------------------------
+    for (size_t i = 0; i < frameCount; ++i)
+    {
+        // World UBO
+        if (!CreateBufferHostVisible(
+                (VkDeviceSize)mSceneUBOSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                mSceneUBO[i],
+                mSceneUBOMem[i]))
+        {
+            std::cerr << "[VKRenderer] CreateSceneUBO(World) failed frame " << i << "\n";
+            DestroySceneUBO();
+            return false;
+        }
+
+        // UI UBO
+        if (!CreateBufferHostVisible(
+                (VkDeviceSize)mSceneUBOSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                mSceneUBO_UI[i],
+                mSceneUBOMem_UI[i]))
+        {
+            std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed frame " << i << "\n";
+            DestroySceneUBO();
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -161,30 +241,50 @@ void VKRenderer::DestroySceneUBO()
         return;
     }
 
-    if (mSceneUBO != VK_NULL_HANDLE)
+    auto destroyVec = [&](std::vector<VkBuffer>& bufs,
+                          std::vector<VkDeviceMemory>& mems)
     {
-        vkDestroyBuffer(mDevice, mSceneUBO, nullptr);
-        mSceneUBO = VK_NULL_HANDLE;
-    }
-    if (mSceneUBOMem != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(mDevice, mSceneUBOMem, nullptr);
-        mSceneUBOMem = VK_NULL_HANDLE;
-    }
+        for (size_t i = 0; i < bufs.size(); ++i)
+        {
+            if (bufs[i] != VK_NULL_HANDLE)
+            {
+                vkDestroyBuffer(mDevice, bufs[i], nullptr);
+                bufs[i] = VK_NULL_HANDLE;
+            }
+            if (mems[i] != VK_NULL_HANDLE)
+            {
+                vkFreeMemory(mDevice, mems[i], nullptr);
+                mems[i] = VK_NULL_HANDLE;
+            }
+        }
+        bufs.clear();
+        mems.clear();
+    };
+
+    destroyVec(mSceneUBO, mSceneUBOMem);
+    destroyVec(mSceneUBO_UI, mSceneUBOMem_UI);
 
     mSceneUBOSize = 0;
 }
 
-void VKRenderer::UpdateSceneUBO()
+//==============================================================
+// Scene UBO update (World)
+//==============================================================
+void VKRenderer::UpdateSceneUBO_World()
 {
-    if (!mDevice || mSceneUBOMem == VK_NULL_HANDLE || mSceneUBOSize == 0)
+    if (mSceneUBOMem.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mSceneUBOMem.size())
     {
         return;
     }
 
     VKSceneUBO ubo{};
 
-    // ToyLib: row-vector v*M 前提 → ViewProj は View*Proj
+    // ToyLib: row-vector / v*M 系でも、ここは「エンジン側の既存規約」に従う
+    // 既存コードに合わせて viewProj = View * Proj
     const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
@@ -196,8 +296,6 @@ void VKRenderer::UpdateSceneUBO()
 
     Vector3 ambient(0.2f, 0.2f, 0.2f);
     DirectionalLight dirLight{};
-    dirLight.DiffuseColor = Vector3(1.0f, 1.0f, 1.0f);
-    dirLight.SpecColor    = Vector3(1.0f, 1.0f, 1.0f);
 
     if (auto lm = GetLightingManager())
     {
@@ -215,39 +313,63 @@ void VKRenderer::UpdateSceneUBO()
     ubo.dirDir[2] = dirLight.GetDirection().z;
     ubo.dirDir[3] = 0.0f;
 
-    ubo.dirDiffuse[0] = dirLight.DiffuseColor.x;
-    ubo.dirDiffuse[1] = dirLight.DiffuseColor.y;
-    ubo.dirDiffuse[2] = dirLight.DiffuseColor.z;
+    // diffuse/specular は最低限埋める（shader側が参照しても未定義にならない）
+    const Vector3 dd = dirLight.GetDiffuseColor();
+    const Vector3 ds = dirLight.GetSpecularColor();
+
+    ubo.dirDiffuse[0] = dd.x;
+    ubo.dirDiffuse[1] = dd.y;
+    ubo.dirDiffuse[2] = dd.z;
     ubo.dirDiffuse[3] = 1.0f;
 
-    ubo.dirSpecular[0] = dirLight.SpecColor.x;
-    ubo.dirSpecular[1] = dirLight.SpecColor.y;
-    ubo.dirSpecular[2] = dirLight.SpecColor.z;
+    ubo.dirSpecular[0] = ds.x;
+    ubo.dirSpecular[1] = ds.y;
+    ubo.dirSpecular[2] = ds.z;
     ubo.dirSpecular[3] = 1.0f;
 
-    (void)UploadToBuffer(mSceneUBOMem, &ubo, (VkDeviceSize)mSceneUBOSize);
+    UploadToBuffer(
+        mSceneUBOMem[mFrameIndex],
+        &ubo,
+        (VkDeviceSize)mSceneUBOSize);
 }
 
-void VKRenderer::UpdateSceneUBO(const Matrix4& viewProjOverride)
+//==============================================================
+// Scene UBO update (UI)
+//==============================================================
+void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
 {
-    if (!mDevice || mSceneUBOMem == VK_NULL_HANDLE || mSceneUBOSize == 0)
+    if (mSceneUBOMem_UI.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mSceneUBOMem_UI.size())
     {
         return;
     }
 
     VKSceneUBO ubo{};
-    std::memcpy(ubo.viewProj, &viewProjOverride, sizeof(float) * 16);
-    (void)UploadToBuffer(mSceneUBOMem, &ubo, (VkDeviceSize)mSceneUBOSize);
-}
+    std::memcpy(ubo.viewProj, &uiViewProj, sizeof(float) * 16);
 
-void VKRenderer::UpdateSceneUBOFromMatrix(const Matrix4& viewProj)
-{
-    UpdateSceneUBO(viewProj);
+    // UI はライティング等を使わない想定だが、未定義値防止で最低限初期化
+    ubo.cameraPos[0] = 0.0f;
+    ubo.cameraPos[1] = 0.0f;
+    ubo.cameraPos[2] = 0.0f;
+    ubo.cameraPos[3] = 1.0f;
+
+    ubo.ambient[0] = 1.0f;
+    ubo.ambient[1] = 1.0f;
+    ubo.ambient[2] = 1.0f;
+    ubo.ambient[3] = 1.0f;
+
+    UploadToBuffer(
+        mSceneUBOMem_UI[mFrameIndex],
+        &ubo,
+        (VkDeviceSize)mSceneUBOSize);
 }
 
 //==============================================================
 // Scene Descriptor Set (set=0 binding=0 UBO)
-//  - set0 layout は Sprite/Mesh/Skinned で同一運用
+//  - set0 layout は Sprite/Mesh/Skinned で同一運用（前提）
 //==============================================================
 bool VKRenderer::CreateSceneDescriptorSet()
 {
@@ -256,69 +378,119 @@ bool VKRenderer::CreateSceneDescriptorSet()
         return false;
     }
 
-    if (mSceneUBO == VK_NULL_HANDLE || mSceneUBOSize == 0)
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
     {
-        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: SceneUBO not created\n";
+        return false;
+    }
+    if (mSceneUBO.size() != frameCount || mSceneUBO_UI.size() != frameCount)
+    {
+        std::cerr << "[VK] CreateSceneDescriptorSet: SceneUBO not ready.\n";
         return false;
     }
 
-    // 既存を解放
-    if (mSceneSet != VK_NULL_HANDLE)
+    //----------------------------------------------------------
+    // free old
+    //----------------------------------------------------------
+    auto freeAll = [&](std::vector<VkDescriptorSet>& arr)
     {
-        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
-        mSceneSet = VK_NULL_HANDLE;
-    }
+        for (auto& ds : arr)
+        {
+            if (ds != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+                ds = VK_NULL_HANDLE;
+            }
+        }
+        arr.clear();
+    };
 
-    // 基準は Sprite の set=0（Mesh/Skinned と同じ）
-    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
+    freeAll(mSceneSet);
+    freeAll(mSceneSet_UI);
+
+    mSceneSet.resize(frameCount, VK_NULL_HANDLE);
+    mSceneSet_UI.resize(frameCount, VK_NULL_HANDLE);
+
+    //----------------------------------------------------------
+    // layout
+    //----------------------------------------------------------
+    VkDescriptorSetLayout set0 =
+        GetPipelineSetLayout(mPipelines, "Sprite", 0);
+
     if (set0 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: Sprite set0 layout is null\n";
+        std::cerr << "[VK] CreateSceneDescriptorSet: set0 null\n";
         return false;
     }
 
-    VkDescriptorSetAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ai.descriptorPool     = mDescPool;
-    ai.descriptorSetCount = 1;
-    ai.pSetLayouts        = &set0;
-
-    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet);
-    if (vr != VK_SUCCESS || mSceneSet == VK_NULL_HANDLE)
+    //----------------------------------------------------------
+    // allocate BOTH world + UI
+    //----------------------------------------------------------
+    for (size_t i = 0; i < frameCount; ++i)
     {
-        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(SceneSet) failed: " << vr << "\n";
-        return false;
+        VkDescriptorSetAllocateInfo ai{};
+        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool     = mDescPool;
+        ai.descriptorSetCount = 1;
+        ai.pSetLayouts        = &set0;
+
+        // world
+        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet[i]) != VK_SUCCESS)
+        {
+            std::cerr << "[VK] SceneSet(world) alloc failed frame=" << i << "\n";
+            return false;
+        }
+
+        // ui
+        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet_UI[i]) != VK_SUCCESS)
+        {
+            std::cerr << "[VK] SceneSet(ui) alloc failed frame=" << i << "\n";
+            return false;
+        }
+
+        //------------------------------------------------------
+        // bind UBO world
+        //------------------------------------------------------
+        VkDescriptorBufferInfo biW{};
+        biW.buffer = mSceneUBO[i];
+        biW.offset = 0;
+        biW.range  = mSceneUBOSize;
+
+        VkWriteDescriptorSet w{};
+        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet          = mSceneSet[i];
+        w.dstBinding      = 0;
+        w.descriptorCount = 1;
+        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo     = &biW;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+
+        //------------------------------------------------------
+        // bind UBO ui
+        //------------------------------------------------------
+        VkDescriptorBufferInfo biUI{};
+        biUI.buffer = mSceneUBO_UI[i];
+        biUI.offset = 0;
+        biUI.range  = mSceneUBOSize;
+
+        w.dstSet      = mSceneSet_UI[i];
+        w.pBufferInfo = &biUI;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }
 
-    VkDescriptorBufferInfo bi{};
-    bi.buffer = mSceneUBO;
-    bi.offset = 0;
-    bi.range  = (VkDeviceSize)mSceneUBOSize;
-
-    VkWriteDescriptorSet w{};
-    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet          = mSceneSet;
-    w.dstBinding      = 0;
-    w.descriptorCount = 1;
-    w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    w.pBufferInfo     = &bi;
-
-    vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-    // fallback set=1 は pipeline layout 依存なのでここで作り直す
+    //----------------------------------------------------------
+    // fallback texture（set=1）
+    //----------------------------------------------------------
     if (!CreateFallbackWhiteTexture())
     {
-        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: CreateFallbackWhiteTexture failed\n";
         return false;
     }
     if (!CreateFallbackBaseMapSet())
     {
-        std::cerr << "[VKRenderer] CreateSceneDescriptorSet: CreateFallbackBaseMapSet failed\n";
         return false;
     }
-
-    std::cerr << "[VKRenderer] SceneSet created: " << (void*)mSceneSet
-              << " FallbackBaseMapSet=" << (void*)mFallbackBaseMapSet << "\n";
 
     return true;
 }
@@ -335,12 +507,13 @@ void VKRenderer::ClearBaseMapSetCache()
             if (kv.second != VK_NULL_HANDLE)
             {
                 vkFreeDescriptorSets(mDevice, mDescPool, 1, &kv.second);
+                kv.second = VK_NULL_HANDLE;
             }
         }
     }
     mBaseMapSetCache.clear();
 
-    // 旧互換mapも空に
+    // 旧互換 map も空に
     mSpriteTexSetCache.clear();
 
     // pipeline recreate に備え、fallback DS は作り直す必要がある
@@ -366,23 +539,22 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     }
 
-    // tex が無いなら fallback を返す（既存メンバー名に合わせる）
+    // tex が無いなら fallback を返す
     if (!tex)
     {
-        std::cerr << "[VK] BaseMapSet: tex is NULL (" << pipelineName << ")\n";
-        return mFallbackBaseMapSet; // ★既存
+        return mFallbackBaseMapSet;
     }
 
-    // 単一キャッシュ（既存メンバー名に合わせる）
+    // cache
     {
-        auto it = mBaseMapSetCache.find(tex); // ★既存
+        auto it = mBaseMapSetCache.find(tex);
         if (it != mBaseMapSetCache.end())
         {
             return it->second;
         }
     }
 
-    // set=1 layout は pipeline から取る（ただし presets 的には互換のはず）
+    // set=1 layout は pipeline から取る（Sprite/Mesh/Skinned で互換前提）
     VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
@@ -431,9 +603,6 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     if (vkgpu->GetSampler() == VK_NULL_HANDLE || vkgpu->GetImageView() == VK_NULL_HANDLE)
     {
-        std::cerr << "[VK] BaseMapSet: sampler/view NULL sampler=" << (void*)vkgpu->GetSampler()
-                  << " view=" << (void*)vkgpu->GetImageView()
-                  << " (" << pipelineName << ")\n";
         return fail("[VK] BaseMapSet: sampler/view NULL");
     }
 
@@ -452,15 +621,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
-    // 単一キャッシュに保存（既存メンバー）
     mBaseMapSetCache[tex] = ds;
-
-    std::cerr << "[VK] BaseMapSet: created ds=" << (void*)ds
-              << " tex=" << tex
-              << " view=" << (void*)ii.imageView
-              << " sampler=" << (void*)ii.sampler
-              << " (" << pipelineName << ")\n";
-
     return ds;
 }
 
@@ -482,12 +643,10 @@ bool VKRenderer::CreateFallbackWhiteTexture()
 
     DestroyFallbackWhiteTexture();
 
-    // 1x1 RGBA8 white
     const uint32_t w = 1;
     const uint32_t h = 1;
     const uint32_t pixel = 0xFFFFFFFFu;
 
-    // staging buffer
     VkBuffer staging = VK_NULL_HANDLE;
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
 
@@ -513,7 +672,6 @@ bool VKRenderer::CreateFallbackWhiteTexture()
     std::memcpy(mapped, &pixel, sizeof(uint32_t));
     vkUnmapMemory(mDevice, stagingMem);
 
-    // image
     if (!toy::vkutil::CreateImage2D(
             mPhysicalDevice,
             mDevice,
@@ -533,7 +691,6 @@ bool VKRenderer::CreateFallbackWhiteTexture()
         return false;
     }
 
-    // record copy & transitions
     VkCommandBuffer cmd = BeginOneTimeCommands();
     if (cmd == VK_NULL_HANDLE)
     {
@@ -586,11 +743,9 @@ bool VKRenderer::CreateFallbackWhiteTexture()
 
     EndOneTimeCommands(cmd);
 
-    // staging cleanup
     vkDestroyBuffer(mDevice, staging, nullptr);
     vkFreeMemory(mDevice, stagingMem, nullptr);
 
-    // view
     mFallbackWhiteView = toy::vkutil::CreateImageView2D(
         mDevice,
         mFallbackWhiteImg,
@@ -604,7 +759,6 @@ bool VKRenderer::CreateFallbackWhiteTexture()
         return false;
     }
 
-    // sampler
     VkSamplerCreateInfo sci{};
     sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sci.magFilter = VK_FILTER_LINEAR;
@@ -629,24 +783,27 @@ bool VKRenderer::CreateFallbackWhiteTexture()
 
 void VKRenderer::DestroyFallbackWhiteTexture()
 {
-    if (!mDevice) return;
+    if (!mDevice)
+    {
+        return;
+    }
 
-    if (mFallbackWhiteSampler)
+    if (mFallbackWhiteSampler != VK_NULL_HANDLE)
     {
         vkDestroySampler(mDevice, mFallbackWhiteSampler, nullptr);
         mFallbackWhiteSampler = VK_NULL_HANDLE;
     }
-    if (mFallbackWhiteView)
+    if (mFallbackWhiteView != VK_NULL_HANDLE)
     {
         vkDestroyImageView(mDevice, mFallbackWhiteView, nullptr);
         mFallbackWhiteView = VK_NULL_HANDLE;
     }
-    if (mFallbackWhiteImg)
+    if (mFallbackWhiteImg != VK_NULL_HANDLE)
     {
         vkDestroyImage(mDevice, mFallbackWhiteImg, nullptr);
         mFallbackWhiteImg = VK_NULL_HANDLE;
     }
-    if (mFallbackWhiteMem)
+    if (mFallbackWhiteMem != VK_NULL_HANDLE)
     {
         vkFreeMemory(mDevice, mFallbackWhiteMem, nullptr);
         mFallbackWhiteMem = VK_NULL_HANDLE;
@@ -709,7 +866,11 @@ bool VKRenderer::CreateFallbackBaseMapSet()
 
 void VKRenderer::DestroyFallbackBaseMapSet()
 {
-    if (!mDevice || !mDescPool) { mFallbackBaseMapSet = VK_NULL_HANDLE; return; }
+    if (!mDevice || !mDescPool)
+    {
+        mFallbackBaseMapSet = VK_NULL_HANDLE;
+        return;
+    }
 
     if (mFallbackBaseMapSet != VK_NULL_HANDLE)
     {

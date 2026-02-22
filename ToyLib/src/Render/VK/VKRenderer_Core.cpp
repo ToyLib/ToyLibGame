@@ -2,7 +2,13 @@
 // Render/VK/VKRenderer_Core.cpp
 //  - SDL3 + Vulkan (MoltenVK)
 //  - Init / Shutdown / Swapchain / Depth / RenderPass / Cmd / Sync
-//  - (Add) DescriptorPool / SceneUBO / SceneSet (minimum for Sprite(Texture))
+//  - DescriptorPool / SceneUBO / SceneSet
+//
+// 方針（確定）:
+//  - SceneUBO は World/UI 分離（mSceneUBO / mSceneUBO_UI）
+//  - BeginFrame() で World UBO を更新（UpdateSceneUBO_World）
+//  - DrawUIPass() 側で UI UBO を更新（UpdateSceneUBO_UI）
+//  - Swapchain recreate 時は Pipeline → SceneSet の順で作り直す
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -32,7 +38,7 @@ static const char* kValidationLayers[] =
 // ctor/dtor
 //--------------------------------------------------------------
 VKRenderer::VKRenderer()
-: IRenderer()
+    : IRenderer()
 {
 }
 
@@ -101,8 +107,7 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    
-    
+
     // Default view/proj
     mViewMatrix = Matrix4::CreateLookAt(
         Vector3(0, 0.5f, -3),
@@ -118,12 +123,9 @@ bool VKRenderer::Initialize(const Application* app)
     );
 
     //==========================================================
-    // Descriptors (minimum for Sprite(Texture))
-    //  - set=0 : Scene UBO
-    //  - set=1 : Texture (cache)
-    //
-    // 重要: SceneSet は Pipeline の SetLayout に依存する想定なので
-    //       BuildDefaultPipelines() の後で生成する。
+    // Descriptors
+    //  - set=0 : Scene UBO (World/UI)
+    //  - set=1 : Texture (BaseMap)
     //==========================================================
     if (!CreateDescriptorPool())
     {
@@ -140,7 +142,7 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    
+
     std::cerr << "[VKRenderer] Init OK. Swapchain("
               << mSwapchainExtent.width << "x" << mSwapchainExtent.height
               << ") Scale=" << mWindowDisplayScale
@@ -163,7 +165,6 @@ void VKRenderer::Shutdown()
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
-    // ※DestroyDescriptorPool 内で cache クリアもする想定
     DestroySceneUBO();
     DestroyDescriptorPool();
 
@@ -171,7 +172,7 @@ void VKRenderer::Shutdown()
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
     mSurfaceQuad.reset();
-    
+
     mPipelines.DestroyAll();
 
     // Sync
@@ -240,10 +241,8 @@ void VKRenderer::Shutdown()
     mImageIndex = 0;
 
     // scene set handle safety
-    //mSceneSet_Sprite      = VK_NULL_HANDLE;
-    //mSceneSet_Mesh        = VK_NULL_HANDLE;
-    //mSceneSet_SkinnedMesh = VK_NULL_HANDLE;]
-    mSceneSet = VK_NULL_HANDLE;
+    mSceneSet.clear();
+    mSceneSet_UI.clear();
 }
 
 void VKRenderer::WaitIdle()
@@ -347,8 +346,10 @@ bool VKRenderer::BeginFrame()
 
     vkCmdBeginRenderPass(frame.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-    // ★★★ 最重要：SceneUBO更新 ★★★
-    UpdateSceneUBO();
+    //----------------------------------------------------------
+    // ★最重要：World の SceneUBO 更新
+    //----------------------------------------------------------
+    UpdateSceneUBO_World();
 
     VkViewport vp{};
     vp.x = 0.0f;
@@ -1031,7 +1032,6 @@ bool VKRenderer::RecreateSwapchain()
     SDL_GetWindowSizeInPixels(mWindow, &w, &h);
     if (w <= 0 || h <= 0)
     {
-        // minimized 等：今は成功扱いでOK
         return true;
     }
 
@@ -1047,7 +1047,6 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateSwapchainAndViews()) return false;
     if (!CreateDepthForSwapchain()) return false;
 
-    // CleanupSwapchain() が mRenderPass を壊す設計なので、ここは二重破棄にならないが一応安全
     if (mRenderPass)
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
@@ -1056,9 +1055,9 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateRenderPass()) return false;
     if (!CreateFramebuffers()) return false;
 
-    //==========================================================
-    // ★重要：新しい extent に合わせてスクリーンサイズとProjectionを更新
-    //==========================================================
+    //----------------------------------------------------------
+    // Projection 更新
+    //----------------------------------------------------------
     mScreenWidth  = (float)mSwapchainExtent.width;
     mScreenHeight = (float)mSwapchainExtent.height;
 
@@ -1070,52 +1069,57 @@ bool VKRenderer::RecreateSwapchain()
         2000.0f
     );
 
-    //==========================================================
-    // ★超重要：古い pipeline(setLayout) で確保された DescriptorSet を全て free
-    //   → その後 BuildDefaultPipelines() で setLayout が作り直される
-    //==========================================================
+    //----------------------------------------------------------
+    // Descriptor sets は Pipeline の Layout に依存するので
+    // いったん解放 → Pipeline 再生成 → SceneSet 再生成
+    //----------------------------------------------------------
     if (mDescPool != VK_NULL_HANDLE)
     {
-        auto freeOne = [&](VkDescriptorSet& ds)
+        // SceneSets
+        for (auto& ds : mSceneSet)
         {
             if (ds != VK_NULL_HANDLE)
             {
                 vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
                 ds = VK_NULL_HANDLE;
             }
-        };
+        }
+        mSceneSet.clear();
 
-        // set=0 Scene sets（pipelineごと）
-        //freeOne(mSceneSet_Sprite);
-        //freeOne(mSceneSet_Mesh);
-        //freeOne(mSceneSet_SkinnedMesh);
-        freeOne(mSceneSet);
+        for (auto& ds : mSceneSet_UI)
+        {
+            if (ds != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+                ds = VK_NULL_HANDLE;
+            }
+        }
+        mSceneSet_UI.clear();
 
-        // set=1 BaseMap cache（中で vkFreeDescriptorSets）
+        // BaseMap cache
         ClearBaseMapSetCache();
     }
 
-    //==========================================================
-    // RenderPass/Extent 依存の Pipeline を作り直す
-    //==========================================================
+    //----------------------------------------------------------
+    // Pipelines rebuild
+    //----------------------------------------------------------
     if (!BuildDefaultPipelines())
     {
         return false;
     }
 
-    //==========================================================
-    // ★新しい viewProj を SceneUBO に反映（set=0 の中身を最新化）
-    //   ※ SceneUBO 自体は swapchain 非依存なので作り直し不要
-    //==========================================================
-    UpdateSceneUBO();
-
-    //==========================================================
-    // ★新しい set layout(set=0) で SceneSet を作り直す
-    //==========================================================
+    //----------------------------------------------------------
+    // SceneSet 再生成
+    //----------------------------------------------------------
     if (!CreateSceneDescriptorSet())
     {
         return false;
     }
+
+    //----------------------------------------------------------
+    // UBO 初期更新
+    //----------------------------------------------------------
+    UpdateSceneUBO_World();
 
     return true;
 }
@@ -1203,7 +1207,6 @@ void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 
     vkQueueSubmit(mQueueGraphics, 1, &si, fence);
 
-    // “その submit だけ待つ” (Queue全体WaitIdleより将来拡張しやすい)
     vkWaitForFences(mDevice, 1, &fence, VK_TRUE, UINT64_MAX);
 
     if (fence) vkDestroyFence(mDevice, fence, nullptr);
@@ -1215,9 +1218,7 @@ bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
 
-    //==========================================================
-    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
-    //==========================================================
+    // swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
     mPipelines.DestroyAll();
 
     // Sprite

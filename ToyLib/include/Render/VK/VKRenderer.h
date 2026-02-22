@@ -1,5 +1,7 @@
 //======================================================================
 // Render/VK/VKRenderer.h
+//  - World / UI の SceneUBO & SceneSet を分離（事故らない最小構成）
+//  - DrawItem は 引数 pass で SceneSet を選ぶ（RenderItemに依存しない）
 //======================================================================
 #pragma once
 
@@ -13,6 +15,7 @@
 #include <unordered_map>
 #include <memory>
 #include <string>
+#include <cstdint>
 
 namespace toy
 {
@@ -57,26 +60,32 @@ public:
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
-    // descriptors
+    //==========================================================
+    // Descriptors / UBO
+    //==========================================================
     bool CreateDescriptorPool();
     void DestroyDescriptorPool();
 
-    bool CreateSceneUBO();
+    bool CreateSceneUBO();      // world + ui を両方作る
     void DestroySceneUBO();
 
-    void UpdateSceneUBO();
-    void UpdateSceneUBO(const Matrix4& viewProjOverride);
-    void UpdateSceneUBOFromMatrix(const Matrix4& viewProj);
+    // ★更新は必ず「どっちに書くか」明示する（上書き事故防止）
+    void UpdateSceneUBO_World();                       // mSceneUBO[frame]
+    void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUBO_UI[frame]
 
-    bool CreateSceneDescriptorSet();
+    bool CreateSceneDescriptorSet(); // world + ui を両方作る（set=0）
 
-    void ClearSpriteTextureSetCache(); // backward
+    // backward (旧名互換)
+    void ClearSpriteTextureSetCache();
     VkDescriptorSet GetOrCreateSpriteTextureSet(const Texture* tex);
 
+    // BaseMap (set=1)
     VkDescriptorSet GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName);
 
 private:
+    //==========================================================
     // Vulkan init
+    //==========================================================
     bool CreateInstance();
     bool CreateSurface();
     bool PickPhysicalDevice();
@@ -110,9 +119,9 @@ private:
     void ClearBaseMapSetCache();
 
     // Fallback 1x1 white texture + descriptor set(set=1)
-    bool CreateFallbackWhiteTexture();      // image/view/sampler
+    bool CreateFallbackWhiteTexture();
     void DestroyFallbackWhiteTexture();
-    bool CreateFallbackBaseMapSet();        // allocate DS with current pipeline layout
+    bool CreateFallbackBaseMapSet();
     void DestroyFallbackBaseMapSet();
 
 private:
@@ -131,9 +140,9 @@ private:
     uint32_t         mQueueFamilyGraphics{ UINT32_MAX };
     uint32_t         mQueueFamilyPresent{ UINT32_MAX };
 
-    VkSwapchainKHR   mSwapchain{ VK_NULL_HANDLE };
+    VkSwapchainKHR     mSwapchain{ VK_NULL_HANDLE };
     VkSurfaceFormatKHR mSwapchainFormat{};
-    VkExtent2D       mSwapchainExtent{};
+    VkExtent2D         mSwapchainExtent{};
 
     std::vector<VkImage>     mSwapchainImages;
     std::vector<VkImageView> mSwapchainImageViews;
@@ -145,8 +154,8 @@ private:
     VkImageView     mDepthImageView{ VK_NULL_HANDLE };
 
     // render pass / fb
-    VkRenderPass                mRenderPass{ VK_NULL_HANDLE };
-    std::vector<VkFramebuffer>  mFramebuffers;
+    VkRenderPass               mRenderPass{ VK_NULL_HANDLE };
+    std::vector<VkFramebuffer> mFramebuffers;
 
     // cmd
     VkCommandPool mCommandPool{ VK_NULL_HANDLE };
@@ -173,20 +182,29 @@ private:
     //==========================================================
     VkDescriptorPool mDescPool{ VK_NULL_HANDLE };
 
-    VkBuffer       mSceneUBO{ VK_NULL_HANDLE };
-    VkDeviceMemory mSceneUBOMem{ VK_NULL_HANDLE };
-    size_t         mSceneUBOSize{ 0 };
+    // SceneUBO size
+    size_t mSceneUBOSize{ 0 };
 
-    VkDescriptorSet mSceneSet{ VK_NULL_HANDLE };
+    // SceneUBO (per frame) : World
+    std::vector<VkBuffer>       mSceneUBO;
+    std::vector<VkDeviceMemory> mSceneUBOMem;
 
-    // BaseMap DS cache (Texture* -> DS)
+    // SceneUBO (per frame) : UI
+    std::vector<VkBuffer>       mSceneUBO_UI;
+    std::vector<VkDeviceMemory> mSceneUBOMem_UI;
+
+    // SceneSet (per frame) : World / UI それぞれ set=0
+    std::vector<VkDescriptorSet> mSceneSet;     // world
+    std::vector<VkDescriptorSet> mSceneSet_UI;  // ui
+
+    // BaseMap DS cache (Texture* -> DS) : set=1
     std::unordered_map<const Texture*, VkDescriptorSet> mBaseMapSetCache;
 
     // backward compat (旧名だけ残す)
     std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
 
     //==========================================================
-    // Fallback base map (1x1 white) - Rendererが自前で生成
+    // Fallback base map (1x1 white)
     //==========================================================
     VkImage        mFallbackWhiteImg{ VK_NULL_HANDLE };
     VkDeviceMemory mFallbackWhiteMem{ VK_NULL_HANDLE };
@@ -194,7 +212,6 @@ private:
     VkSampler      mFallbackWhiteSampler{ VK_NULL_HANDLE };
 
     VkDescriptorSet mFallbackBaseMapSet{ VK_NULL_HANDLE };
-
 };
 
 } // namespace toy
