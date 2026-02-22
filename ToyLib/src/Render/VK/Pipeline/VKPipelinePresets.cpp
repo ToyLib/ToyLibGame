@@ -86,15 +86,16 @@ VKPipelineDesc MakeSprite(const std::string& base)
 
 VKPipelineDesc MakeMesh(const std::string& base)
 {
+    
     VKPipelineDesc d = MakeSprite(base);
-
+    /*
     // Mesh 用に差分だけ上書き
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
     d.alphaBlend = false;
 
     // Mesh.frag が無いなら Sprite.frag のままでもOK
     d.fsPath     = base + "Mesh.frag.spv";
-
+*/
     return d;
 }
 

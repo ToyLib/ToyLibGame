@@ -27,16 +27,6 @@
 		7EDCE9C12ED72FE00069EE3D /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7E2F354B2F4AC7FD00ABCB55 /* Exceptions for "ToyLib" folder in "ToyLibGame" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				src/Render/VK/VKRenderer_Triangle.cpp,
-			);
-			target = 7EDCE89F2ED72F7F0069EE3D /* ToyLibGame */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 		7E9892852EFD12DF008AE3D4 /* Exceptions for "ToyKit" folder in "Compile Sources" phase from "ToyLibGame" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
@@ -75,7 +65,6 @@
 		7EDCE9852ED72FC00069EE3D /* ToyLib */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7E2F354B2F4AC7FD00ABCB55 /* Exceptions for "ToyLib" folder in "ToyLibGame" target */,
 				7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */,
 			);
 			explicitFileTypes = {

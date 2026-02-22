@@ -50,8 +50,7 @@ static VkDescriptorSetLayout GetSpritePipelineSetLayout(VKPipelineLibrary& lib,
     {
         return VK_NULL_HANDLE;
     }
-    // ★VKPipelineに実装が必要（GetSetLayout）
-    return p->GetSetLayout(setIndex);
+    return p->GetSetLayout(setIndex); // ★VKPipeline に GetSetLayout がある前提
 }
 
 //==============================================================
@@ -80,7 +79,7 @@ bool VKRenderer::CreateDescriptorPool()
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    // 将来「個別に set を free」したくなっても困らないように（害が少ない）
+    // 個別に set を free できるようにしておく（キャッシュ破棄や失敗ロールバックが楽）
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     ci.maxSets       = kMaxSceneSets + kMaxTextureSets;
     ci.poolSizeCount = 2;
@@ -97,6 +96,16 @@ bool VKRenderer::CreateDescriptorPool()
     return true;
 }
 
+//--------------------------------------------------------------
+// small helper: Free descriptor set (if possible)
+//--------------------------------------------------------------
+static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
+{
+    if (!device || !pool || !set) return;
+    // pool が FREE_DESCRIPTOR_SET_BIT で作られている前提
+    vkFreeDescriptorSets(device, pool, 1, &set);
+}
+
 void VKRenderer::DestroyDescriptorPool()
 {
     if (!mDevice)
@@ -104,8 +113,14 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
+    // 先に個別解放（順序事故・後始末の見通しを良くする）
+    if (mSceneSet != VK_NULL_HANDLE)
+    {
+        FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
+        mSceneSet = VK_NULL_HANDLE;
+    }
+
     ClearSpriteTextureSetCache();
-    mSceneSet = VK_NULL_HANDLE;
 
     if (mDescPool != VK_NULL_HANDLE)
     {
@@ -179,8 +194,7 @@ void VKRenderer::UpdateSceneUBO()
 
     VKSceneUBO_Min ubo{};
 
-    // 「mViewProjMatrix が常に更新されている」前提を捨てる。
-    // ここで毎回 view*proj を作って詰める方が事故りにくい。
+    // ここで毎回 view*proj を構築して詰める（mViewProjMatrix 前提を排除）
     const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
 
     // Matrix4 が 16float 連続の前提（ToyLibのMathUtil設計に合わせる）
@@ -222,7 +236,7 @@ bool VKRenderer::CreateSceneDescriptorSet()
     ai.pSetLayouts        = &set0;
 
     VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet);
-    if (vr != VK_SUCCESS)
+    if (vr != VK_SUCCESS || mSceneSet == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkAllocateDescriptorSets(SceneSet) failed: " << vr << "\n";
         mSceneSet = VK_NULL_HANDLE;
@@ -244,6 +258,26 @@ bool VKRenderer::CreateSceneDescriptorSet()
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     return true;
+}
+
+//==============================================================
+// Sprite Texture Set cache
+//==============================================================
+void VKRenderer::ClearSpriteTextureSetCache()
+{
+    // キャッシュに積んだ DS を個別解放（pool が FREE_DESCRIPTOR_SET_BIT の前提）
+    if (mDevice && mDescPool)
+    {
+        for (auto& kv : mSpriteTexSetCache)
+        {
+            VkDescriptorSet ds = kv.second;
+            if (ds != VK_NULL_HANDLE)
+            {
+                FreeDescriptorSetIfPossible(mDevice, mDescPool, ds);
+            }
+        }
+    }
+    mSpriteTexSetCache.clear();
 }
 
 //==============================================================
@@ -284,25 +318,31 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
         return VK_NULL_HANDLE;
     }
 
+    // 以降の失敗では ds を必ず解放する
+    auto fail = [&](const char* msg) -> VkDescriptorSet
+    {
+        std::cerr << msg << "\n";
+        FreeDescriptorSetIfPossible(mDevice, mDescPool, ds);
+        ds = VK_NULL_HANDLE;
+        return VK_NULL_HANDLE;
+    };
+
     // Texture -> GPU
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {
-        std::cerr << "[VKRenderer] texture GPU is null\n";
-        return VK_NULL_HANDLE;
+        return fail("[VKRenderer] texture GPU is null");
     }
 
     auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
     if (!vkgpu)
     {
-        std::cerr << "[VKRenderer] texture GPU is not VKTextureGPU\n";
-        return VK_NULL_HANDLE;
+        return fail("[VKRenderer] texture GPU is not VKTextureGPU");
     }
 
     if (vkgpu->GetSampler() == VK_NULL_HANDLE || vkgpu->GetImageView() == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] VKTextureGPU sampler/view is null\n";
-        return VK_NULL_HANDLE;
+        return fail("[VKRenderer] VKTextureGPU sampler/view is null");
     }
 
     VkDescriptorImageInfo ii{};

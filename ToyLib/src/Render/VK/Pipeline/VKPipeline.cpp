@@ -84,37 +84,74 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
         outAttrs.push_back(a);
     };
 
+    // 使い回し用
+    constexpr uint32_t kF32 = (uint32_t)sizeof(float);
+    constexpr uint32_t kU32 = (uint32_t)sizeof(uint32_t);
+
     switch (layout)
     {
+        //==========================================================
+        // Sprite / Mesh : interleaved (pos3 + nrm3 + uv2) = 8 floats
+        //==========================================================
         case VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2:
         case VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2:
         {
-            // interleaved: pos3(0) nrm3(12) uv2(24)
-            outBinding.stride = 8 * sizeof(float); // 32
+            // offsets:
+            // pos3 : 0
+            // nrm3 : 3 floats
+            // uv2  : 6 floats
+            outBinding.stride = 8 * kF32;
+
             pushAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
+            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 3 * kF32);
+            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    6 * kF32);
             break;
         }
 
+        //==========================================================
+        // Skinned : interleaved
+        // pos3 + nrm3 + uv2 + bone4u32 + weight4f32
+        //==========================================================
         case VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4:
         {
-            // struct:
-            // pos3(0) nrm3(12) uv2(24) bone4u32(32) weight4(48)
-            outBinding.stride = 64;
-            pushAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
-            pushAttr(3, VK_FORMAT_R32G32B32A32_UINT, 32);
-            pushAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT, 48);
+            // 人力で offset を書かず struct で固定する（ミス防止）
+            struct VtxSkinned
+            {
+                float    pos[3];   // 12
+                float    nrm[3];   // 12
+                float    uv[2];    // 8
+                uint32_t bone[4];  // 16
+                float    w[4];     // 16
+            };
+
+            static_assert(sizeof(VtxSkinned) == 64, "VtxSkinned size mismatch");
+
+            outBinding.stride = (uint32_t)sizeof(VtxSkinned);
+
+            pushAttr(0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VtxSkinned, pos));
+            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(VtxSkinned, nrm));
+            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    (uint32_t)offsetof(VtxSkinned, uv));
+            pushAttr(3, VK_FORMAT_R32G32B32A32_UINT,(uint32_t)offsetof(VtxSkinned, bone));
+            pushAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT,(uint32_t)offsetof(VtxSkinned, w));
             break;
         }
 
+        //==========================================================
+        // Vec2 only : pos2
+        //==========================================================
         case VKPipelineDesc::VertexLayout::Vec2_Pos2:
         {
-            // interleaved: pos2(0)
-            outBinding.stride = 2 * sizeof(float); // 8
+            outBinding.stride = 2 * kF32;
             pushAttr(0, VK_FORMAT_R32G32_SFLOAT, 0);
+            break;
+        }
+
+        default:
+        {
+            // 未対応レイアウト：安全に「失敗」させる
+            // (stride=0, attrs empty) → Pipeline create時に検出しやすい
+            outBinding.stride = 0;
+            outAttrs.clear();
             break;
         }
     }
@@ -227,6 +264,8 @@ bool VKPipeline::Create(VkDevice device,
         return false;
     }
 
+    
+    
     mDevice = device;
 
     VkShaderModule vs = LoadShaderModule(device, desc.vsPath);

@@ -195,10 +195,7 @@ private:
     std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
 
     VkDescriptorSet GetOrCreateSpriteTextureSet(const Texture* tex);
-    void ClearSpriteTextureSetCache()
-    {
-        mSpriteTexSetCache.clear();
-    }
+    void ClearSpriteTextureSetCache();
 
 private:
     //==============================================================

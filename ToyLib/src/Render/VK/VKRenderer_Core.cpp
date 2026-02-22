@@ -148,7 +148,7 @@ void VKRenderer::Shutdown()
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
-    ClearSpriteTextureSetCache();
+    // ※DestroyDescriptorPool 内で cache クリアもする想定
     DestroySceneUBO();
     DestroyDescriptorPool();
 
@@ -221,6 +221,9 @@ void VKRenderer::Shutdown()
     mNeedRecreateSwapchain = false;
     mFrameIndex = 0;
     mImageIndex = 0;
+
+    // scene set handle safety
+    mSceneSet = VK_NULL_HANDLE;
 }
 
 void VKRenderer::WaitIdle()
@@ -1026,23 +1029,34 @@ bool VKRenderer::RecreateSwapchain()
 
     //==========================================================
     // IMPORTANT:
-    // Pipelines typically depend on RenderPass and Extent.
-    // After swapchain recreation, rebuild pipelines that are using mRenderPass.
-    //
-    // NOTE:
-    // The actual destroy API depends on your VKPipelineLibrary implementation.
-    // Add the proper call here.
+    // DescriptorSets must be freed BEFORE pipelines destroy
+    // their VkDescriptorSetLayout (VKPipeline::Destroy()).
     //==========================================================
-    // TODO: mPipelines.DestroyAll(mDevice);
+    if (mDevice && mDescPool)
+    {
+        if (mSceneSet != VK_NULL_HANDLE)
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, 1, &mSceneSet);
+            mSceneSet = VK_NULL_HANDLE;
+        }
+        ClearSpriteTextureSetCache();
+    }
+
+    //==========================================================
+    // Pipelines depend on RenderPass and Extent -> rebuild
+    //==========================================================
     if (!BuildDefaultPipelines())
     {
         return false;
     }
 
-    // Descriptor set layouts should remain compatible if presets are the same.
-    // Texture descriptor sets cache can stay, but if you change layouts later,
-    // clear it here.
-    // ClearSpriteTextureSetCache();
+    //==========================================================
+    // Recreate SceneSet with NEW set layout (set=0)
+    //==========================================================
+    if (!CreateSceneDescriptorSet())
+    {
+        return false;
+    }
 
     return true;
 }
