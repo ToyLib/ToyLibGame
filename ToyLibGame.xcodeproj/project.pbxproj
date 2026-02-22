@@ -43,7 +43,6 @@
 				include/Graphics/Sprite/TextSpriteComponent.h,
 				include/UI/MessageBoxActor.h,
 				include/Utils/StringUtil.h,
-				Shaders/VK/src/fullscreen_tri.vert,
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */

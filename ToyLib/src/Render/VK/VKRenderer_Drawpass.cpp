@@ -1,7 +1,7 @@
 //======================================================================
 // Render/VK/VKRenderer_Drawpass.cpp
 //  - Draw phases / DrawToRenderTarget / DrawItem
-//  - いまは “build通し＆clear-only” を維持しつつ、Sprite(Texture) を最低限描けるようにする
+//  - “build通し＆clear-only” を維持しつつ、Sprite(Texture) を最低限描けるようにする
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -47,11 +47,13 @@ static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
         return false;
     }
 
-    auto* backend = (VKVertexArrayBackend*)va->GetBackend();
-    if (!backend)
+    const IVertexArrayBackend* base = va->GetBackend();
+    if (!base || !base->IsVK())
     {
         return false;
     }
+
+    auto* backend = (VKVertexArrayBackend*)base;
 
     VkBuffer vb = (VkBuffer)backend->GetVKVertexBuffer();
     if (vb == VK_NULL_HANDLE)
@@ -73,7 +75,6 @@ static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
 
 //--------------------------------------------------------------
 // RTT: DrawToRenderTarget
-//  - まずは安全に「別submit」で描く（ビルド通し優先）
 //--------------------------------------------------------------
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
@@ -121,8 +122,7 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         s.invView.Invert();
         SetCameraState(s);
 
-        // SceneUBO は view/proj から毎回詰める運用に寄せる
-        UpdateSceneUBO();
+        UpdateSceneUBO(); // renderer camera
     }
 
     VkClearValue clears[2]{};
@@ -146,9 +146,9 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = 0.0f;
+    vp.y = (float)rp.renderArea.extent.height;   // ★上端を高さに
     vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = (float)rp.renderArea.extent.height;
+    vp.height = -(float)rp.renderArea.extent.height; // ★負で反転
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
@@ -158,19 +158,15 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
-    // TODO:
-    // ここで bucket を回して DrawItem(...) を呼ぶ
-    // 現状は clear-only でOK（RTT 経路は後で拡張）
-
+    // TODO: bucket draw
     vkCmdEndRenderPass(cmd);
 
     PopCameraState();
-
     EndOneTimeCommands(cmd);
 }
 
 //--------------------------------------------------------------
-// Draw phases（GL と同じ構造で拡張していく）
+// Draw phases
 //--------------------------------------------------------------
 void VKRenderer::DrawShadowPass() {}
 void VKRenderer::RestoreAfterShadowPass() {}
@@ -178,14 +174,9 @@ void VKRenderer::DrawSkyPass() {}
 
 void VKRenderer::DrawWorldPass()
 {
-    // SceneUBO（view/proj）を最新化
     UpdateSceneUBO();
-
-    // だいたい GL と同じ構造でOK（Bucketは IRenderer 側で作られてる）
     DrawBucket_World(mBuckets.worldOpaque);
     DrawBucket_World(mBuckets.effectPre);
-
-    // 透明は後ろ
     DrawBucket_World(mBuckets.worldTransparent);
     DrawBucket_World(mBuckets.effectOverlay);
 }
@@ -196,17 +187,14 @@ void VKRenderer::DrawPostEffectPass() {}
 
 void VKRenderer::DrawUIPass()
 {
-    // UI も SceneUBO（view/proj）を使うなら、ここで更新してもOK
-    // （WorldPassで更新済みなら不要だが、将来 pass ごとに変える可能性があるなら安全寄り）
+    // UI は item.viewProj を毎 draw で反映するので、ここは更新しなくても良いが
+    // “UI以外が混ざったときの保険”で renderer camera を入れておく
     UpdateSceneUBO();
-
-    DrawBucket_World(mBuckets.ui); // UIも DrawItem は pass=UI として来る
+    DrawBucket_World(mBuckets.ui);
 }
 
 //--------------------------------------------------------------
-// DrawItem (bucketed draw path)
-//  - まずは Sprite(Texture) のみ「最低限」実装
-//  - 他 type は “何もしない” で build 通しを維持
+// DrawItem
 //--------------------------------------------------------------
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
@@ -225,11 +213,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //==========================================================
-    // Sprite(Texture) : minimum
+    // Sprite(Texture) : minimum but “correct”
     //==========================================================
     if (it.type != RenderItemType::Sprite)
     {
-        return; // build通し維持：他は後で追加
+        return;
     }
 
     // Pipeline
@@ -239,7 +227,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         return;
     }
 
-    // Geometry (VertexArray -> VK buffers)
+    // Geometry
     if (!BindVertexArrayVK(cmd, it.geometry))
     {
         return;
@@ -256,6 +244,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     {
         return;
     }
+
+    // ★重要：GL と同じ意味にする
+    // SpriteComponent が詰めた it.viewProj（CreateSimpleViewProj）を SceneUBO に反映
+    // これをしないと UI sprite は 3D camera 行列で飛ぶことがある。
+    UpdateSceneUBO(it.viewProj);
 
     VkDescriptorSet sets[2] =
     {
@@ -275,7 +268,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         0,
         nullptr);
 
-    // PushConstants: world + colorAlpha
+    // PushConstants
     Vector3 color(1.0f, 1.0f, 1.0f);
     float   alpha = 1.0f;
 
@@ -305,32 +298,16 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     // Draw
     if (it.indexCount > 0)
     {
-        vkCmdDrawIndexed(
-            cmd,
-            static_cast<uint32_t>(it.indexCount),
-            1,
-            0, 0, 0);
+        vkCmdDrawIndexed(cmd, (uint32_t)it.indexCount, 1, 0, 0, 0);
         AddDrawCall();
     }
     else if (it.vertexCount > 0)
     {
-        vkCmdDraw(
-            cmd,
-            static_cast<uint32_t>(it.vertexCount),
-            1,
-            0, 0);
+        vkCmdDraw(cmd, (uint32_t)it.vertexCount, 1, 0, 0);
         AddDrawCall();
     }
-
-    // NOTE:
-    // depth/blend/cull など RenderItem の state は
-    // いまは pipeline 固定（Preset）で運用。
-    // 将来、PipelineKey を組んで切り替える or dynamic state 対応で拡張する。
 }
 
-//--------------------------------------------------------------
-// PipelineHandle
-//--------------------------------------------------------------
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 {
     (void)name;

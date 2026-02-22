@@ -188,7 +188,11 @@ private:
     bool CreateSceneUBO();
     void DestroySceneUBO();
     void UpdateSceneUBO(); // frameごとに更新（中身は後で拡張）
-
+    void UpdateSceneUBO(const Matrix4& viewProjOverride);
+    // VKRenderer.h（クラス内 public か private に追加）
+    void UpdateSceneUBOFromMatrix(const Matrix4& viewProj);
+    
+    
     bool CreateSceneDescriptorSet(); // set=0 を確保して write
 
     // set=1 : Sprite Texture（Texture* をキーに descriptor set をキャッシュ）
@@ -210,6 +214,7 @@ private:
                                  VkDeviceMemory& outMem);
 
     bool UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size);
+    
 };
 
 } // namespace toy

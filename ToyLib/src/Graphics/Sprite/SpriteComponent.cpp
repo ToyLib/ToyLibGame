@@ -118,6 +118,8 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
 
     it.texture     = renderer->ToHandle(mTexture);
     it.textureUnit = 0;
+    
+    it.pass = RenderPass::UI;
 
 
     out.Push(it);

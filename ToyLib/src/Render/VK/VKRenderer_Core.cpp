@@ -125,6 +125,20 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    
+    // Default view/proj
+    mViewMatrix = Matrix4::CreateLookAt(
+        Vector3(0, 0.5f, -3),
+        Vector3(0, 0, 10),
+        Vector3::UnitY
+    );
+    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
+        Math::ToRadians(mPerspectiveFOV),
+        mScreenWidth,
+        mScreenHeight,
+        1.0f,
+        2000.0f
+    );
 
     std::cerr << "[VKRenderer] Init OK. Swapchain("
               << mSwapchainExtent.width << "x" << mSwapchainExtent.height
@@ -329,9 +343,9 @@ bool VKRenderer::BeginFrame()
 
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = 0.0f;
-    vp.width  = (float)mSwapchainExtent.width;
-    vp.height = (float)mSwapchainExtent.height;
+    vp.y = (float)rp.renderArea.extent.height;   // ★上端を高さに
+    vp.width  = (float)rp.renderArea.extent.width;
+    vp.height = -(float)rp.renderArea.extent.height; // ★負で反転
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(frame.cmd, 0, 1, &vp);

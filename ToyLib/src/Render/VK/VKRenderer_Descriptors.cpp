@@ -18,7 +18,6 @@ namespace toy
 
 //--------------------------------------------------------------
 // local helper: FindMemoryType
-//  ※将来的には vkutil 側に寄せてもOK（現状はこのCPP内で完結）
 //--------------------------------------------------------------
 static uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
                               uint32_t typeBits,
@@ -50,7 +49,7 @@ static VkDescriptorSetLayout GetSpritePipelineSetLayout(VKPipelineLibrary& lib,
     {
         return VK_NULL_HANDLE;
     }
-    return p->GetSetLayout(setIndex); // ★VKPipeline に GetSetLayout がある前提
+    return p->GetSetLayout(setIndex);
 }
 
 //==============================================================
@@ -79,7 +78,6 @@ bool VKRenderer::CreateDescriptorPool()
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    // 個別に set を free できるようにしておく（キャッシュ破棄や失敗ロールバックが楽）
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     ci.maxSets       = kMaxSceneSets + kMaxTextureSets;
     ci.poolSizeCount = 2;
@@ -102,7 +100,6 @@ bool VKRenderer::CreateDescriptorPool()
 static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, VkDescriptorSet set)
 {
     if (!device || !pool || !set) return;
-    // pool が FREE_DESCRIPTOR_SET_BIT で作られている前提
     vkFreeDescriptorSets(device, pool, 1, &set);
 }
 
@@ -113,7 +110,6 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
-    // 先に個別解放（順序事故・後始末の見通しを良くする）
     if (mSceneSet != VK_NULL_HANDLE)
     {
         FreeDescriptorSetIfPossible(mDevice, mDescPool, mSceneSet);
@@ -130,7 +126,7 @@ void VKRenderer::DestroyDescriptorPool()
 }
 
 //==============================================================
-// Scene UBO (最小)
+// Scene UBO (min) : row_major mat4 viewProj をそのまま詰める想定
 //==============================================================
 struct VKSceneUBO_Min
 {
@@ -160,6 +156,7 @@ bool VKRenderer::CreateSceneUBO()
         return false;
     }
 
+    // 初期値
     UpdateSceneUBO();
     return true;
 }
@@ -187,17 +184,19 @@ void VKRenderer::DestroySceneUBO()
 
 void VKRenderer::UpdateSceneUBO()
 {
+    // renderer の camera state から viewProj を作る従来版
+    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
+    UpdateSceneUBO(viewProj);
+}
+
+void VKRenderer::UpdateSceneUBO(const Matrix4& viewProj)
+{
     if (!mDevice || mSceneUBOMem == VK_NULL_HANDLE || mSceneUBOSize == 0)
     {
         return;
     }
 
     VKSceneUBO_Min ubo{};
-
-    // ここで毎回 view*proj を構築して詰める（mViewProjMatrix 前提を排除）
-    const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
-
-    // Matrix4 が 16float 連続の前提（ToyLibのMathUtil設計に合わせる）
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
     (void)UploadToBuffer(mSceneUBOMem, &ubo, (VkDeviceSize)mSceneUBOSize);
@@ -265,7 +264,6 @@ bool VKRenderer::CreateSceneDescriptorSet()
 //==============================================================
 void VKRenderer::ClearSpriteTextureSetCache()
 {
-    // キャッシュに積んだ DS を個別解放（pool が FREE_DESCRIPTOR_SET_BIT の前提）
     if (mDevice && mDescPool)
     {
         for (auto& kv : mSpriteTexSetCache)
@@ -318,7 +316,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
         return VK_NULL_HANDLE;
     }
 
-    // 以降の失敗では ds を必ず解放する
     auto fail = [&](const char* msg) -> VkDescriptorSet
     {
         std::cerr << msg << "\n";
@@ -327,7 +324,6 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
         return VK_NULL_HANDLE;
     };
 
-    // Texture -> GPU
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {

@@ -2,13 +2,13 @@
 
 layout(set = 0, binding = 0, std140) uniform SceneUBO
 {
-    mat4 viewProj;
+    layout(row_major) mat4 viewProj;
 } uScene;
 
 layout(push_constant) uniform PC
 {
-    mat4 world;           // offset 0
-    vec4 colorAlpha;      // offset 64
+    layout(row_major) mat4 world;     // offset 0 (64 bytes)
+    vec4 colorAlpha;                  // offset 64
 } pc;
 
 layout(location=0) in vec3 inPosition;
@@ -20,7 +20,9 @@ layout(location=1) out vec4 vColorAlpha;
 
 void main()
 {
-    gl_Position  = vec4(inPosition, 1.0) * pc.world * uScene.viewProj;
-    vUV          = inTexCoord;
-    vColorAlpha  = pc.colorAlpha;
+    // ★順番は変えない（row-vector）
+    gl_Position = vec4(inPosition, 1.0) * pc.world * uScene.viewProj;
+
+    vUV         = inTexCoord;
+    vColorAlpha = pc.colorAlpha;
 }

@@ -96,15 +96,19 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
         case VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2:
         case VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2:
         {
-            // offsets:
-            // pos3 : 0
-            // nrm3 : 3 floats
-            // uv2  : 6 floats
-            outBinding.stride = 8 * kF32;
+            struct Vtx
+            {
+                float pos[3];
+                float nrm[3];
+                float uv[2];
+            };
+            static_assert(sizeof(Vtx) == 32, "Vtx size mismatch");
 
-            pushAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 3 * kF32);
-            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    6 * kF32);
+            outBinding.stride = (uint32_t)sizeof(Vtx);
+
+            pushAttr(0, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vtx, pos));
+            pushAttr(1, VK_FORMAT_R32G32B32_SFLOAT, (uint32_t)offsetof(Vtx, nrm));
+            pushAttr(2, VK_FORMAT_R32G32_SFLOAT,    (uint32_t)offsetof(Vtx, uv));
             break;
         }
 
@@ -292,6 +296,15 @@ bool VKPipeline::Create(VkDevice device,
     VkVertexInputBindingDescription binding{};
     std::vector<VkVertexInputAttributeDescription> attrs;
     BuildVertexInput(desc.layout, binding, attrs);
+    if (binding.stride == 0 || attrs.empty())
+    {
+        std::cerr << "[VKPipeline] Invalid vertex layout. stride=0 or attrs empty\n";
+        vkDestroyShaderModule(device, vs, nullptr);
+        vkDestroyShaderModule(device, fs, nullptr);
+        Destroy();
+        return false;
+    }
+    
 
     VkPipelineVertexInputStateCreateInfo vi{};
     vi.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
