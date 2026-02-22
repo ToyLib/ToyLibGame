@@ -564,10 +564,29 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     }
 
     // tex が無いなら fallback
+    // tex が無いなら pipeline ごとの fallback
     if (!tex)
     {
-        std::cerr << "[VK] BaseMapSet: tex is NULL -> fallback (" << pipelineName << ")\n";
-        return mFallbackBaseMapSet;
+        const uint32_t ph = HashPipelineName(pipelineName);
+
+        auto it = mFallbackBaseMapSetByPipe.find(ph);
+        if (it != mFallbackBaseMapSetByPipe.end() && it->second != VK_NULL_HANDLE)
+        {
+            return it->second;
+        }
+
+        // まだ無いなら作る（安全弁）
+        if (CreateFallbackBaseMapSet(pipelineName))
+        {
+            it = mFallbackBaseMapSetByPipe.find(ph);
+            if (it != mFallbackBaseMapSetByPipe.end())
+            {
+                return it->second;
+            }
+        }
+
+        std::cerr << "[VK] BaseMapSet: no fallback DS (" << pipelineName << ")\n";
+        return VK_NULL_HANDLE;
     }
 
     // cache (pipeline + texture)
