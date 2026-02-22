@@ -140,4 +140,18 @@ void GLRenderTarget::Unbind()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+//==============================================================================
+// Resize
+//------------------------------------------------------------------------------
+bool GLRenderTarget::Resize(int w, int h)
+{
+    // サイズ同じなら何もしない（重要：無駄な再生成防止）
+    if (w == mW && h == mH)
+    {
+        return true;
+    }
+
+    return Create(w, h);
+}
+
 } // namespace toy

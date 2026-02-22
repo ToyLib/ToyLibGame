@@ -1,7 +1,7 @@
 // Render/VK/VKTextureGPU.h
 #pragma once
 
-#include "Render/ITextureGPU.h"
+#include "Asset/Material/ITextureGPU.h"
 #include <vulkan/vulkan.h>
 
 namespace toy {
@@ -37,6 +37,7 @@ public:
 
     int GetWidth()  const { return mWidth; }
     int GetHeight() const { return mHeight; }
+    
 
 private:
     // Context (non-owning)

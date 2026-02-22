@@ -41,7 +41,6 @@
 			buildPhase = 7EDCE89C2ED72F7F0069EE3D /* Sources */;
 			membershipExceptions = (
 				include/Graphics/Sprite/TextSpriteComponent.h,
-				include/Render/RenderPayloadKind.h,
 				include/UI/MessageBoxActor.h,
 				include/Utils/StringUtil.h,
 			);

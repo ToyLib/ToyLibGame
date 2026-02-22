@@ -15,31 +15,31 @@ namespace toy::vkutil
 bool ReadFileBinary(const std::string& path, std::vector<uint8_t>& out)
 {
     out.clear();
-
+    
     std::ifstream ifs(path, std::ios::binary | std::ios::ate);
     if (!ifs.is_open())
     {
         std::cerr << "[VKUtil] Failed to open file: " << path << "\n";
         return false;
     }
-
+    
     const std::streamsize size = ifs.tellg();
     if (size <= 0)
     {
         std::cerr << "[VKUtil] File empty: " << path << "\n";
         return false;
     }
-
+    
     out.resize((size_t)size);
     ifs.seekg(0, std::ios::beg);
-
+    
     if (!ifs.read(reinterpret_cast<char*>(out.data()), size))
     {
         std::cerr << "[VKUtil] Failed to read file: " << path << "\n";
         out.clear();
         return false;
     }
-
+    
     return true;
 }
 
@@ -53,12 +53,12 @@ VkShaderModule CreateShaderModule(VkDevice device, const std::vector<uint8_t>& c
         std::cerr << "[VKUtil] CreateShaderModule: invalid code (empty or not multiple of 4)\n";
         return VK_NULL_HANDLE;
     }
-
+    
     VkShaderModuleCreateInfo ci{};
     ci.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     ci.codeSize = code.size();
     ci.pCode    = reinterpret_cast<const uint32_t*>(code.data());
-
+    
     VkShaderModule mod = VK_NULL_HANDLE;
     const VkResult r = vkCreateShaderModule(device, &ci, nullptr, &mod);
     if (r != VK_SUCCESS || mod == VK_NULL_HANDLE)
@@ -76,7 +76,7 @@ std::vector<VkLayerProperties> GetInstanceLayers()
 {
     uint32_t count = 0;
     vkEnumerateInstanceLayerProperties(&count, nullptr);
-
+    
     std::vector<VkLayerProperties> out(count);
     if (count)
     {
@@ -89,7 +89,7 @@ std::vector<VkExtensionProperties> GetInstanceExts()
 {
     uint32_t count = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
-
+    
     std::vector<VkExtensionProperties> out(count);
     if (count)
     {
@@ -102,7 +102,7 @@ std::vector<VkExtensionProperties> GetDeviceExts(VkPhysicalDevice gpu)
 {
     uint32_t count = 0;
     vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
-
+    
     std::vector<VkExtensionProperties> out(count);
     if (count)
     {
@@ -150,33 +150,33 @@ bool HasDeviceExt(const char* name, const std::vector<VkExtensionProperties>& ex
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice gpu, VkSurfaceKHR surface)
 {
     QueueFamilyIndices out;
-
+    
     uint32_t count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
-
+    
     std::vector<VkQueueFamilyProperties> props(count);
     if (count)
     {
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, props.data());
     }
-
+    
     for (uint32_t i = 0; i < count; ++i)
     {
         if (props[i].queueCount > 0 && (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
         {
             out.graphics = i;
         }
-
+        
         VkBool32 supported = VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(gpu, i, surface, &supported);
         if (supported)
         {
             out.present = i;
         }
-
+        
         if (out.IsComplete()) break;
     }
-
+    
     return out;
 }
 
@@ -186,9 +186,9 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice gpu, VkSurfaceKHR surface)
 SwapchainSupport QuerySwapchainSupport(VkPhysicalDevice gpu, VkSurfaceKHR surface)
 {
     SwapchainSupport out;
-
+    
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &out.caps);
-
+    
     uint32_t fmtCount = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &fmtCount, nullptr);
     out.formats.resize(fmtCount);
@@ -196,7 +196,7 @@ SwapchainSupport QuerySwapchainSupport(VkPhysicalDevice gpu, VkSurfaceKHR surfac
     {
         vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &fmtCount, out.formats.data());
     }
-
+    
     uint32_t pmCount = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, &pmCount, nullptr);
     out.presentModes.resize(pmCount);
@@ -204,7 +204,7 @@ SwapchainSupport QuerySwapchainSupport(VkPhysicalDevice gpu, VkSurfaceKHR surfac
     {
         vkGetPhysicalDeviceSurfacePresentModesKHR(gpu, surface, &pmCount, out.presentModes.data());
     }
-
+    
     return out;
 }
 
@@ -218,9 +218,9 @@ VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& fo
             return f;
         }
     }
-
+    
     if (!formats.empty()) return formats[0];
-
+    
     VkSurfaceFormatKHR fallback{};
     fallback.format     = VK_FORMAT_B8G8R8A8_UNORM;
     fallback.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -243,7 +243,7 @@ VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, int pixelW, int pi
     {
         return caps.currentExtent;
     }
-
+    
     VkExtent2D e{};
     e.width  = (uint32_t)std::clamp(pixelW, (int)caps.minImageExtent.width,  (int)caps.maxImageExtent.width);
     e.height = (uint32_t)std::clamp(pixelH, (int)caps.minImageExtent.height, (int)caps.maxImageExtent.height);
@@ -259,7 +259,7 @@ uint32_t FindMemoryType(VkPhysicalDevice phys,
 {
     VkPhysicalDeviceMemoryProperties memProps{};
     vkGetPhysicalDeviceMemoryProperties(phys, &memProps);
-
+    
     for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
     {
         const bool typeOK = (typeBits & (1u << i)) != 0;
@@ -284,48 +284,48 @@ bool CreateBuffer_HostVisible(VkPhysicalDevice phys,
 {
     outBuf = VK_NULL_HANDLE;
     outMem = VK_NULL_HANDLE;
-
+    
     if (!phys || !device || sizeBytes == 0)
     {
         return false;
     }
-
+    
     VkBufferCreateInfo bci{};
     bci.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bci.size        = sizeBytes;
     bci.usage       = usage;
     bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
+    
     if (vkCreateBuffer(device, &bci, nullptr, &outBuf) != VK_SUCCESS)
     {
         return false;
     }
-
+    
     VkMemoryRequirements req{};
     vkGetBufferMemoryRequirements(device, outBuf, &req);
-
+    
     const uint32_t memType =
-        FindMemoryType(phys, req.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    FindMemoryType(phys, req.memoryTypeBits,
+                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (memType == UINT32_MAX)
     {
         vkDestroyBuffer(device, outBuf, nullptr);
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     VkMemoryAllocateInfo mai{};
     mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mai.allocationSize  = req.size;
     mai.memoryTypeIndex = memType;
-
+    
     if (vkAllocateMemory(device, &mai, nullptr, &outMem) != VK_SUCCESS)
     {
         vkDestroyBuffer(device, outBuf, nullptr);
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     if (vkBindBufferMemory(device, outBuf, outMem, 0) != VK_SUCCESS)
     {
         vkFreeMemory(device, outMem, nullptr);
@@ -334,7 +334,7 @@ bool CreateBuffer_HostVisible(VkPhysicalDevice phys,
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     return true;
 }
 
@@ -355,12 +355,14 @@ bool CreateImage2D(VkPhysicalDevice phys,
 {
     outImg = VK_NULL_HANDLE;
     outMem = VK_NULL_HANDLE;
-
-    if (!phys || !device || w == 0 || h == 0)
+    
+    if (!phys || !device || w == 0 || h == 0 || format == VK_FORMAT_UNDEFINED)
     {
+        std::cerr << "[VKUtil] CreateImage2D invalid args: "
+                  << "w=" << w << " h=" << h << " format=" << (int)format << "\n";
         return false;
     }
-
+    
     VkImageCreateInfo ici{};
     ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     ici.imageType     = VK_IMAGE_TYPE_2D;
@@ -373,15 +375,15 @@ bool CreateImage2D(VkPhysicalDevice phys,
     ici.usage         = usage;
     ici.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
     ici.initialLayout = initialLayout;
-
+    
     if (vkCreateImage(device, &ici, nullptr, &outImg) != VK_SUCCESS)
     {
         return false;
     }
-
+    
     VkMemoryRequirements req{};
     vkGetImageMemoryRequirements(device, outImg, &req);
-
+    
     const uint32_t memType = FindMemoryType(phys, req.memoryTypeBits, memProps);
     if (memType == UINT32_MAX)
     {
@@ -389,19 +391,19 @@ bool CreateImage2D(VkPhysicalDevice phys,
         outImg = VK_NULL_HANDLE;
         return false;
     }
-
+    
     VkMemoryAllocateInfo mai{};
     mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mai.allocationSize  = req.size;
     mai.memoryTypeIndex = memType;
-
+    
     if (vkAllocateMemory(device, &mai, nullptr, &outMem) != VK_SUCCESS)
     {
         vkDestroyImage(device, outImg, nullptr);
         outImg = VK_NULL_HANDLE;
         return false;
     }
-
+    
     if (vkBindImageMemory(device, outImg, outMem, 0) != VK_SUCCESS)
     {
         vkFreeMemory(device, outMem, nullptr);
@@ -410,7 +412,7 @@ bool CreateImage2D(VkPhysicalDevice phys,
         outImg = VK_NULL_HANDLE;
         return false;
     }
-
+    
     return true;
 }
 
@@ -426,19 +428,19 @@ VkImageView CreateImageView2D(VkDevice device,
     {
         return VK_NULL_HANDLE;
     }
-
+    
     VkImageViewCreateInfo vci{};
     vci.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vci.image    = img;
     vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
     vci.format   = format;
-
+    
     vci.subresourceRange.aspectMask     = aspect;
     vci.subresourceRange.baseMipLevel   = 0;
     vci.subresourceRange.levelCount     = 1;
     vci.subresourceRange.baseArrayLayer = 0;
     vci.subresourceRange.layerCount     = 1;
-
+    
     VkImageView view = VK_NULL_HANDLE;
     if (vkCreateImageView(device, &vci, nullptr, &view) != VK_SUCCESS)
     {
@@ -467,16 +469,16 @@ void CmdTransitionImageLayout(VkCommandBuffer cmd,
     bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bar.image               = img;
-
+    
     bar.subresourceRange.aspectMask     = aspect;
     bar.subresourceRange.baseMipLevel   = 0;
     bar.subresourceRange.levelCount     = 1;
     bar.subresourceRange.baseArrayLayer = 0;
     bar.subresourceRange.layerCount     = 1;
-
+    
     bar.srcAccessMask = srcAccess;
     bar.dstAccessMask = dstAccess;
-
+    
     vkCmdPipelineBarrier(cmd,
                          srcStage, dstStage,
                          0,
@@ -497,38 +499,38 @@ static const char* SeverityToStr(VkDebugUtilsMessageSeverityFlagBitsEXT s)
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-    VkDebugUtilsMessageTypeFlagsEXT type,
-    const VkDebugUtilsMessengerCallbackDataEXT* cb,
-    void*)
+                                             VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                             VkDebugUtilsMessageTypeFlagsEXT type,
+                                             const VkDebugUtilsMessengerCallbackDataEXT* cb,
+                                             void*)
 {
     const char* t =
-        (type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) ? "VALIDATION" :
-        (type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) ? "PERF" :
-        (type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) ? "GENERAL" : "UNKNOWN";
-
+    (type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) ? "VALIDATION" :
+    (type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) ? "PERF" :
+    (type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) ? "GENERAL" : "UNKNOWN";
+    
     std::cerr << "[VK][" << t << "][" << SeverityToStr(severity) << "] "
-              << (cb && cb->pMessage ? cb->pMessage : "(null)") << "\n";
+    << (cb && cb->pMessage ? cb->pMessage : "(null)") << "\n";
     return VK_FALSE;
 }
 
 VkResult CreateDebugUtilsMessengerEXT(
-    VkInstance instance,
-    const VkDebugUtilsMessengerCreateInfoEXT* createInfo,
-    VkDebugUtilsMessengerEXT* out)
+                                      VkInstance instance,
+                                      const VkDebugUtilsMessengerCreateInfoEXT* createInfo,
+                                      VkDebugUtilsMessengerEXT* out)
 {
     auto fn = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-        vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
+                                                                   vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (!fn) return VK_ERROR_EXTENSION_NOT_PRESENT;
     return fn(instance, createInfo, nullptr, out);
 }
 
 void DestroyDebugUtilsMessengerEXT(
-    VkInstance instance,
-    VkDebugUtilsMessengerEXT messenger)
+                                   VkInstance instance,
+                                   VkDebugUtilsMessengerEXT messenger)
 {
     auto fn = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-        vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+                                                                    vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (fn && messenger) fn(instance, messenger, nullptr);
 }
 
@@ -544,43 +546,43 @@ bool CreateBuffer_DeviceLocal(VkPhysicalDevice phys,
 {
     outBuf = VK_NULL_HANDLE;
     outMem = VK_NULL_HANDLE;
-
+    
     VkBufferCreateInfo bci{};
     bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bci.size  = sizeBytes;
     bci.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // staging copy想定
     bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
+    
     if (vkCreateBuffer(device, &bci, nullptr, &outBuf) != VK_SUCCESS)
     {
         return false;
     }
-
+    
     VkMemoryRequirements req{};
     vkGetBufferMemoryRequirements(device, outBuf, &req);
-
+    
     const uint32_t typeIndex = FindMemoryType(
-        phys, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
+                                              phys, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
     if (typeIndex == UINT32_MAX)
     {
         vkDestroyBuffer(device, outBuf, nullptr);
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     VkMemoryAllocateInfo mai{};
     mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mai.allocationSize  = req.size;
     mai.memoryTypeIndex = typeIndex;
-
+    
     if (vkAllocateMemory(device, &mai, nullptr, &outMem) != VK_SUCCESS)
     {
         vkDestroyBuffer(device, outBuf, nullptr);
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     if (vkBindBufferMemory(device, outBuf, outMem, 0) != VK_SUCCESS)
     {
         vkFreeMemory(device, outMem, nullptr);
@@ -589,7 +591,7 @@ bool CreateBuffer_DeviceLocal(VkPhysicalDevice phys,
         outBuf = VK_NULL_HANDLE;
         return false;
     }
-
+    
     return true;
 }
 
@@ -614,18 +616,18 @@ bool UploadBuffer_Staging(VkPhysicalDevice phys,
                           VkDeviceSize dstOffsetBytes)
 {
     if (!srcData || sizeBytes == 0 || !dstDeviceLocal) return false;
-
+    
     VkBuffer staging = VK_NULL_HANDLE;
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
-
+    
     if (!CreateBuffer_HostVisible(
-            phys, device, sizeBytes,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            staging, stagingMem))
+                                  phys, device, sizeBytes,
+                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                  staging, stagingMem))
     {
         return false;
     }
-
+    
     void* mapped = nullptr;
     if (vkMapMemory(device, stagingMem, 0, sizeBytes, 0, &mapped) != VK_SUCCESS)
     {
@@ -633,16 +635,16 @@ bool UploadBuffer_Staging(VkPhysicalDevice phys,
         vkFreeMemory(device, stagingMem, nullptr);
         return false;
     }
-
+    
     std::memcpy(mapped, srcData, (size_t)sizeBytes);
     vkUnmapMemory(device, stagingMem);
-
+    
     VkBufferCopy copy{};
     copy.srcOffset = 0;
     copy.dstOffset = dstOffsetBytes;
     copy.size      = sizeBytes;
     vkCmdCopyBuffer(cmd, staging, dstDeviceLocal, 1, &copy);
-
+    
     // submitしてwaitする運用前提の簡易化（要改善）
     vkDestroyBuffer(device, staging, nullptr);
     vkFreeMemory(device, stagingMem, nullptr);
@@ -662,12 +664,12 @@ VkDescriptorSetLayout CreateSetLayout_CombinedImageSampler(VkDevice device,
     b.descriptorCount    = 1;
     b.stageFlags         = stages;
     b.pImmutableSamplers = nullptr;
-
+    
     VkDescriptorSetLayoutCreateInfo ci{};
     ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     ci.bindingCount = 1;
     ci.pBindings    = &b;
-
+    
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &layout) != VK_SUCCESS)
     {
@@ -687,7 +689,7 @@ void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
     img.imageView   = view;
     img.sampler     = sampler;
     img.imageLayout = layout;
-
+    
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     w.dstSet          = set;
@@ -696,7 +698,7 @@ void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
     w.descriptorCount = 1;
     w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.pImageInfo      = &img;
-
+    
     vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
 }
 
@@ -704,14 +706,14 @@ void UpdateDescriptorSet_CombinedImageSampler(VkDevice device,
 // Descriptor helpers (統一版)
 // ----------------------------------------------------------
 VkDescriptorSetLayout CreateDescriptorSetLayout(
-    VkDevice device,
-    const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+                                                VkDevice device,
+                                                const std::vector<VkDescriptorSetLayoutBinding>& bindings)
 {
     VkDescriptorSetLayoutCreateInfo ci{};
     ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     ci.bindingCount = (uint32_t)bindings.size();
     ci.pBindings    = bindings.data();
-
+    
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
     if (vkCreateDescriptorSetLayout(device, &ci, nullptr, &layout) != VK_SUCCESS)
     {
@@ -721,9 +723,9 @@ VkDescriptorSetLayout CreateDescriptorSetLayout(
 }
 
 VkDescriptorSetLayoutBinding MakeBinding_UBO(
-    uint32_t binding,
-    VkShaderStageFlags stages,
-    uint32_t count)
+                                             uint32_t binding,
+                                             VkShaderStageFlags stages,
+                                             uint32_t count)
 {
     VkDescriptorSetLayoutBinding b{};
     b.binding            = binding;
@@ -735,9 +737,9 @@ VkDescriptorSetLayoutBinding MakeBinding_UBO(
 }
 
 VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
-    uint32_t binding,
-    VkShaderStageFlags stages,
-    uint32_t count)
+                                                              uint32_t binding,
+                                                              VkShaderStageFlags stages,
+                                                              uint32_t count)
 {
     VkDescriptorSetLayoutBinding b{};
     b.binding            = binding;
@@ -749,18 +751,18 @@ VkDescriptorSetLayoutBinding MakeBinding_CombinedImageSampler(
 }
 
 void WriteDesc_UBO(
-    VkDevice device,
-    VkDescriptorSet set,
-    uint32_t binding,
-    VkBuffer buffer,
-    VkDeviceSize range,
-    VkDeviceSize offset)
+                   VkDevice device,
+                   VkDescriptorSet set,
+                   uint32_t binding,
+                   VkBuffer buffer,
+                   VkDeviceSize range,
+                   VkDeviceSize offset)
 {
     VkDescriptorBufferInfo bi{};
     bi.buffer = buffer;
     bi.offset = offset;
     bi.range  = range;
-
+    
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     w.dstSet          = set;
@@ -769,23 +771,23 @@ void WriteDesc_UBO(
     w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     w.descriptorCount = 1;
     w.pBufferInfo     = &bi;
-
+    
     vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
 }
 
 void WriteDesc_CombinedImageSampler(
-    VkDevice device,
-    VkDescriptorSet set,
-    uint32_t binding,
-    VkImageView view,
-    VkSampler sampler,
-    VkImageLayout layout)
+                                    VkDevice device,
+                                    VkDescriptorSet set,
+                                    uint32_t binding,
+                                    VkImageView view,
+                                    VkSampler sampler,
+                                    VkImageLayout layout)
 {
     VkDescriptorImageInfo ii{};
     ii.imageView   = view;
     ii.sampler     = sampler;
     ii.imageLayout = layout;
-
+    
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     w.dstSet          = set;
@@ -794,8 +796,47 @@ void WriteDesc_CombinedImageSampler(
     w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.descriptorCount = 1;
     w.pImageInfo      = &ii;
-
+    
     vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
+}
+
+//--------------------------------------------------------------
+// Depth format selection
+//--------------------------------------------------------------
+bool HasStencilComponent(VkFormat format)
+{
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+           format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+VkFormat ChooseDepthFormat(VkPhysicalDevice phys)
+{
+    if (!phys)
+    {
+        // 物理デバイス無しはあり得ないが、保険で返す
+        return VK_FORMAT_D32_SFLOAT;
+    }
+
+    const VkFormat candidates[] =
+    {
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+    };
+
+    for (VkFormat f : candidates)
+    {
+        VkFormatProperties fp{};
+        vkGetPhysicalDeviceFormatProperties(phys, f, &fp);
+
+        if ((fp.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
+        {
+            return f;
+        }
+    }
+
+    // fallback（MoltenVK は基本 D32 は通る）
+    return VK_FORMAT_D32_SFLOAT;
 }
 
 } // namespace toy::vkutil

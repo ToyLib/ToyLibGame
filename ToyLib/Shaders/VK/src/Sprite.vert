@@ -1,35 +1,28 @@
 #version 450
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inNormal;   // unused
-layout(location = 2) in vec2 inTexCoord;
-
-layout(location = 0) out vec2 fragTexCoord;
-
-//------------------------------------------------------------
-// set=1 binding=0 : SpriteCommon (viewProj)
-// - row-vector (v*M)
-//------------------------------------------------------------
-layout(set = 1, binding = 0, std140, row_major) uniform SpriteCommon
+layout(set = 0, binding = 0, std140) uniform SceneUBO
 {
-    mat4 uViewProj;
-} sc;
+    layout(row_major) mat4 viewProj;
+} uScene;
 
-//------------------------------------------------------------
-// Push constants (80 bytes)
-// - mat4 world (64)
-// - vec4 colorAlpha (16)
-//------------------------------------------------------------
-layout(push_constant, row_major) uniform Push
+layout(push_constant) uniform PC
 {
-    mat4 pcWorld;
-    vec4 pcColorAlpha; // unused in VS (FSで使う)
+    layout(row_major) mat4 world;     // offset 0 (64 bytes)
+    vec4 colorAlpha;                  // offset 64
 } pc;
+
+layout(location=0) in vec3 inPosition;
+layout(location=1) in vec3 inNormal;    // unused
+layout(location=2) in vec2 inTexCoord;
+
+layout(location=0) out vec2 vUV;
+layout(location=1) out vec4 vColorAlpha;
 
 void main()
 {
-    vec4 worldPos = vec4(inPosition, 1.0) * pc.pcWorld;
-    gl_Position   = worldPos * sc.uViewProj;
+    // ★順番は変えない（row-vector）
+    gl_Position = vec4(inPosition, 1.0) * pc.world * uScene.viewProj;
 
-    fragTexCoord = inTexCoord;
+    vUV         = inTexCoord;
+    vColorAlpha = pc.colorAlpha;
 }

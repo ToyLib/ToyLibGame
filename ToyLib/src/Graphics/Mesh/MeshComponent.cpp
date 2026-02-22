@@ -117,6 +117,7 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
 
             auto mat = mMesh->GetMaterial(v->GetTextureID());
             it.material = renderer->ToHandle(mat);
+            it.texture.ptr = mat->GetDiffuseMap().get();
 
             queue.Push(it);
         }
@@ -164,6 +165,8 @@ void MeshComponent::GatherRenderItems(RenderQueue& queue)
 
             auto mat = mMesh->GetMaterial(v->GetTextureID());
             o.material = renderer->ToHandle(mat);
+            o.texture.ptr = mat->GetDiffuseMap().get();
+
 
             queue.Push(o);
         }

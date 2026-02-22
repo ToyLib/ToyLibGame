@@ -28,6 +28,8 @@ struct DirectionalLight
         Position = position;
         Target   = target;
     }
+    Vector3 GetDiffuseColor() const { return DiffuseColor; }
+    Vector3 GetSpecularColor() const { return SpecColor; }
 };
 
 

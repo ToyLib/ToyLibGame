@@ -1,4 +1,4 @@
-#include "Render/GL/GLTextureGPU.h"
+#include "Asset/Material/GLTextureGPU.h"
 
 #include "glad/glad.h"
 
