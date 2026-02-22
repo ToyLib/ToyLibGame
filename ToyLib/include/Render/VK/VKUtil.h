@@ -201,4 +201,8 @@ namespace toy::vkutil
         VkSampler sampler,
         VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    // Depth format selection
+    VkFormat ChooseDepthFormat(VkPhysicalDevice phys);
+    bool HasStencilComponent(VkFormat format);
+
 } // namespace toy::vkutil

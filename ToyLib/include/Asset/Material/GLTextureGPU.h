@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Render/ITextureGPU.h"
+#include "Asset/Material/ITextureGPU.h"
 
 namespace toy {
 

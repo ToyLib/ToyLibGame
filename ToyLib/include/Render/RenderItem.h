@@ -5,15 +5,11 @@
 #include "Render/RenderHandles.h"
 #include "Render/VisualLayer.h"
 #include "Utils/MathUtil.h"
-
 #include <cstddef>
+#include <cstdint>
 
 namespace toy {
 
-
-//==============================================================
-// RenderItemType
-//==============================================================
 enum class RenderItemType
 {
     Sprite,
@@ -27,143 +23,69 @@ enum class RenderItemType
     Surface
 };
 
-//==============================================================
-// RenderItem
-//  - Renderer が「描画1単位」として処理するデータ
-//  - VisualComponent::GatherRenderItems() で積まれる
-//==============================================================
 struct RenderItem
 {
-    //==========================================================
+    //========================
     // Sort key / pass
-    //==========================================================
+    //========================
     RenderPass  pass      { RenderPass::World };
     VisualLayer layer     { VisualLayer::Object3D };
     int         drawOrder { 0 };
-    
-    using DispatchFn = bool(*)(
-                               class IRenderer&  r,
-                               const RenderItem& it,
-                               RenderPass       pass,
-                               int              cascadeIndex);
-    
-    DispatchFn dispatch { nullptr };
-    
-    RenderItemType type { RenderItemType::Sprite };
-    static constexpr uint32_t kInvalidPayload = 0xFFFFFFFF;
 
-    uint32_t payloadIndex { kInvalidPayload };
-    
-    //==========================================================
+    using DispatchFn = bool(*)(
+        class IRenderer&  r,
+        const RenderItem& it,
+        RenderPass        pass,
+        int               cascadeIndex);
+
+    DispatchFn     dispatch { nullptr };
+    RenderItemType type     { RenderItemType::Sprite };
+
+    static constexpr uint32_t kInvalidPayload = 0xFFFFFFFFu;
+    uint32_t payloadIndex { kInvalidPayload }; // type で解釈する
+
+    //========================
     // Geometry
-    //==========================================================
+    //========================
     PrimitiveTopology topology    { PrimitiveTopology::Triangles };
     GeometryHandle    geometry    {};
-    int               indexCount  { 0 }; // glDrawElements 用
-    int               vertexCount { 0 }; // glDrawArrays 用
-    
-    //==========================================================
+    int               indexCount  { 0 };
+    int               vertexCount { 0 };
+
+    //========================
     // Render state
-    //==========================================================
+    //========================
     BlendMode  blend      { BlendMode::Opaque };
     bool       depthTest  { true };
     bool       depthWrite { true };
-    bool       toon       { false };
-    
-    CullMode   cull      { CullMode::Back };
-    FrontFace  frontFace { FrontFace::CCW };
-    
-    //==========================================================
+    CullMode   cull       { CullMode::Back };
+    FrontFace  frontFace  { FrontFace::CCW };
+
+    //========================
     // Shader / material / texture
-    //==========================================================
+    //========================
     PipelineHandle pipeline    {};
     MaterialHandle material    {};
-    TextureHandle  texture     {};
+    TextureHandle  texture     {};      // Sprite/Billboard/Particle/Surface などで使う
     int            textureUnit { 0 };
-    
-    //==========================================================
-    // Contour
-    //==========================================================
-    bool    overrideColor      { false };
-    Vector3 overrideColorValue { 0.0f, 0.0f, 0.0f };
-    
-    //==========================================================
-    // Transforms
-    //==========================================================
+
+    //========================
+    // Transforms (共通)
+    //========================
     Matrix4 world    { Matrix4::Identity };
     Matrix4 viewProj { Matrix4::Identity };
-    
-    // Shadow 等で使いたい場合の予備
-    Matrix4 lightVP  { Matrix4::Identity };
-    
-    //==========================================================
-    // Sprite-only uniforms
-    //==========================================================
-    Vector3 color { 1.0f, 1.0f, 1.0f };
-    float   alpha { 1.0f };
-    
-    //==========================================================
-    // SkinnedMesh-only
-    //==========================================================
+
+    //========================
+    // SkinnedMesh-only (描画形態)
+    //========================
     const Matrix4* matrixPalette { nullptr };
     size_t         paletteCount  { 0 };
-    
-    //==========================================================
-    // GPUParticle-only
-    //==========================================================
-    unsigned int gpuVAO        { 0 };
-    int          instanceCount { 0 };
-    
-    Vector3 cameraRight     { 1.0f, 0.0f, 0.0f };
-    Vector3 cameraUp        { 0.0f, 1.0f, 0.0f };
-    float   particleLifeMax = 1.0f;
-    float   particleSize    = 1.0f;
-    
-    //==========================================================
-    // SkyDome / WeatherDome params
-    //==========================================================
-    float skyTime        { 0.0f }; // 雲アニメ等（0..1）
-    float skyTimeOfDay   { 0.0f }; // 1日（0..1）
-    int   skyWeatherType { 0 };
-    
-    Vector3 skySunDir        { Vector3::UnitY };
-    Vector3 skyMoonDir       { Vector3::NegUnitY };
-    Vector3 skyRawSkyColor   { Vector3::Zero };
-    Vector3 skyRawCloudColor { Vector3::Zero };
-    
-    Vector3 skyFogColor   = { Vector3::Zero };
-    float   skyFogDensity = { 0.0f };
-    
-    // MVP 直指定（SkyDome 互換）
-    Matrix4 mvp    { Matrix4::Identity };
-    bool    useMVP { false };
-    
-    //==========================================================
-    // Overlay / WeatherOverlay params
-    //==========================================================
-    float   overlayTime { 0.0f };
-    
-    float   overlayRainAmount { 0.0f };
-    float   overlayFogAmount  { 0.0f };
-    float   overlaySnowAmount { 0.0f };
-    
-    Vector2 overlayResolution { Vector2::Zero };
-    
-    // flare
-    float   overlayFlareIntensity { 0.0f };
-    Vector2 overlaySunPos         { Vector2::Zero };
-    Vector3 overlayFlareColor     { 1.0f, 0.9f, 0.7f };
-    
-    //==========================================================
-    // Surface
-    //==========================================================
-    float   surfaceOpacity { 1.0f };
-    Vector3 surfaceTint    { 1.0f, 1.0f, 1.0f };
-    bool    surfaceFlipX   { false };
-    bool    surfaceFlipY   { false };
-    int     surfaceMode    { 0 };   // enum 化してもOK
-    float   time           { 0.0f };
-    float   scanlineStrength { 1.0f };
+
+    //========================
+    // GPUParticle-only (描画形態)
+    //========================
+    uint32_t gpuVAO        { 0 };
+    int      instanceCount { 0 };
 };
 
 RenderItem::DispatchFn GetDispatch(RenderItemType type);

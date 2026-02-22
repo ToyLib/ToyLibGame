@@ -52,12 +52,11 @@ protected:
     void DrawUIPass() override;
 
 private:
-    SDL_Window*   mWindow             { nullptr };
     SDL_GLContext mGLContext          { nullptr };
     
     std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();
-
+    
 };
 
 } // namespace toy

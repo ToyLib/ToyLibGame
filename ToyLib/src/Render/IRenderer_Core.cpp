@@ -120,23 +120,24 @@ void IRenderer::RemoveVisualComp(VisualComponent* comp)
 //=============================================================
 void IRenderer::CreateSpriteVerts()
 {
-    const float vertices[] =
+    static const float vertices[] =
     {
-        -0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-         0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        // pos                 // normal(dummy)        // uv
+        -0.5f,  0.5f, 0.0f,     0.0f, 0.0f, 0.0f,       0.0f, 0.0f,
+         0.5f,  0.5f, 0.0f,     0.0f, 0.0f, 0.0f,       1.0f, 0.0f,
+         0.5f, -0.5f, 0.0f,     0.0f, 0.0f, 0.0f,       1.0f, 1.0f,
+        -0.5f, -0.5f, 0.0f,     0.0f, 0.0f, 0.0f,       0.0f, 1.0f
     };
 
-    const unsigned int indices[] =
+    static const unsigned int indices[] =
     {
         2, 1, 0,
         0, 3, 2
     };
 
     mSpriteQuad = std::make_shared<VertexArray>(
-        (float*)vertices, 4,
-        (unsigned int*)indices, 6
+        vertices, 4,
+        indices, 6
     );
 }
 

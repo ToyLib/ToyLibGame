@@ -1,5 +1,5 @@
 // Render/VK/VKTextureGPU.cpp
-#include "Render/VK/VKTextureGPU.h"
+#include "Asset/Material/VKTextureGPU.h"
 #include "Render/RenderBackendState.h"
 
 #include <cstring>

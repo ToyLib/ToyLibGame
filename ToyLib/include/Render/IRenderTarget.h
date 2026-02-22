@@ -7,12 +7,13 @@
 
 namespace toy {
 
-class Texture;
-
 //==============================================================
 // RenderTarget (backend-agnostic base)
 //  - Create/Bind/Unbind の共通APIだけを提供
 //  - 実体は GLRenderTarget / VkRenderTarget に分離
+//==============================================================
+//==============================================================
+// RenderTarget (backend-agnostic base)
 //==============================================================
 class IRenderTarget
 {
@@ -25,20 +26,18 @@ public:
     virtual void Bind() = 0;
     virtual void Unbind() = 0;
 
+    // ★追加：Resize（RTT前提なら必須）
+    virtual bool Resize(int w, int h) = 0;
+
     int GetWidth()  const { return mW; }
     int GetHeight() const { return mH; }
 
-    std::shared_ptr<Texture> GetColorTexture() const { return mColorTex; }
+    std::shared_ptr<class Texture> GetColorTexture() const { return mColorTex; }
 
 protected:
     int mW { 0 };
     int mH { 0 };
 
-    // NOTE:
-    // - ここは “結果として使えるテクスチャ” を返すために残す
-    // - VK版では VkTexture 的なものになる可能性があるので、
-    //   将来 Texture 自体を ITexture に寄せるなら差し替えやすい
-    std::shared_ptr<Texture> mColorTex;
+    std::shared_ptr<class Texture> mColorTex;
 };
-
 } // namespace toy

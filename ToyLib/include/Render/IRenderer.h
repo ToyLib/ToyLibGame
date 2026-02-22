@@ -341,9 +341,19 @@ public:
     {
         return mRenderQueue.GetSkyDomePayload(idx);
     }
-    
+    const SkinnedMeshPayload& GetSkinnedMeshPayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetSkinnedMeshPayload(idx);
+    }
+    const MeshPayload& GetMeshPayload(uint32_t idx) const
+    {
+        return mRenderQueue.GetMeshPayload(idx);
+    }
+
     
 protected:
+    SDL_Window*   mWindow             { nullptr };
+
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
 

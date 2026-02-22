@@ -93,6 +93,14 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
             continue;
         }
 
+        // ---- payload (world) ----
+        SkinnedMeshPayload sp {};
+        sp.toon = mIsToon;
+        sp.overrideColor = false;
+        sp.overrideColorValue = Vector3(0.0f, 0.0f, 0.0f);
+
+        const uint32_t payloadIndexWorld = queue.PushSkinnedMeshPayload(sp);
+
         RenderItem it {};
         it.type      = RenderItemType::SkinnedMesh;
         it.dispatch  = GetDispatch(it.type);
@@ -120,12 +128,12 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
         it.world    = world;
         it.viewProj = viewProj;
 
-        // toon
-        it.toon = mIsToon;
-
-        // matrix palette
+        // skinned palette (RenderItem に残す)
         it.matrixPalette = mats.data();
         it.paletteCount  = mats.size();
+
+        // payload
+        it.payloadIndex = payloadIndexWorld;
 
         queue.Push(it);
 
@@ -134,6 +142,14 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
         //=====================================================
         if (mContourFactor > 1.0f)
         {
+            // ---- payload (outline) ----
+            SkinnedMeshPayload op {};
+            op.toon = false; // 輪郭は toon 無関係（必要なら mIsToon でもOK）
+            op.overrideColor = true;
+            op.overrideColorValue = mContourColor;
+
+            const uint32_t payloadIndexOutline = queue.PushSkinnedMeshPayload(op);
+
             RenderItem ol = it;
 
             ol.depthTest  = true;
@@ -147,11 +163,8 @@ void SkeletalMeshComponent::GatherRenderItems(RenderQueue& queue)
             const Matrix4 scaleOutline = Matrix4::CreateScale(mContourFactor);
             ol.world = scaleOutline * world;
 
-            ol.overrideColor      = true;
-            ol.overrideColorValue = mContourColor;
-
-            // 必要なら通常より先に描く（任意）
-            // ol.drawOrder = GetDrawOrder() - 1;
+            // payload 差し替え
+            ol.payloadIndex = payloadIndexOutline;
 
             queue.Push(ol);
         }
