@@ -101,8 +101,6 @@ void VKRenderer::DestroyDescriptorPool()
         return;
     }
 
-    // pool が存在するなら pool でまとめて解放しても良いが、
-    // 今回はハンドルを確実に無効化するため、キャッシュ等は明示的にクリアする。
     if (mDescPool != VK_NULL_HANDLE)
     {
         //------------------------------------------------------
@@ -146,6 +144,8 @@ void VKRenderer::DestroyDescriptorPool()
         mSceneSet_UI.clear();
         mBaseMapSetCache.clear();
         mSpriteTexSetCache.clear();
+
+        mFallbackBaseMapSetByPipe.clear();
         mFallbackBaseMapSet = VK_NULL_HANDLE;
     }
 
@@ -283,8 +283,7 @@ void VKRenderer::UpdateSceneUBO_World()
 
     VKSceneUBO ubo{};
 
-    // ToyLib: row-vector / v*M 系でも、ここは「エンジン側の既存規約」に従う
-    // 既存コードに合わせて viewProj = View * Proj
+    // ToyLib 既存規約に合わせる: viewProj = View * Proj
     const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
@@ -313,7 +312,6 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.dirDir[2] = dirLight.GetDirection().z;
     ubo.dirDir[3] = 0.0f;
 
-    // diffuse/specular は最低限埋める（shader側が参照しても未定義にならない）
     const Vector3 dd = dirLight.GetDiffuseColor();
     const Vector3 ds = dirLight.GetSpecularColor();
 
@@ -487,7 +485,17 @@ bool VKRenderer::CreateSceneDescriptorSet()
     {
         return false;
     }
-    if (!CreateFallbackBaseMapSet())
+
+    // ★重要：pipelineごとにfallback DSを作る
+    if (!CreateFallbackBaseMapSet("Sprite"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("Mesh"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("SkinnedMesh"))
     {
         return false;
     }
@@ -504,10 +512,10 @@ void VKRenderer::ClearBaseMapSetCache()
     {
         for (auto& kv : mBaseMapSetCache)
         {
-            if (kv.second != VK_NULL_HANDLE)
+            VkDescriptorSet ds = kv.second;
+            if (ds != VK_NULL_HANDLE)
             {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &kv.second);
-                kv.second = VK_NULL_HANDLE;
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
             }
         }
     }
@@ -531,6 +539,22 @@ VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
     return GetOrCreateBaseMapSet(tex, "Sprite");
 }
 
+// Helper to hash pipeline name (FNV-1a 32-bit)
+static uint32_t HashPipelineName(const char* name)
+{
+    uint32_t h = 2166136261u;
+    if (!name)
+    {
+        return h;
+    }
+    for (const unsigned char* p = (const unsigned char*)name; *p; ++p)
+    {
+        h ^= (uint32_t)(*p);
+        h *= 16777619u;
+    }
+    return h;
+}
+
 VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
 {
     if (!mDevice || !mDescPool || !pipelineName)
@@ -539,22 +563,24 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     }
 
-    // tex が無いなら fallback を返す
+    // tex が無いなら fallback
     if (!tex)
     {
+        std::cerr << "[VK] BaseMapSet: tex is NULL -> fallback (" << pipelineName << ")\n";
         return mFallbackBaseMapSet;
     }
 
-    // cache
+    // cache (pipeline + texture)
+    BaseMapKey key{};
+    key.tex = tex;
+    key.pipelineHash = HashPipelineName(pipelineName);
+
+    if (auto it = mBaseMapSetCache.find(key); it != mBaseMapSetCache.end())
     {
-        auto it = mBaseMapSetCache.find(tex);
-        if (it != mBaseMapSetCache.end())
-        {
-            return it->second;
-        }
+        return it->second;
     }
 
-    // set=1 layout は pipeline から取る（Sprite/Mesh/Skinned で互換前提）
+    // set=1 layout を pipeline から取る
     VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
@@ -589,42 +615,61 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     };
 
+    // GPU backend
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {
+        std::cerr << "[VK] BaseMapSet: tex GPU is NULL tex=" << tex
+                  << " (" << pipelineName << ")\n";
         return fail("[VK] BaseMapSet: tex GPU is NULL");
     }
 
     auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
     if (!vkgpu)
     {
+        std::cerr << "[VK] BaseMapSet: GPU is not VKTextureGPU tex=" << tex
+                  << " gpu=" << gpu
+                  << " (" << pipelineName << ")\n";
         return fail("[VK] BaseMapSet: GPU is not VKTextureGPU");
     }
 
-    if (vkgpu->GetSampler() == VK_NULL_HANDLE || vkgpu->GetImageView() == VK_NULL_HANDLE)
+    const VkSampler sampler = vkgpu->GetSampler();
+    const VkImageView view  = vkgpu->GetImageView();
+
+    if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE)
     {
+        std::cerr << "[VK] BaseMapSet: sampler/view NULL tex=" << tex
+                  << " sampler=" << (void*)sampler
+                  << " view=" << (void*)view
+                  << " (" << pipelineName << ")\n";
         return fail("[VK] BaseMapSet: sampler/view NULL");
     }
 
     VkDescriptorImageInfo ii{};
-    ii.sampler     = vkgpu->GetSampler();
-    ii.imageView   = vkgpu->GetImageView();
+    ii.sampler     = sampler;
+    ii.imageView   = view;
     ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     w.dstSet          = ds;
-    w.dstBinding      = 0;
+    w.dstBinding      = 0; // ★ shader の binding と一致してる必要あり
     w.descriptorCount = 1;
     w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.pImageInfo      = &ii;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
-    mBaseMapSetCache[tex] = ds;
+    mBaseMapSetCache[key] = ds;
+
+    std::cerr << "[VK] BaseMapSet: created ds=" << (void*)ds
+              << " tex=" << tex
+              << " view=" << (void*)view
+              << " sampler=" << (void*)sampler
+              << " (" << pipelineName << ")\n";
+
     return ds;
 }
-
 //==============================================================
 // Fallback White Texture (1x1 RGBA8) : Image/View/Sampler
 //==============================================================
@@ -810,27 +855,35 @@ void VKRenderer::DestroyFallbackWhiteTexture()
     }
 }
 
-bool VKRenderer::CreateFallbackBaseMapSet()
+bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
 {
-    if (!mDevice || !mDescPool)
+    if (!mDevice || !mDescPool || !pipelineName)
     {
         return false;
-    }
-    if (mFallbackBaseMapSet != VK_NULL_HANDLE)
-    {
-        return true;
     }
     if (mFallbackWhiteView == VK_NULL_HANDLE || mFallbackWhiteSampler == VK_NULL_HANDLE)
     {
         return false;
     }
 
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "Sprite", 1);
+    const uint32_t ph = HashPipelineName(pipelineName);
+
+    {
+        auto it = mFallbackBaseMapSetByPipe.find(ph);
+        if (it != mFallbackBaseMapSetByPipe.end() && it->second != VK_NULL_HANDLE)
+        {
+            return true;
+        }
+    }
+
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] CreateFallbackBaseMapSet: Sprite set1 layout is null\n";
+        std::cerr << "[VK] FallbackBaseMapSet: set1 layout null (" << pipelineName << ")\n";
         return false;
     }
+
+    VkDescriptorSet ds = VK_NULL_HANDLE;
 
     VkDescriptorSetAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -838,11 +891,11 @@ bool VKRenderer::CreateFallbackBaseMapSet()
     ai.descriptorSetCount = 1;
     ai.pSetLayouts        = &set1;
 
-    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mFallbackBaseMapSet);
-    if (vr != VK_SUCCESS || mFallbackBaseMapSet == VK_NULL_HANDLE)
+    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &ds);
+    if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] vkAllocateDescriptorSets(FallbackBaseMapSet) failed: " << vr << "\n";
-        mFallbackBaseMapSet = VK_NULL_HANDLE;
+        std::cerr << "[VK] FallbackBaseMapSet: alloc failed vr=" << vr
+                  << " (" << pipelineName << ")\n";
         return false;
     }
 
@@ -853,13 +906,21 @@ bool VKRenderer::CreateFallbackBaseMapSet()
 
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet          = mFallbackBaseMapSet;
+    w.dstSet          = ds;
     w.dstBinding      = 0;
     w.descriptorCount = 1;
     w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.pImageInfo      = &ii;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+
+    mFallbackBaseMapSetByPipe[ph] = ds;
+
+    // 互換: 旧メンバー（Sprite用）も維持しておく
+    if (std::strcmp(pipelineName, "Sprite") == 0)
+    {
+        mFallbackBaseMapSet = ds;
+    }
 
     return true;
 }
@@ -868,15 +929,22 @@ void VKRenderer::DestroyFallbackBaseMapSet()
 {
     if (!mDevice || !mDescPool)
     {
+        mFallbackBaseMapSetByPipe.clear();
         mFallbackBaseMapSet = VK_NULL_HANDLE;
         return;
     }
 
-    if (mFallbackBaseMapSet != VK_NULL_HANDLE)
+    for (auto& kv : mFallbackBaseMapSetByPipe)
     {
-        FreeDescriptorSetIfPossible(mDevice, mDescPool, mFallbackBaseMapSet);
-        mFallbackBaseMapSet = VK_NULL_HANDLE;
+        VkDescriptorSet ds = kv.second;
+        if (ds != VK_NULL_HANDLE)
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+        }
     }
+    mFallbackBaseMapSetByPipe.clear();
+
+    mFallbackBaseMapSet = VK_NULL_HANDLE;
 }
 
 //==============================================================

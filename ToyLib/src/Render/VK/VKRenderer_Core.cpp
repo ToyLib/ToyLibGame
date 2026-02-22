@@ -1218,8 +1218,16 @@ bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
 
-    // swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    //==========================================================
+    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    //==========================================================
     mPipelines.DestroyAll();
+
+    //==========================================================
+    // ★超重要：pipeline を作り直したら setLayout が変わる可能性がある
+    //           → 古い DescriptorSet を使い回すと「テクスチャだけ出ない」が起きる
+    //==========================================================
+    ClearBaseMapSetCache();
 
     // Sprite
     {

@@ -18,6 +18,7 @@
 
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/VK/VKVertexArrayBackend.h"
+#include "Asset/Material/Material.h"
 
 #include <iostream>
 #include <cstring>
@@ -37,7 +38,7 @@ struct VKSpritePC
 struct VKMeshPC
 {
     float world[16];
-    float baseColor_useTex[4];
+    float baseColor_useTex[4];  // ★ w = useTex
     float misc[4];
     float overrideColor[4];
 };
@@ -359,9 +360,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         return;
     }
 
-    //----------------------------------------------------------
+    //==========================================================
     // Mesh
-    //----------------------------------------------------------
+    //==========================================================
     if (it.type == RenderItemType::Mesh)
     {
         VKPipeline* pipe = mPipelines.Get("Mesh");
@@ -370,8 +371,65 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             return;
         }
 
-        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
+        // SceneSet は上で決まってる前提
+        VkDescriptorSet sets[2] = { sceneSet, VK_NULL_HANDLE };
 
+        // -----------------------------------------------------
+        // 1) baseColor / specPower / toon / override / alpha
+        //    いまは最低限：色 + useTex だけ安定させる
+        // -----------------------------------------------------
+        Vector3 baseColor(1.0f, 1.0f, 1.0f);
+        float   specPower = 64.0f;
+        float   toon      = 0.0f;
+        float   overrideEnabled = 0.0f;
+        Vector3 overrideColor(0.0f, 0.0f, 0.0f);
+        float   alpha     = 1.0f;
+
+        // -----------------------------------------------------
+        // 2) テクスチャ参照（ここが重要）
+        //    ・実テクスチャが無いなら diffuseTex=nullptr のまま
+        //    ・DS は fallback を使うが useTex は 0 にする
+        // -----------------------------------------------------
+        const Texture* diffuseTex = it.texture.ptr; // ★ここは「実テクスチャ」だけ入っている想定にする
+        const bool hasRealTex = (diffuseTex != nullptr);
+        // ★ここが本題：useTex は “実テクスチャがある時だけ”
+        float useTex = 0.0f;
+
+
+        // いまは Material から色を取る経路が未確定なら、最低限ここは触らない
+        // ただし RenderItem に material が入っていて ptr が取れるなら、色だけ拾うのはOK
+        Material* mat = it.material.ptr;  // ←未導入ならやらない
+        if (mat)
+        {
+            baseColor = mat->GetDiffuseColor();
+            specPower = mat->GetSpecPower();
+
+            // 「意思 + 実体」で判定（matにあるなら）
+            // hasRealTex とは別に、matのuse意思も見る
+            const bool wants = mat->WantsUseTexture();
+            const bool has   = mat->HasDiffuseMap();
+            // matにテクスチャがあるのに RenderItem.texture が空の場合だけ拾う…は今は混ぜない
+            if (wants && hasRealTex)
+            {
+                useTex = 1.0f;
+            }
+            (void)has;
+        }
+
+
+        // -----------------------------------------------------
+        // 3) BaseMap set (nullならfallback DS)
+        // -----------------------------------------------------
+        VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(diffuseTex, "Mesh");
+        if (baseMapSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+        sets[1] = baseMapSet;
+
+        // -----------------------------------------------------
+        // 4) Bind & DS
+        // -----------------------------------------------------
         pipe->Bind(cmd);
 
         vkCmdBindDescriptorSets(
@@ -384,18 +442,26 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0,
             nullptr);
 
+        // -----------------------------------------------------
+        // 5) PushConstants（shaderのPCと一致させる）
+        // -----------------------------------------------------
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
-        pc.baseColor_useTex[0] = 1.0f;
-        pc.baseColor_useTex[1] = 1.0f;
-        pc.baseColor_useTex[2] = 1.0f;
-        pc.baseColor_useTex[3] = 1.0f;
+        pc.baseColor_useTex[0] = baseColor.x;
+        pc.baseColor_useTex[1] = baseColor.y;
+        pc.baseColor_useTex[2] = baseColor.z;
+        pc.baseColor_useTex[3] = useTex;            // ★ここで単色/テクスチャ分岐
 
-        pc.misc[0] = 64.0f; // spec power
-        pc.misc[1] = 0.0f;
-        pc.misc[2] = 0.0f;
-        pc.misc[3] = 1.0f;
+        pc.misc[0] = specPower;
+        pc.misc[1] = toon;
+        pc.misc[2] = overrideEnabled;
+        pc.misc[3] = alpha;
+
+        pc.overrideColor[0] = overrideColor.x;
+        pc.overrideColor[1] = overrideColor.y;
+        pc.overrideColor[2] = overrideColor.z;
+        pc.overrideColor[3] = 1.0f;
 
         vkCmdPushConstants(
             cmd,
@@ -405,6 +471,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sizeof(VKMeshPC),
             &pc);
 
+        // -----------------------------------------------------
+        // 6) Draw
+        // -----------------------------------------------------
         if (it.indexCount > 0)
         {
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
@@ -418,7 +487,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         return;
     }
-
     //----------------------------------------------------------
     // SkinnedMesh（未実装）
     //----------------------------------------------------------

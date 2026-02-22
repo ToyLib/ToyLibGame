@@ -1,21 +1,21 @@
 #version 450
 
-layout(set = 0, binding = 0, std140) uniform SceneUBO
+layout(set = 0, binding = 0, std140, row_major) uniform SceneUBO
 {
     mat4 viewProj;
-    vec4 cameraPos;     // xyz
-    vec4 ambientLight;  // xyz
-    vec4 dirDir;        // xyz (direction)
-    vec4 dirDiffuse;    // xyz
-    vec4 dirSpecular;   // xyz
+    vec4 cameraPos;
+    vec4 ambientLight;
+    vec4 dirDir;
+    vec4 dirDiffuse;
+    vec4 dirSpecular;
 } uScene;
 
-layout(push_constant) uniform PC
+layout(push_constant, row_major) uniform PC
 {
-    mat4 world;               // 0
-    vec4 baseColor_useTex;    // 64
-    vec4 misc;                // 80
-    vec4 overrideColor;       // 96
+    mat4 world;
+    vec4 baseColor_useTex;
+    vec4 misc;
+    vec4 overrideColor;
 } pc;
 
 layout(location=0) in vec3 inPosition;

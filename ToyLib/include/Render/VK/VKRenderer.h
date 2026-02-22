@@ -121,7 +121,7 @@ private:
     // Fallback 1x1 white texture + descriptor set(set=1)
     bool CreateFallbackWhiteTexture();
     void DestroyFallbackWhiteTexture();
-    bool CreateFallbackBaseMapSet();
+    bool CreateFallbackBaseMapSet(const char* pipelineName);
     void DestroyFallbackBaseMapSet();
 
 private:
@@ -197,8 +197,33 @@ private:
     std::vector<VkDescriptorSet> mSceneSet;     // world
     std::vector<VkDescriptorSet> mSceneSet_UI;  // ui
 
-    // BaseMap DS cache (Texture* -> DS) : set=1
-    std::unordered_map<const Texture*, VkDescriptorSet> mBaseMapSetCache;
+    // BaseMap DS cache : set=1
+    //  - pipeline ごとに set=1 layout が異なる可能性があるため、(pipeline, texture) をキーにする
+    struct BaseMapKey
+    {
+        const Texture* tex{ nullptr };
+        uint32_t       pipelineHash{ 0 };
+    };
+
+    struct BaseMapKeyHash
+    {
+        size_t operator()(const BaseMapKey& k) const noexcept
+        {
+            const size_t a = std::hash<const void*>{}(k.tex);
+            const size_t b = (size_t)k.pipelineHash;
+            return a ^ (b + 0x9e3779b97f4a7c15ull + (a << 6) + (a >> 2));
+        }
+    };
+
+    struct BaseMapKeyEq
+    {
+        bool operator()(const BaseMapKey& a, const BaseMapKey& b) const noexcept
+        {
+            return a.tex == b.tex && a.pipelineHash == b.pipelineHash;
+        }
+    };
+
+    std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash, BaseMapKeyEq> mBaseMapSetCache;
 
     // backward compat (旧名だけ残す)
     std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
@@ -212,6 +237,8 @@ private:
     VkSampler      mFallbackWhiteSampler{ VK_NULL_HANDLE };
 
     VkDescriptorSet mFallbackBaseMapSet{ VK_NULL_HANDLE };
+    
+    std::unordered_map<uint32_t, VkDescriptorSet> mFallbackBaseMapSetByPipe;
 };
 
 } // namespace toy
