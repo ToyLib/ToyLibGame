@@ -183,10 +183,16 @@ void VKRenderer::DrawPostEffectPass() {}
 
 void VKRenderer::DrawUIPass()
 {
-    UpdateSceneUBO();
+    // UIはSimpleViewProjを使う
+    const float sw = mScreenWidth;
+    const float sh = mScreenHeight;
+
+    Matrix4 vp = Matrix4::CreateSimpleViewProj(sw, sh);
+
+    UpdateSceneUBO(vp);
+
     DrawBucket_World(mBuckets.ui);
 }
-
 //======================================================================
 // DrawItem
 //======================================================================

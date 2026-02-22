@@ -60,28 +60,25 @@ VKPipelineDesc MakeSprite(const std::string& base)
     VKPipelineDesc d{};
     d.vsPath     = base + "Sprite.vert.spv";
     d.fsPath     = base + "Sprite.frag.spv";
-    d.layout     = VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2;
+
+    // ★ここ修正（重要）
+    d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
     d.depthTest  = false;
     d.depthWrite = false;
     d.alphaBlend = true;
 
     d.cullMode   = VK_CULL_MODE_NONE;
-
-    // ★viewport を負heightで反転しているので CCW が自然
-    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
 
-    // PC : 80 bytes
-    {
-        VKPushConstantDesc pc{};
-        pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-        pc.offset = 0;
-        pc.size   = 80;
-        d.pushConstants.push_back(pc);
-    }
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 80;
+    d.pushConstants.push_back(pc);
 
     return d;
 }
