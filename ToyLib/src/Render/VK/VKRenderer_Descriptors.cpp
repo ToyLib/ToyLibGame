@@ -575,7 +575,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
             return it->second;
         }
 
-        // まだ無いなら作る（安全弁）
+        // 念のため生成
         if (CreateFallbackBaseMapSet(pipelineName))
         {
             it = mFallbackBaseMapSetByPipe.find(ph);
@@ -585,7 +585,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
             }
         }
 
-        std::cerr << "[VK] BaseMapSet: no fallback DS (" << pipelineName << ")\n";
+        std::cerr << "[VK] BaseMapSet: fallback missing (" << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
@@ -680,12 +680,6 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
     mBaseMapSetCache[key] = ds;
-
-    std::cerr << "[VK] BaseMapSet: created ds=" << (void*)ds
-              << " tex=" << tex
-              << " view=" << (void*)view
-              << " sampler=" << (void*)sampler
-              << " (" << pipelineName << ")\n";
 
     return ds;
 }

@@ -1218,18 +1218,15 @@ bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
 
-    //==========================================================
-    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
-    //==========================================================
+    //----------------------------------------------------------
+    // recreate 対策
+    //----------------------------------------------------------
     mPipelines.DestroyAll();
-
-    //==========================================================
-    // ★超重要：pipeline を作り直したら setLayout が変わる可能性がある
-    //           → 古い DescriptorSet を使い回すと「テクスチャだけ出ない」が起きる
-    //==========================================================
     ClearBaseMapSetCache();
 
+    //----------------------------------------------------------
     // Sprite
+    //----------------------------------------------------------
     {
         VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
         if (!mPipelines.CreatePipeline("Sprite", mDevice, mRenderPass, mSwapchainExtent, sprite))
@@ -1238,19 +1235,49 @@ bool VKRenderer::BuildDefaultPipelines()
         }
     }
 
-    // Mesh
+    //----------------------------------------------------------
+    // Mesh（通常）
+    //----------------------------------------------------------
     {
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
+
+        // ★通常は CCW（ToyLib標準）
+        mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
         if (!mPipelines.CreatePipeline("Mesh", mDevice, mRenderPass, mSwapchainExtent, mesh))
+        {
+            return false;
+        }
+
+        //------------------------------------------------------
+        // Mesh_CW（裏表逆）
+        //------------------------------------------------------
+        VKPipelineDesc meshCW = mesh;
+        meshCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+        if (!mPipelines.CreatePipeline("Mesh_CW", mDevice, mRenderPass, mSwapchainExtent, meshCW))
         {
             return false;
         }
     }
 
-    // SkinnedMesh
+    //----------------------------------------------------------
+    // SkinnedMesh（同じことやる）
+    //----------------------------------------------------------
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
+
+        sk.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
         if (!mPipelines.CreatePipeline("SkinnedMesh", mDevice, mRenderPass, mSwapchainExtent, sk))
+        {
+            return false;
+        }
+
+        VKPipelineDesc skCW = sk;
+        skCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+        if (!mPipelines.CreatePipeline("SkinnedMesh_CW", mDevice, mRenderPass, mSwapchainExtent, skCW))
         {
             return false;
         }

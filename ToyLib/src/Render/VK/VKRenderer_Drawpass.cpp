@@ -278,8 +278,23 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     // Pipeline name
     //----------------------------------------------------------
     const char* pipelineName = nullptr;
-    if (it.type == RenderItemType::Sprite)      pipelineName = "Sprite";
-    if (it.type == RenderItemType::Mesh)        pipelineName = "Mesh";
+    if (it.type == RenderItemType::Sprite)
+    {
+        pipelineName = "Sprite";
+    }
+    if (it.type == RenderItemType::Mesh)
+    {
+        if (it.frontFace == FrontFace::CCW)
+        {
+            pipelineName = "Mesh";
+
+        }
+        else
+        {
+            pipelineName = "Mesh_CW";
+
+        }
+    }
     if (it.type == RenderItemType::SkinnedMesh) pipelineName = "SkinnedMesh";
 
     if (!pipelineName)
