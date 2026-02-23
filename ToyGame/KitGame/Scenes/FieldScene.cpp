@@ -228,7 +228,7 @@ void FieldScene::DeployBrick(Vector3 pos)
 
 void FieldScene::DeployFire(Vector3 pos)
 {
-    
+    /*
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -301,5 +301,5 @@ void FieldScene::DeployFire(Vector3 pos)
     particle->Init(desc);
     //particle->InitFromFile("ToyGame/Settings/Fire.json");
     particle->Start();
-    
+    */
 }

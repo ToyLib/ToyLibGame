@@ -389,6 +389,7 @@ bool VKRenderer::BeginFrame()
     sc.extent = mSwapchainExtent;
     vkCmdSetScissor(frame.cmd, 0, 1, &sc);
 
+    mBaseMapSetCache.clear();
     return true;
 }
 

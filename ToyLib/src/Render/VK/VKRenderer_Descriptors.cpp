@@ -559,7 +559,9 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     const std::string pipeName = NormalizePipelineName(pipelineName);
 
-    // tex が無いなら pipeline ごとの fallback
+    //----------------------------------------------------------
+    // fallback（★fallbackも frame別にする）
+    //----------------------------------------------------------
     if (!tex)
     {
         auto it = mFallbackBaseMapSetByPipe.find(pipeName);
@@ -568,7 +570,6 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
             return it->second;
         }
 
-        // 念のため生成
         if (CreateFallbackBaseMapSet(pipelineName))
         {
             it = mFallbackBaseMapSetByPipe.find(pipeName);
@@ -582,17 +583,22 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     }
 
-    // cache (pipeline + texture)
+    //----------------------------------------------------------
+    // ★ frame-aware cache
+    //----------------------------------------------------------
     BaseMapKey key{};
     key.tex = tex;
     key.pipelineName = pipeName;
+    key.frame = mFrameIndex;   // ★これが核心
 
     if (auto it = mBaseMapSetCache.find(key); it != mBaseMapSetCache.end())
     {
         return it->second;
     }
 
-    // set=1 layout を pipeline から取る
+    //----------------------------------------------------------
+    // layout
+    //----------------------------------------------------------
     VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
     if (set1 == VK_NULL_HANDLE)
     {
@@ -600,6 +606,9 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     }
 
+    //----------------------------------------------------------
+    // alloc
+    //----------------------------------------------------------
     VkDescriptorSet ds = VK_NULL_HANDLE;
 
     VkDescriptorSetAllocateInfo ai{};
@@ -627,22 +636,19 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     };
 
-    // GPU backend
+    //----------------------------------------------------------
+    // GPU
+    //----------------------------------------------------------
     ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
     if (!gpu)
     {
-        std::cerr << "[VK] BaseMapSet: tex GPU is NULL tex=" << tex
-                  << " (" << pipelineName << ")\n";
-        return fail("[VK] BaseMapSet: tex GPU is NULL");
+        return fail("[VK] BaseMapSet: tex GPU NULL");
     }
 
     auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
     if (!vkgpu)
     {
-        std::cerr << "[VK] BaseMapSet: GPU is not VKTextureGPU tex=" << tex
-                  << " gpu=" << gpu
-                  << " (" << pipelineName << ")\n";
-        return fail("[VK] BaseMapSet: GPU is not VKTextureGPU");
+        return fail("[VK] BaseMapSet: GPU not VKTextureGPU");
     }
 
     const VkSampler sampler = vkgpu->GetSampler();
@@ -650,13 +656,12 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE)
     {
-        std::cerr << "[VK] BaseMapSet: sampler/view NULL tex=" << tex
-                  << " sampler=" << (void*)sampler
-                  << " view=" << (void*)view
-                  << " (" << pipelineName << ")\n";
         return fail("[VK] BaseMapSet: sampler/view NULL");
     }
 
+    //----------------------------------------------------------
+    // write
+    //----------------------------------------------------------
     VkDescriptorImageInfo ii{};
     ii.sampler     = sampler;
     ii.imageView   = view;
@@ -665,13 +670,16 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     VkWriteDescriptorSet w{};
     w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     w.dstSet          = ds;
-    w.dstBinding      = 0; // ★ shader の binding と一致してる必要あり
+    w.dstBinding      = 0;
     w.descriptorCount = 1;
     w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     w.pImageInfo      = &ii;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
+    //----------------------------------------------------------
+    // cache
+    //----------------------------------------------------------
     mBaseMapSetCache[key] = ds;
 
     return ds;

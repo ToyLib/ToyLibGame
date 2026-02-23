@@ -199,30 +199,42 @@ private:
     //  - pipeline ごとに set=1 layout が異なる可能性があるため、(pipeline, texture) をキーにする
     struct BaseMapKey
     {
-    const Texture* tex{ nullptr };
-    std::string    pipelineName; // ★hash衝突/レイアウト混線を避ける
+        uint32_t frame = 0;
+        const Texture* tex = nullptr;
+        std::string pipelineName;
+
+        bool operator==(const BaseMapKey& o) const
+        {
+            return frame == o.frame && tex == o.tex && pipelineName == o.pipelineName;
+        }
     };
 
     struct BaseMapKeyHash
     {
         size_t operator()(const BaseMapKey& k) const noexcept
         {
-        size_t h = 0;
-        h ^= std::hash<const void*>{}(k.tex) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
-        h ^= std::hash<std::string>{}(k.pipelineName) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
-        return h;
+            size_t h = 1469598103934665603ull;
+            auto mix = [&](size_t v){ h ^= v; h *= 1099511628211ull; };
+
+            mix(std::hash<uint32_t>{}(k.frame));
+            mix(std::hash<const void*>{}(k.tex));
+            mix(std::hash<std::string>{}(k.pipelineName));
+            return h;
         }
     };
-
+    std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash> mBaseMapSetCache;
+    
     struct BaseMapKeyEq
     {
         bool operator()(const BaseMapKey& a, const BaseMapKey& b) const noexcept
         {
-        return a.tex == b.tex && a.pipelineName == b.pipelineName;
+            return a.frame == b.frame &&
+                   a.tex == b.tex &&
+                   a.pipelineName == b.pipelineName;
         }
     };
 
-    std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash, BaseMapKeyEq> mBaseMapSetCache;
+    //std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash, BaseMapKeyEq> mBaseMapSetCache;
 
     // backward compat (旧名だけ残す)
     std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
