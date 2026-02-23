@@ -1241,8 +1241,9 @@ bool VKRenderer::BuildDefaultPipelines()
     {
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
 
-        // ★通常は CCW（ToyLib標準）
+        // ★通常は CCW（ToyLib標準：CCW を Front とする）
         mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        mesh.cullMode  = VK_CULL_MODE_BACK_BIT;
 
         if (!mPipelines.CreatePipeline("Mesh", mDevice, mRenderPass, mSwapchainExtent, mesh))
         {
@@ -1250,7 +1251,7 @@ bool VKRenderer::BuildDefaultPipelines()
         }
 
         //------------------------------------------------------
-        // Mesh_CW（裏表逆）
+        // Mesh_CW（裏表逆：CW を Front とする）
         //------------------------------------------------------
         VKPipelineDesc meshCW = mesh;
         meshCW.frontFace = VK_FRONT_FACE_CLOCKWISE;

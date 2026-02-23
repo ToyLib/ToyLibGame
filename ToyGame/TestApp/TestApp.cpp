@@ -35,8 +35,8 @@ void VKTest::InitGame()
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
     mesh->SetLocalScale(0.3f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
-    mesh->SetToonRender(true);
-    mesh->SetContourFactor(1.01f);
+    mesh->SetToonRender(false);
+    mesh->SetContourFactor(1.1f);
     
 }
 
@@ -55,7 +55,7 @@ void VKTest::UpdateGame(float deltaTime)
     
     
     ang += 2.0f;
-    Quaternion q = Quaternion(Vector3(0.0f, 0.0f, 1.0f), Math::ToRadians(ang));
+    Quaternion q = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(ang));
     mAct->SetRotation(q);
 }
 
