@@ -9,6 +9,7 @@
 //  - BeginFrame() で World UBO を更新（UpdateSceneUBO_World）
 //  - DrawUIPass() 側で UI UBO を更新（UpdateSceneUBO_UI）
 //  - Swapchain recreate 時は Pipeline → SceneSet の順で作り直す
+//  - ★Skinned palette は slot pool を持ち、recreate時は DestroySkinnedSlots() で破棄
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -126,6 +127,7 @@ bool VKRenderer::Initialize(const Application* app)
     // Descriptors
     //  - set=0 : Scene UBO (World/UI)
     //  - set=1 : Texture (BaseMap)
+    //  - set=2 : Skinned palette UBO (slot pool)
     //==========================================================
     if (!CreateDescriptorPool())
     {
@@ -141,6 +143,16 @@ bool VKRenderer::Initialize(const Application* app)
     {
         Shutdown();
         return false;
+    }
+
+    //==========================================================
+    // Skinned slots (set=2)
+    //  - VKRenderer 側だけで完結（GL側・IRenderer側は触らない）
+    //==========================================================
+    //if (!CreateSkinnedSlots())
+    {
+    //    Shutdown();
+    //    return false;
     }
 
     std::cerr << "[VKRenderer] Init OK. Swapchain("
@@ -165,6 +177,7 @@ void VKRenderer::Shutdown()
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
+    DestroySkinnedSlots();
     DestroySceneUBO();
     DestroyDescriptorPool();
 
@@ -243,6 +256,10 @@ void VKRenderer::Shutdown()
     // scene set handle safety
     mSceneSet.clear();
     mSceneSet_UI.clear();
+
+    // skinned slots safety
+    mSkinnedSlots.clear();
+    mSkinnedSlotCursor.clear();
 }
 
 void VKRenderer::WaitIdle()
@@ -321,6 +338,13 @@ bool VKRenderer::BeginFrame()
     }
 
     vkResetCommandBuffer(frame.cmd, 0);
+
+    // per-frame skinned slot cursor reset
+    if (mSkinnedSlotCursor.size() != mFrames.size())
+    {
+        mSkinnedSlotCursor.resize(mFrames.size(), 0);
+    }
+    mSkinnedSlotCursor[mFrameIndex] = 0;
 
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1098,6 +1122,9 @@ bool VKRenderer::RecreateSwapchain()
 
         // BaseMap cache
         ClearBaseMapSetCache();
+
+        // ★Skinned slot pool (layout change safety)
+        DestroySkinnedSlots();
     }
 
     //----------------------------------------------------------
@@ -1114,6 +1141,12 @@ bool VKRenderer::RecreateSwapchain()
     if (!CreateSceneDescriptorSet())
     {
         return false;
+    }
+
+    // Skinned slots (set=2)
+    //if (!CreateSkinnedSlots())
+    {
+    //    return false;
     }
 
     //----------------------------------------------------------
@@ -1218,15 +1251,18 @@ bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
 
-    //----------------------------------------------------------
-    // recreate 対策
-    //----------------------------------------------------------
+    //==========================================================
+    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    //==========================================================
     mPipelines.DestroyAll();
+
+    //==========================================================
+    // ★超重要：pipeline を作り直したら setLayout が変わる可能性がある
+    //           → 古い DescriptorSet を使い回すと「テクスチャだけ出ない」が起きる
+    //==========================================================
     ClearBaseMapSetCache();
 
-    //----------------------------------------------------------
-    // Sprite
-    //----------------------------------------------------------
+    // Sprite（そのまま）
     {
         VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
         if (!mPipelines.CreatePipeline("Sprite", mDevice, mRenderPass, mSwapchainExtent, sprite))
@@ -1236,12 +1272,12 @@ bool VKRenderer::BuildDefaultPipelines()
     }
 
     //----------------------------------------------------------
-    // Mesh（通常）
+    // Mesh（通常：ToyLib 標準 CCW を表）
     //----------------------------------------------------------
     {
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
 
-        // ★通常は CCW（ToyLib標準：CCW を Front とする）
+        // ★ここが正：CCW を表にするなら COUNTER_CLOCKWISE
         mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         mesh.cullMode  = VK_CULL_MODE_BACK_BIT;
 
@@ -1251,7 +1287,7 @@ bool VKRenderer::BuildDefaultPipelines()
         }
 
         //------------------------------------------------------
-        // Mesh_CW（裏表逆：CW を Front とする）
+        // Mesh_CW（裏表逆：CW を表）
         //------------------------------------------------------
         VKPipelineDesc meshCW = mesh;
         meshCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
@@ -1263,18 +1299,22 @@ bool VKRenderer::BuildDefaultPipelines()
     }
 
     //----------------------------------------------------------
-    // SkinnedMesh（同じことやる）
+    // SkinnedMesh（通常：CCW を表）
     //----------------------------------------------------------
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
 
         sk.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        sk.cullMode  = VK_CULL_MODE_BACK_BIT;
 
         if (!mPipelines.CreatePipeline("SkinnedMesh", mDevice, mRenderPass, mSwapchainExtent, sk))
         {
             return false;
         }
 
+        //------------------------------------------------------
+        // SkinnedMesh_CW（裏表逆：CW を表）
+        //------------------------------------------------------
         VKPipelineDesc skCW = sk;
         skCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
 

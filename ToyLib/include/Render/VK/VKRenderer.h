@@ -2,6 +2,7 @@
 // Render/VK/VKRenderer.h
 //  - World / UI の SceneUBO & SceneSet を分離（事故らない最小構成）
 //  - DrawItem は 引数 pass で SceneSet を選ぶ（RenderItemに依存しない）
+//  - Skinned は “set=2 を draw ごとに切る” 方式（同一cmd内の上書き事故を回避）
 //======================================================================
 #pragma once
 
@@ -57,6 +58,7 @@ public:
     void DrawToRenderTarget(const SceneCaptureRequest& req) override;
 
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
+    void DrawBucket_UI(const std::vector<uint32_t>& bucket);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
@@ -74,10 +76,6 @@ public:
     void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUBO_UI[frame]
 
     bool CreateSceneDescriptorSet(); // world + ui を両方作る（set=0）
-
-    // backward (旧名互換)
-    void ClearSpriteTextureSetCache();
-    VkDescriptorSet GetOrCreateSpriteTextureSet(const Texture* tex);
 
     // BaseMap (set=1)
     VkDescriptorSet GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName);
@@ -201,17 +199,18 @@ private:
     //  - pipeline ごとに set=1 layout が異なる可能性があるため、(pipeline, texture) をキーにする
     struct BaseMapKey
     {
-        const Texture* tex{ nullptr };
-        uint32_t       pipelineHash{ 0 };
+    const Texture* tex{ nullptr };
+    std::string    pipelineName; // ★hash衝突/レイアウト混線を避ける
     };
 
     struct BaseMapKeyHash
     {
         size_t operator()(const BaseMapKey& k) const noexcept
         {
-            const size_t a = std::hash<const void*>{}(k.tex);
-            const size_t b = (size_t)k.pipelineHash;
-            return a ^ (b + 0x9e3779b97f4a7c15ull + (a << 6) + (a >> 2));
+        size_t h = 0;
+        h ^= std::hash<const void*>{}(k.tex) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
+        h ^= std::hash<std::string>{}(k.pipelineName) + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
+        return h;
         }
     };
 
@@ -219,7 +218,7 @@ private:
     {
         bool operator()(const BaseMapKey& a, const BaseMapKey& b) const noexcept
         {
-            return a.tex == b.tex && a.pipelineHash == b.pipelineHash;
+        return a.tex == b.tex && a.pipelineName == b.pipelineName;
         }
     };
 
@@ -237,8 +236,36 @@ private:
     VkSampler      mFallbackWhiteSampler{ VK_NULL_HANDLE };
 
     VkDescriptorSet mFallbackBaseMapSet{ VK_NULL_HANDLE };
-    
-    std::unordered_map<uint32_t, VkDescriptorSet> mFallbackBaseMapSetByPipe;
+    std::unordered_map<std::string, VkDescriptorSet> mFallbackBaseMapSetByPipe;
+
+private:
+    //==========================================================
+    // Skinned palette slot pool (set=2)
+    //  - draw ごとに UBO/DS を切る（同一cmd内の上書き事故を避ける）
+    //  - swapchain recreate で pipeline layout が変わる場合があるので、
+    //    RecreateSwapchain() 側で DestroySkinnedSlots() を呼ぶ
+    //==========================================================
+    struct SkinnedPaletteSlot
+    {
+        VkBuffer        ubo{ VK_NULL_HANDLE };
+        VkDeviceMemory  mem{ VK_NULL_HANDLE };
+        VkDescriptorSet set{ VK_NULL_HANDLE }; // set=2
+    };
+
+    static constexpr uint32_t   kMaxPalette     = 96;
+    static constexpr VkDeviceSize kSkinnedUBOSize = sizeof(float) * 16 * kMaxPalette;
+
+    // per-frame slot pool
+    std::vector<std::vector<SkinnedPaletteSlot>> mSkinnedSlots;
+    std::vector<uint32_t>                        mSkinnedSlotCursor;
+
+    // acquire (allocate slot if needed + upload)
+    VkDescriptorSet AcquireSkinnedSet(const Matrix4* palette,
+                                      uint32_t paletteCount,
+                                      const char* pipelineName);
+
+    // destroy (buffers/mem + descriptor sets if possible)
+    void DestroySkinnedSlots();
 };
 
 } // namespace toy

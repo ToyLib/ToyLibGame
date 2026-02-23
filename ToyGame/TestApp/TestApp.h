@@ -12,5 +12,6 @@ public:
     void ShutdownGame() override;
 private:
     toy::Actor* mAct;
+    toy::Actor* mChicken;
 
 };

@@ -58,6 +58,7 @@ vec3 ComputeDirLight(vec3 N, vec3 V, vec3 L, float specPower, float toon)
 
 void main()
 {
+    
     float overrideEnabled = pc.misc.z;
     if (overrideEnabled > 0.5)
     {

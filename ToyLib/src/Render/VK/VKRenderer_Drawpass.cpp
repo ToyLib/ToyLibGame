@@ -7,8 +7,9 @@
 //      mSceneSet_UI   : UI 用   set=0
 //  - BeginFrame() で World UBO 更新（Core側）
 //  - DrawUIPass() で UI UBO 更新（ここ）
-//  - DrawItem() は it.pass で SceneSet を切り替える
+//  - DrawItem() は 引数 pass で SceneSet を切り替える
 //  - viewProj は UBO 経由（PushConstant にしない）
+//  - Skinned は AcquireSkinnedSet()（set=2）で “draw単位で安全に更新”
 //======================================================================
 #include "Render/VK/VKRenderer.h"
 
@@ -38,8 +39,8 @@ struct VKSpritePC
 struct VKMeshPC
 {
     float world[16];
-    float baseColor_useTex[4];  // ★ w = useTex
-    float misc[4];
+    float baseColor_useTex[4];  // w = useTex
+    float misc[4];              // x=specPower y=toon z=overrideEnabled w=alpha
     float overrideColor[4];
 };
 
@@ -214,16 +215,17 @@ void VKRenderer::DrawUIPass()
 
     const Matrix4 uiVP = Matrix4::CreateSimpleViewProj(sw, sh);
 
-    // ★UI用 UBO に viewProj を入れる（Worldとは別）
     UpdateSceneUBO_UI(uiVP);
 
-    // ★既存の描画経路を使う（新しい関数は増やさない）
-    DrawBucket_World(mBuckets.ui);
+    // ★ここを DrawBucket_World から置き換える
+    DrawBucket_UI(mBuckets.ui);
 }
 
+//======================================================================
+// DrawItem
+//======================================================================
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
-    (void)pass;
     (void)cascadeIndex;
 
     if (mDevice == VK_NULL_HANDLE || mFrames.empty())
@@ -245,7 +247,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     // SceneSet 選択（World / UI）
     //----------------------------------------------------------
-    const bool isUI = (it.pass == RenderPass::UI);
+    const bool isUI = (pass == RenderPass::UI);
 
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
     if (isUI)
@@ -286,7 +288,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             break;
 
         case RenderItemType::SkinnedMesh:
-            pipelineName = "SkinnedMesh";
+            pipelineName = (it.frontFace == FrontFace::CCW) ? "SkinnedMesh" : "SkinnedMesh_CW";
             break;
 
         default:
@@ -294,7 +296,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // BaseMap set=1（※ pipelineName を必ず使う）
+    // BaseMap set=1（layout違い対策で pipelineName を必ず使う）
     //----------------------------------------------------------
     VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
     if (baseMapSet == VK_NULL_HANDLE)
@@ -370,7 +372,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     if (it.type == RenderItemType::Mesh)
     {
-        // ★ここが一番大事：pipelineName を使う
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid())
         {
@@ -378,7 +379,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         }
 
         // set0=setScene, set1=baseMap
-        VkDescriptorSet sets[2] = { sceneSet, VK_NULL_HANDLE };
+        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
 
         //------------------------------------------------------
         // Material / payload
@@ -401,20 +402,17 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         //------------------------------------------------------
         // Texture / useTex
-        //  - 実テクスチャがある時だけ useTex=1
-        //  - DS は tex=nullptr なら fallback だが useTex は 0
         //------------------------------------------------------
-        const Texture* diffuseTex = it.texture.ptr;
+        const Texture* diffuseTex = it.material.ptr->GetDiffuseMap().get();
         const bool hasRealTex = (diffuseTex != nullptr);
         float useTex = 0.0f;
 
-        Material* mat = it.material.ptr; // あなたの現状の形に合わせている
+        Material* mat = it.material.ptr;
         if (mat)
         {
             baseColor = mat->GetDiffuseColor();
             specPower = mat->GetSpecPower();
 
-            // WantsUseTexture の意思も見るならここ
             if (mat->WantsUseTexture() && hasRealTex)
             {
                 useTex = 1.0f;
@@ -422,17 +420,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         }
         else
         {
-            // matが無い場合は “実テクスチャがあるなら使う” のほうが自然ならこれ
+            // mat無し運用の場合の方針次第:
             // useTex = hasRealTex ? 1.0f : 0.0f;
         }
-
-        // ★BaseMapSetも pipelineName を使う（layout違い対策）
-        baseMapSet = GetOrCreateBaseMapSet(diffuseTex, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE)
-        {
-            return;
-        }
-        sets[1] = baseMapSet;
 
         //------------------------------------------------------
         // Bind & DS
@@ -477,6 +467,8 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sizeof(VKMeshPC),
             &pc);
 
+        
+        
         //------------------------------------------------------
         // Draw
         //------------------------------------------------------
@@ -495,9 +487,137 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // SkinnedMesh（未実装）
+    // SkinnedMesh
     //----------------------------------------------------------
-    // if (it.type == RenderItemType::SkinnedMesh) { ... }
+    if (it.type == RenderItemType::SkinnedMesh)
+    {
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid())
+        {
+            // 最低 fallback
+            pipe = mPipelines.Get("SkinnedMesh");
+            if (!pipe || !pipe->IsValid())
+            {
+                return;
+            }
+            pipelineName = "SkinnedMesh";
+        }
+
+        //------------------------------------------------------
+        // set=2 acquire（draw単位で palette を上書きしない）
+        //------------------------------------------------------
+        VkDescriptorSet skinnedSet = AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
+        if (skinnedSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+        
+
+        //------------------------------------------------------
+        // Material / payload（Mesh と同じ流儀）
+        //------------------------------------------------------
+        Vector3 baseColor(1.0f, 1.0f, 1.0f);
+        float   specPower = 64.0f;
+        float   alpha     = 1.0f;
+
+        float   toon = 0.0f;
+        float   overrideEnabled = 0.0f;
+        Vector3 overrideColor(0.0f, 0.0f, 0.0f);
+
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            const SkinnedMeshPayload& sp = GetSkinnedMeshPayload(it.payloadIndex);
+            toon = sp.toon ? 1.0f : 0.0f;
+            overrideEnabled = sp.overrideColor ? 1.0f : 0.0f;
+            overrideColor = sp.overrideColorValue;
+        }
+
+        //const Texture* diffuseTex = it.texture.ptr;
+        const Texture* diffuseTex = it.material.ptr->GetDiffuseMap().get();
+        float useTex = (diffuseTex != nullptr) ? 1.0f : 0.0f;
+
+        Material* mat = it.material.ptr;
+        if (mat)
+        {
+            baseColor = mat->GetDiffuseColor();
+            specPower = mat->GetSpecPower();
+        }
+
+        if (overrideEnabled > 0.5f)
+        {
+            useTex = 0.0f;
+            baseColor = overrideColor;
+            diffuseTex = nullptr; // DS は fallback になる
+        }
+
+        VkDescriptorSet baseMapSet2 = GetOrCreateBaseMapSet(diffuseTex, pipelineName);
+        if (baseMapSet2 == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        //------------------------------------------------------
+        // bind sets : set0 + set1 + set2
+        //------------------------------------------------------
+        VkDescriptorSet sets[3] = { sceneSet, baseMapSet2, skinnedSet };
+
+        pipe->Bind(cmd);
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0,
+            3,
+            sets,
+            0,
+            nullptr);
+
+        //------------------------------------------------------
+        // push constants（Mesh と同じ構造）
+        //------------------------------------------------------
+        VKMeshPC pc{};
+        StoreMat4(pc.world, it.world);
+
+        pc.baseColor_useTex[0] = baseColor.x;
+        pc.baseColor_useTex[1] = baseColor.y;
+        pc.baseColor_useTex[2] = baseColor.z;
+        pc.baseColor_useTex[3] = useTex;
+
+        pc.misc[0] = specPower;
+        pc.misc[1] = toon;
+        pc.misc[2] = overrideEnabled;
+        pc.misc[3] = alpha;
+
+        pc.overrideColor[0] = overrideColor.x;
+        pc.overrideColor[1] = overrideColor.y;
+        pc.overrideColor[2] = overrideColor.z;
+        pc.overrideColor[3] = 1.0f;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(VKMeshPC),
+            &pc);
+        
+        //------------------------------------------------------
+        // draw
+        //------------------------------------------------------
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+            AddDrawCall();
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+            AddDrawCall();
+        }
+
+        return;
+    }
 }
 
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
@@ -506,4 +626,30 @@ PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
     return {};
 }
 
+//------------------------------------------------------------------------------
+// UI bucket draw (VKRenderer only)
+//------------------------------------------------------------------------------
+void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
+{
+    const auto& items = mRenderQueue.Items();
+
+    for (uint32_t idx : bucket)
+    {
+        if (idx >= items.size())
+        {
+            continue;
+        }
+
+        const RenderItem& it = items[idx];
+
+        // safety: UI以外が混ざっていたら除外
+        if (it.pass != RenderPass::UI && it.layer != VisualLayer::UI)
+        {
+            continue;
+        }
+
+        SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
+        DrawItem(it, RenderPass::UI, -1);   // ★ここが重要
+    }
+}
 } // namespace toy

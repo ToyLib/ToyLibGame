@@ -3,11 +3,13 @@
 //  - DescriptorPool / SceneUBO(World+UI) / SceneSet(World+UI)
 //  - BaseMap set cache (set=1)
 //  - Fallback(1x1 white) texture & set=1
+//  - Skinned palette slots (set=2) : draw ごとに acquire して上書き事故を回避
 //
 // 方針（確定）:
 //  - SceneUBO は World と UI を分離（mSceneUBO / mSceneUBO_UI）
 //  - SceneSet も World と UI を分離（mSceneSet / mSceneSet_UI）
 //  - Update は UpdateSceneUBO_World / UpdateSceneUBO_UI のみを使う
+//  - Skinned palette は AcquireSkinnedSet() で set=2 を draw ごとに確保/更新
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
@@ -49,6 +51,15 @@ static void FreeDescriptorSetIfPossible(VkDevice device, VkDescriptorPool pool, 
     vkFreeDescriptorSets(device, pool, 1, &set);
 }
 
+// NOTE:
+//  - BaseMapSet は「Texture + pipelineName」で厳密に分ける。
+//  - 32-bit hash だと衝突で layout が混線し、
+//    "Spriteが出ない" / "テクスチャが混ざる" の原因になり得る。
+static std::string NormalizePipelineName(const char* name)
+{
+    return name ? std::string(name) : std::string();
+}
+
 //==============================================================
 // DescriptorPool
 //==============================================================
@@ -58,28 +69,23 @@ bool VKRenderer::CreateDescriptorPool()
     {
         return false;
     }
-    if (mDescPool)
-    {
-        return true;
-    }
 
-    // per-frame (World + UI) の SceneSet を想定して余裕を持たせる
-    // 例: frames=2 なら SceneSets は 4 個程度
-    constexpr uint32_t kMaxSceneSets   = 16;
-    constexpr uint32_t kMaxBaseMapSets = 2048;
+    constexpr uint32_t kMaxSceneSets   = 16;   // (frames * 2) + alpha
+    constexpr uint32_t kMaxBaseMapSets = 2048; // texture cache
+    constexpr uint32_t kMaxSkinnedSets = 2048; // skinned palette slots (set=2)
 
     VkDescriptorPoolSize sizes[2]{};
 
     sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    sizes[0].descriptorCount = kMaxSceneSets;
+    sizes[0].descriptorCount = kMaxSceneSets + kMaxSkinnedSets;
 
     sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[1].descriptorCount = kMaxBaseMapSets + 8; // fallback等の余裕
+    sizes[1].descriptorCount = kMaxBaseMapSets + 16;
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + 8;
+    ci.maxSets       = kMaxSceneSets + kMaxBaseMapSets + kMaxSkinnedSets + 16;
     ci.poolSizeCount = 2;
     ci.pPoolSizes    = sizes;
 
@@ -133,6 +139,11 @@ void VKRenderer::DestroyDescriptorPool()
         ClearBaseMapSetCache();
 
         //------------------------------------------------------
+        // Skinned slot pool
+        //------------------------------------------------------
+        DestroySkinnedSlots();
+
+        //------------------------------------------------------
         // pool destroy
         //------------------------------------------------------
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
@@ -147,6 +158,8 @@ void VKRenderer::DestroyDescriptorPool()
 
         mFallbackBaseMapSetByPipe.clear();
         mFallbackBaseMapSet = VK_NULL_HANDLE;
+
+        DestroySkinnedSlots();
     }
 
     //----------------------------------------------------------
@@ -495,7 +508,15 @@ bool VKRenderer::CreateSceneDescriptorSet()
     {
         return false;
     }
+    if (!CreateFallbackBaseMapSet("Mesh_CW"))
+    {
+        return false;
+    }
     if (!CreateFallbackBaseMapSet("SkinnedMesh"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("SkinnedMesh_CW"))
     {
         return false;
     }
@@ -528,33 +549,6 @@ void VKRenderer::ClearBaseMapSetCache()
     DestroyFallbackBaseMapSet();
 }
 
-void VKRenderer::ClearSpriteTextureSetCache()
-{
-    mSpriteTexSetCache.clear();
-    ClearBaseMapSetCache();
-}
-
-VkDescriptorSet VKRenderer::GetOrCreateSpriteTextureSet(const Texture* tex)
-{
-    return GetOrCreateBaseMapSet(tex, "Sprite");
-}
-
-// Helper to hash pipeline name (FNV-1a 32-bit)
-static uint32_t HashPipelineName(const char* name)
-{
-    uint32_t h = 2166136261u;
-    if (!name)
-    {
-        return h;
-    }
-    for (const unsigned char* p = (const unsigned char*)name; *p; ++p)
-    {
-        h ^= (uint32_t)(*p);
-        h *= 16777619u;
-    }
-    return h;
-}
-
 VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
 {
     if (!mDevice || !mDescPool || !pipelineName)
@@ -563,13 +557,12 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         return VK_NULL_HANDLE;
     }
 
-    // tex が無いなら fallback
+    const std::string pipeName = NormalizePipelineName(pipelineName);
+
     // tex が無いなら pipeline ごとの fallback
     if (!tex)
     {
-        const uint32_t ph = HashPipelineName(pipelineName);
-
-        auto it = mFallbackBaseMapSetByPipe.find(ph);
+        auto it = mFallbackBaseMapSetByPipe.find(pipeName);
         if (it != mFallbackBaseMapSetByPipe.end() && it->second != VK_NULL_HANDLE)
         {
             return it->second;
@@ -578,7 +571,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
         // 念のため生成
         if (CreateFallbackBaseMapSet(pipelineName))
         {
-            it = mFallbackBaseMapSetByPipe.find(ph);
+            it = mFallbackBaseMapSetByPipe.find(pipeName);
             if (it != mFallbackBaseMapSetByPipe.end())
             {
                 return it->second;
@@ -592,7 +585,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     // cache (pipeline + texture)
     BaseMapKey key{};
     key.tex = tex;
-    key.pipelineHash = HashPipelineName(pipelineName);
+    key.pipelineName = pipeName;
 
     if (auto it = mBaseMapSetCache.find(key); it != mBaseMapSetCache.end())
     {
@@ -683,6 +676,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     return ds;
 }
+
 //==============================================================
 // Fallback White Texture (1x1 RGBA8) : Image/View/Sampler
 //==============================================================
@@ -879,10 +873,10 @@ bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
         return false;
     }
 
-    const uint32_t ph = HashPipelineName(pipelineName);
+    const std::string pipeName = NormalizePipelineName(pipelineName);
 
     {
-        auto it = mFallbackBaseMapSetByPipe.find(ph);
+        auto it = mFallbackBaseMapSetByPipe.find(pipeName);
         if (it != mFallbackBaseMapSetByPipe.end() && it->second != VK_NULL_HANDLE)
         {
             return true;
@@ -927,7 +921,7 @@ bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
-    mFallbackBaseMapSetByPipe[ph] = ds;
+    mFallbackBaseMapSetByPipe[pipeName] = ds;
 
     // 互換: 旧メンバー（Sprite用）も維持しておく
     if (std::strcmp(pipelineName, "Sprite") == 0)
@@ -1043,6 +1037,155 @@ bool VKRenderer::UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSi
     std::memcpy(mapped, data, (size_t)size);
     vkUnmapMemory(mDevice, mem);
     return true;
+}
+
+//==============================================================
+// Skinned slot pool
+//==============================================================
+void VKRenderer::DestroySkinnedSlots()
+{
+    if (!mDevice)
+    {
+        mSkinnedSlots.clear();
+        mSkinnedSlotCursor.clear();
+        return;
+    }
+
+    for (auto& perFrame : mSkinnedSlots)
+    {
+        for (auto& s : perFrame)
+        {
+            if (mDescPool && s.set != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &s.set);
+                s.set = VK_NULL_HANDLE;
+            }
+
+            if (s.ubo != VK_NULL_HANDLE)
+            {
+                vkDestroyBuffer(mDevice, s.ubo, nullptr);
+                s.ubo = VK_NULL_HANDLE;
+            }
+            if (s.mem != VK_NULL_HANDLE)
+            {
+                vkFreeMemory(mDevice, s.mem, nullptr);
+                s.mem = VK_NULL_HANDLE;
+            }
+        }
+    }
+
+    mSkinnedSlots.clear();
+    mSkinnedSlotCursor.clear();
+}
+
+VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
+                                              uint32_t paletteCount,
+                                              const char* pipelineName)
+{
+    if (!mDevice || !mDescPool || !pipelineName)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    if (!palette || paletteCount == 0)
+    {
+        return VK_NULL_HANDLE;
+    }
+    if (paletteCount > kMaxPalette)
+    {
+        paletteCount = kMaxPalette;
+    }
+
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0 || mFrameIndex >= frameCount)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    // ensure arrays
+    if (mSkinnedSlots.size() != frameCount)
+    {
+        mSkinnedSlots.resize(frameCount);
+    }
+    if (mSkinnedSlotCursor.size() != frameCount)
+    {
+        mSkinnedSlotCursor.resize(frameCount, 0);
+    }
+
+    const uint32_t idx = mSkinnedSlotCursor[mFrameIndex];
+    mSkinnedSlotCursor[mFrameIndex]++;
+
+    // allocate new slot if needed
+    if (idx >= mSkinnedSlots[mFrameIndex].size())
+    {
+        SkinnedPaletteSlot slot{};
+
+        // buffer (host visible)
+        if (!CreateBufferHostVisible(kSkinnedUBOSize,
+                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     slot.ubo,
+                                     slot.mem))
+        {
+            return VK_NULL_HANDLE;
+        }
+
+        // set=2 layout from pipeline
+        VkDescriptorSetLayout set2 = GetPipelineSetLayout(mPipelines, pipelineName, 2);
+        if (set2 == VK_NULL_HANDLE)
+        {
+            vkDestroyBuffer(mDevice, slot.ubo, nullptr);
+            vkFreeMemory(mDevice, slot.mem, nullptr);
+            return VK_NULL_HANDLE;
+        }
+
+        VkDescriptorSetAllocateInfo ai{};
+        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool     = mDescPool;
+        ai.descriptorSetCount = 1;
+        ai.pSetLayouts        = &set2;
+
+        if (vkAllocateDescriptorSets(mDevice, &ai, &slot.set) != VK_SUCCESS ||
+            slot.set == VK_NULL_HANDLE)
+        {
+            vkDestroyBuffer(mDevice, slot.ubo, nullptr);
+            vkFreeMemory(mDevice, slot.mem, nullptr);
+            return VK_NULL_HANDLE;
+        }
+
+        VkDescriptorBufferInfo bi{};
+        bi.buffer = slot.ubo;
+        bi.offset = 0;
+        bi.range  = kSkinnedUBOSize;
+
+        VkWriteDescriptorSet w{};
+        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet          = slot.set;
+        w.dstBinding      = 0;
+        w.descriptorCount = 1;
+        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo     = &bi;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+
+        mSkinnedSlots[mFrameIndex].push_back(slot);
+    }
+
+    // upload palette (full 96 mat4)
+    Matrix4 tmp[kMaxPalette];
+    for (uint32_t i = 0; i < kMaxPalette; ++i)
+    {
+        tmp[i] = Matrix4::Identity;
+    }
+    for (uint32_t i = 0; i < paletteCount; ++i)
+    {
+        tmp[i] = palette[i];
+    }
+
+    SkinnedPaletteSlot& s = mSkinnedSlots[mFrameIndex][idx];
+
+    UploadToBuffer(s.mem, tmp, kSkinnedUBOSize);
+
+    return s.set;
 }
 
 } // namespace toy
