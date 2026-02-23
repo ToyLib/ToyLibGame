@@ -3,11 +3,13 @@
 //  - World / UI の SceneUBO & SceneSet を分離（事故らない最小構成）
 //  - DrawItem は 引数 pass で SceneSet を選ぶ（RenderItemに依存しない）
 //  - Skinned は “set=2 を draw ごとに切る” 方式（同一cmd内の上書き事故を回避）
+//  - BaseMap(set=1) は “専用DescriptorPoolを増設” して枯れを回避
 //======================================================================
 #pragma once
 
 #include "Render/IRenderer.h"
 #include "Render/VK/Pipeline/VKPipelineLibrary.h"
+#include "Utils/MathUtil.h"
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -176,7 +178,8 @@ private:
     VKPipelineLibrary mPipelines;
 
     //==========================================================
-    // DescriptorPool / SceneUBO / SceneSet / BaseMapSet cache
+    // DescriptorPool / SceneUBO / SceneSet
+    //  - mDescPool は UBO系（Scene set=0 / Skinned set=2）
     //==========================================================
     VkDescriptorPool mDescPool{ VK_NULL_HANDLE };
 
@@ -195,8 +198,10 @@ private:
     std::vector<VkDescriptorSet> mSceneSet;     // world
     std::vector<VkDescriptorSet> mSceneSet_UI;  // ui
 
-    // BaseMap DS cache : set=1
-    //  - pipeline ごとに set=1 layout が異なる可能性があるため、(pipeline, texture) をキーにする
+    //==========================================================
+    // BaseMap (set=1)
+    //  - “専用 pool を増設” して枯れを回避
+    //==========================================================
     struct BaseMapKey
     {
         uint32_t frame = 0;
@@ -205,7 +210,9 @@ private:
 
         bool operator==(const BaseMapKey& o) const
         {
-            return frame == o.frame && tex == o.tex && pipelineName == o.pipelineName;
+            return frame == o.frame &&
+                   tex == o.tex &&
+                   pipelineName == o.pipelineName;
         }
     };
 
@@ -222,22 +229,22 @@ private:
             return h;
         }
     };
-    std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash> mBaseMapSetCache;
-    
-    struct BaseMapKeyEq
+
+    struct CachedDescriptorSet
     {
-        bool operator()(const BaseMapKey& a, const BaseMapKey& b) const noexcept
-        {
-            return a.frame == b.frame &&
-                   a.tex == b.tex &&
-                   a.pipelineName == b.pipelineName;
-        }
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        VkDescriptorSet  set  = VK_NULL_HANDLE;
     };
 
-    //std::unordered_map<BaseMapKey, VkDescriptorSet, BaseMapKeyHash, BaseMapKeyEq> mBaseMapSetCache;
+    std::unordered_map<BaseMapKey, CachedDescriptorSet, BaseMapKeyHash> mBaseMapSetCache;
 
-    // backward compat (旧名だけ残す)
-    std::unordered_map<const Texture*, VkDescriptorSet> mSpriteTexSetCache;
+    // BaseMap pool chain
+    std::vector<VkDescriptorPool> mBaseMapPools;
+    uint32_t mBaseMapPoolCursor = 0;
+
+    VkDescriptorPool CreateBaseMapPool(uint32_t maxSets, uint32_t samplerCount);
+    VkDescriptorPool GetActiveBaseMapPool();
+    VkDescriptorPool GrowBaseMapPoolAndGet();
 
     //==========================================================
     // Fallback base map (1x1 white)
@@ -247,36 +254,34 @@ private:
     VkImageView    mFallbackWhiteView{ VK_NULL_HANDLE };
     VkSampler      mFallbackWhiteSampler{ VK_NULL_HANDLE };
 
+    // backward compat (旧名だけ残す)
     VkDescriptorSet mFallbackBaseMapSet{ VK_NULL_HANDLE };
-    std::unordered_map<std::string, VkDescriptorSet> mFallbackBaseMapSetByPipe;
+
+    // pipeline ごとの fallback DS（poolも持つ）
+    std::unordered_map<std::string, CachedDescriptorSet> mFallbackBaseMapSetByPipe;
 
 private:
     //==========================================================
     // Skinned palette slot pool (set=2)
     //  - draw ごとに UBO/DS を切る（同一cmd内の上書き事故を避ける）
-    //  - swapchain recreate で pipeline layout が変わる場合があるので、
-    //    RecreateSwapchain() 側で DestroySkinnedSlots() を呼ぶ
     //==========================================================
     struct SkinnedPaletteSlot
     {
         VkBuffer        ubo{ VK_NULL_HANDLE };
         VkDeviceMemory  mem{ VK_NULL_HANDLE };
-        VkDescriptorSet set{ VK_NULL_HANDLE }; // set=2
+        VkDescriptorSet set{ VK_NULL_HANDLE }; // set=2 (mDescPool)
     };
 
-    static constexpr uint32_t   kMaxPalette     = 96;
-    static constexpr VkDeviceSize kSkinnedUBOSize = sizeof(float) * 16 * kMaxPalette;
+    static constexpr uint32_t     kMaxPalette       = 96;
+    static constexpr VkDeviceSize kSkinnedUBOSize   = sizeof(float) * 16 * kMaxPalette;
 
-    // per-frame slot pool
     std::vector<std::vector<SkinnedPaletteSlot>> mSkinnedSlots;
     std::vector<uint32_t>                        mSkinnedSlotCursor;
 
-    // acquire (allocate slot if needed + upload)
     VkDescriptorSet AcquireSkinnedSet(const Matrix4* palette,
                                       uint32_t paletteCount,
                                       const char* pipelineName);
 
-    // destroy (buffers/mem + descriptor sets if possible)
     void DestroySkinnedSlots();
 };
 
