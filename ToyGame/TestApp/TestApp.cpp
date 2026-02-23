@@ -35,8 +35,14 @@ void VKTest::InitGame()
     mesh->SetMesh(GetAssetManager()->GetMesh("brick.x"));
     mesh->SetLocalScale(0.3f);
     mAct->SetPosition(Vector3(0.0, 0.0f, 0.0f));
-    mesh->SetToonRender(true);
-    mesh->SetContourFactor(1.01f);
+    mesh->SetToonRender(false);
+    mesh->SetContourFactor(1.1f);
+    
+    mChicken = CreateActor<toy::Actor>();
+    auto chikenMesh = mChicken->CreateComponent<toy::SkeletalMeshComponent>();
+    chikenMesh->SetMesh(GetAssetManager()->GetMesh("Chicken.gltf"));
+    mChicken->SetScale(0.2f);
+    mChicken->SetPosition(Vector3(1.0f, 0.0f, 0.0f));
     
 }
 
@@ -50,13 +56,17 @@ void VKTest::UpdateGame(float deltaTime)
     auto renderer = GetRenderer();
     r += 0.01f;
     if (r > 1.0f) r = 0.0f;
-
+    
     renderer->SetClearColor(Vector3(r, g, b));
     
     
     ang += 2.0f;
-    Quaternion q = Quaternion(Vector3(0.0f, 0.0f, 1.0f), Math::ToRadians(ang));
+    Quaternion q = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(ang));
     mAct->SetRotation(q);
+    
+    q = Quaternion(Vector3(0.0f, 0.0f, 1.0f), Math::ToRadians(ang));
+    mChicken->SetRotation(q);
+
 }
 
 void VKTest::ShutdownGame()

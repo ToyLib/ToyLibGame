@@ -1,5 +1,6 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
+#include "Render/IRenderer.h"
 #include "Render/GL/GLRenderer.h"
 #include "Render/VK/VKRenderer.h"
 #include "Render/RenderBackendState.h"
@@ -10,6 +11,7 @@
 #include "Engine/Runtime/TimeOfDaySystem.h"
 #include "Camera/CameraManager.h"
 #include "Engine/Debug/DebugOverlayActor.h"
+#include "Utils/MathUtil.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>

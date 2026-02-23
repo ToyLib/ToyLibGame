@@ -39,7 +39,7 @@ static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
     set2.set = 2;
     set2.bindings.push_back({
         .binding = 0,
-        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // ★DYNAMICやめる
         .count   = 1,
         .stages  = VK_SHADER_STAGE_VERTEX_BIT
     });
@@ -61,7 +61,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
     d.vsPath     = base + "Sprite.vert.spv";
     d.fsPath     = base + "Sprite.frag.spv";
 
-    // ★ここ修正（重要）
+    // ★いったんこれに戻して Pipeline 作成が通るか確認
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
     d.depthTest  = false;
@@ -69,7 +69,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
     d.alphaBlend = true;
 
     d.cullMode   = VK_CULL_MODE_NONE;
-    d.frontFace  = VK_FRONT_FACE_CLOCKWISE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
@@ -77,7 +77,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size   = 80;
+    pc.size   = 80; // mat4 + vec4
     d.pushConstants.push_back(pc);
 
     return d;
