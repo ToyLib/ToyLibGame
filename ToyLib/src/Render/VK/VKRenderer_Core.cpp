@@ -144,6 +144,9 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    
+    // Shadow
+    CreateShadowResources();
 
     //==========================================================
     // Skinned slots (set=2)
@@ -173,6 +176,8 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
+    
+    DestroyShadowResources();
 
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)

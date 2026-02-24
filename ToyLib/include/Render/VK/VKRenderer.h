@@ -283,6 +283,32 @@ private:
                                       const char* pipelineName);
 
     void DestroySkinnedSlots();
+    
+//==========================================================
+// ShadowMap (Depth-only)
+//==========================================================
+private:
+    // resources
+    VkExtent2D     mShadowExtent{ 0, 0 };
+    VkFormat       mShadowDepthFormat{ VK_FORMAT_UNDEFINED };
+    VkImage        mShadowDepthImg{ VK_NULL_HANDLE };
+    VkDeviceMemory mShadowDepthMem{ VK_NULL_HANDLE };
+    VkImageView    mShadowDepthView{ VK_NULL_HANDLE };
+    VkSampler      mShadowSampler{ VK_NULL_HANDLE };
+    VkRenderPass   mShadowRenderPass{ VK_NULL_HANDLE };
+    VkFramebuffer  mShadowFB{ VK_NULL_HANDLE };
+
+    // matrices
+    Matrix4 mShadowLightView{ Matrix4::Identity };
+    Matrix4 mShadowLightProj{ Matrix4::Identity };
+    Matrix4 mShadowLightViewProj{ Matrix4::Identity };
+    Matrix4 mShadowBias{ Matrix4::Identity };
+    Matrix4 mShadowLightViewProj_Biased{ Matrix4::Identity };
+
+private:
+    bool CreateShadowResources();
+    void DestroyShadowResources();
+    void UpdateShadowLightMatrices();
 };
 
 } // namespace toy

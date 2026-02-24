@@ -191,8 +191,8 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 //======================================================================
 // Pass stubs
 //======================================================================
-void VKRenderer::DrawShadowPass() {}
-void VKRenderer::RestoreAfterShadowPass() {}
+//void VKRenderer::DrawShadowPass() {}
+//void VKRenderer::RestoreAfterShadowPass() {}
 void VKRenderer::DrawSkyPass() {}
 
 void VKRenderer::DrawWorldPass()
