@@ -18,7 +18,7 @@ class GroundConformSpriteComponent : public FootSpriteComponent
 public:
     GroundConformSpriteComponent(class Actor* owner,
                                  int drawOrder = 10,
-                                 VisualLayer layer = VisualLayer::Effect3D);
+                                 VisualLayer layer = VisualLayer::Object3D);
     ~GroundConformSpriteComponent() override = default;
 
     // 分割数（2以上推奨）
