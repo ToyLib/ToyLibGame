@@ -143,14 +143,14 @@ void IRenderer::CreateSpriteVerts()
 
 void IRenderer::CreateFullScreenQuad()
 {
-    float quadVerts[] =
+    static const float quadVerts[] =
     {
         -1.0f, -1.0f,
          1.0f, -1.0f,
          1.0f,  1.0f,
         -1.0f,  1.0f
     };
-    unsigned int quadIndices[] =
+    static unsigned int quadIndices[] =
     {
         0, 1, 2,
         2, 3, 0

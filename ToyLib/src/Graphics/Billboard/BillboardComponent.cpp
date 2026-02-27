@@ -107,6 +107,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
 
     RenderItem it{};
     it.type      = RenderItemType::Billboard;
+    it.pass = RenderPass::World;
     it.dispatch  = GetDispatch(it.type);
     it.layer     = mLayer;
     it.drawOrder = mDrawOrder; // あれば。無いならこの行は削除
@@ -116,7 +117,7 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
     it.world    = world;
 
     // Common quad
-    it.geometry   = renderer->GetSpriteQuadHandle();
+    it.geometry   = renderer->GetSurfaceQuadHandle();
     it.indexCount = 6;
 
     // Texture (no Material)
