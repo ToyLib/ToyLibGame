@@ -1304,7 +1304,7 @@ bool VKRenderer::BuildDefaultPipelines()
             sd.cullMode   = VK_CULL_MODE_BACK_BIT;
             sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-            if (!mPipelines.CreatePipeline("Shadow_Mesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            if (!mPipelines.CreatePipeline("ShadowMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
             {
                 return false;
             }
@@ -1312,20 +1312,20 @@ bool VKRenderer::BuildDefaultPipelines()
             VKPipelineDesc sdCW = sd;
             sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
-            if (!mPipelines.CreatePipeline("Shadow_Mesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            if (!mPipelines.CreatePipeline("ShadowMesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
             {
                 return false;
             }
         }
 
-        // Shadow_Skinned
+        // ShadowSkinned
         {
             VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowSkinnedMesh(base);
 
             sd.cullMode   = VK_CULL_MODE_BACK_BIT;
             sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-            if (!mPipelines.CreatePipeline("Shadow_SkinnedMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            if (!mPipelines.CreatePipeline("ShadowSkinned", mDevice, mShadowRenderPass, mShadowExtent, sd))
             {
                 return false;
             }
@@ -1333,7 +1333,7 @@ bool VKRenderer::BuildDefaultPipelines()
             VKPipelineDesc sdCW = sd;
             sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
-            if (!mPipelines.CreatePipeline("Shadow_SkinnedMesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            if (!mPipelines.CreatePipeline("ShadowSkinned_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
             {
                 return false;
             }

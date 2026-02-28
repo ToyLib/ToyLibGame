@@ -320,7 +320,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     const bool isShadow = (pass == RenderPass::Shadow);
 
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
-    if (isUI)
+
+    if (isShadow)
+    {
+        if (mFrameIndex >= mShadowSceneSet.size()) return;
+        sceneSet = mShadowSceneSet[mFrameIndex];
+    }
+    else if (isUI)
     {
         if (mFrameIndex >= mSceneSet_UI.size()) return;
         sceneSet = mSceneSet_UI[mFrameIndex];
@@ -330,7 +336,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         if (mFrameIndex >= mSceneSet.size()) return;
         sceneSet = mSceneSet[mFrameIndex];
     }
-    if (sceneSet == VK_NULL_HANDLE) return;
 
     //----------------------------------------------------------
     // Pipeline name
@@ -345,7 +350,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 pipelineName = "ShadowMesh";          // 登録名に合わせて
                 break;
             case RenderItemType::SkinnedMesh:
-                pipelineName = "ShadowSkinnedMesh";   // 登録名に合わせて
+                pipelineName = "ShadowSkinned";   // 登録名に合わせて
                 break;
             default:
                 return;

@@ -1,8 +1,12 @@
 #version 450
 
-layout(location=0) in vec3 aPos;
-layout(location=1) in vec4 aWeights;
-layout(location=2) in uvec4 aBoneIds;
+layout(location=0) in vec3  aPos;
+layout(location=3) in uvec4 aBoneIds;
+layout(location=4) in vec4  aWeights;
+
+// （未使用でもOK。layoutに合わせて宣言しておくと安全）
+// layout(location=1) in vec3 aNrm;
+// layout(location=2) in vec2 aUV;
 
 layout(set=0, binding=0, std140, row_major) uniform ShadowSceneUBO
 {

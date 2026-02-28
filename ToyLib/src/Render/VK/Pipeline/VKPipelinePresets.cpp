@@ -38,6 +38,15 @@ static void AddSet1_BaseMap(VKPipelineDesc& d)
     d.setLayouts.push_back(set1);
 }
 
+// ★追加：ShadowSkinned の “穴埋め” 用（binding 0件）
+static void AddSet1_Empty(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set1{};
+    set1.set = 1;
+    // bindings は空のまま（shader側で set=1 を使わない）
+    d.setLayouts.push_back(set1);
+}
+
 static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
 {
     VKDescriptorSetLayoutDesc set2{};
@@ -59,6 +68,7 @@ static void AddPC_ObjectMaterial(VKPipelineDesc& d)
     pc.size   = 112;
     d.pushConstants.push_back(pc);
 }
+
 // VKPipelinePresets.cpp（同ファイル内に追加）
 static void AddPC_ShadowWorld(VKPipelineDesc& d)
 {
@@ -156,8 +166,29 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
 //--------------------------------------------------------------
 // Shadow pipelines (depth-only)
 //--------------------------------------------------------------
-// SetupShadowCommon を修正（AddPC_ObjectMaterial をやめる）
-static void SetupShadowCommon(VKPipelineDesc& d)
+// ShadowMesh 用（set=0 のみ）
+static void SetupShadowCommon_Mesh(VKPipelineDesc& d)
+{
+    d.colorAttachmentCount = 0;
+
+    d.depthTest  = true;
+    d.depthWrite = true;
+    d.alphaBlend = false;
+
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+    d.depthBiasEnable         = true;
+    d.depthBiasConstantFactor = 1.25f;
+    d.depthBiasSlopeFactor    = 1.75f;
+    d.depthBiasClamp          = 0.0f;
+
+    AddSet0_SceneUBO(d);
+    AddPC_ShadowWorld(d);
+}
+
+// ShadowSkinned 用（set=0 + set=2、ただし set=1 を空で“穴埋め”）
+static void SetupShadowCommon_Skinned(VKPipelineDesc& d)
 {
     d.colorAttachmentCount = 0;
 
@@ -175,10 +206,11 @@ static void SetupShadowCommon(VKPipelineDesc& d)
 
     AddSet0_SceneUBO(d);
 
-    // ★重要：set2 を “set=2” として成立させるためのダミー set1
-    // Shadow shader は set1 を参照しない前提なので bind しなくてOK。
-    AddSet1_BaseMap(d);
+    // ★重要：set=2 を使う pipeline は “set=1 を空で挟む”
+    // これで PipelineLayout の set index ズレを確実に防ぐ（MoltenVK 対策）
+    AddSet1_Empty(d);
 
+    AddSet2_SkinnedUBO(d);
     AddPC_ShadowWorld(d);
 }
 
@@ -194,9 +226,9 @@ VKPipelineDesc MakeShadowMesh(const std::string& base)
 
     d.layout = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
-    SetupShadowCommon(d);
+    SetupShadowCommon_Mesh(d);
 
-    // Shadowは BaseMap 不要（set=1 なし）
+    // ShadowMesh は set=2 を使わないので set=1 ダミー不要
     return d;
 }
 
@@ -209,10 +241,7 @@ VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base)
 
     d.layout = VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4;
 
-    SetupShadowCommon(d);
-
-    // Skinned は palette 用 set=2 が必要
-    AddSet2_SkinnedUBO(d);
+    SetupShadowCommon_Skinned(d);
 
     return d;
 }
