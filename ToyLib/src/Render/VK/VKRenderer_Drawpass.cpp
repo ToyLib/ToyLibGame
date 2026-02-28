@@ -44,6 +44,11 @@ struct VKMeshPC
     float overrideColor[4];
 };
 
+struct VKShadowPC
+{
+    float world[16];
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -197,11 +202,54 @@ void VKRenderer::DrawSkyPass() {}
 
 void VKRenderer::DrawWorldPass()
 {
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
+
+    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+    if (cmd == VK_NULL_HANDLE) return;
+
+    VkClearValue clears[2]{};
+    clears[0].color.float32[0] = mClearColor.x;
+    clears[0].color.float32[1] = mClearColor.y;
+    clears[0].color.float32[2] = mClearColor.z;
+    clears[0].color.float32[3] = 1.0f;
+    clears[1].depthStencil.depth   = 1.0f;
+    clears[1].depthStencil.stencil = 0;
+
+    VkRenderPassBeginInfo rp{};
+    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass  = mRenderPass;
+    rp.framebuffer = mFramebuffers[mImageIndex];
+    rp.renderArea.offset = { 0, 0 };
+    rp.renderArea.extent = mSwapchainExtent;
+    rp.clearValueCount   = 2;
+    rp.pClearValues      = clears;
+
+    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+    mIsInRenderPass = true;
+
+    // ★ここに “あなたのY反転viewport” を移す
+    VkViewport vp{};
+    vp.x = 0.0f;
+    vp.y = (float)rp.renderArea.extent.height;
+    vp.width  = (float)rp.renderArea.extent.width;
+    vp.height = -(float)rp.renderArea.extent.height;
+    vp.minDepth = 0.0f;
+    vp.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+
+    VkRect2D sc{};
+    sc.offset = { 0, 0 };
+    sc.extent = mSwapchainExtent;
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // bucket draw
     DrawBucket_World(mBuckets.worldOpaque);
     DrawBucket_World(mBuckets.effectPre);
-
     DrawBucket_World(mBuckets.worldTransparent);
     DrawBucket_World(mBuckets.effectOverlay);
+
+    vkCmdEndRenderPass(cmd);
+    mIsInRenderPass = false;
 }
 
 void VKRenderer::DrawOverlayScreenPass() {}
@@ -221,6 +269,9 @@ void VKRenderer::DrawUIPass()
     DrawBucket_UI(mBuckets.ui);
 }
 
+//======================================================================
+// DrawItem
+//======================================================================
 //======================================================================
 // DrawItem
 //======================================================================
@@ -245,9 +296,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // SceneSet 選択（World / UI）
+    // SceneSet 選択（World / UI / Shadow）
+    //  - Shadow は World の SceneSet を使う（set=0）
     //----------------------------------------------------------
-    const bool isUI = (pass == RenderPass::UI);
+    const bool isUI     = (pass == RenderPass::UI);
+    const bool isShadow = (pass == RenderPass::Shadow);
 
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
     if (isUI)
@@ -273,27 +326,172 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // Pipeline name（FrontFace で Mesh / Mesh_CW を分岐）
+    // Pipeline name
     //----------------------------------------------------------
     const char* pipelineName = nullptr;
 
-    switch (it.type)
+    if (isShadow)
     {
-        case RenderItemType::Sprite:
-            pipelineName = "Sprite";
-            break;
+        // Shadow pass は Sprite を描かない（必要なら後で追加）
+        switch (it.type)
+        {
+            case RenderItemType::Mesh:
+                // ※あなたの PipelineLibrary 登録名に合わせて
+                pipelineName = "ShadowMesh";
+                break;
 
-        case RenderItemType::Mesh:
-            pipelineName = (it.frontFace == FrontFace::CCW) ? "Mesh" : "Mesh_CW";
-            break;
+            case RenderItemType::SkinnedMesh:
+                pipelineName = "ShadowSkinnedMesh";
+                break;
 
-        case RenderItemType::SkinnedMesh:
-            pipelineName = (it.frontFace == FrontFace::CCW) ? "SkinnedMesh" : "SkinnedMesh_CW";
-            break;
-
-        default:
-            return;
+            default:
+                return;
+        }
     }
+    else
+    {
+        // 通常 pass
+        switch (it.type)
+        {
+            case RenderItemType::Sprite:
+                pipelineName = "Sprite";
+                break;
+
+            case RenderItemType::Mesh:
+                pipelineName = (it.frontFace == FrontFace::CCW) ? "Mesh" : "Mesh_CW";
+                break;
+
+            case RenderItemType::SkinnedMesh:
+                pipelineName = (it.frontFace == FrontFace::CCW) ? "SkinnedMesh" : "SkinnedMesh_CW";
+                break;
+
+            default:
+                return;
+        }
+    }
+
+    //----------------------------------------------------------
+    // Shadow pass: Mesh / SkinnedMesh
+    //  - BaseMap(set=1) は使わない
+    //  - PushConstant は mat4(world)=64bytes のみ
+    //----------------------------------------------------------
+    if (isShadow)
+    {
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        pipe->Bind(cmd);
+
+        if (it.type == RenderItemType::Mesh)
+        {
+            // set=0 only
+            vkCmdBindDescriptorSets(
+                cmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipe->GetPipelineLayout(),
+                0,
+                1,
+                &sceneSet,
+                0,
+                nullptr);
+
+            VKShadowPC pc{};
+            StoreMat4(pc.world, it.world);
+
+            vkCmdPushConstants(
+                cmd,
+                pipe->GetPipelineLayout(),
+                VK_SHADER_STAGE_VERTEX_BIT,
+                0,
+                sizeof(VKShadowPC),   // ★必ず 64 bytes
+                &pc);
+
+            if (it.indexCount > 0)
+            {
+                vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+                AddDrawCall();
+            }
+            else if (it.vertexCount > 0)
+            {
+                vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+                AddDrawCall();
+            }
+
+            return;
+        }
+
+        if (it.type == RenderItemType::SkinnedMesh)
+        {
+            VkDescriptorSet skinnedSet =
+                AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
+            if (skinnedSet == VK_NULL_HANDLE)
+            {
+                return;
+            }
+
+            // ★set=0 と set=2 を “一回で” bind
+            // ShadowSkinnedMesh の pipeline layout は set=0 と set=2 を持っている前提
+            VkDescriptorSet sets02[2] = { sceneSet, skinnedSet };
+
+            // ここで firstSet=0 / descriptorSetCount=2 にしたいが、
+            // set index が (0,2) の “穴あき” は API 的に 2個では表現できない。
+            // なので確実にいくなら「2回 bind」でOK：
+            // - set=0 を bind
+            // - set=2 を bind（firstSet=2）
+            vkCmdBindDescriptorSets(
+                cmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipe->GetPipelineLayout(),
+                0,
+                1,
+                &sceneSet,
+                0,
+                nullptr);
+
+            vkCmdBindDescriptorSets(
+                cmd,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipe->GetPipelineLayout(),
+                2,
+                1,
+                &skinnedSet,
+                0,
+                nullptr);
+
+            VKShadowPC pc{};
+            StoreMat4(pc.world, it.world);
+
+            vkCmdPushConstants(
+                cmd,
+                pipe->GetPipelineLayout(),
+                VK_SHADER_STAGE_VERTEX_BIT,
+                0,
+                sizeof(VKShadowPC),   // ★必ず 64 bytes
+                &pc);
+
+            if (it.indexCount > 0)
+            {
+                vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+                AddDrawCall();
+            }
+            else if (it.vertexCount > 0)
+            {
+                vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+                AddDrawCall();
+            }
+
+            return;
+        }
+
+        return;
+    }
+
+    //----------------------------------------------------------
+    // 以降は通常 pass（Sprite / Mesh / SkinnedMesh）
+    //----------------------------------------------------------
 
     //----------------------------------------------------------
     // BaseMap set=1（layout違い対策で pipelineName を必ず使う）
@@ -378,12 +576,8 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             return;
         }
 
-        // set0=setScene, set1=baseMap
         VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
 
-        //------------------------------------------------------
-        // Material / payload
-        //------------------------------------------------------
         Vector3 baseColor(1.0f, 1.0f, 1.0f);
         float specPower = 64.0f;
         float alpha     = 1.0f;
@@ -400,14 +594,19 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             overrideColor   = mp.overrideColorValue;
         }
 
-        //------------------------------------------------------
-        // Texture / useTex
-        //------------------------------------------------------
-        const Texture* diffuseTex = it.material.ptr->GetDiffuseMap().get();
-        const bool hasRealTex = (diffuseTex != nullptr);
+        Material* mat = it.material.ptr;
+
+        const Texture* diffuseTex = nullptr;
+        bool hasRealTex = false;
+
+        if (mat)
+        {
+            diffuseTex = mat->GetDiffuseMap().get();
+            hasRealTex = (diffuseTex != nullptr);
+        }
+
         float useTex = 0.0f;
 
-        Material* mat = it.material.ptr;
         if (mat)
         {
             baseColor = mat->GetDiffuseColor();
@@ -418,15 +617,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 useTex = 1.0f;
             }
         }
-        else
-        {
-            // mat無し運用の場合の方針次第:
-            // useTex = hasRealTex ? 1.0f : 0.0f;
-        }
 
-        //------------------------------------------------------
-        // Bind & DS
-        //------------------------------------------------------
         pipe->Bind(cmd);
         vkCmdBindDescriptorSets(
             cmd,
@@ -438,9 +629,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0,
             nullptr);
 
-        //------------------------------------------------------
-        // PushConstants
-        //------------------------------------------------------
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
@@ -467,11 +655,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sizeof(VKMeshPC),
             &pc);
 
-        
-        
-        //------------------------------------------------------
-        // Draw
-        //------------------------------------------------------
         if (it.indexCount > 0)
         {
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
@@ -494,7 +677,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid())
         {
-            // 最低 fallback
             pipe = mPipelines.Get("SkinnedMesh");
             if (!pipe || !pipe->IsValid())
             {
@@ -503,19 +685,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             pipelineName = "SkinnedMesh";
         }
 
-        //------------------------------------------------------
-        // set=2 acquire（draw単位で palette を上書きしない）
-        //------------------------------------------------------
-        VkDescriptorSet skinnedSet = AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
+        VkDescriptorSet skinnedSet =
+            AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
         if (skinnedSet == VK_NULL_HANDLE)
         {
             return;
         }
-        
 
-        //------------------------------------------------------
-        // Material / payload（Mesh と同じ流儀）
-        //------------------------------------------------------
         Vector3 baseColor(1.0f, 1.0f, 1.0f);
         float   specPower = 64.0f;
         float   alpha     = 1.0f;
@@ -532,11 +708,16 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             overrideColor = sp.overrideColorValue;
         }
 
-        //const Texture* diffuseTex = it.texture.ptr;
-        const Texture* diffuseTex = it.material.ptr->GetDiffuseMap().get();
+        Material* mat = it.material.ptr;
+
+        const Texture* diffuseTex = nullptr;
+        if (mat)
+        {
+            diffuseTex = mat->GetDiffuseMap().get();
+        }
+
         float useTex = (diffuseTex != nullptr) ? 1.0f : 0.0f;
 
-        Material* mat = it.material.ptr;
         if (mat)
         {
             baseColor = mat->GetDiffuseColor();
@@ -556,9 +737,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             return;
         }
 
-        //------------------------------------------------------
-        // bind sets : set0 + set1 + set2
-        //------------------------------------------------------
         VkDescriptorSet sets[3] = { sceneSet, baseMapSet2, skinnedSet };
 
         pipe->Bind(cmd);
@@ -573,9 +751,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0,
             nullptr);
 
-        //------------------------------------------------------
-        // push constants（Mesh と同じ構造）
-        //------------------------------------------------------
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
@@ -601,10 +776,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0,
             sizeof(VKMeshPC),
             &pc);
-        
-        //------------------------------------------------------
-        // draw
-        //------------------------------------------------------
+
         if (it.indexCount > 0)
         {
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);

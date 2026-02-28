@@ -1,9 +1,13 @@
-// Render/VK/VKPipelineLibrary.h
+//======================================================================
+// Render/VK/Pipeline/VKPipelineLibrary.h
+//======================================================================
 #pragma once
 
 #include "Render/VK/Pipeline/VKPipeline.h"
+
 #include <unordered_map>
 #include <memory>
+#include <string>
 
 namespace toy
 {
@@ -11,6 +15,7 @@ namespace toy
 class VKPipelineLibrary
 {
 public:
+    // create or replace
     bool CreatePipeline(const std::string& name,
                         VkDevice device,
                         VkRenderPass renderPass,

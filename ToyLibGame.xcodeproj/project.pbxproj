@@ -43,6 +43,7 @@
 				include/Graphics/Sprite/TextSpriteComponent.h,
 				include/UI/MessageBoxActor.h,
 				include/Utils/StringUtil.h,
+				Shaders/VK/src/Shadow_SkinnedMesh.frag,
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */

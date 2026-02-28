@@ -351,50 +351,33 @@ bool VKRenderer::BeginFrame()
     }
     mSkinnedSlotCursor[mFrameIndex] = 0;
 
+    // ★重要：このフレームはまだ renderpass を開いてない
+    mIsInRenderPass = false;
+
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(frame.cmd, &bi);
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    VkClearValue clears[2]{};
-    clears[0].color.float32[0] = mClearColor.x;
-    clears[0].color.float32[1] = mClearColor.y;
-    clears[0].color.float32[2] = mClearColor.z;
-    clears[0].color.float32[3] = 1.0f;
-
-    clears[1].depthStencil.depth   = 1.0f;
-    clears[1].depthStencil.stencil = 0;
-
-    VkRenderPassBeginInfo rp{};
-    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass  = mRenderPass;
-    rp.framebuffer = mFramebuffers[mImageIndex];
-    rp.renderArea.offset = { 0, 0 };
-    rp.renderArea.extent = mSwapchainExtent;
-    rp.clearValueCount   = 2;
-    rp.pClearValues      = clears;
-
-    vkCmdBeginRenderPass(frame.cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+    VkResult br = vkBeginCommandBuffer(frame.cmd, &bi);
+    if (br != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed: " << br << "\n";
+        return false;
+    }
 
     //----------------------------------------------------------
-    // ★最重要：World の SceneUBO 更新
+    // ★最重要：World の SceneUBO 更新（従来どおり）
     //----------------------------------------------------------
     UpdateSceneUBO_World();
 
-    VkViewport vp{};
-    vp.x = 0.0f;
-    vp.y = (float)rp.renderArea.extent.height;
-    vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = -(float)rp.renderArea.extent.height;
-    vp.minDepth = 0.0f;
-    vp.maxDepth = 1.0f;
-    vkCmdSetViewport(frame.cmd, 0, 1, &vp);
+    //----------------------------------------------------------
+    // viewport/scissor は “各パス begin 後” にやるのが安全
+    // （dynamic viewport なので、BeginFrame では触らない）
+    //----------------------------------------------------------
 
-    VkRect2D sc{};
-    sc.offset = { 0, 0 };
-    sc.extent = mSwapchainExtent;
-    vkCmdSetScissor(frame.cmd, 0, 1, &sc);
-
+    // baseMap cache は「フレームごとに使い捨て」運用でOK
     mBaseMapSetCache.clear();
+
     return true;
 }
 
@@ -407,7 +390,12 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    vkCmdEndRenderPass(frame.cmd);
+    // ★ safety: もし renderpass が開きっぱなしなら閉じる（デバッグ保険）
+    if (mIsInRenderPass)
+    {
+        vkCmdEndRenderPass(frame.cmd);
+        mIsInRenderPass = false;
+    }
 
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
@@ -416,7 +404,8 @@ void VKRenderer::EndFrame()
         return;
     }
 
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // ★Shadow/Transfer も混ざるので安全側（落ちてる間はこれ推奨）
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1258,17 +1247,17 @@ bool VKRenderer::BuildDefaultPipelines()
     const std::string base = mShaderPath + "VK/spv/";
 
     //==========================================================
-    // ★重要：swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    // swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
     //==========================================================
     mPipelines.DestroyAll();
 
-    //==========================================================
-    // ★超重要：pipeline を作り直したら setLayout が変わる可能性がある
-    //           → 古い DescriptorSet を使い回すと「テクスチャだけ出ない」が起きる
-    //==========================================================
+    // pipeline を作り直したら setLayout が変わる可能性がある
     ClearBaseMapSetCache();
 
-    // Sprite（そのまま）
+    //==========================================================
+    // 1) Swapchain(RenderPass/Extent) 用パイプライン
+    //==========================================================
+    // Sprite
     {
         VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
         if (!mPipelines.CreatePipeline("Sprite", mDevice, mRenderPass, mSwapchainExtent, sprite))
@@ -1277,13 +1266,10 @@ bool VKRenderer::BuildDefaultPipelines()
         }
     }
 
-    //----------------------------------------------------------
-    // Mesh（通常：ToyLib 標準 CCW を表）
-    //----------------------------------------------------------
+    // Mesh + Mesh_CW
     {
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
 
-        // ★ここが正：CCW を表にするなら COUNTER_CLOCKWISE
         mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         mesh.cullMode  = VK_CULL_MODE_BACK_BIT;
 
@@ -1292,9 +1278,6 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
 
-        //------------------------------------------------------
-        // Mesh_CW（裏表逆：CW を表）
-        //------------------------------------------------------
         VKPipelineDesc meshCW = mesh;
         meshCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
@@ -1304,9 +1287,7 @@ bool VKRenderer::BuildDefaultPipelines()
         }
     }
 
-    //----------------------------------------------------------
-    // SkinnedMesh（通常：CCW を表）
-    //----------------------------------------------------------
+    // SkinnedMesh + SkinnedMesh_CW
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
 
@@ -1318,15 +1299,66 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
 
-        //------------------------------------------------------
-        // SkinnedMesh_CW（裏表逆：CW を表）
-        //------------------------------------------------------
         VKPipelineDesc skCW = sk;
         skCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
         if (!mPipelines.CreatePipeline("SkinnedMesh_CW", mDevice, mRenderPass, mSwapchainExtent, skCW))
         {
             return false;
+        }
+    }
+
+    //==========================================================
+    // 2) Shadow(RenderPass/Extent) 用パイプライン
+    //   - ここが今回のキモ：renderPass と extent を “Shadow用” にする
+    //==========================================================
+    // Shadow resources がまだ無い/無効ならスキップ可
+    // （CreateShadowResources() が成功していれば、mShadowRenderPass が有効な想定）
+    if (mShadowRenderPass != VK_NULL_HANDLE &&
+        mShadowExtent.width > 0 && mShadowExtent.height > 0)
+    {
+        // Shadow_Mesh
+        {
+            VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowMesh(base);
+
+            // 影は基本 “両面” にしたいなら cull none
+            // まずは GL に合わせて back cull でもOK
+            sd.cullMode   = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("Shadow_Mesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            {
+                return false;
+            }
+
+            VKPipelineDesc sdCW = sd;
+            sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("Shadow_Mesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            {
+                return false;
+            }
+        }
+
+        // Shadow_Skinned
+        {
+            VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowSkinnedMesh(base);
+
+            sd.cullMode   = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("Shadow_SkinnedMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            {
+                return false;
+            }
+
+            VKPipelineDesc sdCW = sd;
+            sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("Shadow_SkinnedMesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            {
+                return false;
+            }
         }
     }
 

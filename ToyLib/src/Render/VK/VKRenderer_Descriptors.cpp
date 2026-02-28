@@ -24,6 +24,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <unordered_map>
 
 namespace toy
 {
@@ -46,6 +47,28 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
 static std::string NormalizePipelineName(const char* name)
 {
     return name ? std::string(name) : std::string();
+}
+
+static const char* NormalizePipelineNameForSet2(const char* pipelineName)
+{
+    if (!pipelineName) return nullptr;
+
+    // ShadowSkinnedMesh は set=2 が SkinnedMesh と同じでOK（運用を安定化）
+    if (std::strcmp(pipelineName, "ShadowSkinnedMesh") == 0)
+    {
+        return "SkinnedMesh";
+    }
+
+    // 将来、CW 版を作るならここも追加する
+    // if (std::strcmp(pipelineName, "ShadowSkinnedMesh_CW") == 0) return "SkinnedMesh_CW";
+
+    return pipelineName;
+}
+
+static bool IsShadowPipelineName(const char* pipelineName)
+{
+    if (!pipelineName) return false;
+    return (std::strncmp(pipelineName, "Shadow", 6) == 0);
 }
 
 //==============================================================
@@ -534,6 +557,15 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     const std::string pipeName = NormalizePipelineName(pipelineName);
 
+    // Shadow pass は set=1(BaseMap) を使わない設計。
+    // ここに来たら呼び出し側の設計ミスなので弾く。
+    if (IsShadowPipelineName(pipelineName))
+    {
+        std::cerr << "[VK] BaseMapSet: Shadow pipeline requested set=1 (BUG) name="
+                  << pipelineName << "\n";
+        return VK_NULL_HANDLE;
+    }
+    
     //----------------------------------------------------------
     // fallback
     //----------------------------------------------------------
@@ -1143,9 +1175,19 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
             return VK_NULL_HANDLE;
         }
 
-        VkDescriptorSetLayout set2 = GetPipelineSetLayout(mPipelines, pipelineName, 2);
+        const char* set2PipeName = NormalizePipelineNameForSet2(pipelineName);
+
+        VkDescriptorSetLayout set2 = GetPipelineSetLayout(mPipelines, set2PipeName, 2);
         if (set2 == VK_NULL_HANDLE)
         {
+            // 最後の保険（運用上 set=2 layout は SkinnedMesh と共通であるべき）
+            set2 = GetPipelineSetLayout(mPipelines, "SkinnedMesh", 2);
+        }
+
+        if (set2 == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VK] AcquireSkinnedSet: set2 layout null pipe="
+                      << pipelineName << " (normalized=" << (set2PipeName ? set2PipeName : "null") << ")\n";
             vkDestroyBuffer(mDevice, slot.ubo, nullptr);
             vkFreeMemory(mDevice, slot.mem, nullptr);
             return VK_NULL_HANDLE;

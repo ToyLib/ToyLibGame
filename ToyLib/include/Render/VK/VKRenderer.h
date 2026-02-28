@@ -284,31 +284,67 @@ private:
 
     void DestroySkinnedSlots();
     
-//==========================================================
-// ShadowMap (Depth-only)
-//==========================================================
 private:
-    // resources
-    VkExtent2D     mShadowExtent{ 0, 0 };
-    VkFormat       mShadowDepthFormat{ VK_FORMAT_UNDEFINED };
-    VkImage        mShadowDepthImg{ VK_NULL_HANDLE };
-    VkDeviceMemory mShadowDepthMem{ VK_NULL_HANDLE };
-    VkImageView    mShadowDepthView{ VK_NULL_HANDLE };
-    VkSampler      mShadowSampler{ VK_NULL_HANDLE };
-    VkRenderPass   mShadowRenderPass{ VK_NULL_HANDLE };
-    VkFramebuffer  mShadowFB{ VK_NULL_HANDLE };
+    //==========================================================
+    // Shadow mapping (Vulkan)
+    //  - depth-only pass (2 cascades like GL)
+    //  - per-cascade depth image + framebuffer
+    //  - shadow scene UBO(set=0) for LightVP
+    //==========================================================
 
-    // matrices
-    Matrix4 mShadowLightView{ Matrix4::Identity };
-    Matrix4 mShadowLightProj{ Matrix4::Identity };
-    Matrix4 mShadowLightViewProj{ Matrix4::Identity };
-    Matrix4 mShadowBias{ Matrix4::Identity };
-    Matrix4 mShadowLightViewProj_Biased{ Matrix4::Identity };
-
-private:
+    // resources create/destroy
     bool CreateShadowResources();
     void DestroyShadowResources();
+
+    // shadow scene UBO/set (set=0 binding=0)
+    bool CreateShadowSceneUBOAndSet();
+    void DestroyShadowSceneUBOAndSet();
+
+    // update matrices
     void UpdateShadowLightMatrices();
+    void UpdateShadowSceneUBO(int cascadeIndex);
+
+    //----------------------------------------------------------
+    // shadow data
+    //----------------------------------------------------------
+    struct ShadowCascade
+    {
+        VkImage        depthImg{ VK_NULL_HANDLE };
+        VkDeviceMemory depthMem{ VK_NULL_HANDLE };
+        VkImageView    depthView{ VK_NULL_HANDLE };
+        VkFramebuffer  fb{ VK_NULL_HANDLE };
+
+        Matrix4 lightVP{ Matrix4::Identity };
+        Matrix4 lightVP_Biased{ Matrix4::Identity }; // optional (for sampling later)
+    };
+
+    // constants (合わせて cpp 側でも使う)
+    static constexpr int kShadowCascadeCount = 2;
+
+    // depth targets
+    VkExtent2D mShadowExtent{ 0, 0 };
+    VkFormat   mShadowDepthFormat{ VK_FORMAT_UNDEFINED };
+
+    std::vector<ShadowCascade> mShadowCascades;
+
+    // depth-only render pass + compare sampler
+    VkRenderPass mShadowRenderPass{ VK_NULL_HANDLE };
+    VkSampler    mShadowSampler{ VK_NULL_HANDLE };
+
+    // bias matrix (optional)
+    Matrix4 mShadowBias{ Matrix4::Identity };
+
+    // shadow scene UBO/set (per frame)
+    std::vector<VkBuffer>       mShadowSceneUBO;
+    std::vector<VkDeviceMemory> mShadowSceneUBOMem;
+    std::vector<VkDescriptorSet> mShadowSceneSet; // set=0
+
+    // VKRenderer.h（private: あたり）
+    bool mIsInRenderPass{ false };
+
+    // shadow pass 中のカスケード番号（DrawItem に渡す用）
+    int  mShadowCascadeIndex{ -1 };
+    
 };
 
 } // namespace toy

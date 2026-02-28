@@ -1,7 +1,9 @@
-// Render/VK/VKPipeline.cpp
+// Render/VK/Pipeline/VKPipeline.cpp
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/VK/VKUtil.h" // ReadFileBinary / CreateShaderModule
 #include <iostream>
+#include <vector>
+#include <cstring>
 
 namespace toy
 {
@@ -17,7 +19,6 @@ void VKPipeline::Destroy()
 
     // NOTE:
     // 破棄順は「Pipeline -> PipelineLayout -> DescriptorSetLayouts」が安全。
-    // PipelineLayout が setLayout を参照しているため、先に setLayout を壊すと危険。
 
     if (mPipeline)
     {
@@ -64,7 +65,6 @@ VkShaderModule VKPipeline::LoadShaderModule(VkDevice device, const std::string& 
     return mod;
 }
 
-// VKPipeline.cpp (or .h内static定義でもOK)
 void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
                                   VkVertexInputBindingDescription& outBinding,
                                   std::vector<VkVertexInputAttributeDescription>& outAttrs)
@@ -87,48 +87,33 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
 
     switch (layout)
     {
-        // ------------------------------------------
-        // Sprite / Mesh : pos3 nrm3 uv2 (8 floats = 32 bytes)
-        // ------------------------------------------
         case VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2:
         case VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2:
         {
             outBinding.stride = 32;
-
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);   // pos
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);  // nrm
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,     24); // uv
+            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
+            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
+            addAttr(2, VK_FORMAT_R32G32_SFLOAT,     24);
             break;
         }
-
-        // ------------------------------------------
-        // Skinned : pos3 nrm3 uv2 + bone u32x4 + weight f32x4 (64 bytes)
-        // ------------------------------------------
         case VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4:
         {
             outBinding.stride = 64;
-
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT,        0);  // pos
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT,       12);  // nrm
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,          24);  // uv
-            addAttr(3, VK_FORMAT_R32G32B32A32_UINT,      32);  // bones (uvec4)
-            addAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT,    48);  // weights (vec4)
+            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT,        0);
+            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT,       12);
+            addAttr(2, VK_FORMAT_R32G32_SFLOAT,          24);
+            addAttr(3, VK_FORMAT_R32G32B32A32_UINT,      32);
+            addAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT,    48);
             break;
         }
-
-        // ------------------------------------------
-        // Vec2 : pos2 (8 bytes)
-        // ------------------------------------------
         case VKPipelineDesc::VertexLayout::Vec2_Pos2:
         {
             outBinding.stride = 8;
-            addAttr(0, VK_FORMAT_R32G32_SFLOAT, 0); // pos2
+            addAttr(0, VK_FORMAT_R32G32_SFLOAT, 0);
             break;
         }
-
         default:
         {
-            // 安全側：最低限 Mesh と同じにしておく
             outBinding.stride = 32;
             addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
             addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
@@ -138,12 +123,31 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
     }
 }
 
+//======================================================================
+// CreateDescriptorSetLayouts
+// 重要:
+//  - set=2 だけを使う pipeline（set=1 が無い等）が存在すると、
+//    [0]=valid [1]=NULL [2]=valid みたいな “穴あき配列” ができる。
+//  - それを vkCreatePipelineLayout に渡すのは未定義寄りで、MVK等でクラッシュ要因。
+//  -> maxSet までの “穴” は bindingCount=0 の空レイアウトで埋める。
+//======================================================================
 bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
 {
-    // desc.setLayouts が空なら「setLayoutなし」の pipeline layout を作る
+    // set layout を使わない pipeline もある
     if (desc.setLayouts.empty())
     {
-        // 既に Destroy() 済み前提だが、念のため安全に
+        // 既存を破棄
+        if (!mSetLayouts.empty() && mDevice)
+        {
+            for (auto& sl : mSetLayouts)
+            {
+                if (sl)
+                {
+                    vkDestroyDescriptorSetLayout(mDevice, sl, nullptr);
+                    sl = VK_NULL_HANDLE;
+                }
+            }
+        }
         mSetLayouts.clear();
         return true;
     }
@@ -154,14 +158,13 @@ bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
         return false;
     }
 
-    // set番号の最大を見て、mSetLayouts[set] 方式にする
     uint32_t maxSet = 0;
     for (const auto& s : desc.setLayouts)
     {
         if (s.set > maxSet) maxSet = s.set;
     }
 
-    // 既存があれば破棄（Create()の先頭で Destroy() 呼んでるが、安全に）
+    // 既存を破棄
     if (!mSetLayouts.empty())
     {
         for (auto& sl : mSetLayouts)
@@ -175,9 +178,9 @@ bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
         mSetLayouts.clear();
     }
 
+    // maxSet まで確保（穴は後で埋める）
     mSetLayouts.assign(maxSet + 1, VK_NULL_HANDLE);
 
-    // 失敗時の後始末用
     auto cleanupOnFail = [&]()
     {
         for (auto& sl : mSetLayouts)
@@ -191,6 +194,7 @@ bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
         mSetLayouts.clear();
     };
 
+    // まず指定された set だけ作る
     for (const auto& s : desc.setLayouts)
     {
         std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -225,6 +229,32 @@ bool VKPipeline::CreateDescriptorSetLayouts(const VKPipelineDesc& desc)
         mSetLayouts[s.set] = out;
     }
 
+    // ★穴埋め：未指定 set は “空レイアウト” を作る
+    for (uint32_t si = 0; si < static_cast<uint32_t>(mSetLayouts.size()); ++si)
+    {
+        if (mSetLayouts[si] != VK_NULL_HANDLE)
+        {
+            continue;
+        }
+
+        VkDescriptorSetLayoutCreateInfo ci{};
+        ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        ci.bindingCount = 0;
+        ci.pBindings    = nullptr;
+
+        VkDescriptorSetLayout empty = VK_NULL_HANDLE;
+        VkResult vr = vkCreateDescriptorSetLayout(mDevice, &ci, nullptr, &empty);
+        if (vr != VK_SUCCESS || !empty)
+        {
+            std::cerr << "[VKPipeline] vkCreateDescriptorSetLayout(empty) failed: " << vr
+                      << " (set=" << si << ")\n";
+            cleanupOnFail();
+            return false;
+        }
+
+        mSetLayouts[si] = empty;
+    }
+
     return true;
 }
 
@@ -245,8 +275,6 @@ bool VKPipeline::Create(VkDevice device,
         return false;
     }
 
-    
-    
     mDevice = device;
 
     VkShaderModule vs = LoadShaderModule(device, desc.vsPath);
@@ -281,7 +309,6 @@ bool VKPipeline::Create(VkDevice device,
         Destroy();
         return false;
     }
-    
 
     VkPipelineVertexInputStateCreateInfo vi{};
     vi.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -295,7 +322,7 @@ bool VKPipeline::Create(VkDevice device,
     ia.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     ia.primitiveRestartEnable = VK_FALSE;
 
-    // Dynamic viewport/scissor (you already set them per-frame)
+    // Dynamic viewport/scissor
     VkPipelineViewportStateCreateInfo vp{};
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
@@ -305,6 +332,7 @@ bool VKPipeline::Create(VkDevice device,
     {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
+        // ※ depth bias を動的にするなら VK_DYNAMIC_STATE_DEPTH_BIAS を追加する
     };
 
     VkPipelineDynamicStateCreateInfo dyn{};
@@ -320,20 +348,29 @@ bool VKPipeline::Create(VkDevice device,
     rs.lineWidth               = 1.0f;
     rs.cullMode                = desc.cullMode;
     rs.frontFace               = desc.frontFace;
-    rs.depthBiasEnable         = VK_FALSE;
+
+    // ★Shadow向け depth bias
+    rs.depthBiasEnable         = desc.depthBiasEnable ? VK_TRUE : VK_FALSE;
+    rs.depthBiasConstantFactor = desc.depthBiasConstantFactor;
+    rs.depthBiasClamp          = desc.depthBiasClamp;
+    rs.depthBiasSlopeFactor    = desc.depthBiasSlopeFactor;
 
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineDepthStencilStateCreateInfo ds{};
-    ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    ds.depthTestEnable        = desc.depthTest  ? VK_TRUE : VK_FALSE;
-    ds.depthWriteEnable       = desc.depthWrite ? VK_TRUE : VK_FALSE;
-    ds.depthCompareOp         = VK_COMPARE_OP_LESS_OR_EQUAL;
-    ds.depthBoundsTestEnable  = VK_FALSE;
-    ds.stencilTestEnable      = VK_FALSE;
+    ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    ds.depthTestEnable       = desc.depthTest  ? VK_TRUE : VK_FALSE;
+    ds.depthWriteEnable      = desc.depthWrite ? VK_TRUE : VK_FALSE;
+    ds.depthCompareOp        = VK_COMPARE_OP_LESS_OR_EQUAL;
+    ds.depthBoundsTestEnable = VK_FALSE;
+    ds.stencilTestEnable     = VK_FALSE;
 
+    //==========================================================
+    // Color blend
+    //  - depth-only pass は colorAttachmentCount=0
+    //==========================================================
     VkPipelineColorBlendAttachmentState cbAtt{};
     cbAtt.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT |
@@ -357,9 +394,13 @@ bool VKPipeline::Create(VkDevice device,
     }
 
     VkPipelineColorBlendStateCreateInfo cb{};
-    cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    cb.attachmentCount = 1;
-    cb.pAttachments    = &cbAtt;
+    cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+
+    const uint32_t caCount = desc.colorAttachmentCount;
+    cb.attachmentCount = caCount;
+
+    // attachmentCount=0 の時は pAttachments=nullptr でOK（depth-only subpass向け）
+    cb.pAttachments = (caCount == 0) ? nullptr : &cbAtt;
 
     // Pipeline layout（Desc 駆動：setLayouts）
     if (!CreateDescriptorSetLayouts(desc))
@@ -385,9 +426,9 @@ bool VKPipeline::Create(VkDevice device,
     }
 
     VkPipelineLayoutCreateInfo lci{};
-    lci.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    lci.setLayoutCount = static_cast<uint32_t>(mSetLayouts.size());
-    lci.pSetLayouts    = mSetLayouts.empty() ? nullptr : mSetLayouts.data();
+    lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    lci.setLayoutCount         = static_cast<uint32_t>(mSetLayouts.size());
+    lci.pSetLayouts            = mSetLayouts.empty() ? nullptr : mSetLayouts.data();
     lci.pushConstantRangeCount = static_cast<uint32_t>(pcRanges.size());
     lci.pPushConstantRanges    = pcRanges.empty() ? nullptr : pcRanges.data();
 
