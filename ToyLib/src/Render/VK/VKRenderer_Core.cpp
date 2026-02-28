@@ -324,11 +324,8 @@ bool VKRenderer::BeginFrame()
     vkResetFences(mDevice, 1, &frame.inFlight);
 
     VkResult ar = vkAcquireNextImageKHR(
-        mDevice,
-        mSwapchain,
-        UINT64_MAX,
-        frame.imageAvailable,
-        VK_NULL_HANDLE,
+        mDevice, mSwapchain, UINT64_MAX,
+        frame.imageAvailable, VK_NULL_HANDLE,
         &mImageIndex);
 
     if (ar == VK_ERROR_OUT_OF_DATE_KHR)
@@ -351,32 +348,18 @@ bool VKRenderer::BeginFrame()
     }
     mSkinnedSlotCursor[mFrameIndex] = 0;
 
-    // ★重要：このフレームはまだ renderpass を開いてない
-    mIsInRenderPass = false;
-
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(frame.cmd, &bi);
 
-    VkResult br = vkBeginCommandBuffer(frame.cmd, &bi);
-    if (br != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed: " << br << "\n";
-        return false;
-    }
-
-    //----------------------------------------------------------
-    // ★最重要：World の SceneUBO 更新（従来どおり）
-    //----------------------------------------------------------
+    // ★重要：ここで World UBO 更新（Shadow用にも必要）
     UpdateSceneUBO_World();
 
-    //----------------------------------------------------------
-    // viewport/scissor は “各パス begin 後” にやるのが安全
-    // （dynamic viewport なので、BeginFrame では触らない）
-    //----------------------------------------------------------
-
-    // baseMap cache は「フレームごとに使い捨て」運用でOK
+    // baseMap cache
     mBaseMapSetCache.clear();
+
+    // ★renderpassはここでは開始しない
+    mIsInRenderPass = false;
 
     return true;
 }
@@ -390,12 +373,8 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // ★ safety: もし renderpass が開きっぱなしなら閉じる（デバッグ保険）
-    if (mIsInRenderPass)
-    {
-        vkCmdEndRenderPass(frame.cmd);
-        mIsInRenderPass = false;
-    }
+    // ★ここで EndRenderPass しない（DrawWorldPass 側で閉じる）
+    // vkCmdEndRenderPass(frame.cmd);
 
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
@@ -404,8 +383,7 @@ void VKRenderer::EndFrame()
         return;
     }
 
-    // ★Shadow/Transfer も混ざるので安全側（落ちてる間はこれ推奨）
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

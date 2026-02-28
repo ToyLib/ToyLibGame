@@ -175,7 +175,10 @@ static void SetupShadowCommon(VKPipelineDesc& d)
 
     AddSet0_SceneUBO(d);
 
-    // ★Shadow は world だけ
+    // ★重要：set2 を “set=2” として成立させるためのダミー set1
+    // Shadow shader は set1 を参照しない前提なので bind しなくてOK。
+    AddSet1_BaseMap(d);
+
     AddPC_ShadowWorld(d);
 }
 
