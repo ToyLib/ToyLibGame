@@ -167,12 +167,15 @@ void VKRenderer::DestroyDescriptorPool()
 //==============================================================
 struct VKSceneUBO
 {
-    float viewProj[16];     // mat4
-    float cameraPos[4];     // vec4
-    float ambient[4];       // vec4
-    float dirDir[4];        // vec4
-    float dirDiffuse[4];    // vec4
-    float dirSpecular[4];   // vec4
+    float viewProj[16];
+    float cameraPos[4];
+    float ambient[4];
+    float dirDir[4];
+    float dirDiffuse[4];
+    float dirSpecular[4];
+
+    float fogColor[4];   // xyz
+    float fogParams[4];  // x=minDist, y=maxDist, z=reserved, w=reserved
 };
 
 //==============================================================
@@ -316,6 +319,30 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.dirSpecular[1] = ds.y;
     ubo.dirSpecular[2] = ds.z;
     ubo.dirSpecular[3] = 1.0f;
+    
+    // --------------------------
+    // Fog（GLと同じ契約）
+    // --------------------------
+    Vector3 fogColor(0.5f, 0.6f, 0.7f);
+    float fogMin = 50.0f;
+    float fogMax = 200.0f;
+
+    if (auto lm = GetLightingManager())
+    {
+        fogColor = lm->GetFogColor();
+        fogMin   = lm->GetFogMinDist();
+        fogMax   = lm->GetFogMaxDist();
+    }
+
+    ubo.fogColor[0] = fogColor.x;
+    ubo.fogColor[1] = fogColor.y;
+    ubo.fogColor[2] = fogColor.z;
+    ubo.fogColor[3] = 1.0f;
+
+    ubo.fogParams[0] = fogMin;
+    ubo.fogParams[1] = fogMax;
+    ubo.fogParams[2] = 0.0f;
+    ubo.fogParams[3] = 0.0f;
 
     UploadToBuffer(mSceneUBOMem[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
 }
@@ -337,6 +364,17 @@ void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
     ubo.ambient[1] = 1.0f;
     ubo.ambient[2] = 1.0f;
     ubo.ambient[3] = 1.0f;
+    
+    // Fog: “影響なし” の値
+    ubo.fogColor[0] = 0.0f;
+    ubo.fogColor[1] = 0.0f;
+    ubo.fogColor[2] = 0.0f;
+    ubo.fogColor[3] = 1.0f;
+
+    ubo.fogParams[0] = 0.0f;   // min
+    ubo.fogParams[1] = 1.0e9f; // max を巨大に（fogFactor≈1）
+    ubo.fogParams[2] = 0.0f;
+    ubo.fogParams[3] = 0.0f;
 
     UploadToBuffer(mSceneUBOMem_UI[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
 }

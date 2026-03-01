@@ -14,6 +14,10 @@ layout(set=0, binding=0, std140) uniform SceneUBO
     vec4 dirDir;        // xyz (direction)
     vec4 dirDiffuse;    // xyz
     vec4 dirSpecular;   // xyz
+
+    // ---- Fog (GL再現) ----
+    vec4 fogColor;      // xyz
+    vec4 fogParams;     // x=minDist, y=maxDist, z=reserved, w=reserved
 } uScene;
 
 layout(set=1, binding=0) uniform sampler2D uBaseMap;
@@ -56,12 +60,19 @@ vec3 ComputeDirLight(vec3 N, vec3 V, vec3 L, float specPower, float toon)
     }
 }
 
+// GLと同じ Fog 係数
+float ComputeFogFactor(float dist, float minDist, float maxDist)
+{
+    float denom = max(maxDist - minDist, 0.0001);
+    return clamp((maxDist - dist) / denom, 0.0, 1.0);
+}
+
 void main()
 {
-    
     float overrideEnabled = pc.misc.z;
     if (overrideEnabled > 0.5)
     {
+        // Fogは掛けない（GLの「単色描画モード」相当）
         outColor = vec4(pc.overrideColor.rgb, 1.0);
         return;
     }
@@ -87,8 +98,15 @@ void main()
         baseColor = vec4(pc.baseColor_useTex.rgb, 1.0);
     }
 
-    baseColor.rgb *= lighting;
+    // ライティング適用
+    vec3 litColor = baseColor.rgb * lighting;
+
+    // Fog（GLと同じ：ワールド距離）
+    float dist = length(uScene.cameraPos.xyz - vWorldPos);
+    float fogFactor = ComputeFogFactor(dist, uScene.fogParams.x, uScene.fogParams.y);
+
+    vec3 finalRgb = mix(uScene.fogColor.xyz, litColor, fogFactor);
 
     float alpha = pc.misc.w;
-    outColor = vec4(baseColor.rgb, baseColor.a * alpha);
+    outColor = vec4(finalRgb, baseColor.a * alpha);
 }
