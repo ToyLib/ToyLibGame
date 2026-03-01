@@ -519,19 +519,24 @@ void VKRenderer::UpdateShadowLightMatrices()
     }
     lightDir.Normalize();
 
-    Vector3 lightPos = camCenter - lightDir * 50.0f;
-
+    
+    
+    const float base = std::max(mShadowOrthoWidth, mShadowOrthoHeight);
+    const float lightDist = base * 2.0f;         // まずは 2x くらい
+    Vector3 lightPos = camCenter - lightDir * lightDist;
     Matrix4 lightView = Matrix4::CreateLookAt(lightPos, camCenter, Vector3::UnitY);
 
+    
+    
     const float orthoW[kShadowCascadeCount] =
     {
         mShadowOrthoWidth,
-        mShadowOrthoWidth * 4.0f
+        mShadowOrthoWidth * 1.0f
     };
     const float orthoH[kShadowCascadeCount] =
     {
         mShadowOrthoHeight,
-        mShadowOrthoHeight * 4.0f
+        mShadowOrthoHeight * 1.0f
     };
 
     for (int i = 0; i < kShadowCascadeCount; ++i)
