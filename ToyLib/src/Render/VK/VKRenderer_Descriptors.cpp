@@ -176,6 +176,7 @@ struct VKSceneUBO
 
     float fogColor[4];   // xyz
     float fogParams[4];  // x=minDist, y=maxDist, z=reserved, w=reserved
+    
 };
 
 //==============================================================

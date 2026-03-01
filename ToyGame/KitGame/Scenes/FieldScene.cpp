@@ -180,7 +180,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::SNOW);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }
 
 
@@ -226,9 +226,13 @@ void FieldScene::DeployBrick(Vector3 pos)
 
 }
 
+#include "Render/RenderBackendState.h"
 void FieldScene::DeployFire(Vector3 pos)
 {
-    /*
+    if (!toy::RenderBackendState::Get().IsGL())
+    {
+        return;
+    }
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -301,5 +305,5 @@ void FieldScene::DeployFire(Vector3 pos)
     particle->Init(desc);
     //particle->InitFromFile("ToyGame/Settings/Fire.json");
     particle->Start();
-    */
+
 }
