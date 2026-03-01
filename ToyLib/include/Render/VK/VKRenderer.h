@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <cstdint>
+#include <array>
 
 namespace toy
 {
@@ -349,6 +350,60 @@ private:
     
     bool BuildShadowPipelinesOnly();
     
+private:
+    // Shadow: sampled descriptor (set=3)
+    VkDescriptorSetLayout          mShadowMapSetLayout = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet>   mShadowMapSet; // per-frame (0..frameCount-1)
+    // VKRenderer.h などに追加（最小追跡）
+    std::array<bool, 2> mShadowIsSampledLayout { false, false }; // kShadowCascadeCount=2 前提
+    
+    bool CreateShadowMapSetLayoutAndSets();
+    void DestroyShadowMapSetLayoutAndSets();
+
+    bool CreateShadowSampleSet();
+    void UpdateShadowSampleSet();
+    
+    VkDescriptorSet GetShadowMapSetForCurrentFrame() const
+    {
+        if (mFrameIndex >= mShadowMapSet.size()) return VK_NULL_HANDLE;
+        return mShadowMapSet[mFrameIndex];
+    }
+    
+    VkDescriptorPool mShadowDescPoolUsed{ VK_NULL_HANDLE };
+    
+    void TransitionShadowDepthToSampledIfNeeded(VkCommandBuffer cmd);
+
+    
+    // VKRenderer.h private などに
+    struct EmptySetKey
+    {
+        uint32_t frame = 0;
+        std::string pipelineName;
+        uint32_t setIndex = 0;
+
+        bool operator==(const EmptySetKey& o) const
+        {
+            return frame == o.frame && setIndex == o.setIndex && pipelineName == o.pipelineName;
+        }
+    };
+
+    struct EmptySetKeyHash
+    {
+        size_t operator()(const EmptySetKey& k) const noexcept
+        {
+            size_t h = 1469598103934665603ull;
+            auto mix = [&](size_t v){ h ^= v; h *= 1099511628211ull; };
+            mix(std::hash<uint32_t>{}(k.frame));
+            mix(std::hash<std::string>{}(k.pipelineName));
+            mix(std::hash<uint32_t>{}(k.setIndex));
+            return h;
+        }
+    };
+
+    std::unordered_map<EmptySetKey, VkDescriptorSet, EmptySetKeyHash> mEmptySetCache;
+    VkDescriptorSet GetOrCreateEmptySet(const char* pipelineName, uint32_t setIndex);
+    void ClearEmptySetCache();
+
 };
 
 } // namespace toy
