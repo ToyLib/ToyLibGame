@@ -309,57 +309,69 @@ bool VKRenderer::BeginFrame()
         return false;
     }
 
+    //============================================================
+    // 1) resize/recreate
+    //============================================================
     if (mNeedRecreateSwapchain)
     {
+        vkDeviceWaitIdle(mDevice);
+
         if (!RecreateSwapchain())
         {
             return false;
         }
+
         mNeedRecreateSwapchain = false;
     }
 
     FrameSync& frame = mFrames[mFrameIndex];
 
+    //============================================================
+    // 2) wait fence (reuse safety)
+    //============================================================
     vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
     vkResetFences(mDevice, 1, &frame.inFlight);
 
-    VkResult ar = vkAcquireNextImageKHR(
-        mDevice, mSwapchain, UINT64_MAX,
-        frame.imageAvailable, VK_NULL_HANDLE,
-        &mImageIndex);
+    //============================================================
+    // 3) acquire
+    //============================================================
+    VkResult result = vkAcquireNextImageKHR(
+        mDevice,
+        mSwapchain,
+        UINT64_MAX,
+        frame.imageAvailable,
+        VK_NULL_HANDLE,
+        &mImageIndex
+    );
 
-    if (ar == VK_ERROR_OUT_OF_DATE_KHR)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         mNeedRecreateSwapchain = true;
         return false;
     }
-    if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR)
+    if (result != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] Acquire failed: " << ar << "\n";
+        std::cerr << "[VKRenderer] vkAcquireNextImageKHR failed: " << result << "\n";
         return false;
     }
 
+    // safety
+    if (mRenderPass == VK_NULL_HANDLE) return false;
+    if (mImageIndex >= mFramebuffers.size()) return false;
+    if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE) return false;
+
+    //============================================================
+    // 4) cmd reset + begin
+    //============================================================
     vkResetCommandBuffer(frame.cmd, 0);
 
-    // per-frame skinned slot cursor reset
-    if (mSkinnedSlotCursor.size() != mFrames.size())
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(frame.cmd, &beginInfo) != VK_SUCCESS)
     {
-        mSkinnedSlotCursor.resize(mFrames.size(), 0);
+        return false;
     }
-    mSkinnedSlotCursor[mFrameIndex] = 0;
-
-    VkCommandBufferBeginInfo bi{};
-    bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(frame.cmd, &bi);
-
-    // ★重要：ここで World UBO 更新（Shadow用にも必要）
-    UpdateSceneUBO_World();
-
-    // baseMap cache
-    mBaseMapSetCache.clear();
-
-    // ★renderpassはここでは開始しない
-    mIsInRenderPass = false;
 
     return true;
 }
@@ -373,8 +385,8 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // ★ここで EndRenderPass しない（DrawWorldPass 側で閉じる）
-    // vkCmdEndRenderPass(frame.cmd);
+    // 念のため：render pass を開いたままなら閉じる
+    EndSwapchainRenderPassIfNeeded();
 
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
@@ -386,7 +398,7 @@ void VKRenderer::EndFrame()
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo si{};
-    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.waitSemaphoreCount   = 1;
     si.pWaitSemaphores      = &frame.imageAvailable;
     si.pWaitDstStageMask    = &waitStage;
@@ -1024,108 +1036,36 @@ bool VKRenderer::CreateSyncObjects()
 //--------------------------------------------------------------
 bool VKRenderer::RecreateSwapchain()
 {
-    int w = 0;
-    int h = 0;
-    SDL_GetWindowSizeInPixels(mWindow, &w, &h);
-    if (w <= 0 || h <= 0)
-    {
-        return true;
-    }
-
-    if (mDevice == VK_NULL_HANDLE)
-    {
-        return false;
-    }
+    if (mDevice == VK_NULL_HANDLE) return false;
 
     vkDeviceWaitIdle(mDevice);
 
+    // swapchain dependent resources
     CleanupSwapchain();
 
-    if (!CreateSwapchainAndViews()) return false;
-    if (!CreateDepthForSwapchain()) return false;
+    if (!CreateSwapchainAndViews())
+        return false;
 
-    if (mRenderPass)
-    {
-        vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
-        mRenderPass = VK_NULL_HANDLE;
-    }
-    if (!CreateRenderPass()) return false;
-    if (!CreateFramebuffers()) return false;
+    // ★重要：depth は swapchain に依存するので必ず作り直す
+    if (!CreateDepthForSwapchain())
+        return false;
 
-    //----------------------------------------------------------
-    // Projection 更新
-    //----------------------------------------------------------
-    mScreenWidth  = (float)mSwapchainExtent.width;
-    mScreenHeight = (float)mSwapchainExtent.height;
+    if (!CreateRenderPass())
+        return false;
 
-    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(mPerspectiveFOV),
-        mScreenWidth,
-        mScreenHeight,
-        1.0f,
-        2000.0f
-    );
+    if (!CreateFramebuffers())
+        return false;
 
-    //----------------------------------------------------------
-    // Descriptor sets は Pipeline の Layout に依存するので
-    // いったん解放 → Pipeline 再生成 → SceneSet 再生成
-    //----------------------------------------------------------
-    if (mDescPool != VK_NULL_HANDLE)
-    {
-        // SceneSets
-        for (auto& ds : mSceneSet)
-        {
-            if (ds != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-                ds = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet.clear();
-
-        for (auto& ds : mSceneSet_UI)
-        {
-            if (ds != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-                ds = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet_UI.clear();
-
-        // BaseMap cache
-        ClearBaseMapSetCache();
-
-        // ★Skinned slot pool (layout change safety)
-        DestroySkinnedSlots();
-    }
-
-    //----------------------------------------------------------
-    // Pipelines rebuild
-    //----------------------------------------------------------
+    // pipeline は renderpass/extent に依存
     if (!BuildDefaultPipelines())
-    {
         return false;
-    }
 
-    //----------------------------------------------------------
-    // SceneSet 再生成
-    //----------------------------------------------------------
-    if (!CreateSceneDescriptorSet())
-    {
+    // shadow resources は extent に依存（CreateShadowResources の中で必要な物を再生成する前提）
+    // ※DestroyShadowResources() は CleanupSwapchain では呼んでいないので、
+    //   ここで「再生成が必要」なら先に破棄して作り直す。
+    DestroyShadowResources();
+    if (!CreateShadowResources())
         return false;
-    }
-
-    // Skinned slots (set=2)
-    //if (!CreateSkinnedSlots())
-    {
-    //    return false;
-    }
-
-    //----------------------------------------------------------
-    // UBO 初期更新
-    //----------------------------------------------------------
-    UpdateSceneUBO_World();
 
     return true;
 }
@@ -1339,6 +1279,38 @@ bool VKRenderer::BuildDefaultPipelines()
             }
         }
     }
+
+    return true;
+}
+
+bool VKRenderer::BuildShadowPipelinesOnly()
+{
+    // .h に mEnableShadow が無いので、存在チェックだけで判定する
+    if (mShadowRenderPass == VK_NULL_HANDLE ||
+        mShadowExtent.width == 0 || mShadowExtent.height == 0)
+    {
+        return true; // 影がまだ無い/無効ならスキップ
+    }
+
+    const std::string base = mShaderPath + "VK/spv/"; // ★他と揃える
+
+    // PipelineLibrary の API はあなたの実装に合わせる：
+    // ここは Core.cpp 上の CreatePipeline 呼びに揃える
+    if (!mPipelines.CreatePipeline(
+            "ShadowMesh",
+            mDevice,
+            mShadowRenderPass,
+            mShadowExtent,
+            VKPipelinePresets::MakeShadowMesh(base)))
+        return false;
+
+    if (!mPipelines.CreatePipeline(
+            "ShadowSkinned",
+            mDevice,
+            mShadowRenderPass,
+            mShadowExtent,
+            VKPipelinePresets::MakeShadowSkinnedMesh(base)))
+        return false;
 
     return true;
 }

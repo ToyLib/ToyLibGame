@@ -347,6 +347,8 @@ private:
     void EndSwapchainRenderPassIfNeeded();
     void BeginSwapchainRenderPassIfNeeded();
     
+    bool BuildShadowPipelinesOnly();
+    
 };
 
 } // namespace toy
