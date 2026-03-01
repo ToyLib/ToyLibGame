@@ -29,6 +29,12 @@
 namespace toy
 {
 
+static void StoreMat4(float out16[16], const Matrix4& m)
+{
+    std::memcpy(out16, &m, sizeof(float) * 16);
+}
+
+
 //--------------------------------------------------------------
 // “基準Pipeline” から setLayout を取る
 //--------------------------------------------------------------
@@ -177,6 +183,10 @@ struct VKSceneUBO
     float fogColor[4];   // xyz
     float fogParams[4];  // x=minDist, y=maxDist, z=reserved, w=reserved
     
+    // shadow (Step3)
+    float shadowVP0[16];
+    float shadowVP1[16];
+    float shadowParams[4];
 };
 
 //==============================================================
@@ -344,6 +354,39 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.fogParams[1] = fogMax;
     ubo.fogParams[2] = 0.0f;
     ubo.fogParams[3] = 0.0f;
+    
+    
+
+    //========================
+    // Shadow (Step3)
+    //========================
+    if ((int)mShadowCascades.size() == 2)
+    {
+        // 念のため最新化（軽いのでOK）
+        UpdateShadowLightMatrices();
+
+        // ★Biased 行列（NDC->UV まで含む）
+        StoreMat4(ubo.shadowVP0, mShadowCascades[0].lightVP_Biased);
+        StoreMat4(ubo.shadowVP1, mShadowCascades[1].lightVP_Biased);
+
+        // split は仮：あなたの UpdateShadowLightMatrices の camCenter(=camPos+forward*30) に合わせるなら
+        // “近い方 30 / 遠い方 120” みたいな固定でまずOK
+        ubo.shadowParams[0] = 30.0f;   // split0
+        ubo.shadowParams[1] = 120.0f;  // split1 (far)
+        ubo.shadowParams[2] = 1.0f;    // strength
+        ubo.shadowParams[3] = 0.0f;
+    }
+    else
+    {
+        // shadow無効時（ゼロ詰め）
+        StoreMat4(ubo.shadowVP0, Matrix4::Identity);
+        StoreMat4(ubo.shadowVP1, Matrix4::Identity);
+        ubo.shadowParams[0] = 0.0f;
+        ubo.shadowParams[1] = 0.0f;
+        ubo.shadowParams[2] = 0.0f;
+        ubo.shadowParams[3] = 0.0f;
+    }
+
 
     UploadToBuffer(mSceneUBOMem[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
 }

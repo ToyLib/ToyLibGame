@@ -60,6 +60,30 @@ static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
     d.setLayouts.push_back(set2);
 }
 
+static void AddSet3_ShadowSample(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set3{};
+    set3.set = 3;
+
+    // binding=0 : shadowMap0
+    set3.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+
+    // binding=1 : shadowMap1
+    set3.bindings.push_back({
+        .binding = 1,
+        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+
+    d.setLayouts.push_back(set3);
+}
+
 static void AddPC_ObjectMaterial(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
@@ -132,6 +156,7 @@ VKPipelineDesc MakeMesh(const std::string& base)
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
+    AddSet3_ShadowSample(d);
     AddPC_ObjectMaterial(d);
 
     return d;
@@ -158,6 +183,7 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
     AddSet2_SkinnedUBO(d);
+    AddSet3_ShadowSample(d);
     AddPC_ObjectMaterial(d);
 
     return d;
@@ -231,6 +257,8 @@ VKPipelineDesc MakeShadowMesh(const std::string& base)
     // ShadowMesh は set=2 を使わないので set=1 ダミー不要
     return d;
 }
+
+
 
 VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base)
 {

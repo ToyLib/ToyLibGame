@@ -13,7 +13,7 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::FeilyLand;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
     //effectDesc.paperTex = mApp->GetAssetManager()->GetTexture("paper_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
@@ -63,9 +63,6 @@ void FieldScene::InitScene()
     auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     a->SetPosition(Vector3(100.0f, 100.0f,0));
-    
-    
-    
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
