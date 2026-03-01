@@ -309,69 +309,58 @@ bool VKRenderer::BeginFrame()
         return false;
     }
 
-    //============================================================
-    // 1) resize/recreate
-    //============================================================
     if (mNeedRecreateSwapchain)
     {
-        vkDeviceWaitIdle(mDevice);
-
         if (!RecreateSwapchain())
         {
             return false;
         }
-
         mNeedRecreateSwapchain = false;
     }
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    //============================================================
-    // 2) wait fence (reuse safety)
-    //============================================================
     vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
     vkResetFences(mDevice, 1, &frame.inFlight);
 
-    //============================================================
-    // 3) acquire
-    //============================================================
-    VkResult result = vkAcquireNextImageKHR(
-        mDevice,
-        mSwapchain,
-        UINT64_MAX,
-        frame.imageAvailable,
-        VK_NULL_HANDLE,
-        &mImageIndex
-    );
+    VkResult ar = vkAcquireNextImageKHR(
+        mDevice, mSwapchain, UINT64_MAX,
+        frame.imageAvailable, VK_NULL_HANDLE,
+        &mImageIndex);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    if (ar == VK_ERROR_OUT_OF_DATE_KHR)
     {
         mNeedRecreateSwapchain = true;
         return false;
     }
-    if (result != VK_SUCCESS)
+    // ★SUBOPTIMAL は “成功扱い” にする（戻す）
+    if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR)
     {
-        std::cerr << "[VKRenderer] vkAcquireNextImageKHR failed: " << result << "\n";
+        std::cerr << "[VKRenderer] Acquire failed: " << ar << "\n";
         return false;
     }
 
-    // safety
-    if (mRenderPass == VK_NULL_HANDLE) return false;
-    if (mImageIndex >= mFramebuffers.size()) return false;
-    if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE) return false;
-
-    //============================================================
-    // 4) cmd reset + begin
-    //============================================================
     vkResetCommandBuffer(frame.cmd, 0);
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if (vkBeginCommandBuffer(frame.cmd, &beginInfo) != VK_SUCCESS)
+    // per-frame skinned slot cursor reset（サイズ保証込みで）
+    if (mSkinnedSlotCursor.size() != mFrames.size())
     {
-        return false;
+        mSkinnedSlotCursor.resize(mFrames.size(), 0);
     }
+    mSkinnedSlotCursor[mFrameIndex] = 0;
+
+    VkCommandBufferBeginInfo bi{};
+    bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    vkBeginCommandBuffer(frame.cmd, &bi);
+
+    // ★重要：ここで World UBO 更新（Shadow用にも必要）
+    UpdateSceneUBO_World();
+
+    // ★重要：BaseMap(set=1) キャッシュは毎フレーム捨てる
+    mBaseMapSetCache.clear();
+
+    // renderpassはここでは開始しない
+    mIsInRenderPass = false;
 
     return true;
 }
