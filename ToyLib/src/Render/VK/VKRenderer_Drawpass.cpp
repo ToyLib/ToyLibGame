@@ -555,6 +555,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             overrideEnabled = mp.overrideColor ? 1.0f : 0.0f;
             overrideColor = mp.overrideColorValue;
         }
+        
 
         float useTex = 0.0f;
 
@@ -602,6 +603,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     // SkinnedMesh（0..3 連番）
     //----------------------------------------------------------
+    //----------------------------------------------------------
+    // SkinnedMesh（Mesh と完全同一 Payload 契約）
+    //----------------------------------------------------------
     if (it.type == RenderItemType::SkinnedMesh)
     {
         VKPipeline* pipe = mPipelines.Get(pipelineName);
@@ -612,6 +616,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             pipelineName = "SkinnedMesh";
         }
 
+        // set=2 (matrix palette)
         VkDescriptorSet skinnedSet =
             AcquireSkinnedSet(it.matrixPalette,
                               (uint32_t)it.paletteCount,
@@ -621,6 +626,47 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         Material* mat = it.material.ptr;
         const Texture* diffuseTex =
             (mat) ? mat->GetDiffuseMap().get() : nullptr;
+
+        //------------------------------------------------------
+        // ★ Mesh と同じ PushConstant 構築
+        //------------------------------------------------------
+        Vector3 baseColor(1.0f, 1.0f, 1.0f);
+        float   specPower = 64.0f;
+        float   alpha     = 1.0f;
+
+        float toon            = 0.0f;
+        float overrideEnabled = 0.0f;
+        Vector3 overrideColor(0.0f, 0.0f, 0.0f);
+
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            // ★ここは GetSkinnedMeshPayload を使う（mSkinned を参照する）
+            const SkinnedMeshPayload& sp = GetSkinnedMeshPayload(it.payloadIndex);
+
+            // ★Mesh と同じ契約の値を積む（SkinnedMeshPayload 側に同名/同意味で持たせる）
+            toon            = sp.toon ? 1.0f : 0.0f;
+            overrideEnabled = sp.overrideColor ? 1.0f : 0.0f;
+            overrideColor   = sp.overrideColorValue;
+        }
+
+        float useTex = 0.0f;
+
+        if (mat)
+        {
+            baseColor = mat->GetDiffuseColor();
+            specPower = mat->GetSpecPower();
+
+            if (mat->WantsUseTexture() && diffuseTex)
+                useTex = 1.0f;
+        }
+
+        // override時はテクスチャ無効化（Meshと同じ）
+        if (overrideEnabled > 0.5f)
+        {
+            useTex     = 0.0f;
+            baseColor  = overrideColor;
+            diffuseTex = nullptr;
+        }
 
         VkDescriptorSet baseMapSet =
             GetOrCreateBaseMapSet(diffuseTex, pipelineName);
@@ -635,24 +681,17 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         };
 
         pipe->Bind(cmd);
+
         vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
             pipe->GetPipelineLayout(),
             0, 4, sets,
             0, nullptr);
 
-        // PushConstant & Draw（元コード同様）
-        Vector3 baseColor(1,1,1);
-        float specPower = 64.0f;
-        float alpha = 1.0f;
-        float useTex = (diffuseTex != nullptr) ? 1.0f : 0.0f;
-
-        if (mat)
-        {
-            baseColor = mat->GetDiffuseColor();
-            specPower = mat->GetSpecPower();
-        }
-
+        //------------------------------------------------------
+        // PushConstants（Mesh と完全一致）
+        //------------------------------------------------------
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
@@ -662,19 +701,21 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         pc.baseColor_useTex[3] = useTex;
 
         pc.misc[0] = specPower;
-        pc.misc[1] = 0.0f;
-        pc.misc[2] = 0.0f;
+        pc.misc[1] = toon;
+        pc.misc[2] = overrideEnabled;
         pc.misc[3] = alpha;
 
-        pc.overrideColor[0] = 0.0f;
-        pc.overrideColor[1] = 0.0f;
-        pc.overrideColor[2] = 0.0f;
+        pc.overrideColor[0] = overrideColor.x;
+        pc.overrideColor[1] = overrideColor.y;
+        pc.overrideColor[2] = overrideColor.z;
         pc.overrideColor[3] = 1.0f;
 
         vkCmdPushConstants(
-            cmd, pipe->GetPipelineLayout(),
+            cmd,
+            pipe->GetPipelineLayout(),
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(VKMeshPC), &pc);
+            0, sizeof(VKMeshPC),
+            &pc);
 
         if (it.indexCount > 0)
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
