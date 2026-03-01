@@ -7,6 +7,7 @@
 #include "Asset/AssetManager.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "Asset/Material/Texture.h"
+#include "Render/RenderBackendState.h"
 #include <iostream>
 
 #include <SDL3/SDL_scancode.h> // SDL2 なら <SDL2/SDL_scancode.h>
@@ -66,10 +67,21 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     {
         return;
     }
+    
+    std::string backend = "";
+    if (RenderBackendState::Get().IsGL())
+    {
+        backend = "OpenGL";
+    }
+    if (RenderBackendState::Get().IsVK())
+    {
+        backend = "Vulkan";
+    }
 
     // 表示文字列を組み立て（\n で改行）
     std::string text;
     text += "=== Debug ===\n";
+    text += StringUtil::Format("Renderer   : <<\n",     backend);
     text += StringUtil::Format("FPS        : <<\n",     mSmoothedFPS);
     text += StringUtil::Format("FrameTime  : << ms\n",  stats.FrameTimeMs);
     text += StringUtil::Format("Actors     : <<\n",     stats.ActorCount);
