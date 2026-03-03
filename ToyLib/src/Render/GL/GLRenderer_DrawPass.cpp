@@ -131,16 +131,11 @@ inline void SetCommonUniforms(IRenderer& r,
         // v1 contract
         sh->SetMatrixUniform(Object::World, it.world);
 
-        if (cascadeIndex == 0)
-        {
-            sh->SetMatrixUniform(Scene::LightVP0, lightVP);
-        }
-        else
-        {
-            sh->SetMatrixUniform(Scene::LightVP1, lightVP);
-        }
+        // ★どっちを参照してもOKにする（暫定だが強い）
+        sh->SetMatrixUniform(Scene::LightVP0, lightVP);
+        sh->SetMatrixUniform(Scene::LightVP1, lightVP);
 
-        // (Optional) legacy fallback
+        // legacy も同様
         sh->SetMatrixUniform(Legacy::WorldTransform,   it.world);
         sh->SetMatrixUniform(Legacy::LightSpaceMatrix, lightVP);
         return;
