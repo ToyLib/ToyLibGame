@@ -287,7 +287,6 @@ bool VKRenderer::CreateShadowResources()
         }
 
         c.lightVP = Matrix4::Identity;
-        c.lightVP_Biased = Matrix4::Identity;
     }
 
     //----------------------------------------------------------
@@ -360,7 +359,6 @@ void VKRenderer::DestroyShadowResources()
         c.depthMem = VK_NULL_HANDLE;
 
         c.lightVP = Matrix4::Identity;
-        c.lightVP_Biased = Matrix4::Identity;
     }
     mShadowCascades.clear();
 
@@ -531,12 +529,12 @@ void VKRenderer::UpdateShadowLightMatrices()
     const float orthoW[kShadowCascadeCount] =
     {
         mShadowOrthoWidth,
-        mShadowOrthoWidth * 1.0f
+        mShadowOrthoWidth * 4.0f
     };
     const float orthoH[kShadowCascadeCount] =
     {
         mShadowOrthoHeight,
-        mShadowOrthoHeight * 1.0f
+        mShadowOrthoHeight * 4.0f
     };
 
     for (int i = 0; i < kShadowCascadeCount; ++i)
@@ -550,7 +548,6 @@ void VKRenderer::UpdateShadowLightMatrices()
         Matrix4 lightVP = lightView * lightProj;
 
         mShadowCascades[i].lightVP        = lightVP;
-        mShadowCascades[i].lightVP_Biased = lightVP * mShadowBias;
     }
 }
 

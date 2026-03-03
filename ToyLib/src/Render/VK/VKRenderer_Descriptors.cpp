@@ -21,10 +21,12 @@
 #include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
+#include "Graphics/Light/PointLightComponent.h"
 
 #include <iostream>
 #include <cstring>
 #include <unordered_map>
+#include <algorithm>
 
 namespace toy
 {
@@ -171,6 +173,16 @@ void VKRenderer::DestroyDescriptorPool()
 //==============================================================
 // Scene UBO layout (Shader 側 set=0 binding=0)
 //==============================================================
+//==============================================================
+// Scene UBO layout (Shader 側 set=0 binding=0)
+//==============================================================
+struct VKPointLight
+{
+    float position_radius[4]; // xyz=pos, w=radius
+    float color_intensity[4]; // xyz=color, w=intensity
+    float atten[4];           // x=constant, y=linear, z=quadratic, w=pad
+};
+
 struct VKSceneUBO
 {
     float viewProj[16];
@@ -181,8 +193,19 @@ struct VKSceneUBO
     float dirSpecular[4];
 
     float fogColor[4];   // xyz
-    float fogParams[4];  // x=minDist, y=maxDist, z=reserved, w=reserved
-    
+    float fogParams[4];  // x=minDist, y=maxDist
+
+    // --------------------------
+    // PointLights (GL互換: max 8)
+    // std140 を強く意識して 16byte に揃える
+    // --------------------------
+    int   numPointLights;
+    int   _plPad0;
+    int   _plPad1;
+    int   _plPad2;
+
+    VKPointLight pointLights[8];
+
     // shadow (Step3)
     float shadowVP0[16];
     float shadowVP1[16];
@@ -332,6 +355,50 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.dirSpecular[3] = 1.0f;
     
     // --------------------------
+    // PointLights（GLと同じ: 最大8）
+    // --------------------------
+    ubo.numPointLights = 0;
+
+    if (auto lm = GetLightingManager())
+    {
+        const auto& pls = lm->GetPointLights();
+
+        const int count = (int)std::min<size_t>(pls.size(), 8);
+        ubo.numPointLights = count;
+
+        for (int i = 0; i < count; ++i)
+        {
+            const auto* pl = pls[i];
+            if (!pl) continue;
+
+            // ---- ここは PointLightComponent の実装に合わせて getter 名を調整 ----
+            const Vector3 pos   = pl->GetPosition();   // 例
+            const Vector3 color = pl->GetColor();           // 例 (0..1)
+            const float   inten = pl->GetIntensity();       // 例
+            const float   c     = pl->GetConstant();        // 例
+            const float   l     = pl->GetLinear();          // 例
+            const float   q     = pl->GetQuadratic();       // 例
+            const float   r     = pl->GetRadius();          // 例
+            // -----------------------------------------------------------------
+
+            ubo.pointLights[i].position_radius[0] = pos.x;
+            ubo.pointLights[i].position_radius[1] = pos.y;
+            ubo.pointLights[i].position_radius[2] = pos.z;
+            ubo.pointLights[i].position_radius[3] = r;
+
+            ubo.pointLights[i].color_intensity[0] = color.x;
+            ubo.pointLights[i].color_intensity[1] = color.y;
+            ubo.pointLights[i].color_intensity[2] = color.z;
+            ubo.pointLights[i].color_intensity[3] = inten;
+
+            ubo.pointLights[i].atten[0] = c;
+            ubo.pointLights[i].atten[1] = l;
+            ubo.pointLights[i].atten[2] = q;
+            ubo.pointLights[i].atten[3] = 0.0f;
+        }
+    }
+    
+    // --------------------------
     // Fog（GLと同じ契約）
     // --------------------------
     Vector3 fogColor(0.5f, 0.6f, 0.7f);
@@ -362,23 +429,19 @@ void VKRenderer::UpdateSceneUBO_World()
     //========================
     if ((int)mShadowCascades.size() == 2)
     {
-        // 念のため最新化（軽いのでOK）
         UpdateShadowLightMatrices();
 
-        // ★Biased 行列（NDC->UV まで含む）
-        StoreMat4(ubo.shadowVP0, mShadowCascades[0].lightVP_Biased);
-        StoreMat4(ubo.shadowVP1, mShadowCascades[1].lightVP_Biased);
+        // non-biased LightVP（GL互換）
+        StoreMat4(ubo.shadowVP0, mShadowCascades[0].lightVP);
+        StoreMat4(ubo.shadowVP1, mShadowCascades[1].lightVP);
 
-        // split は仮：あなたの UpdateShadowLightMatrices の camCenter(=camPos+forward*30) に合わせるなら
-        // “近い方 30 / 遠い方 120” みたいな固定でまずOK
-        ubo.shadowParams[0] = 30.0f;   // split0
-        ubo.shadowParams[1] = 120.0f;  // split1 (far)
-        ubo.shadowParams[2] = 1.0f;    // strength
-        ubo.shadowParams[3] = 0.0f;
+        ubo.shadowParams[0] = GetCascadeSplit0();  // split0
+        ubo.shadowParams[1] = GetCascadeBlend();   // blend
+        ubo.shadowParams[2] = 1.0f;                // strength: 影を普通に効かせるならまず 1
+        ubo.shadowParams[3] = 0.0025f;             // bias: まずは 0.001〜0.01 で調整（PCF 3x3前提）
     }
     else
     {
-        // shadow無効時（ゼロ詰め）
         StoreMat4(ubo.shadowVP0, Matrix4::Identity);
         StoreMat4(ubo.shadowVP1, Matrix4::Identity);
         ubo.shadowParams[0] = 0.0f;

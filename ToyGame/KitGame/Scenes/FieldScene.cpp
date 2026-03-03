@@ -226,10 +226,6 @@ void FieldScene::DeployBrick(Vector3 pos)
 #include "Render/RenderBackendState.h"
 void FieldScene::DeployFire(Vector3 pos)
 {
-    if (!toy::RenderBackendState::Get().IsGL())
-    {
-        return;
-    }
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
@@ -249,12 +245,18 @@ void FieldScene::DeployFire(Vector3 pos)
     fireSound->SetVolume(1.0f);
     fireSound->Enable3DSound(true);
     fireSound->Play();
+
     
     // ライト
     auto fireLight = fireActor->CreateComponent<toy::PointLightComponent>();
     fireLight->SetColor(Vector3(1.0f, 0.5f, 0.0f));
-
     
+    if (!toy::RenderBackendState::Get().IsGL())
+    {
+        return;
+    }
+    
+
     
     // Actor
     auto particleActorGPU = CreateActor<toy::Actor>();

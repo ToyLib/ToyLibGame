@@ -393,7 +393,6 @@ private:
         VkFramebuffer  fb{ VK_NULL_HANDLE };
 
         Matrix4 lightVP{ Matrix4::Identity };
-        Matrix4 lightVP_Biased{ Matrix4::Identity }; // サンプリング用（0..1空間を含む前提）
     };
 
     static constexpr int kShadowCascadeCount = 2;
