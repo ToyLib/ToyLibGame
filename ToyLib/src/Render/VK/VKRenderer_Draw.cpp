@@ -323,8 +323,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
     if (isShadow)
     {
-        if (mFrameIndex >= mShadowSceneSet.size()) return;
-        sceneSet = mShadowSceneSet[mFrameIndex];
+        if (cascadeIndex < 0 || cascadeIndex >= kShadowCascadeCount) return;
+        if (mFrameIndex >= mShadowSceneSet[cascadeIndex].size()) return;
+        sceneSet = mShadowSceneSet[cascadeIndex][mFrameIndex];
     }
     else if (isUI)
     {

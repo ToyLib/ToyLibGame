@@ -411,10 +411,14 @@ private:
     Matrix4 mShadowBias{ Matrix4::Identity };
 
     // shadow scene UBO/set（per frame）
-    std::vector<VkBuffer>        mShadowSceneUBO;
-    std::vector<VkDeviceMemory>  mShadowSceneUBOMem;
-    std::vector<VkDescriptorSet> mShadowSceneSet; // set=0
-
+    //std::vector<VkBuffer>        mShadowSceneUBO;
+    //std::vector<VkDeviceMemory>  mShadowSceneUBOMem;
+    //std::vector<VkDescriptorSet> mShadowSceneSet; // set=0
+    std::array<std::vector<VkBuffer>,        kShadowCascadeCount> mShadowSceneUBO;
+    std::array<std::vector<VkDeviceMemory>,  kShadowCascadeCount> mShadowSceneUBOMem;
+    std::array<std::vector<VkDescriptorSet>, kShadowCascadeCount> mShadowSceneSet; // set=0
+    
+    
 private:
     //==========================================================
     // Shadow: sampled descriptor（set=3）

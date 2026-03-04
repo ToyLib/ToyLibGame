@@ -3,7 +3,7 @@
 //
 //  - Vulkan Shadow Mapping (Depth-only, 2 cascades like GL)
 //  - Shadow resources:
-//      * 2 depth images (one per cascade)  [simple & safe]
+//      * 2 depth images (one per cascade)
 //      * depth-only render pass + framebuffer per cascade
 //      * comparison sampler for sampling later
 //
@@ -28,6 +28,7 @@
 namespace toy
 {
 
+// ※クラス側も kShadowCascadeCount=2 だが、private constexpr を避けてここでも固定。
 static constexpr int kShadowCascadeCount = 2;
 
 //--------------------------------------------------------------
@@ -76,6 +77,8 @@ static VkImageAspectFlags DepthAspect(VkFormat f)
 
 //--------------------------------------------------------------
 // Bias matrix for NDC->UV (row-vector convention)
+//  ※現在は「lightVP_Biased を廃止」方針なので、
+//    これは “必要なら” 置いてるだけ（shader側で 0.5+0.5 してる）。
 //--------------------------------------------------------------
 static Matrix4 MakeShadowBias_RowVector()
 {
@@ -113,8 +116,31 @@ bool VKRenderer::CreateShadowResources()
         return false;
     }
 
+    // ここはあなたの既存メンバに合わせる（mShadowFBOWidth/Height が既にある前提）
     const uint32_t w = (uint32_t)std::max(1, mShadowFBOWidth);
     const uint32_t h = (uint32_t)std::max(1, mShadowFBOHeight);
+
+    const size_t frameCount = mFrames.size();
+
+    auto ShadowSceneReady = [&]() -> bool
+    {
+        if (frameCount == 0) return false;
+
+        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
+        {
+            if (mShadowSceneUBO[ci].size()    != frameCount) return false;
+            if (mShadowSceneUBOMem[ci].size() != frameCount) return false;
+            if (mShadowSceneSet[ci].size()    != frameCount) return false;
+
+            for (size_t fi = 0; fi < frameCount; ++fi)
+            {
+                if (mShadowSceneUBO[ci][fi]    == VK_NULL_HANDLE) return false;
+                if (mShadowSceneUBOMem[ci][fi] == VK_NULL_HANDLE) return false;
+                if (mShadowSceneSet[ci][fi]    == VK_NULL_HANDLE) return false;
+            }
+        }
+        return true;
+    };
 
     // already ok?
     if (mShadowExtent.width == w && mShadowExtent.height == h &&
@@ -122,8 +148,8 @@ bool VKRenderer::CreateShadowResources()
         mShadowRenderPass != VK_NULL_HANDLE &&
         mShadowSampler != VK_NULL_HANDLE &&
         (int)mShadowCascades.size() == kShadowCascadeCount &&
-        !mShadowSceneUBO.empty() &&
-        !mShadowSceneSet.empty())
+        ShadowSceneReady() &&
+        !mShadowMapSet.empty())
     {
         return true;
     }
@@ -290,7 +316,7 @@ bool VKRenderer::CreateShadowResources()
     }
 
     //----------------------------------------------------------
-    // Shadow scene UBO + set=0
+    // Shadow scene UBO + set=0  （★cascade別に作る）
     //----------------------------------------------------------
     if (!CreateShadowSceneUBOAndSet())
     {
@@ -301,22 +327,17 @@ bool VKRenderer::CreateShadowResources()
     mShadowBias = MakeShadowBias_RowVector();
 
     mShadowIsSampledLayout = { false, false };
+
     //----------------------------------------------------------
-    // Shadow map sampled set=3 (2 cascades)
+    // Shadow sampled descriptor (set=3)  （★Mesh pipeline の set=3 layout を使用）
     //----------------------------------------------------------
-    if (!CreateShadowMapSetLayoutAndSets())
-    {
-        DestroyShadowResources();
-        return false;
-    }
-    
     if (!CreateShadowSampleSet())
     {
         DestroyShadowResources();
         return false;
     }
     UpdateShadowSampleSet();
-    
+
     mShadowDescPoolUsed = mDescPool;
 
     return true;
@@ -327,9 +348,14 @@ void VKRenderer::DestroyShadowResources()
     if (!mDevice)
     {
         mShadowCascades.clear();
-        mShadowSceneUBO.clear();
-        mShadowSceneUBOMem.clear();
-        mShadowSceneSet.clear();
+
+        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
+        {
+            mShadowSceneUBO[ci].clear();
+            mShadowSceneUBOMem[ci].clear();
+            mShadowSceneSet[ci].clear();
+        }
+
         mShadowRenderPass = VK_NULL_HANDLE;
         mShadowSampler = VK_NULL_HANDLE;
         mShadowExtent = {0,0};
@@ -337,11 +363,10 @@ void VKRenderer::DestroyShadowResources()
         mShadowBias = Matrix4::Identity;
         return;
     }
-    
+
     mShadowDescPoolUsed = VK_NULL_HANDLE;
 
     DestroyShadowMapSetLayoutAndSets();
-    
     DestroyShadowSceneUBOAndSet();
 
     for (auto& c : mShadowCascades)
@@ -380,19 +405,12 @@ void VKRenderer::DestroyShadowResources()
 }
 
 //--------------------------------------------------------------
-// Shadow scene UBO + set=0
+// Shadow scene UBO + set=0  （★cascade別）
 //--------------------------------------------------------------
 bool VKRenderer::CreateShadowSceneUBOAndSet()
 {
     const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-
-    mShadowSceneUBO.assign(frameCount, VK_NULL_HANDLE);
-    mShadowSceneUBOMem.assign(frameCount, VK_NULL_HANDLE);
-    mShadowSceneSet.assign(frameCount, VK_NULL_HANDLE);
+    if (frameCount == 0) return false;
 
     // set0 layout: assume same contract as Sprite set0 (like your World/UI code)
     VkDescriptorSetLayout set0 = VK_NULL_HANDLE;
@@ -408,44 +426,54 @@ bool VKRenderer::CreateShadowSceneUBOAndSet()
 
     const VkDeviceSize uboSize = sizeof(VKShadowSceneUBO);
 
-    for (size_t i = 0; i < frameCount; ++i)
+    for (int ci = 0; ci < kShadowCascadeCount; ++ci)
     {
-        if (!CreateBufferHostVisible(uboSize,
-                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                    mShadowSceneUBO[i],
-                                    mShadowSceneUBOMem[i]))
+        mShadowSceneUBO[ci].assign(frameCount, VK_NULL_HANDLE);
+        mShadowSceneUBOMem[ci].assign(frameCount, VK_NULL_HANDLE);
+        mShadowSceneSet[ci].assign(frameCount, VK_NULL_HANDLE);
+
+        for (size_t fi = 0; fi < frameCount; ++fi)
         {
-            std::cerr << "[VKRenderer] Shadow: CreateBufferHostVisible failed frame=" << i << "\n";
-            return false;
+            if (!CreateBufferHostVisible(
+                    uboSize,
+                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                    mShadowSceneUBO[ci][fi],
+                    mShadowSceneUBOMem[ci][fi]))
+            {
+                std::cerr << "[VKRenderer] Shadow: CreateBufferHostVisible failed cascade="
+                          << ci << " frame=" << fi << "\n";
+                return false;
+            }
+
+            VkDescriptorSetAllocateInfo ai{};
+            ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            ai.descriptorPool     = mDescPool;
+            ai.descriptorSetCount = 1;
+            ai.pSetLayouts        = &set0;
+
+            if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowSceneSet[ci][fi]) != VK_SUCCESS ||
+                mShadowSceneSet[ci][fi] == VK_NULL_HANDLE)
+            {
+                std::cerr << "[VKRenderer] Shadow: alloc shadow scene set failed cascade="
+                          << ci << " frame=" << fi << "\n";
+                return false;
+            }
+
+            VkDescriptorBufferInfo bi{};
+            bi.buffer = mShadowSceneUBO[ci][fi];
+            bi.offset = 0;
+            bi.range  = uboSize;
+
+            VkWriteDescriptorSet w{};
+            w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            w.dstSet          = mShadowSceneSet[ci][fi];
+            w.dstBinding      = 0;
+            w.descriptorCount = 1;
+            w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            w.pBufferInfo     = &bi;
+
+            vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
         }
-
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set0;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowSceneSet[i]) != VK_SUCCESS ||
-            mShadowSceneSet[i] == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VKRenderer] Shadow: alloc shadow scene set failed frame=" << i << "\n";
-            return false;
-        }
-
-        VkDescriptorBufferInfo bi{};
-        bi.buffer = mShadowSceneUBO[i];
-        bi.offset = 0;
-        bi.range  = uboSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = mShadowSceneSet[i];
-        w.dstBinding      = 0;
-        w.descriptorCount = 1;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo     = &bi;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }
 
     return true;
@@ -455,32 +483,51 @@ void VKRenderer::DestroyShadowSceneUBOAndSet()
 {
     if (!mDevice)
     {
-        mShadowSceneUBO.clear();
-        mShadowSceneUBOMem.clear();
-        mShadowSceneSet.clear();
+        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
+        {
+            mShadowSceneUBO[ci].clear();
+            mShadowSceneUBOMem[ci].clear();
+            mShadowSceneSet[ci].clear();
+        }
         return;
     }
 
+    // free DS
     if (mDescPool)
     {
-        for (auto& ds : mShadowSceneSet)
+        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
         {
-            if (ds) vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
+            for (auto& ds : mShadowSceneSet[ci])
+            {
+                if (ds) vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+                ds = VK_NULL_HANDLE;
+            }
+            mShadowSceneSet[ci].clear();
         }
     }
-    mShadowSceneSet.clear();
-
-    for (size_t i = 0; i < mShadowSceneUBO.size(); ++i)
+    else
     {
-        if (mShadowSceneUBO[i]) vkDestroyBuffer(mDevice, mShadowSceneUBO[i], nullptr);
-        mShadowSceneUBO[i] = VK_NULL_HANDLE;
-
-        if (mShadowSceneUBOMem[i]) vkFreeMemory(mDevice, mShadowSceneUBOMem[i], nullptr);
-        mShadowSceneUBOMem[i] = VK_NULL_HANDLE;
+        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
+        {
+            mShadowSceneSet[ci].clear();
+        }
     }
-    mShadowSceneUBO.clear();
-    mShadowSceneUBOMem.clear();
+
+    // destroy UBOs
+    for (int ci = 0; ci < kShadowCascadeCount; ++ci)
+    {
+        for (size_t fi = 0; fi < mShadowSceneUBO[ci].size(); ++fi)
+        {
+            if (mShadowSceneUBO[ci][fi]) vkDestroyBuffer(mDevice, mShadowSceneUBO[ci][fi], nullptr);
+            mShadowSceneUBO[ci][fi] = VK_NULL_HANDLE;
+
+            if (mShadowSceneUBOMem[ci][fi]) vkFreeMemory(mDevice, mShadowSceneUBOMem[ci][fi], nullptr);
+            mShadowSceneUBOMem[ci][fi] = VK_NULL_HANDLE;
+        }
+
+        mShadowSceneUBO[ci].clear();
+        mShadowSceneUBOMem[ci].clear();
+    }
 }
 
 //--------------------------------------------------------------
@@ -495,7 +542,6 @@ void VKRenderer::UpdateShadowLightMatrices()
 
     Vector3 camPos = GetCameraPosition();
 
-    //Vector3 camForward = GetCameraForward(); // 無ければ mInvView.GetZAxis() 相当で
     Vector3 camForward = mInvView.GetZAxis();
     if (camForward.LengthSq() < 1.0e-6f)
     {
@@ -517,15 +563,11 @@ void VKRenderer::UpdateShadowLightMatrices()
     }
     lightDir.Normalize();
 
-    
-    
     const float base = std::max(mShadowOrthoWidth, mShadowOrthoHeight);
-    const float lightDist = base * 2.0f;         // まずは 2x くらい
+    const float lightDist = base * 2.0f;
     Vector3 lightPos = camCenter - lightDir * lightDist;
     Matrix4 lightView = Matrix4::CreateLookAt(lightPos, camCenter, Vector3::UnitY);
 
-    
-    
     const float orthoW[kShadowCascadeCount] =
     {
         mShadowOrthoWidth,
@@ -546,8 +588,7 @@ void VKRenderer::UpdateShadowLightMatrices()
             mShadowFar);
 
         Matrix4 lightVP = lightView * lightProj;
-
-        mShadowCascades[i].lightVP        = lightVP;
+        mShadowCascades[i].lightVP = lightVP;
     }
 }
 
@@ -557,7 +598,14 @@ void VKRenderer::UpdateShadowSceneUBO(int cascadeIndex)
     {
         return;
     }
-    if (mShadowSceneUBOMem.empty() || mFrameIndex >= mShadowSceneUBOMem.size())
+    if (mFrames.empty() || mFrameIndex >= mFrames.size())
+    {
+        return;
+    }
+
+    // ★cascade別 [frame] に書く
+    if (mShadowSceneUBOMem[cascadeIndex].empty() ||
+        mFrameIndex >= mShadowSceneUBOMem[cascadeIndex].size())
     {
         return;
     }
@@ -565,21 +613,17 @@ void VKRenderer::UpdateShadowSceneUBO(int cascadeIndex)
     VKShadowSceneUBO ubo{};
     std::memcpy(ubo.lightVP, &mShadowCascades[cascadeIndex].lightVP, sizeof(float) * 16);
 
-    UploadToBuffer(mShadowSceneUBOMem[mFrameIndex], &ubo, sizeof(VKShadowSceneUBO));
+    UploadToBuffer(mShadowSceneUBOMem[cascadeIndex][mFrameIndex], &ubo, sizeof(VKShadowSceneUBO));
 }
 
 //--------------------------------------------------------------
 // Shadow pass
 //--------------------------------------------------------------
-//======================================================================
-// VKRenderer_DrawShadow.cpp（など）
-//======================================================================
 void VKRenderer::DrawShadowPass()
 {
     if (mDevice == VK_NULL_HANDLE) return;
     if (mFrames.empty()) return;
 
-    // shadow resources are ready?
     if (mShadowRenderPass == VK_NULL_HANDLE) return;
     if ((int)mShadowCascades.size() != kShadowCascadeCount) return;
     if (mShadowExtent.width == 0 || mShadowExtent.height == 0) return;
@@ -590,13 +634,9 @@ void VKRenderer::DrawShadowPass()
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
     if (cmd == VK_NULL_HANDLE) return;
 
-    // shadow caster がいないならスキップ（ただし “空でも clear したい” なら消さない）
-    // if (mBuckets.shadowCaster.empty()) return;
-
-    // ライト行列更新（CPU側で c.lightVP / lightVP_Biased を計算する想定）
+    // ライト行列更新（CPU側で c.lightVP を計算）
     UpdateShadowLightMatrices();
 
-    // 2 cascades
     for (int ci = 0; ci < kShadowCascadeCount; ++ci)
     {
         mShadowCascadeIndex = ci;
@@ -605,7 +645,7 @@ void VKRenderer::DrawShadowPass()
         if (c.fb == VK_NULL_HANDLE) continue;
 
         //------------------------------------------------------
-        // (A) layout: sampled -> attachment へ戻す（前フレームで sample してた場合）
+        // (A) layout: sampled -> attachment
         //------------------------------------------------------
         if (mShadowIsSampledLayout[ci])
         {
@@ -646,7 +686,6 @@ void VKRenderer::DrawShadowPass()
 
         vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
-        // shadow viewport/scissor（ここは “Y反転しない” のが無難）
         VkViewport vp{};
         vp.x = 0.0f;
         vp.y = 0.0f;
@@ -664,12 +703,14 @@ void VKRenderer::DrawShadowPass()
         //------------------------------------------------------
         // (D) draw shadow casters
         //------------------------------------------------------
+        // ※ DrawBucket_Shadow は IRenderer 側で it を回し、
+        //    VKRenderer::DrawItem(it, Shadow, cascadeIndex) を呼ぶ想定
         DrawBucket_Shadow(mBuckets.shadowCaster, ci);
 
         vkCmdEndRenderPass(cmd);
 
         //------------------------------------------------------
-        // (E) layout: attachment -> sampled（この後 World pass の shader で読むため）
+        // (E) layout: attachment -> sampled
         //------------------------------------------------------
         toy::vkutil::CmdTransitionImageLayout(
             cmd,
@@ -714,117 +755,27 @@ void VKRenderer::RestoreAfterShadowPass()
             c.depthImg,
             DepthAspect(mShadowDepthFormat),
             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, // ★変更
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             VK_ACCESS_SHADER_READ_BIT);
 
-        // ★追跡（メンバに持つ）
         mShadowIsSampledLayout[i] = true;
     }
 }
 
 //--------------------------------------------------------------
-// ShadowMap descriptor: set=3 (two cascades)
+// ShadowMap descriptor: set=3
+//
+// ここは「二重に allocate して上書き」事故が起きやすいので、
+//  - CreateShadowMapSetLayoutAndSets() は “互換ラッパー” にして
+//  - 実体は CreateShadowSampleSet()/UpdateShadowSampleSet() に寄せる
 //--------------------------------------------------------------
 bool VKRenderer::CreateShadowMapSetLayoutAndSets()
 {
-    if (!mDevice || !mDescPool)
-    {
-        return false;
-    }
-    if ((int)mShadowCascades.size() != kShadowCascadeCount)
-    {
-        std::cerr << "[VKRenderer] Shadow: CreateShadowMapSet failed (cascades not ready)\n";
-        return false;
-    }
-
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-
-    // already created?
-    if (mShadowMapSetLayout != VK_NULL_HANDLE &&
-        mShadowMapSet.size() == frameCount)
-    {
-        // 念のため内容更新（view/sampler が変わる可能性は低いが安全）
-    }
-    else
-    {
-        // (re)create layout
-        if (mShadowMapSetLayout != VK_NULL_HANDLE)
-        {
-            vkDestroyDescriptorSetLayout(mDevice, mShadowMapSetLayout, nullptr);
-            mShadowMapSetLayout = VK_NULL_HANDLE;
-        }
-
-        VkDescriptorSetLayoutBinding b{};
-        b.binding            = 0;
-        b.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        b.descriptorCount    = kShadowCascadeCount; // ★ 2枚
-        b.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-        b.pImmutableSamplers = nullptr;
-
-        VkDescriptorSetLayoutCreateInfo ci{};
-        ci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        ci.bindingCount = 1;
-        ci.pBindings    = &b;
-
-        if (vkCreateDescriptorSetLayout(mDevice, &ci, nullptr, &mShadowMapSetLayout) != VK_SUCCESS ||
-            mShadowMapSetLayout == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VKRenderer] Shadow: vkCreateDescriptorSetLayout failed (set=3)\n";
-            mShadowMapSetLayout = VK_NULL_HANDLE;
-            return false;
-        }
-
-        // allocate sets per-frame
-        mShadowMapSet.assign(frameCount, VK_NULL_HANDLE);
-
-        for (size_t i = 0; i < frameCount; ++i)
-        {
-            VkDescriptorSetAllocateInfo ai{};
-            ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            ai.descriptorPool     = mDescPool;
-            ai.descriptorSetCount = 1;
-            ai.pSetLayouts        = &mShadowMapSetLayout;
-
-            if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowMapSet[i]) != VK_SUCCESS ||
-                mShadowMapSet[i] == VK_NULL_HANDLE)
-            {
-                std::cerr << "[VKRenderer] Shadow: alloc shadow map set failed frame=" << i << "\n";
-                return false;
-            }
-        }
-    }
-
-    // write descriptors (all frames same contents)
-    VkDescriptorImageInfo infos[kShadowCascadeCount]{};
-    for (int c = 0; c < kShadowCascadeCount; ++c)
-    {
-        infos[c].sampler     = mShadowSampler;
-        infos[c].imageView   = mShadowCascades[c].depthView;
-        infos[c].imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL; // ★重要
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = mShadowMapSet[i];
-        w.dstBinding      = 0;
-        w.dstArrayElement = 0;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        w.descriptorCount = kShadowCascadeCount;
-        w.pImageInfo      = infos;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-    }
-
-    return true;
+    // 互換：外部から呼ばれても set=3 を作れるようにする
+    return CreateShadowSampleSet();
 }
 
 void VKRenderer::DestroyShadowMapSetLayoutAndSets()
@@ -836,7 +787,9 @@ void VKRenderer::DestroyShadowMapSetLayoutAndSets()
         return;
     }
 
-    // descriptor sets are freed when pool resets, but free explicitly (あなたの方針に合わせる)
+    // set=3 は pipeline の layout を使う方針なので mShadowMapSetLayout は破棄しない
+    mShadowMapSetLayout = VK_NULL_HANDLE;
+
     if (mDescPool && !mShadowMapSet.empty())
     {
         for (auto& ds : mShadowMapSet)
@@ -849,16 +802,12 @@ void VKRenderer::DestroyShadowMapSetLayoutAndSets()
         }
     }
     mShadowMapSet.clear();
-
-    if (mShadowMapSetLayout)
-    {
-        vkDestroyDescriptorSetLayout(mDevice, mShadowMapSetLayout, nullptr);
-        mShadowMapSetLayout = VK_NULL_HANDLE;
-    }
 }
 
 bool VKRenderer::CreateShadowSampleSet()
 {
+    if (!mDevice || !mDescPool) return false;
+
     const size_t frameCount = mFrames.size();
     if (frameCount == 0) return false;
 
@@ -874,27 +823,33 @@ bool VKRenderer::CreateShadowSampleSet()
         return false;
     }
 
-    mShadowMapSet.assign(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    // 既に同数なら再利用（内容は Update で貼り直す）
+    if (mShadowMapSet.size() != frameCount)
     {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set3;
+        // 既存があれば先に破棄（pool枯れ回避）
+        DestroyShadowMapSetLayoutAndSets();
 
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowMapSet[i]) != VK_SUCCESS ||
-            mShadowMapSet[i] == VK_NULL_HANDLE)
+        mShadowMapSet.assign(frameCount, VK_NULL_HANDLE);
+
+        for (size_t i = 0; i < frameCount; ++i)
         {
-            std::cerr << "[VKRenderer] Shadow: alloc set=3 failed frame=" << i << "\n";
-            return false;
+            VkDescriptorSetAllocateInfo ai{};
+            ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            ai.descriptorPool     = mDescPool;
+            ai.descriptorSetCount = 1;
+            ai.pSetLayouts        = &set3;
+
+            if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowMapSet[i]) != VK_SUCCESS ||
+                mShadowMapSet[i] == VK_NULL_HANDLE)
+            {
+                std::cerr << "[VKRenderer] Shadow: alloc set=3 failed frame=" << i << "\n";
+                return false;
+            }
         }
     }
 
     return true;
 }
-
 
 void VKRenderer::UpdateShadowSampleSet()
 {
@@ -903,7 +858,7 @@ void VKRenderer::UpdateShadowSampleSet()
     if ((int)mShadowCascades.size() < kShadowCascadeCount) return;
     if (mShadowSampler == VK_NULL_HANDLE) return;
 
-    // Step3 後に読む前提ならこれ
+    // World の shader は VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL で読む前提
     const VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     for (size_t fi = 0; fi < mShadowMapSet.size(); ++fi)
@@ -923,6 +878,7 @@ void VKRenderer::UpdateShadowSampleSet()
 
         VkWriteDescriptorSet w[2]{};
 
+        // set=3 binding=0 : cascade0
         w[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         w[0].dstSet          = dst;
         w[0].dstBinding      = 0;
@@ -930,6 +886,7 @@ void VKRenderer::UpdateShadowSampleSet()
         w[0].descriptorCount = 1;
         w[0].pImageInfo      = &img0;
 
+        // set=3 binding=1 : cascade1
         w[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         w[1].dstSet          = dst;
         w[1].dstBinding      = 1;
@@ -950,7 +907,6 @@ void VKRenderer::TransitionShadowDepthToSampledIfNeeded(VkCommandBuffer cmd)
     {
         if (mShadowIsSampledLayout[ci]) continue;
 
-        // depth attachment write -> shader read
         toy::vkutil::CmdTransitionImageLayout(
             cmd,
             mShadowCascades[ci].depthImg,
@@ -965,4 +921,5 @@ void VKRenderer::TransitionShadowDepthToSampledIfNeeded(VkCommandBuffer cmd)
         mShadowIsSampledLayout[ci] = true;
     }
 }
+
 } // namespace toy
