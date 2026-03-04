@@ -166,15 +166,17 @@ float ComputeFogFactor(float dist, float minDist, float maxDist)
 float ShadowPCF_3x3(sampler2DShadow smp, mat4 lightVP, vec3 worldPos, float shadowBias)
 {
     vec4 lp = lightVP * vec4(worldPos, 1.0);
+    vec3 ndc = lp.xyz / max(lp.w, 1.0e-6);
 
-    vec3 proj = lp.xyz / max(lp.w, 1.0e-6);
+    // ★xy だけ UV 化する
+    vec2 uv = ndc.xy * 0.5 + 0.5;
 
-    proj = proj * 0.5 + 0.5; // NDC(-1..1) -> UV(0..1)
+    // ★z はそのまま（Vulkan の想定）
+    float refZ = ndc.z - shadowBias;
 
-    // outside => lit
-    if (proj.x < 0.0 || proj.x > 1.0 ||
-        proj.y < 0.0 || proj.y > 1.0 ||
-        proj.z < 0.0 || proj.z > 1.0)
+    if (uv.x < 0.0 || uv.x > 1.0 ||
+        uv.y < 0.0 || uv.y > 1.0 ||
+        refZ < 0.0 || refZ > 1.0)
     {
         return 1.0;
     }
@@ -182,18 +184,14 @@ float ShadowPCF_3x3(sampler2DShadow smp, mat4 lightVP, vec3 worldPos, float shad
     vec2 texelSize = 1.0 / vec2(textureSize(smp, 0));
 
     float sum = 0.0;
-    for (int y = -1; y <= 1; ++y)
+    for (int y=-1; y<=1; ++y)
+    for (int x=-1; x<=1; ++x)
     {
-        for (int x = -1; x <= 1; ++x)
-        {
-            vec2 offset = vec2(x, y) * texelSize;
-            sum += texture(smp, vec3(proj.xy + offset, proj.z - shadowBias));
-        }
+        vec2 offset = vec2(x,y) * texelSize;
+        sum += texture(smp, vec3(uv + offset, refZ));
     }
 
     float lit = sum / 9.0;
-
-    // GL版：真っ黒にしない
     return mix(0.5, 1.0, lit);
 }
 

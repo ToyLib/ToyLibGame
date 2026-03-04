@@ -532,6 +532,7 @@ void VKRenderer::UpdateShadowLightMatrices()
         lightDir = Vector3(0, -1, 0);
     }
     lightDir.Normalize();
+    
 
     const float base = std::max(mShadowOrthoWidth, mShadowOrthoHeight);
     const float lightDist = base * 2.0f;
