@@ -30,11 +30,6 @@
 namespace toy
 {
 
-static const char* kValidationLayers[] =
-{
-    "VK_LAYER_KHRONOS_validation"
-};
-
 //--------------------------------------------------------------
 // ctor/dtor
 //--------------------------------------------------------------

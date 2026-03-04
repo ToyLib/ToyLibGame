@@ -28,9 +28,6 @@
 namespace toy
 {
 
-// ※クラス側も kShadowCascadeCount=2 だが、private constexpr を避けてここでも固定。
-static constexpr int kShadowCascadeCount = 2;
-
 //--------------------------------------------------------------
 // Shadow scene UBO (minimal)
 //--------------------------------------------------------------

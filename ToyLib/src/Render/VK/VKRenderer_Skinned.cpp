@@ -29,12 +29,6 @@
 namespace toy
 {
 
-static void StoreMat4(float out16[16], const Matrix4& m)
-{
-    std::memcpy(out16, &m, sizeof(float) * 16);
-}
-
-
 //--------------------------------------------------------------
 // “基準Pipeline” から setLayout を取る
 //--------------------------------------------------------------
@@ -48,11 +42,6 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
         return VK_NULL_HANDLE;
     }
     return p->GetSetLayout(setIndex);
-}
-
-static std::string NormalizePipelineName(const char* name)
-{
-    return name ? std::string(name) : std::string();
 }
 
 static const char* NormalizePipelineNameForSet2(const char* pipelineName)
@@ -69,12 +58,6 @@ static const char* NormalizePipelineNameForSet2(const char* pipelineName)
     // if (std::strcmp(pipelineName, "ShadowSkinnedMesh_CW") == 0) return "SkinnedMesh_CW";
 
     return pipelineName;
-}
-
-static bool IsShadowPipelineName(const char* pipelineName)
-{
-    if (!pipelineName) return false;
-    return (std::strncmp(pipelineName, "Shadow", 6) == 0);
 }
 
 //==============================================================

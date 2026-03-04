@@ -57,21 +57,7 @@ static std::string NormalizePipelineName(const char* name)
     return name ? std::string(name) : std::string();
 }
 
-static const char* NormalizePipelineNameForSet2(const char* pipelineName)
-{
-    if (!pipelineName) return nullptr;
 
-    // ShadowSkinnedMesh は set=2 が SkinnedMesh と同じでOK（運用を安定化）
-    if (std::strcmp(pipelineName, "ShadowSkinned") == 0)
-    {
-        return "ShadowSkinned";
-    }
-
-    // 将来、CW 版を作るならここも追加する
-    // if (std::strcmp(pipelineName, "ShadowSkinnedMesh_CW") == 0) return "SkinnedMesh_CW";
-
-    return pipelineName;
-}
 
 static bool IsShadowPipelineName(const char* pipelineName)
 {
