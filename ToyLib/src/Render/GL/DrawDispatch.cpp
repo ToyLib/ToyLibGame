@@ -122,7 +122,7 @@ static bool DispatchMesh(IRenderer& r,
 
     sh->SetFloatUniform(toy::glsl::Scene::CascadeSplit0, r.GetCascadeSplit0());
     sh->SetFloatUniform(toy::glsl::Scene::CascadeBlend,  r.GetCascadeBlend());
-    sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    0.005f);
+    sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    r.GetShadowBias());
 
     // Toon
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
@@ -219,7 +219,7 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 
         sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
         sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
-        sh->SetFloatUniform(Scene::ShadowBias,    0.005f);
+        sh->SetFloatUniform(Scene::ShadowBias,    r.GetShadowBias());
     }
 
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
@@ -306,9 +306,6 @@ static bool DispatchBillboard(IRenderer& r,
     {
         // 新契約
         sh->SetBooleanUniform(toy::glsl::Material::UseTexture, false);
-
-        // 旧契約
-        sh->SetBooleanUniform("uUseTexture", false);
     }
 
     // ------------------------------------------------------------

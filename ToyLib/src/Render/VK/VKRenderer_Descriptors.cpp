@@ -422,7 +422,7 @@ void VKRenderer::UpdateSceneUBO_World()
         ubo.shadowParams[0] = GetCascadeSplit0();  // split0
         ubo.shadowParams[1] = GetCascadeBlend();   // blend
         ubo.shadowParams[2] = 1.0f;                // strength: 影を普通に効かせるならまず 1
-        ubo.shadowParams[3] = 0.005f;             // bias: まずは 0.001〜0.01 で調整（PCF 3x3前提）
+        ubo.shadowParams[3] = GetShadowBias();             // bias: まずは 0.001〜0.01 で調整（PCF 3x3前提）
     }
     else
     {

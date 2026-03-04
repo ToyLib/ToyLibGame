@@ -134,6 +134,7 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     //   "shadow": {
     //       "near": 10.0,
     //       "far":  100.0,
+    //       "bias": 0.0015,
     //       "ortho_width":  100.0,
     //       "ortho_height": 100.0,
     //       "resolution_width":  4096,
@@ -144,6 +145,7 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     {
         JsonHelper::GetFloat(data["shadow"], "near",            mShadowNear);
         JsonHelper::GetFloat(data["shadow"], "far",             mShadowFar);
+        JsonHelper::GetFloat(data["shadow"], "bias",            mShadowBias);
         JsonHelper::GetFloat(data["shadow"], "ortho_width",     mShadowOrthoWidth);
         JsonHelper::GetFloat(data["shadow"], "ortho_height",    mShadowOrthoHeight);
         JsonHelper::GetInt  (data["shadow"], "resolution_width",  mShadowFBOWidth);

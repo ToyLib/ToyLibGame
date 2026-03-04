@@ -252,6 +252,9 @@ public:
 
     float GetCascadeBlend() const { return mCascadeBlend; }
     void SetCascadeBlend(float f) { mCascadeBlend = f; }
+    
+    float GetShadowBias() const { return mShadowBias; }
+    void SetShadowBias(float f) { mShadowBias = f; }
 
     //--------------------------------------------------------------------------
     // Common geometry
@@ -407,6 +410,7 @@ protected:
     float mShadowFar         { 100.0f };
     float mShadowOrthoWidth  { 100.0f };
     float mShadowOrthoHeight { 100.0f };
+    float mShadowBias        { 0.0015f };
 
     int   mShadowFBOWidth    { 4096 };
     int   mShadowFBOHeight   { 4096 };
