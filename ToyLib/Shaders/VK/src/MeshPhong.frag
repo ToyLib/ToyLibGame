@@ -6,12 +6,6 @@ layout(location=2) in vec3 vWorldPos;
 
 layout(location=0) out vec4 outColor;
 
-//==============================================================
-// Shadow matrix mode
-//  1: shadowVP is already biased (0..1 space)  <-- your current C++ does this
-//  0: shadowVP is non-biased (NDC -1..1), shader converts to 0..1 (GL style)
-//==============================================================
-#define SHADOW_VP_IS_BIASED 0
 
 //======================================================================
 // Data structs (std140-safe packing)
@@ -171,14 +165,11 @@ float ComputeFogFactor(float dist, float minDist, float maxDist)
 //======================================================================
 float ShadowPCF_3x3(sampler2DShadow smp, mat4 lightVP, vec3 worldPos, float shadowBias)
 {
-    // GL版互換：row-vector 想定（ToyLib/DX-style math）
-    vec4 lp = vec4(worldPos, 1.0) * lightVP;
+    vec4 lp = lightVP * vec4(worldPos, 1.0);
 
     vec3 proj = lp.xyz / max(lp.w, 1.0e-6);
 
-#if (SHADOW_VP_IS_BIASED == 0)
     proj = proj * 0.5 + 0.5; // NDC(-1..1) -> UV(0..1)
-#endif
 
     // outside => lit
     if (proj.x < 0.0 || proj.x > 1.0 ||
