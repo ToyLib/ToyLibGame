@@ -407,9 +407,6 @@ private:
     VkRenderPass mShadowRenderPass{ VK_NULL_HANDLE };
     VkSampler    mShadowSampler{ VK_NULL_HANDLE };
 
-    // bias matrix（必要なら）
-    Matrix4 mShadowBias{ Matrix4::Identity };
-
     // shadow scene UBO/set（per frame）
     std::array<std::vector<VkBuffer>,        kShadowCascadeCount> mShadowSceneUBO;
     std::array<std::vector<VkDeviceMemory>,  kShadowCascadeCount> mShadowSceneUBOMem;

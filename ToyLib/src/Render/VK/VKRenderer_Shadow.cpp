@@ -76,32 +76,6 @@ static VkImageAspectFlags DepthAspect(VkFormat f)
 }
 
 //--------------------------------------------------------------
-// Bias matrix for NDC->UV (row-vector convention)
-//  ※現在は「lightVP_Biased を廃止」方針なので、
-//    これは “必要なら” 置いてるだけ（shader側で 0.5+0.5 してる）。
-//--------------------------------------------------------------
-static Matrix4 MakeShadowBias_RowVector()
-{
-    Matrix4 b = Matrix4::Identity;
-
-    // row-vector mapping:
-    // [0.5 0   0   0]
-    // [0   0.5 0   0]
-    // [0   0   1   0]
-    // [0.5 0.5 0   1]
-    //
-    // NOTE: adjust indexing if your Matrix4 storage differs.
-    b.mat[0][0] = 0.5f;
-    b.mat[1][1] = 0.5f;
-    b.mat[2][2] = 1.0f;
-    b.mat[3][0] = 0.5f;
-    b.mat[3][1] = 0.5f;
-    b.mat[3][3] = 1.0f;
-
-    return b;
-}
-
-//--------------------------------------------------------------
 // Shadow resources
 //--------------------------------------------------------------
 bool VKRenderer::CreateShadowResources()
@@ -324,8 +298,6 @@ bool VKRenderer::CreateShadowResources()
         return false;
     }
 
-    mShadowBias = MakeShadowBias_RowVector();
-
     mShadowIsSampledLayout = { false, false };
 
     //----------------------------------------------------------
@@ -360,7 +332,6 @@ void VKRenderer::DestroyShadowResources()
         mShadowSampler = VK_NULL_HANDLE;
         mShadowExtent = {0,0};
         mShadowDepthFormat = VK_FORMAT_UNDEFINED;
-        mShadowBias = Matrix4::Identity;
         return;
     }
 
@@ -401,7 +372,6 @@ void VKRenderer::DestroyShadowResources()
 
     mShadowExtent = {0,0};
     mShadowDepthFormat = VK_FORMAT_UNDEFINED;
-    mShadowBias = Matrix4::Identity;
 }
 
 //--------------------------------------------------------------
