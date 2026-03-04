@@ -415,8 +415,6 @@ void VKRenderer::UpdateSceneUBO_World()
     //========================
     if ((int)mShadowCascades.size() == 2)
     {
-        UpdateShadowLightMatrices();
-
         // non-biased LightVP（GL互換）
         StoreMat4(ubo.shadowVP0, mShadowCascades[0].lightVP);
         StoreMat4(ubo.shadowVP1, mShadowCascades[1].lightVP);
