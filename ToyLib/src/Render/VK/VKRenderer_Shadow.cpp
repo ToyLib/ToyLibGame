@@ -540,7 +540,7 @@ void VKRenderer::UpdateShadowLightMatrices()
         return;
     }
 
-    Vector3 camPos = GetCameraPosition();
+    Vector3 camPos = mInvView.GetTranslation();
 
     Vector3 camForward = mInvView.GetZAxis();
     if (camForward.LengthSq() < 1.0e-6f)
