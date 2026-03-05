@@ -17,7 +17,7 @@ TextBillboardComponent::TextBillboardComponent(Actor* owner,
 : BillboardComponent(owner, drawOrder)
 {
     // Shader は Unlit（文字はライティング不要）
-    mPipelineName = "Unlit";
+    mPipelineName = "UnlitQuad";
 }
 
 TextBillboardComponent::~TextBillboardComponent()
@@ -85,21 +85,21 @@ void TextBillboardComponent::GatherRenderItems(RenderQueue& out)
     }
 
     //==========================================================
-    // Payload（Billboard 用：tint / alpha）
+    // Payload（UnlitQuad 用：tint / alpha）
     //  - 文字は基本 “白” でテクスチャ色をそのまま出す
     //  - 透過はテクスチャの alpha を使う前提（必要なら mAlpha 等に差し替え）
     //==========================================================
-    BillboardPayload bp {};
-    bp.tint = Vector3(1.0f, 1.0f, 1.0f);
-    bp.alpha = 1.0f;
+    UnlitQuadPayload uqp {};
+    uqp.tint = Vector3(1.0f, 1.0f, 1.0f);
+    uqp.alpha = 1.0f;
 
-    const uint32_t payloadIndex = out.PushBillboardPayload(bp);
+    const uint32_t payloadIndex = out.PushUnlitQuad(uqp);
 
     //==========================================================
     // RenderItem
     //==========================================================
     RenderItem it {};
-    it.type       = RenderItemType::Billboard;
+    it.type       = RenderItemType::UnlitQuad;
     it.dispatch   = GetDispatch(it.type);
     it.payloadIndex = payloadIndex;
 

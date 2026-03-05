@@ -57,11 +57,7 @@ void OutdoorStage::InitStage()
     auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
     treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100,200,4));
     treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
-    // シャドウ用スプライト
-    auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
-    shadow->SetVisible(true);
-    shadow->SetOffsetPosition(Vector3(0.0f, -4.5f, 0.0f));
-    shadow->SetOffsetScale(0.03f);
+
     
     // 鏡を出す
     auto mirrorActor = mApp->CreateActor<toy::Actor>();

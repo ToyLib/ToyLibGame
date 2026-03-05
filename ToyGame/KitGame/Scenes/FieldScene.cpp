@@ -115,16 +115,6 @@ void FieldScene::InitField()
     auto treeCollider = treeActor->CreateComponent<toy::ColliderComponent>();
     treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100, 200, 4));
     treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
-    // シャドウ用スプライト
-    auto shadow = treeActor->CreateComponent<toy::ShadowSpriteComponent>(10);
-    shadow->SetVisible(true);
-    shadow->SetOffsetScale(1.0);
-    shadow->SetSize(5, 5);
-    shadow->SetBlendAdd(false);
-    shadow->SetAlpha(0.8f);
-    shadow->SetGroundLift(1.15f);
-    shadow->SetGridDiv(4);              // まずは4で十分
-    shadow->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
 
     
     // 鏡を出す

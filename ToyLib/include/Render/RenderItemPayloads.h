@@ -40,10 +40,10 @@ struct SkinnedMeshPayload
 };
 
 //==============================
-// BillboardPayload
+// UnlitQuadPayload
 //  - Unlit tint 拡張にも使える
 //==============================
-struct BillboardPayload
+struct UnlitQuadPayload
 {
     bool    useTint { false };
     Vector3 tint    { 1.0f, 1.0f, 1.0f };

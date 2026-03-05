@@ -81,7 +81,6 @@
 #include "Graphics/Billboard/BillboardComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "Graphics/Billboard/TextBillboardComponent.h"
-#include "Graphics/Sprite/ShadowSpriteComponent.h"
 #include "Graphics/Sprite/FootSpriteComponent.h"
 #include "Graphics/Sprite/GroundConformSpriteComponent.h"
 

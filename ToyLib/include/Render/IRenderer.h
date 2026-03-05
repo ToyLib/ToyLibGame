@@ -320,9 +320,9 @@ public:
     {
         return mRenderQueue.GetSpritePayload(idx);
     }
-    const BillboardPayload& GetBillboardPayload(uint32_t idx) const
+    const UnlitQuadPayload& GetUnlitQuadPayload(uint32_t idx) const
     {
-        return mRenderQueue.GetBillboardPayload(idx);
+        return mRenderQueue.GetUnlitQuadPayload(idx);
     }
     const DebugPayload& GetDebugPayload(uint32_t idx) const
     {

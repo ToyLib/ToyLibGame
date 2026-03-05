@@ -250,9 +250,9 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 }
 
 //============================================================
-// Billboard
+// UnlitQuad
 //============================================================
-static bool DispatchBillboard(IRenderer& r,
+static bool DispatchUnlitQuad(IRenderer& r,
                               const RenderItem& it,
                               RenderPass pass,
                               int)
@@ -274,7 +274,7 @@ static bool DispatchBillboard(IRenderer& r,
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
-        const BillboardPayload& bp = r.GetBillboardPayload(it.payloadIndex);
+        const UnlitQuadPayload& bp = r.GetUnlitQuadPayload(it.payloadIndex);
         tint  = bp.tint;   // ★ここ
         alpha = bp.alpha;
     }
@@ -568,7 +568,7 @@ RenderItem::DispatchFn GetDispatch(RenderItemType type)
         case RenderItemType::Sprite:      return &DispatchSprite;
         case RenderItemType::Mesh:        return &DispatchMesh;
         case RenderItemType::SkinnedMesh: return &DispatchSkinnedMesh;
-        case RenderItemType::Billboard:   return &DispatchBillboard;
+        case RenderItemType::UnlitQuad:   return &DispatchUnlitQuad;
         case RenderItemType::Particle:    return &DispatchParticle;
         case RenderItemType::SkyDome:     return &DispatchSkyDome;
         case RenderItemType::Overlay:     return &DispatchOverlay;

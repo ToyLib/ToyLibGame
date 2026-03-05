@@ -417,11 +417,11 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     // ----------------------------------------------------------
     // Payload（Billboard tint/alpha 用）
     // ----------------------------------------------------------
-    BillboardPayload bp {};
+    UnlitQuadPayload bp {};
     bp.tint = mTint;
     bp.alpha = mAlpha;
 
-    const uint32_t payloadIndex = queue.PushBillboardPayload(bp);
+    const uint32_t payloadIndex = queue.PushUnlitQuad(bp);
 
     // ----------------------------------------------------------
     // RenderItem
@@ -431,7 +431,7 @@ void GroundConformSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.layer     = mLayer;
     it.drawOrder = mDrawOrder;
 
-    it.type     = RenderItemType::Billboard;
+    it.type     = RenderItemType::UnlitQuad;
     it.dispatch = GetDispatch(it.type);
 
     it.topology     = PrimitiveTopology::Triangles;

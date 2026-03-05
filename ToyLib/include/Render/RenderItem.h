@@ -15,7 +15,7 @@ enum class RenderItemType
     Sprite,
     Mesh,
     SkinnedMesh,
-    Billboard,
+    UnlitQuad,
     Particle,
     SkyDome,
     Overlay,

@@ -43,24 +43,26 @@ bool GLRenderer::LoadShaders()
         return false;
 
     // Mesh (Phong)
-    vShaderName = mShaderPath + "StaticMesh.vert";
+    vShaderName = mShaderPath + "Mesh.vert";
     fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Mesh"] = std::make_shared<GLShader>();
     if (!mShaders["Mesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
-
+    
+    
     // Skinned
     vShaderName = mShaderPath + "SkinnedMesh.vert";
     fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Skinned"] = std::make_shared<GLShader>();
     if (!mShaders["Skinned"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
+    
 
     // Unlit
     vShaderName = mShaderPath + "Unlit.vert";
     fShaderName = mShaderPath + "Unlit.frag";
-    mShaders["Unlit"] = std::make_shared<GLShader>();
-    if (!mShaders["Unlit"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    mShaders["UnlitQuad"] = std::make_shared<GLShader>();
+    if (!mShaders["UnlitQuad"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Sprite

@@ -13,6 +13,7 @@ BillboardComponent::BillboardComponent(Actor* a, int drawOrder, VisualLayer laye
     : VisualComponent(a, drawOrder, layer)
 {
     // Shader / Geometry は Renderer 側で選ぶのでここでは持たない（新パス）
+    mPipelineName = "UnlitQuad";
 }
 
 //----------------------------------------------------------------------
@@ -94,25 +95,25 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
     //  - Mesh shader前提なので payload は「必要になったら増やす」でOK
     //--------------------------------------------------------------------------
 
-    BillboardPayload bp{};
+    UnlitQuadPayload bp{};
     // bp.color / bp.alpha を使う設計にするならここで詰める
     // bp.color = ...
     // bp.alpha = ...
 
-    const uint32_t payloadIndex = out.PushBillboardPayload(bp);
+    const uint32_t payloadIndex = out.PushUnlitQuad(bp);
 
     //--------------------------------------------------------------------------
     // RenderItem
     //--------------------------------------------------------------------------
 
     RenderItem it{};
-    it.type      = RenderItemType::Billboard;
+    it.type      = RenderItemType::UnlitQuad;
     it.pass      = RenderPass::World;
     it.dispatch  = GetDispatch(it.type);
     it.layer     = mLayer;
     it.drawOrder = mDrawOrder; // あれば。無いならこの行は削除
 
-    it.pipeline = renderer->GetPipelineHandle("Mesh"); // Phong前提
+    it.pipeline = renderer->GetPipelineHandle(mPipelineName); // Phong前提
     it.viewProj = view * proj;
     it.world    = world;
 
@@ -133,8 +134,8 @@ void BillboardComponent::GatherRenderItems(RenderQueue& out)
     it.blend      = mIsBlendAdd ? BlendMode::Additive : BlendMode::Alpha;
 
     // Visibility priority for a single quad
-    it.cull      = CullMode::Front;
-    it.frontFace = FrontFace::CW;
+    it.cull      = CullMode::Back;
+    it.frontFace = FrontFace::CCW;
 
     out.Push(it);
 }

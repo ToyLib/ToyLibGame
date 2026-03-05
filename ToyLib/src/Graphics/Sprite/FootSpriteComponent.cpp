@@ -63,7 +63,7 @@ FootSpriteComponent::FootSpriteComponent(Actor* owner, int drawOrder, VisualLaye
     // Unlit（Phong互換uniform名がある前提）
     // ※新パスでは shader handle に積むだけなので、ここで取っておく
 
-    mPipelineName = "Unlit";
+    mPipelineName = "UnlitQuad";
 }
 
 void FootSpriteComponent::SetTexture(std::shared_ptr<Texture> tex)
@@ -176,7 +176,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     it.drawOrder = mDrawOrder;
 
     // 3D板ポリ（Billboard 扱い：dispatch で texture/tint を流す想定）
-    it.type     = RenderItemType::Billboard;
+    it.type     = RenderItemType::UnlitQuad;
     it.dispatch = GetDispatch(it.type);
 
     // geometry
