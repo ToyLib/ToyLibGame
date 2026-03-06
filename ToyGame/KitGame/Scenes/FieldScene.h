@@ -21,4 +21,7 @@ private:
     std::unique_ptr<class toy::WeatherManager> mWeather;
     
     class toy::TextSpriteComponent* mTextComp;
+    
+    toy::kit::DebugDrawActor* mDebugDrawActor;
+    toy::Actor* mPlayerActor;
 };

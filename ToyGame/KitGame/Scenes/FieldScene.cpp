@@ -34,7 +34,7 @@ void FieldScene::InitScene()
     InitField();
 
 
-    CreateActor<PlayerActor>();
+    mPlayerActor = CreateActor<PlayerActor>();
    
     // エネミー
     for (int i = 0; i < 10; ++i)
@@ -63,6 +63,11 @@ void FieldScene::InitScene()
     auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     a->SetPosition(Vector3(100.0f, 100.0f,0));
+    
+    
+    toy::kit::DebugDraw::Initialize();
+    mDebugDrawActor = CreateActor<toy::kit::DebugDrawActor>();
+    
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
@@ -81,6 +86,14 @@ void FieldScene::Update(float deltaTime)
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
     mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
     
+    
+    
+    toy::kit::DebugDraw::Clear();
+    toy::kit::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
+    
+    Vector3 pos = mPlayerActor->GetPosition();
+    toy::kit::DebugDraw::Sphere(pos, 10.0f, Vector3(0,1,0));
+    //toy::kit::DebugDraw::Box(min, max, Vector3(1,1,0));
 }
 
 void FieldScene::InitField()
