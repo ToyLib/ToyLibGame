@@ -48,6 +48,13 @@ struct VKPipelineDesc
     VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     //==========================================================
+    // Primitive topology
+    //  - 通常メッシュ/Quad : TRIANGLE_LIST
+    //  - Debug wire/line   : LINE_LIST
+    //==========================================================
+    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    //==========================================================
     // Subpass compatibility
     //  - swapchain pass: 1 (color + depth)
     //  - shadow pass   : 0 (depth only)

@@ -102,7 +102,15 @@ static void AddPC_WorldTintAlpha(VKPipelineDesc& d)
     d.pushConstants.push_back(pc);
 }
 
-// VKPipelinePresets.cpp（同ファイル内に追加）
+static void AddPC_DebugWorldColor(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 96; // mat4(64) + vec4(16) + vec4(16)
+    d.pushConstants.push_back(pc);
+}
+
 static void AddPC_ShadowWorld(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
@@ -121,6 +129,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
     d.vsPath     = base + "Sprite.vert.spv";
     d.fsPath     = base + "Sprite.frag.spv";
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     d.depthTest  = false;
     d.depthWrite = false;
@@ -144,6 +153,7 @@ VKPipelineDesc MakeUnlitQuad(const std::string& base)
     d.vsPath     = base + "UnlitQuad.vert.spv";
     d.fsPath     = base + "UnlitQuad.frag.spv";
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     d.depthTest  = true;
     d.depthWrite = false;
@@ -162,12 +172,36 @@ VKPipelineDesc MakeUnlitQuad(const std::string& base)
     return d;
 }
 
+VKPipelineDesc MakeUnlitWire(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "UnlitWire.vert.spv";
+    d.fsPath     = base + "UnlitWire.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+    d.depthTest  = true;
+    d.depthWrite = true;
+    d.alphaBlend = true;
+
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+    d.colorAttachmentCount = 1;
+
+    AddSet0_SceneUBO(d);
+    AddPC_DebugWorldColor(d);
+
+    return d;
+}
+
 VKPipelineDesc MakeMesh(const std::string& base)
 {
     VKPipelineDesc d{};
     d.vsPath     = base + "Mesh.vert.spv";
     d.fsPath     = base + "MeshPhong.frag.spv";
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     d.depthTest  = true;
     d.depthWrite = true;
@@ -192,6 +226,7 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
     d.vsPath     = base + "SkinnedMesh.vert.spv";
     d.fsPath     = base + "MeshPhong.frag.spv";
     d.layout     = VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     d.depthTest  = true;
     d.depthWrite = true;
@@ -214,9 +249,9 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
 //--------------------------------------------------------------
 // Shadow pipelines (depth-only)
 //--------------------------------------------------------------
-// ShadowMesh 用（set=0 のみ）
 static void SetupShadowCommon_Mesh(VKPipelineDesc& d)
 {
+    d.topology             = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     d.colorAttachmentCount = 0;
 
     d.depthTest  = true;
@@ -238,6 +273,7 @@ static void SetupShadowCommon_Mesh(VKPipelineDesc& d)
 // ShadowSkinned 用（set=0 + set=2、ただし set=1 を空で“穴埋め”）
 static void SetupShadowCommon_Skinned(VKPipelineDesc& d)
 {
+    d.topology             = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     d.colorAttachmentCount = 0;
 
     d.depthTest  = true;
@@ -267,7 +303,6 @@ VKPipelineDesc MakeShadowMesh(const std::string& base)
 
     d.vsPath = base + "Shadow_Mesh.vert.spv";
     d.fsPath = base + "Shadow_Mesh.frag.spv";
-
     d.layout = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
     SetupShadowCommon_Mesh(d);
@@ -281,7 +316,6 @@ VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base)
 
     d.vsPath = base + "Shadow_SkinnedMesh.vert.spv";
     d.fsPath = base + "Shadow_SkinnedMesh.frag.spv";
-
     d.layout = VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4;
 
     SetupShadowCommon_Skinned(d);

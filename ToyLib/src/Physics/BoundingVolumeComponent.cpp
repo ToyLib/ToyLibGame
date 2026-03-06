@@ -235,35 +235,84 @@ void BoundingVolumeComponent::CreateVArray()
     Vector3 v7(mBoundingBox->min.x, mBoundingBox->max.y, mBoundingBox->max.z);
 
     // 12 edges = 24 vertices
+    // ----------------------------------------------------------
+    // pos (3 floats * 24 verts)
+    // ----------------------------------------------------------
     float verts[] =
     {
         // bottom
-        v0.x,v0.y,v0.z, 0,0,0, 0,0,   v1.x,v1.y,v1.z, 0,0,0, 0,0,
-        v1.x,v1.y,v1.z, 0,0,0, 0,0,   v2.x,v2.y,v2.z, 0,0,0, 0,0,
-        v2.x,v2.y,v2.z, 0,0,0, 0,0,   v3.x,v3.y,v3.z, 0,0,0, 0,0,
-        v3.x,v3.y,v3.z, 0,0,0, 0,0,   v0.x,v0.y,v0.z, 0,0,0, 0,0,
+        v0.x,v0.y,v0.z,  v1.x,v1.y,v1.z,
+        v1.x,v1.y,v1.z,  v2.x,v2.y,v2.z,
+        v2.x,v2.y,v2.z,  v3.x,v3.y,v3.z,
+        v3.x,v3.y,v3.z,  v0.x,v0.y,v0.z,
 
         // top
-        v4.x,v4.y,v4.z, 0,0,0, 0,0,   v5.x,v5.y,v5.z, 0,0,0, 0,0,
-        v5.x,v5.y,v5.z, 0,0,0, 0,0,   v6.x,v6.y,v6.z, 0,0,0, 0,0,
-        v6.x,v6.y,v6.z, 0,0,0, 0,0,   v7.x,v7.y,v7.z, 0,0,0, 0,0,
-        v7.x,v7.y,v7.z, 0,0,0, 0,0,   v4.x,v4.y,v4.z, 0,0,0, 0,0,
+        v4.x,v4.y,v4.z,  v5.x,v5.y,v5.z,
+        v5.x,v5.y,v5.z,  v6.x,v6.y,v6.z,
+        v6.x,v6.y,v6.z,  v7.x,v7.y,v7.z,
+        v7.x,v7.y,v7.z,  v4.x,v4.y,v4.z,
 
         // vertical
-        v0.x,v0.y,v0.z, 0,0,0, 0,0,   v4.x,v4.y,v4.z, 0,0,0, 0,0,
-        v1.x,v1.y,v1.z, 0,0,0, 0,0,   v5.x,v5.y,v5.z, 0,0,0, 0,0,
-        v2.x,v2.y,v2.z, 0,0,0, 0,0,   v6.x,v6.y,v6.z, 0,0,0, 0,0,
-        v3.x,v3.y,v3.z, 0,0,0, 0,0,   v7.x,v7.y,v7.z, 0,0,0, 0,0,
+        v0.x,v0.y,v0.z,  v4.x,v4.y,v4.z,
+        v1.x,v1.y,v1.z,  v5.x,v5.y,v5.z,
+        v2.x,v2.y,v2.z,  v6.x,v6.y,v6.z,
+        v3.x,v3.y,v3.z,  v7.x,v7.y,v7.z
+    };
+
+    // ----------------------------------------------------------
+    // dummy normals (3 floats * 24 verts)
+    //  - Wireframe なので未使用だが、Mesh ctor に合わせるために持つ
+    // ----------------------------------------------------------
+    float norms[24 * 3];
+    for (int i = 0; i < 24; ++i)
+    {
+        norms[i * 3 + 0] = 0.0f;
+        norms[i * 3 + 1] = 0.0f;
+        norms[i * 3 + 2] = 1.0f;
+    }
+
+    // ----------------------------------------------------------
+    // dummy uvs (2 floats * 24 verts)
+    // ----------------------------------------------------------
+    float uvs[24 * 2];
+    for (int i = 0; i < 24; ++i)
+    {
+        uvs[i * 2 + 0] = 0.0f;
+        uvs[i * 2 + 1] = 0.0f;
+    }
+
+    // ----------------------------------------------------------
+    // indices
+    //  - GL/VK ともに LINES で描く前提
+    // ----------------------------------------------------------
+    unsigned int indices[] =
+    {
+         0,  1,
+         2,  3,
+         4,  5,
+         6,  7,
+
+         8,  9,
+        10, 11,
+        12, 13,
+        14, 15,
+
+        16, 17,
+        18, 19,
+        20, 21,
+        22, 23
     };
 
     if (mWireframe)
     {
         mWireframe->SetVertexArray(
             std::make_shared<VertexArray>(
-                verts,
-                24,
-                nullptr,
-                0
+                24,         // numVerts
+                verts,      // positions
+                norms,      // normals
+                uvs,        // uvs
+                24,         // numIndices
+                indices     // indices
             )
         );
     }

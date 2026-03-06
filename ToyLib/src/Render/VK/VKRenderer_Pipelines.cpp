@@ -65,6 +65,16 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
+    
+    // UnlitWire
+    {
+        VKPipelineDesc wire = toy::VKPipelinePresets::MakeUnlitWire(base);
+
+        if (!mPipelines.CreatePipeline("UnlitWire", mDevice, mRenderPass, mSwapchainExtent, wire))
+        {
+            return false;
+        }
+    }
 
     // Mesh + Mesh_CW
     {

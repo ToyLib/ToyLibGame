@@ -60,6 +60,13 @@ struct VKUnlitQuadPC
     float tintAlpha[4]; // xyz=tint, w=alpha
 };
 
+struct VKDebugPC
+{
+    float world[16];
+    float color[4];
+    float params[4]; // x=useLight
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -347,6 +354,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     // Pipeline name
     //----------------------------------------------------------
+    //----------------------------------------------------------
+    // Pipeline name
+    //----------------------------------------------------------
     const char* pipelineName = nullptr;
 
     if (isShadow)
@@ -373,6 +383,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 break;
             case RenderItemType::UnlitQuad:
                 pipelineName = "UnlitQuad";
+                break;
+            case RenderItemType::Debug:
+                pipelineName = "UnlitWire";
                 break;
             default:
                 return;
@@ -459,8 +472,8 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     // Normal pass（World / UI）
     //----------------------------------------------------------
 
-    VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
-    if (shadowSet == VK_NULL_HANDLE) return;
+    //VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
+    //if (shadowSet == VK_NULL_HANDLE) return;
 
     //----------------------------------------------------------
     // Sprite
@@ -519,6 +532,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     if (it.type == RenderItemType::Mesh)
     {
+        VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
+        if (shadowSet == VK_NULL_HANDLE) return;
+        
+        
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid()) return;
 
@@ -618,6 +635,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     if (it.type == RenderItemType::SkinnedMesh)
     {
+        VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
+        if (shadowSet == VK_NULL_HANDLE) return;
+        
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid())
         {
@@ -787,12 +807,71 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         AddDrawCall();
         return;
     }
+    //----------------------------------------------------------
+    // Debug / UnlitWire
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::Debug)
+    {
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid()) return;
+
+        pipe->Bind(cmd);
+
+        // set=0 only
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0, 1, &sceneSet,
+            0, nullptr);
+
+        Vector3 color(1.0f, 1.0f, 1.0f);
+        float   alpha    = 1.0f;
+        float   useLight = 0.0f; // まずはGL同様 false 寄りで固定
+
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            const DebugPayload& dp = GetDebugPayload(it.payloadIndex);
+            color = dp.color;
+            alpha = dp.alpha;
+        }
+
+        VKDebugPC pc{};
+        StoreMat4(pc.world, it.world);
+
+        pc.color[0] = color.x;
+        pc.color[1] = color.y;
+        pc.color[2] = color.z;
+        pc.color[3] = alpha;
+
+        pc.params[0] = useLight;
+        pc.params[1] = 0.0f;
+        pc.params[2] = 0.0f;
+        pc.params[3] = 0.0f;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(VKDebugPC),
+            &pc);
+
+        if (it.indexCount > 0)
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        else if (it.vertexCount > 0)
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+
+        AddDrawCall();
+        return;
+    }
 }
 
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 {
-    (void)name;
-    return {};
+    PipelineHandle h{};
+    h.ptrVKPipeline = mPipelines.Get(name.c_str());
+    return h;
 }
 
 //------------------------------------------------------------------------------

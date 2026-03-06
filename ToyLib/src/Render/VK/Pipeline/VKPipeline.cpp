@@ -93,17 +93,17 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
             outBinding.stride = 32;
             addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
             addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,     24);
+            addAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
             break;
         }
         case VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4:
         {
             outBinding.stride = 64;
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT,        0);
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT,       12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,          24);
-            addAttr(3, VK_FORMAT_R32G32B32A32_UINT,      32);
-            addAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT,    48);
+            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT,     0);
+            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT,    12);
+            addAttr(2, VK_FORMAT_R32G32_SFLOAT,       24);
+            addAttr(3, VK_FORMAT_R32G32B32A32_UINT,   32);
+            addAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT, 48);
             break;
         }
         case VKPipelineDesc::VertexLayout::Vec2_Pos2:
@@ -117,7 +117,7 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
             outBinding.stride = 32;
             addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
             addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,     24);
+            addAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
             break;
         }
     }
@@ -319,7 +319,7 @@ bool VKPipeline::Create(VkDevice device,
 
     VkPipelineInputAssemblyStateCreateInfo ia{};
     ia.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ia.topology               = desc.topology;
     ia.primitiveRestartEnable = VK_FALSE;
 
     // Dynamic viewport/scissor
