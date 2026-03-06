@@ -24,7 +24,7 @@
   },
   "shadow": {
     "near": 1.0,
-    "far": 250.0,
+    "far": 1000.0,
     "bias": 0.001,
     "ortho_width": 100.0,
     "ortho_height": 100.0,

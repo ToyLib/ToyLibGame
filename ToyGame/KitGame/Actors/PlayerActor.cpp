@@ -158,7 +158,7 @@ PlayerActor::PlayerActor(toy::Application* a)
     mTargetSigne->SetGroundLift(0.15f);
     mTargetSigne->SetGridDiv(4);              // まずは4で十分
     mTargetSigne->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
-    mTargetSigne->SetVisible(false);
+    mTargetSigne->SetVisible(true);
    
 }
 
