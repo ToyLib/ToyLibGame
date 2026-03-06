@@ -268,51 +268,47 @@ static bool DispatchUnlitQuad(IRenderer& r,
         return true;
     }
 
+    //========================================================
+    // Contract(v1)
+    //========================================================
+    sh->SetMatrixUniform(toy::glsl::Object::World,   it.world);
+    sh->SetMatrixUniform(toy::glsl::Scene::ViewProj, it.viewProj);
+
     // Payload
     Vector3 tint  = Vector3(1.0f, 1.0f, 1.0f);
     float   alpha = 1.0f;
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
-        const UnlitQuadPayload& bp = r.GetUnlitQuadPayload(it.payloadIndex);
-        tint  = bp.tint;   // ★ここ
-        alpha = bp.alpha;
+        const UnlitQuadPayload& up = r.GetUnlitQuadPayload(it.payloadIndex);
+        tint  = up.tint;
+        alpha = up.alpha;
     }
 
-    // NOTE: Billboard系は contract(v1) に含めてない想定なので、従来名も維持
-    // （古い billboard shader が uSpriteColor/uSpriteAlpha を見ている想定）
+    // 旧互換
     sh->SetVectorUniform("uSpriteColor", tint);
     sh->SetFloatUniform ("uSpriteAlpha", alpha);
 
-    // ------------------------------------------------------------
-    // Unlit 対応：
-    // Unlit.frag は uMaterial.* を参照するので、ここでセットする
-    // ------------------------------------------------------------
+    // Unlit material
     sh->SetVectorUniform(toy::glsl::Material::BaseColor, Vector3(1.0f, 1.0f, 1.0f));
 
     if (it.texture.ptr)
     {
         it.texture.ptr->SetActive(it.textureUnit);
 
-        // 新契約（Unlit / MeshPhong 互換）
         sh->SetTextureUniform(toy::glsl::Material::BaseMap, it.textureUnit);
         sh->SetBooleanUniform(toy::glsl::Material::UseTexture, true);
 
-        // 旧契約（古い billboard shader 用）
+        // 旧互換
         sh->SetTextureUniform("uTexture", it.textureUnit);
         sh->SetBooleanUniform("uUseTexture", true);
     }
     else
     {
-        // 新契約
         sh->SetBooleanUniform(toy::glsl::Material::UseTexture, false);
+        sh->SetBooleanUniform("uUseTexture", false);
     }
 
-    // ------------------------------------------------------------
-    // ★Unlit tint 拡張（ここを入れると FootSprite/ShadowSprite も統一できる）
-    //   - TextBillboard は uUseTint を触らない運用でもいいけど、
-    //     触っても tint=1, alpha=1 なら見た目は同じ。
-    // ------------------------------------------------------------
     sh->SetIntUniform   ("uUseTint", 1);
     sh->SetVectorUniform("uTint",    tint);
     sh->SetFloatUniform ("uAlpha",   alpha);

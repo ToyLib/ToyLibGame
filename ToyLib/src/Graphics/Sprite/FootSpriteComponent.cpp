@@ -161,11 +161,11 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
     //==========================================================
     // Payload（Unlit の tint/alpha 用：後方互換）
     //==========================================================
-    SpritePayload sp {};
-    sp.color = mTint;   // もし FootSprite が tint を持ってないなら (1,1,1) 固定にしてOK
+    UnlitQuadPayload sp {};
+    sp.tint = mTint;   // もし FootSprite が tint を持ってないなら (1,1,1) 固定にしてOK
     sp.alpha = mAlpha;  // 同上：無いなら 1.0f
 
-    const uint32_t payloadIndex = queue.PushSpritePayload(sp);
+    const uint32_t payloadIndex = queue.PushUnlitQuad(sp);
 
     //==========================================================
     // RenderItem
@@ -181,7 +181,7 @@ void FootSpriteComponent::GatherRenderItems(RenderQueue& queue)
 
     // geometry
     it.topology   = PrimitiveTopology::Triangles;
-    it.geometry   = renderer->GetSpriteQuadHandle();
+    it.geometry   = renderer->GetSurfaceQuadHandle();
     it.indexCount = 6;
 
     // shader（Unlit 前提）
