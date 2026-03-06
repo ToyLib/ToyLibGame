@@ -54,6 +54,12 @@ struct VKShadowPC
     float world[16];
 };
 
+struct VKUnlitQuadPC
+{
+    float world[16];
+    float tintAlpha[4]; // xyz=tint, w=alpha
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -364,6 +370,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 break;
             case RenderItemType::SkinnedMesh:
                 pipelineName = (it.frontFace == FrontFace::CCW) ? "SkinnedMesh" : "SkinnedMesh_CW";
+                break;
+            case RenderItemType::UnlitQuad:
+                pipelineName = "UnlitQuad";
                 break;
             default:
                 return;
@@ -717,6 +726,58 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0, sizeof(VKMeshPC),
             &pc);
+
+        if (it.indexCount > 0)
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        else if (it.vertexCount > 0)
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+
+        AddDrawCall();
+        return;
+    }
+    
+    //----------------------------------------------------------
+    // UnlitQuad
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::UnlitQuad)
+    {
+        VkDescriptorSet baseMapSet =
+            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+        if (baseMapSet == VK_NULL_HANDLE) return;
+
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid()) return;
+
+        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
+
+        pipe->Bind(cmd);
+        vkCmdBindDescriptorSets(
+            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0, 2, sets,
+            0, nullptr);
+
+        Vector3 tint(1.0f, 1.0f, 1.0f);
+        float   alpha = 1.0f;
+
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            const UnlitQuadPayload& up = GetUnlitQuadPayload(it.payloadIndex);
+            tint  = up.tint;
+            alpha = up.alpha;
+        }
+
+        VKUnlitQuadPC pc{};
+        StoreMat4(pc.world, it.world);
+        pc.tintAlpha[0] = tint.x;
+        pc.tintAlpha[1] = tint.y;
+        pc.tintAlpha[2] = tint.z;
+        pc.tintAlpha[3] = alpha;
+
+        vkCmdPushConstants(
+            cmd, pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, sizeof(VKUnlitQuadPC), &pc);
 
         if (it.indexCount > 0)
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);

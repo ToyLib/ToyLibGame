@@ -53,7 +53,7 @@ static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
     set2.set = 2;
     set2.bindings.push_back({
         .binding = 0,
-        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // ★DYNAMICやめる
+        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .count   = 1,
         .stages  = VK_SHADER_STAGE_VERTEX_BIT
     });
@@ -89,7 +89,16 @@ static void AddPC_ObjectMaterial(VKPipelineDesc& d)
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size   = 112;
+    pc.size   = 112; // mat4 + vec4 + vec4 + vec4
+    d.pushConstants.push_back(pc);
+}
+
+static void AddPC_WorldTintAlpha(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 80; // mat4(64) + vec4(16)
     d.pushConstants.push_back(pc);
 }
 
@@ -97,7 +106,7 @@ static void AddPC_ObjectMaterial(VKPipelineDesc& d)
 static void AddPC_ShadowWorld(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
-    pc.stages = VK_SHADER_STAGE_VERTEX_BIT; // ★VSのみ
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
     pc.size   = 64; // mat4
     d.pushConstants.push_back(pc);
@@ -111,8 +120,6 @@ VKPipelineDesc MakeSprite(const std::string& base)
     VKPipelineDesc d{};
     d.vsPath     = base + "Sprite.vert.spv";
     d.fsPath     = base + "Sprite.frag.spv";
-
-    // ★いったんこれに戻して Pipeline 作成が通るか確認
     d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
 
     d.depthTest  = false;
@@ -126,12 +133,31 @@ VKPipelineDesc MakeSprite(const std::string& base)
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
+    AddPC_WorldTintAlpha(d);
 
-    VKPushConstantDesc pc{};
-    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pc.offset = 0;
-    pc.size   = 80; // mat4 + vec4
-    d.pushConstants.push_back(pc);
+    return d;
+}
+
+VKPipelineDesc MakeUnlitQuad(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "UnlitQuad.vert.spv";
+    d.fsPath     = base + "UnlitQuad.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+
+    d.depthTest  = true;
+    d.depthWrite = false;
+    d.alphaBlend = true;
+
+    // まずは安全側。FootSprite / Billboard / GroundConform を1本で通す
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+    d.colorAttachmentCount = 1;
+
+    AddSet0_SceneUBO(d);
+    AddSet1_BaseMap(d);
+    AddPC_WorldTintAlpha(d);
 
     return d;
 }
@@ -148,8 +174,6 @@ VKPipelineDesc MakeMesh(const std::string& base)
     d.alphaBlend = false;
 
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
-
-    // ★viewport反転に合わせて CCW
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     d.colorAttachmentCount = 1;
@@ -174,8 +198,6 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
     d.alphaBlend = false;
 
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
-
-    // ★viewport反転に合わせて CCW
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
     d.colorAttachmentCount = 1;
@@ -233,7 +255,6 @@ static void SetupShadowCommon_Skinned(VKPipelineDesc& d)
     AddSet0_SceneUBO(d);
 
     // ★重要：set=2 を使う pipeline は “set=1 を空で挟む”
-    // これで PipelineLayout の set index ズレを確実に防ぐ（MoltenVK 対策）
     AddSet1_Empty(d);
 
     AddSet2_SkinnedUBO(d);
@@ -244,9 +265,6 @@ VKPipelineDesc MakeShadowMesh(const std::string& base)
 {
     VKPipelineDesc d{};
 
-    // ★この2つのspv名はプロジェクト側の命名に合わせて調整してOK
-    //   - Vertex: world * lightVP を出して深度へ
-    //   - Frag  : 空でもOKだが、現VKPipelineはfs必須なので最小fragを用意する
     d.vsPath = base + "Shadow_Mesh.vert.spv";
     d.fsPath = base + "Shadow_Mesh.frag.spv";
 
@@ -254,11 +272,8 @@ VKPipelineDesc MakeShadowMesh(const std::string& base)
 
     SetupShadowCommon_Mesh(d);
 
-    // ShadowMesh は set=2 を使わないので set=1 ダミー不要
     return d;
 }
-
-
 
 VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base)
 {

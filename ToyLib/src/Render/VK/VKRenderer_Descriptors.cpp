@@ -585,6 +585,7 @@ bool VKRenderer::CreateSceneDescriptorSet()
     if (!CreateFallbackBaseMapSet("Mesh_CW"))        return false;
     if (!CreateFallbackBaseMapSet("SkinnedMesh"))    return false;
     if (!CreateFallbackBaseMapSet("SkinnedMesh_CW")) return false;
+    if (!CreateFallbackBaseMapSet("UnlitQuad"))      return false;
 
     return true;
 }

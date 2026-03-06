@@ -58,9 +58,9 @@ bool GLRenderer::LoadShaders()
         return false;
     
 
-    // Unlit
-    vShaderName = mShaderPath + "Unlit.vert";
-    fShaderName = mShaderPath + "Unlit.frag";
+    // UnlitQuad
+    vShaderName = mShaderPath + "UnlitQuad.vert";
+    fShaderName = mShaderPath + "UnlitQuad.frag";
     mShaders["UnlitQuad"] = std::make_shared<GLShader>();
     if (!mShaders["UnlitQuad"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;

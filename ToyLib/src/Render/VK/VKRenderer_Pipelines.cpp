@@ -6,7 +6,7 @@
 //
 // 方針（確定）:
 //  - SceneUBO は World/UI 分離（mSceneUBO / mSceneUBO_UI）
-//  - BeginFrame() で World UBO を更新（UpdateSceneUBO_World）
+//  - BeginFrame() で World UBO 更新（UpdateSceneUBO_World）
 //  - DrawUIPass() 側で UI UBO を更新（UpdateSceneUBO_UI）
 //  - Swapchain recreate 時は Pipeline → SceneSet の順で作り直す
 //  - ★Skinned palette は slot pool を持ち、recreate時は DestroySkinnedSlots() で破棄
@@ -52,6 +52,15 @@ bool VKRenderer::BuildDefaultPipelines()
     {
         VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
         if (!mPipelines.CreatePipeline("Sprite", mDevice, mRenderPass, mSwapchainExtent, sprite))
+        {
+            return false;
+        }
+    }
+
+    // UnlitQuad
+    {
+        VKPipelineDesc uq = toy::VKPipelinePresets::MakeUnlitQuad(base);
+        if (!mPipelines.CreatePipeline("UnlitQuad", mDevice, mRenderPass, mSwapchainExtent, uq))
         {
             return false;
         }

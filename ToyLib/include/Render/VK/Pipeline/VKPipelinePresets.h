@@ -1,4 +1,5 @@
 //======================================================================
+//======================================================================
 // Render/VK/Pipeline/VKPipelinePresets.h
 //======================================================================
 #pragma once
@@ -13,6 +14,10 @@ namespace VKPipelinePresets
 {
     // base: ".../Shaders/VK/spv/"
     VKPipelineDesc MakeSprite(const std::string& base);
+
+    // ★追加
+    VKPipelineDesc MakeUnlitQuad(const std::string& base);
+
     VKPipelineDesc MakeMesh(const std::string& base);
     VKPipelineDesc MakeSkinnedMesh(const std::string& base);
 
