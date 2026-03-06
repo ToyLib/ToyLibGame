@@ -17,7 +17,7 @@ WireframeComponent::WireframeComponent(Actor* owner,
     : VisualComponent(owner, drawOrder, layer)
 {
     // 単色描画（デバッグ用）
-    mPipelineName = "Solid";
+    mPipelineName = "UnlitWire";
 }
 
 //------------------------------------------------------------

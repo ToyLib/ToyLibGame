@@ -101,11 +101,11 @@ bool GLRenderer::LoadShaders()
         mShaders["Particle"] = render;
     }
 
-    // SolidColor
+    // UnlitWire
     vShaderName = mShaderPath + "BasicMesh.vert";
     fShaderName = mShaderPath + "SolidColor.frag";
-    mShaders["Solid"] = std::make_shared<GLShader>();
-    if (!mShaders["Solid"]->Load(vShaderName.c_str(), fShaderName.c_str()))
+    mShaders["UnlitWire"] = std::make_shared<GLShader>();
+    if (!mShaders["UnlitWire"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
 
     // Shadow (Skinned)
