@@ -96,7 +96,16 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-
+    
+    // SkyDome
+    {
+        VKPipelineDesc sky = toy::VKPipelinePresets::MakeSkyDome(base);
+        if (!mPipelines.CreatePipeline("SkyDome", mDevice, mRenderPass, mSwapchainExtent, sky))
+        {
+            return false;
+        }
+    }
+    
     // SkinnedMesh + SkinnedMesh_CW
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);

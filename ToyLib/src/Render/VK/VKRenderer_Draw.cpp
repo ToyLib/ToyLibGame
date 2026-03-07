@@ -67,6 +67,11 @@ struct VKDebugPC
     float params[4]; // x=useLight
 };
 
+struct VKSkyPC
+{
+    float world[16];
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -260,7 +265,27 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 //======================================================================
 // Pass stubs
 //======================================================================
-void VKRenderer::DrawSkyPass() {}
+void VKRenderer::DrawSkyPass()
+{
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+
+    if (mBuckets.sky.empty())
+    {
+        return;
+    }
+
+    // swapchain renderpass を開始
+    BeginSwapchainRenderPassIfNeeded();
+    if (!mIsInRenderPass)
+    {
+        return;
+    }
+
+    DrawBucket_Sky(mBuckets.sky);
+}
 
 void VKRenderer::DrawWorldPass()
 {
@@ -383,6 +408,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 break;
             case RenderItemType::UnlitQuad:
                 pipelineName = "UnlitQuad";
+                break;
+            case RenderItemType::SkyDome:
+                pipelineName = "SkyDome";
                 break;
             case RenderItemType::Debug:
                 pipelineName = "UnlitWire";
@@ -808,6 +836,76 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         return;
     }
     //----------------------------------------------------------
+    // SkyDome
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::SkyDome)
+    {
+        if (mFrameIndex >= mSkySet.size())
+        {
+            return;
+        }
+
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        VkDescriptorSet skySet = mSkySet[mFrameIndex];
+        if (skySet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        SkyDomePayload sky {};
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            sky = GetSkyDomePayload(it.payloadIndex);
+        }
+
+        // Sky 専用 UBO 更新
+        UpdateSkyUBO(sky);
+
+        pipe->Bind(cmd);
+
+        // SkyDome は set=0(Scene) + set=1(SkyUBO)
+        VkDescriptorSet sets[2] =
+        {
+            sceneSet,
+            skySet
+        };
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0, 2, sets,
+            0, nullptr);
+
+        VKSkyPC pc {};
+        StoreMat4(pc.world, it.world);
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            sizeof(VKSkyPC),
+            &pc);
+
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+        }
+
+        AddDrawCall();
+        return;
+    }
+    //----------------------------------------------------------
     // Debug / UnlitWire
     //----------------------------------------------------------
     if (it.type == RenderItemType::Debug)
@@ -895,6 +993,31 @@ void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
 
         SDL_assert(it.dispatch && "RenderItem.dispatch must be set");
         DrawItem(it, RenderPass::UI, -1);
+    }
+}
+
+//------------------------------------------------------------------------------
+// Sky bucket draw (VKRenderer only)
+//------------------------------------------------------------------------------
+void VKRenderer::DrawBucket_Sky(const std::vector<uint32_t>& bucket)
+{
+    const auto& items = mRenderQueue.Items();
+
+    for (uint32_t idx : bucket)
+    {
+        if (idx >= items.size())
+        {
+            continue;
+        }
+
+        const RenderItem& it = items[idx];
+
+        if (it.type != RenderItemType::SkyDome)
+        {
+            continue;
+        }
+
+        DrawItem(it, RenderPass::World, -1);
     }
 }
 

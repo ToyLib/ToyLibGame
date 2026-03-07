@@ -76,6 +76,9 @@ struct SkyDomePayload
     Vector3 skyRawSkyColor   { Vector3::Zero };
     Vector3 skyRawCloudColor { Vector3::Zero };
 
+    Matrix4 world  { Matrix4::Identity };
+
+    // 旧GL互換を残すなら一旦保持してもOK
     Matrix4 mvp    { Matrix4::Identity };
     bool    useMVP { false };
 };

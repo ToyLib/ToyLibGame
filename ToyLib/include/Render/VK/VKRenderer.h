@@ -81,6 +81,7 @@ public:
 
     // UI bucket（VKRenderer専用補助）
     void DrawBucket_UI(const std::vector<uint32_t>& bucket);
+    void DrawBucket_Sky(const std::vector<uint32_t>& bucket);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
@@ -270,6 +271,12 @@ private:
     // SceneSet（per frame）: set=0
     std::vector<VkDescriptorSet> mSceneSet;     // world
     std::vector<VkDescriptorSet> mSceneSet_UI;  // ui
+    
+    // Sky UBO / set
+    std::vector<VkBuffer>       mSkyUBO;
+    std::vector<VkDeviceMemory> mSkyUBOMem;
+    std::vector<VkDescriptorSet> mSkySet;
+    size_t mSkyUBOSize { 0 };
 
 private:
     //==========================================================
@@ -439,6 +446,12 @@ private:
     VkDescriptorPool mShadowDescPoolUsed{ VK_NULL_HANDLE };
 
     void TransitionShadowDepthToSampledIfNeeded(VkCommandBuffer cmd);
+    
+private:
+    bool CreateSkyUBO();
+    void DestroySkyUBO();
+    void UpdateSkyUBO(const SkyDomePayload& sky);
+    bool CreateSkyDescriptorSet();
 
 private:
     //==========================================================

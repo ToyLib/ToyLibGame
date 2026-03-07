@@ -135,7 +135,18 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    if (!CreateSkyUBO())
+    {
+        Shutdown();
+        return false;
+    }
     if (!CreateSceneDescriptorSet())
+    {
+        Shutdown();
+        return false;
+    }
+    
+    if (!CreateSkyDescriptorSet())
     {
         Shutdown();
         return false;
@@ -179,6 +190,7 @@ void VKRenderer::Shutdown()
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
     DestroySkinnedSlots();
+    DestroySkyUBO();
     DestroySceneUBO();
     DestroyDescriptorPool();
 

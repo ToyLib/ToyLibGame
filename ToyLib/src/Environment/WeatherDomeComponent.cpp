@@ -44,7 +44,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
-    if (!mSkyVAO )
+    if (!mSkyVAO)
     {
         return;
     }
@@ -54,6 +54,7 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     {
         return;
     }
+
     auto* renderer = app->GetRenderer();
     if (!renderer)
     {
@@ -68,14 +69,14 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
         Matrix4::CreateScale(200.0f) *
         Matrix4::CreateTranslation(camPos);
 
-    const Matrix4 view = renderer->GetViewMatrix();
-    const Matrix4 proj = renderer->GetProjectionMatrix();
+    const Matrix4 view     = renderer->GetViewMatrix();
+    const Matrix4 proj     = renderer->GetProjectionMatrix();
     const Matrix4 viewProj = view * proj;
 
     // ----------------------------------------------------------
-    // payload（旧Drawのuniform群）
+    // payload
     // ----------------------------------------------------------
-    SkyDomePayload sky {};
+    SkyDomePayload sky{};
 
     const float sec = static_cast<float>(SDL_GetTicks()) / 1000.0f;
     sky.skyTime = std::fmod(sec, 60.0f) / 60.0f;
@@ -87,7 +88,10 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     sky.skyRawSkyColor   = mRawSkyColor;
     sky.skyRawCloudColor = mRawCloudColor;
 
-    // 旧互換：uMVP を必ず渡す
+    // ★VK本命
+    sky.world = world;
+
+    // 旧互換（GL用に残すなら）
     sky.useMVP = true;
     sky.mvp    = world * view * proj;
 
@@ -96,21 +100,19 @@ void WeatherDomeComponent::GatherRenderItems(RenderQueue& outQueue)
     // ----------------------------------------------------------
     // RenderItem
     // ----------------------------------------------------------
-    RenderItem it {};
+    RenderItem it{};
     it.pass      = RenderPass::World;
     it.layer     = VisualLayer::Sky;
     it.drawOrder = GetDrawOrder();
 
-    it.type      = RenderItemType::SkyDome;
-    it.dispatch  = GetDispatch(it.type);
+    it.type     = RenderItemType::SkyDome;
+    it.dispatch = GetDispatch(it.type);
 
-    // 旧Draw寄せ：Depth write off
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = BlendMode::Opaque;
 
-    // ※あなたのコメントと実装がズレてたので「意図優先」で直す：
-    // 旧Draw: glDisable(GL_CULL_FACE) に合わせるなら None。
+    // Sky はまず cull なしで安全側
     it.cull      = CullMode::None;
     it.frontFace = FrontFace::CCW;
 

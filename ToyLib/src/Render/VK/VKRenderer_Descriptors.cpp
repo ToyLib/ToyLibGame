@@ -141,6 +141,16 @@ void VKRenderer::DestroyDescriptorPool()
         }
         mSceneSet_UI.clear();
 
+        for (auto& set : mSkySet)
+        {
+            if (set != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
+                set = VK_NULL_HANDLE;
+            }
+        }
+        mSkySet.clear();
+        
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
     }
@@ -148,6 +158,7 @@ void VKRenderer::DestroyDescriptorPool()
     {
         mSceneSet.clear();
         mSceneSet_UI.clear();
+        mSkySet.clear();
     }
 
     //----------------------------------------------------------
@@ -196,6 +207,17 @@ struct VKSceneUBO
     float shadowVP0[16];
     float shadowVP1[16];
     float shadowParams[4];
+};
+
+// SkyDome
+struct VKSkyUBO
+{
+    float world[16];
+    float timeParams[4];
+    float sunDir[4];
+    float moonDir[4];
+    float rawSkyColor[4];
+    float rawCloudColor[4];
 };
 
 //==============================================================
@@ -1256,6 +1278,220 @@ void VKRenderer::DestroySkinnedSlots()
 
     mSkinnedSlots.clear();
     mSkinnedSlotCursor.clear();
+}
+
+//==============================================================
+// Sky UBO (set=1 binding=0)
+//==============================================================
+bool VKRenderer::CreateSkyUBO()
+{
+    if (!mDevice || !mPhysicalDevice)
+    {
+        return false;
+    }
+
+    if (!mSkyUBO.empty())
+    {
+        return true;
+    }
+
+    mSkyUBOSize = sizeof(VKSkyUBO);
+
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
+    {
+        return false;
+    }
+
+    mSkyUBO.resize(frameCount, VK_NULL_HANDLE);
+    mSkyUBOMem.resize(frameCount, VK_NULL_HANDLE);
+
+    for (size_t i = 0; i < frameCount; ++i)
+    {
+        if (!CreateBufferHostVisible(
+                (VkDeviceSize)mSkyUBOSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                mSkyUBO[i],
+                mSkyUBOMem[i]))
+        {
+            std::cerr << "[VKRenderer] CreateSkyUBO failed frame " << i << "\n";
+            DestroySkyUBO();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void VKRenderer::DestroySkyUBO()
+{
+    if (!mDevice)
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < mSkyUBO.size(); ++i)
+    {
+        if (mSkyUBO[i] != VK_NULL_HANDLE)
+        {
+            vkDestroyBuffer(mDevice, mSkyUBO[i], nullptr);
+            mSkyUBO[i] = VK_NULL_HANDLE;
+        }
+        if (mSkyUBOMem[i] != VK_NULL_HANDLE)
+        {
+            vkFreeMemory(mDevice, mSkyUBOMem[i], nullptr);
+            mSkyUBOMem[i] = VK_NULL_HANDLE;
+        }
+    }
+
+    mSkyUBO.clear();
+    mSkyUBOMem.clear();
+    mSkyUBOSize = 0;
+}
+
+//==============================================================
+// Sky UBO update
+//==============================================================
+void VKRenderer::UpdateSkyUBO(const SkyDomePayload& sky)
+{
+    if (mSkyUBOMem.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mSkyUBOMem.size())
+    {
+        return;
+    }
+
+    VKSkyUBO ubo{};
+
+    // ---------------------------------------------------------
+    // world
+    // ---------------------------------------------------------
+    StoreMat4(ubo.world, sky.world);
+
+    // ---------------------------------------------------------
+    // time params
+    //   x = uTime
+    //   y = uTimeOfDay
+    //   z = uWeatherType
+    //   w = reserved
+    // ---------------------------------------------------------
+    ubo.timeParams[0] = sky.skyTime;
+    ubo.timeParams[1] = sky.skyTimeOfDay;
+    ubo.timeParams[2] = static_cast<float>(sky.skyWeatherType);
+    ubo.timeParams[3] = 0.0f;
+
+    // ---------------------------------------------------------
+    // sun dir
+    // ---------------------------------------------------------
+    ubo.sunDir[0] = sky.skySunDir.x;
+    ubo.sunDir[1] = sky.skySunDir.y;
+    ubo.sunDir[2] = sky.skySunDir.z;
+    ubo.sunDir[3] = 0.0f;
+
+    // ---------------------------------------------------------
+    // moon dir
+    // ---------------------------------------------------------
+    ubo.moonDir[0] = sky.skyMoonDir.x;
+    ubo.moonDir[1] = sky.skyMoonDir.y;
+    ubo.moonDir[2] = sky.skyMoonDir.z;
+    ubo.moonDir[3] = 0.0f;
+
+    // ---------------------------------------------------------
+    // raw sky color
+    // ---------------------------------------------------------
+    ubo.rawSkyColor[0] = sky.skyRawSkyColor.x;
+    ubo.rawSkyColor[1] = sky.skyRawSkyColor.y;
+    ubo.rawSkyColor[2] = sky.skyRawSkyColor.z;
+    ubo.rawSkyColor[3] = 0.0f;
+
+    // ---------------------------------------------------------
+    // raw cloud color
+    // ---------------------------------------------------------
+    ubo.rawCloudColor[0] = sky.skyRawCloudColor.x;
+    ubo.rawCloudColor[1] = sky.skyRawCloudColor.y;
+    ubo.rawCloudColor[2] = sky.skyRawCloudColor.z;
+    ubo.rawCloudColor[3] = 0.0f;
+
+    UploadToBuffer(
+        mSkyUBOMem[mFrameIndex],
+        &ubo,
+        static_cast<VkDeviceSize>(mSkyUBOSize));
+}
+
+//==============================================================
+// Sky Descriptor Set (set=1 binding=0 UBO)
+//==============================================================
+bool VKRenderer::CreateSkyDescriptorSet()
+{
+    if (!mDevice || !mDescPool)
+    {
+        return false;
+    }
+
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
+    {
+        return false;
+    }
+
+    if (mSkyUBO.size() != frameCount)
+    {
+        std::cerr << "[VK] CreateSkyDescriptorSet: SkyUBO not ready.\n";
+        return false;
+    }
+
+    for (auto& ds : mSkySet)
+    {
+        if (ds != VK_NULL_HANDLE)
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+            ds = VK_NULL_HANDLE;
+        }
+    }
+    mSkySet.clear();
+
+    mSkySet.resize(frameCount, VK_NULL_HANDLE);
+
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "SkyDome", 1);
+    if (set1 == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VK] CreateSkyDescriptorSet: SkyDome set1 null\n";
+        return false;
+    }
+
+    for (size_t i = 0; i < frameCount; ++i)
+    {
+        VkDescriptorSetAllocateInfo ai{};
+        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool     = mDescPool;
+        ai.descriptorSetCount = 1;
+        ai.pSetLayouts        = &set1;
+
+        if (vkAllocateDescriptorSets(mDevice, &ai, &mSkySet[i]) != VK_SUCCESS)
+        {
+            std::cerr << "[VK] SkySet alloc failed frame=" << i << "\n";
+            return false;
+        }
+
+        VkDescriptorBufferInfo bi{};
+        bi.buffer = mSkyUBO[i];
+        bi.offset = 0;
+        bi.range  = mSkyUBOSize;
+
+        VkWriteDescriptorSet w{};
+        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet          = mSkySet[i];
+        w.dstBinding      = 0;
+        w.descriptorCount = 1;
+        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo     = &bi;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+    }
+
+    return true;
 }
 
 } // namespace toy

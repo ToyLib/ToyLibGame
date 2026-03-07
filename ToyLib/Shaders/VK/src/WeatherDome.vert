@@ -1,22 +1,11 @@
 #version 450
 
-//======================================================================
-// WeatherDome.vert (Vulkan)
-//  - ToyLib row-vector 規約を維持
-//  - gl_Position = pos * world * viewProj
-//======================================================================
-
-//--------------------------------------------------------------
-// Vertex input
-//--------------------------------------------------------------
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aTexCoord;
 
-//--------------------------------------------------------------
-// Scene UBO (set=0)
-//  - 既存 VKSceneUBO とレイアウトを合わせる
-//--------------------------------------------------------------
+layout(location = 0) out vec3 vWorldDir;
+
 struct VKPointLight
 {
     vec4 position_radius;
@@ -44,34 +33,23 @@ layout(std140, set = 0, binding = 0) uniform SceneUBO
     vec4 shadowParams;
 } uScene;
 
-//--------------------------------------------------------------
-// Sky params UBO (set=1)
-//--------------------------------------------------------------
-layout(std140, set = 1, binding = 0) uniform SkyDomeParamsUBO
+layout(std140, set = 1, binding = 0) uniform SkyUBO
 {
-    mat4 world;
-
-    vec4 timeParams;
-    // x = uTime
-    // y = uTimeOfDay
-    // z = uWeatherType (floatで受けて int 化)
-    // w = reserved
-
+    vec4 time;
+    vec4 weather;
     vec4 sunDir;
     vec4 moonDir;
     vec4 rawSkyColor;
     vec4 rawCloudColor;
 } uSky;
 
-//--------------------------------------------------------------
-// FS outputs
-//--------------------------------------------------------------
-layout(location = 0) out vec3 vWorldDir;
+layout(push_constant) uniform SkyPC
+{
+    mat4 world;
+} pc;
 
 void main()
 {
     vWorldDir = normalize(aPosition);
-
-    vec4 pos = vec4(aPosition, 1.0);
-    gl_Position = pos * uSky.world * uScene.viewProj;
+    gl_Position = uScene.viewProj * pc.world * vec4(aPosition, 1.0);
 }
