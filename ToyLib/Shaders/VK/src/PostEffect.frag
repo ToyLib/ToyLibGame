@@ -74,20 +74,29 @@ float paperNoise(vec2 uv, float t)
     return 0.6 * n1 + 0.4 * n2;
 }
 
+vec2 ApplyFlip(vec2 inUV, int flipY)
+{
+    vec2 outUV = inUV;
+    if (flipY != 0)
+    {
+        outUV.y = 1.0 - outUV.y;
+    }
+    return outUV;
+}
+
 void main()
 {
-    vec2 uv = vTex;
+    // fxUV : 画面効果計算用（上下反転しない）
+    // uv   : テクスチャ参照用（必要なら上下反転する）
+    vec2 fxUV = vTex;
 
-    int   uPostType   = int(pc.params0.x + 0.5);
-    float uIntensity  = pc.params0.y;
-    float uTime       = pc.params0.z;
-    int   uFlipY      = int(pc.params0.w + 0.5);
+    int   uPostType    = int(pc.params0.x + 0.5);
+    float uIntensity   = pc.params0.y;
+    float uTime        = pc.params0.z;
+    int   uFlipY       = int(pc.params0.w + 0.5);
     int   uUsePaperTex = int(pc.params1.x + 0.5);
 
-    if (uFlipY != 0)
-    {
-        uv.y = 1.0 - uv.y;
-    }
+    vec2 uv = ApplyFlip(fxUV, uFlipY);
 
     // ------------------------------------------------------------
     // None
@@ -119,15 +128,19 @@ void main()
     // ------------------------------------------------------------
     if (uPostType == 2)
     {
-        vec2 warped = barrelDistort(uv, 0.10 * I);
+        // 効果計算は非反転 UV で行う
+        vec2 warpedFX = barrelDistort(fxUV, 0.10 * I);
 
-        if (warped.x < 0.0 || warped.x > 1.0 || warped.y < 0.0 || warped.y > 1.0)
+        if (warpedFX.x < 0.0 || warpedFX.x > 1.0 || warpedFX.y < 0.0 || warpedFX.y > 1.0)
         {
             outColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
         }
 
-        float jitter = (hash12(vec2(floor(warped.y * 240.0), uTime)) - 0.5) * 0.0025 * I;
+        // サンプル用 UV のみ flip を適用
+        vec2 warped = ApplyFlip(warpedFX, uFlipY);
+
+        float jitter = (hash12(vec2(floor(warpedFX.y * 240.0), uTime)) - 0.5) * 0.0025 * I;
         warped.x += jitter;
 
         float ca = 0.0015 * I;
@@ -136,17 +149,17 @@ void main()
         c.g = texture(uSceneTex, warped).g;
         c.b = texture(uSceneTex, warped + vec2(-ca, 0.0)).b;
 
-        float scan = 0.85 + 0.15 * sin((warped.y * 2.0 - 1.0) * 800.0);
+        float scan = 0.85 + 0.15 * sin((warpedFX.y * 2.0 - 1.0) * 800.0);
         c *= mix(1.0, scan, 0.8 * I);
 
-        float mask = 0.90 + 0.10 * sin(warped.x * 1200.0);
+        float mask = 0.90 + 0.10 * sin(warpedFX.x * 1200.0);
         c *= mix(1.0, mask, 0.6 * I);
 
-        vec2 p = warped * 2.0 - 1.0;
+        vec2 p = warpedFX * 2.0 - 1.0;
         float vig = 1.0 - 0.35 * I * dot(p, p);
         c *= clamp(vig, 0.0, 1.0);
 
-        float n = hash12(warped * vec2(640.0, 360.0) + uTime * 10.0);
+        float n = hash12(warpedFX * vec2(640.0, 360.0) + uTime * 10.0);
         c += (n - 0.5) * 0.06 * I;
 
         c = clamp(c, 0.0, 1.0);
@@ -161,13 +174,17 @@ void main()
     // ------------------------------------------------------------
     if (uPostType == 3)
     {
-        vec2 uv2 = uv;
+        // 効果の意味付けは非反転 UV 基準
+        vec2 uv2FX = fxUV;
 
-        float sky = smoothstep(0.35, 0.85, uv2.y);
+        float sky = smoothstep(0.35, 0.85, uv2FX.y);
         sky = pow(sky, 1.35);
 
         float warpStrength = I * mix(0.25, 1.0, sky);
-        uv2 = dreamyWarp(uv2, uTime, warpStrength);
+        uv2FX = dreamyWarp(uv2FX, uTime, warpStrength);
+
+        // サンプル時だけ flip
+        vec2 uv2 = ApplyFlip(uv2FX, uFlipY);
 
         vec3 c = texture(uSceneTex, uv2).rgb;
 
@@ -178,12 +195,12 @@ void main()
         float fogAmt = (0.10 + 0.40 * sky) * I;
         c = mix(c, fogTint, fogAmt);
 
-        vec2 p = uv2 * 2.0 - 1.0;
+        vec2 p = uv2FX * 2.0 - 1.0;
         float r2 = dot(p, p);
         float vig = 1.0 - (0.10 * I) * r2;
         c *= clamp(vig, 0.0, 1.0);
 
-        float sp = step(0.987, hash12(uv2 * vec2(520.0, 300.0) + uTime * 0.6));
+        float sp = step(0.987, hash12(uv2FX * vec2(520.0, 300.0) + uTime * 0.6));
         c += sp * vec3(1.0, 0.95, 0.85) * (0.08 * I * sky);
 
         outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -209,13 +226,13 @@ void main()
         }
         else
         {
-            p = paperNoise(uv, uTime);
+            p = paperNoise(fxUV, uTime);
         }
 
         float grainStrength = 0.5 * I;
         c *= mix(1.0, p + 0.15, grainStrength);
 
-        float n = hash12(uv * vec2(700.0, 500.0) + uTime * 0.2) - 0.5;
+        float n = hash12(fxUV * vec2(700.0, 500.0) + uTime * 0.2) - 0.5;
         c += n * (0.03 * I);
 
         outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -225,30 +242,3 @@ void main()
     // fallback
     outColor = texture(uSceneTex, uv);
 }
-
-/*
-#version 450
-
-layout(location = 0) in vec2 vTex;
-layout(location = 0) out vec4 outColor;
-
-layout(set = 0, binding = 0) uniform sampler2D uSceneTex;
-layout(set = 0, binding = 1) uniform sampler2D uPaperTex;
-
-layout(push_constant) uniform PostPC
-{
-    vec4 params0;
-    vec4 params1;
-} pc;
-
-void main()
-{
-    vec2 uv = vTex;
-    if (int(pc.params0.w + 0.5) != 0)
-    {
-        uv.y = 1.0 - uv.y;
-    }
-
-    outColor = texture(uSceneTex, uv);
-}
-*/

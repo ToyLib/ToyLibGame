@@ -198,6 +198,7 @@ void VKRenderer::Shutdown()
         vkDeviceWaitIdle(mDevice);
     }
     
+    mPost.paperTex.reset();
     DestroyShadowResources();
     if (mSceneRT)
     {
