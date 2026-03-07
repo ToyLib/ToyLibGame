@@ -45,29 +45,40 @@ void VKTextureGPU::Unload()
 {
     if (!mDevice) return;
 
-    if (mSampler)
+    if (mOwnsImage)
     {
-        vkDestroySampler(mDevice, mSampler, nullptr);
+        if (mSampler)
+        {
+            vkDestroySampler(mDevice, mSampler, nullptr);
+            mSampler = VK_NULL_HANDLE;
+        }
+        if (mView)
+        {
+            vkDestroyImageView(mDevice, mView, nullptr);
+            mView = VK_NULL_HANDLE;
+        }
+        if (mImage)
+        {
+            vkDestroyImage(mDevice, mImage, nullptr);
+            mImage = VK_NULL_HANDLE;
+        }
+        if (mMemory)
+        {
+            vkFreeMemory(mDevice, mMemory, nullptr);
+            mMemory = VK_NULL_HANDLE;
+        }
+    }
+    else
+    {
         mSampler = VK_NULL_HANDLE;
-    }
-    if (mView)
-    {
-        vkDestroyImageView(mDevice, mView, nullptr);
-        mView = VK_NULL_HANDLE;
-    }
-    if (mImage)
-    {
-        vkDestroyImage(mDevice, mImage, nullptr);
-        mImage = VK_NULL_HANDLE;
-    }
-    if (mMemory)
-    {
-        vkFreeMemory(mDevice, mMemory, nullptr);
-        mMemory = VK_NULL_HANDLE;
+        mView    = VK_NULL_HANDLE;
+        mImage   = VK_NULL_HANDLE;
+        mMemory  = VK_NULL_HANDLE;
     }
 
     mWidth = 0;
     mHeight = 0;
+    mOwnsImage = true;
 }
 
 void VKTextureGPU::SetActive(int /*unit*/)
@@ -478,6 +489,35 @@ bool VKTextureGPU::UploadRGBA8(const void* pixels, int width, int height)
 
     vkDestroyBuffer(mDevice, staging, nullptr);
     vkFreeMemory(mDevice, stagingMem, nullptr);
+
+    return true;
+}
+
+bool VKTextureGPU::WrapExternalRenderTarget(VkDevice device,
+                                            VkImage image,
+                                            VkImageView view,
+                                            VkSampler sampler,
+                                            int width,
+                                            int height)
+{
+    Unload();
+
+    if (device == VK_NULL_HANDLE ||
+        image == VK_NULL_HANDLE ||
+        view == VK_NULL_HANDLE ||
+        sampler == VK_NULL_HANDLE ||
+        width <= 0 || height <= 0)
+    {
+        return false;
+    }
+
+    mDevice    = device;
+    mImage     = image;
+    mView      = view;
+    mSampler   = sampler;
+    mWidth     = width;
+    mHeight    = height;
+    mOwnsImage = false;
 
     return true;
 }

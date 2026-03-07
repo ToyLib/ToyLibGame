@@ -38,7 +38,12 @@ public:
     int GetWidth()  const { return mWidth; }
     int GetHeight() const { return mHeight; }
     
-
+    bool WrapExternalRenderTarget(VkDevice device,
+                                  VkImage image,
+                                  VkImageView view,
+                                  VkSampler sampler,
+                                  int width,
+                                  int height);
 private:
     // Context (non-owning)
     VkPhysicalDevice mPhysicalDevice { VK_NULL_HANDLE };
@@ -54,6 +59,9 @@ private:
 
     int mWidth  { 0 };
     int mHeight { 0 };
+    
+    bool mOwnsImage { true };
+
 
 private:
     bool CreateImage(int width, int height, VkFormat format,

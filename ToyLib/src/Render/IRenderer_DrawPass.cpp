@@ -89,10 +89,14 @@ void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int casca
 //==============================================================================
 // Main Draw
 //==============================================================================
-
 void IRenderer::Draw()
 {
     ResetDebugCounter();
+
+    if (!BeginFrame())
+    {
+        return;
+    }
 
     // SceneCapture RTT
     for (const auto& req : mSceneCaptureQueue)
@@ -101,10 +105,6 @@ void IRenderer::Draw()
     }
     mSceneCaptureQueue.clear();
 
-    if (!BeginFrame())
-    {
-        return;
-    }
     BuildFrameQueues();
 
     DrawShadowPass();

@@ -92,6 +92,13 @@ public:
     
     const ITextureGPU* GetGPU() const { return mGPU.get(); }
     ITextureGPU*       GetGPU()       { return mGPU.get(); }
+    
+    bool WrapVKRenderTarget(void* device,
+                            void* image,
+                            void* view,
+                            void* sampler,
+                            int width,
+                            int height);
 
 private:
     // GPU実装（GL/VK差し替え可能）

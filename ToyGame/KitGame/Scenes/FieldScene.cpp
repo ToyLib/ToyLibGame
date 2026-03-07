@@ -141,8 +141,7 @@ void FieldScene::InitField()
     capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
     auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
-    //mirrorComp->SetTexture(capture->GetColorTexture());
-    mirrorComp->SetTexture(GetApp()->GetAssetManager()->GetTexture("youkai_kappa.png"));
+    mirrorComp->SetTexture(capture->GetColorTexture());
     mirrorComp->SetScale(10.0f, 10.0f);
     capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
     mirrorComp->SetFlip(true, true);
@@ -181,7 +180,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::RAIN);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
 }
 
 

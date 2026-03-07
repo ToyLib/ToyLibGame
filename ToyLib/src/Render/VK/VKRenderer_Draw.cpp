@@ -296,10 +296,33 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     if (req.drawWorld)
     {
-        DrawBucket_World(mBuckets.worldOpaque);
-        DrawBucket_World(mBuckets.effectPre);
-        DrawBucket_World(mBuckets.worldTransparent);
-        DrawBucket_World(mBuckets.effectOverlay);
+        const auto& items = mRenderQueue.Items();
+
+        auto drawBucketNoSurface = [&](const std::vector<uint32_t>& bucket)
+        {
+            for (uint32_t idx : bucket)
+            {
+                if (idx >= items.size())
+                {
+                    continue;
+                }
+
+                const RenderItem& it = items[idx];
+
+                // SceneCapture 中は Surface を描かない
+                if (it.type == RenderItemType::Surface)
+                {
+                    continue;
+                }
+
+                DrawItem(it, RenderPass::World, -1);
+            }
+        };
+
+        drawBucketNoSurface(mBuckets.worldOpaque);
+        drawBucketNoSurface(mBuckets.effectPre);
+        drawBucketNoSurface(mBuckets.worldTransparent);
+        drawBucketNoSurface(mBuckets.effectOverlay);
     }
 
     if (req.drawOverlay)

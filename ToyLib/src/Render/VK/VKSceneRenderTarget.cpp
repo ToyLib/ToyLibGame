@@ -4,6 +4,7 @@
 #include "Render/VK/VKSceneRenderTarget.h"
 
 #include "Render/RenderBackendState.h"
+#include "Asset/Material/Texture.h"
 
 #include <iostream>
 #include <vector>
@@ -97,6 +98,13 @@ bool VKSceneRenderTarget::Create(int w, int h)
         return false;
     }
 
+    if (!CreateColorSampler())
+    {
+        std::cerr << "[VKSceneRenderTarget] CreateColorSampler failed.\n";
+        Unload();
+        return false;
+    }
+
     if (!CreateRenderPass())
     {
         std::cerr << "[VKSceneRenderTarget] CreateRenderPass failed.\n";
@@ -111,6 +119,13 @@ bool VKSceneRenderTarget::Create(int w, int h)
         return false;
     }
 
+    if (!CreateWrappedColorTexture())
+    {
+        std::cerr << "[VKSceneRenderTarget] CreateWrappedColorTexture failed.\n";
+        Unload();
+        return false;
+    }
+
     return true;
 }
 
@@ -119,6 +134,9 @@ bool VKSceneRenderTarget::Create(int w, int h)
 //------------------------------------------------------------------------------
 void VKSceneRenderTarget::Unload()
 {
+    // Texture wrapper は RT 自身の image/view/sampler を destroy しない
+    mColorTex.reset();
+
     // NOTE: 呼び出し側は vkDeviceWaitIdle 済みが理想（Renderer::Shutdown/WaitIdle など）
     if (mDevice == VK_NULL_HANDLE)
     {
@@ -138,6 +156,12 @@ void VKSceneRenderTarget::Unload()
     {
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
         mRenderPass = VK_NULL_HANDLE;
+    }
+
+    if (mColorSampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(mDevice, mColorSampler, nullptr);
+        mColorSampler = VK_NULL_HANDLE;
     }
 
     // views
@@ -177,9 +201,6 @@ void VKSceneRenderTarget::Unload()
 
     mW = 0;
     mH = 0;
-
-    // Texture はVK版に移行するまでは触らない
-    mColorTex.reset();
 }
 
 //------------------------------------------------------------------------------
@@ -231,6 +252,65 @@ bool VKSceneRenderTarget::CreateImages()
 }
 
 //------------------------------------------------------------------------------
+// CreateColorSampler
+//------------------------------------------------------------------------------
+bool VKSceneRenderTarget::CreateColorSampler()
+{
+    VkSamplerCreateInfo ci{};
+    ci.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    ci.magFilter    = VK_FILTER_LINEAR;
+    ci.minFilter    = VK_FILTER_LINEAR;
+    ci.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    ci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    ci.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    ci.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    ci.minLod       = 0.0f;
+    ci.maxLod       = 1.0f;
+    ci.mipLodBias   = 0.0f;
+    ci.anisotropyEnable = VK_FALSE;
+    ci.maxAnisotropy    = 1.0f;
+    ci.compareEnable    = VK_FALSE;
+    ci.compareOp        = VK_COMPARE_OP_ALWAYS;
+    ci.borderColor      = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    ci.unnormalizedCoordinates = VK_FALSE;
+
+    const VkResult vr = vkCreateSampler(mDevice, &ci, nullptr, &mColorSampler);
+    if (vr != VK_SUCCESS || mColorSampler == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKSceneRenderTarget] vkCreateSampler failed: " << vr << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+//------------------------------------------------------------------------------
+// CreateWrappedColorTexture
+//------------------------------------------------------------------------------
+bool VKSceneRenderTarget::CreateWrappedColorTexture()
+{
+    mColorTex = std::make_shared<Texture>();
+    if (!mColorTex)
+    {
+        return false;
+    }
+
+    if (!mColorTex->WrapVKRenderTarget(
+            (void*)mDevice,
+            (void*)mColorImage,
+            (void*)mColorView,
+            (void*)mColorSampler,
+            mW,
+            mH))
+    {
+        mColorTex.reset();
+        return false;
+    }
+
+    return true;
+}
+
+//------------------------------------------------------------------------------
 // CreateRenderPass
 //------------------------------------------------------------------------------
 bool VKSceneRenderTarget::CreateRenderPass()
@@ -244,7 +324,7 @@ bool VKSceneRenderTarget::CreateRenderPass()
     color.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     color.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    // ★ポストでサンプルするので
+    // ★ポスト/Surfaceでサンプルするので
     color.finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // Depth attachment
@@ -272,7 +352,7 @@ bool VKSceneRenderTarget::CreateRenderPass()
     subpass.pColorAttachments       = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
-    // Dependencies (basic)
+    // Dependencies
     VkSubpassDependency deps[2]{};
 
     // External -> subpass

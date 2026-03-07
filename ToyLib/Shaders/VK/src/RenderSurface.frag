@@ -78,6 +78,7 @@ void main()
     float uWaveSpeed        = pc.params2.x;
     float uSwayStrength     = pc.params2.y;
     float uSparkleStrength  = pc.params2.z;
+    
 
     // ============================================================
     // 0) Plain

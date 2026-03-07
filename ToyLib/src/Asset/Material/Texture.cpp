@@ -363,6 +363,33 @@ bool Texture::CreateFromPixels(const void* pixels, int width, int height, bool h
     return ok;
 }
 
+bool Texture::WrapVKRenderTarget(void* device,
+                                 void* image,
+                                 void* view,
+                                 void* sampler,
+                                 int width,
+                                 int height)
+{
+    Unload();
+
+    auto gpu = std::make_unique<VKTextureGPU>();
+    if (!gpu->WrapExternalRenderTarget(
+            (VkDevice)device,
+            (VkImage)image,
+            (VkImageView)view,
+            (VkSampler)sampler,
+            width,
+            height))
+    {
+        return false;
+    }
+
+    mWidth  = width;
+    mHeight = height;
+    mGPU = std::move(gpu);
+    return true;
+}
+
 //============================================================
 // SetActive
 //============================================================

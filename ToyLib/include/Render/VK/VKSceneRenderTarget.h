@@ -39,6 +39,7 @@ public:
 
     VkImageView GetColorView() const { return mColorView; }
     VkImageView GetDepthView() const { return mDepthView; }
+    VkSampler   GetColorSampler() const { return mColorSampler; }
 
     VkRenderPass  GetRenderPass() const { return mRenderPass; }
     VkFramebuffer GetFramebuffer() const { return mFramebuffer; }
@@ -47,6 +48,9 @@ private:
     bool CreateImages();
     bool CreateRenderPass();
     bool CreateFramebuffer();
+
+    bool CreateColorSampler();
+    bool CreateWrappedColorTexture();
 
     bool CreateImage2D(
         int w,
@@ -68,13 +72,14 @@ private:
     VkDevice         mDevice         = VK_NULL_HANDLE;
 
     // formats
-    VkFormat mColorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    VkFormat mColorFormat = VK_FORMAT_B8G8R8A8_UNORM;
     VkFormat mDepthFormat = VK_FORMAT_UNDEFINED;
 
     // Color
-    VkImage        mColorImage = VK_NULL_HANDLE;
-    VkDeviceMemory mColorMem   = VK_NULL_HANDLE;
-    VkImageView    mColorView  = VK_NULL_HANDLE;
+    VkImage        mColorImage   = VK_NULL_HANDLE;
+    VkDeviceMemory mColorMem     = VK_NULL_HANDLE;
+    VkImageView    mColorView    = VK_NULL_HANDLE;
+    VkSampler      mColorSampler = VK_NULL_HANDLE;
 
     // Depth
     VkImage        mDepthImage = VK_NULL_HANDLE;
