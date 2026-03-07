@@ -122,6 +122,14 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
+    // Fade
+    {
+        VKPipelineDesc fade = toy::VKPipelinePresets::MakeFade(base);
+        if (!mPipelines.CreatePipeline("Fade", mDevice, mRenderPass, mSwapchainExtent, fade))
+        {
+            return false;
+        }
+    }
 
     // SkinnedMesh + SkinnedMesh_CW
     {

@@ -72,6 +72,11 @@ struct VKSkyPC
     float world[16];
 };
 
+struct VKFadePC
+{
+    float colorAlpha[4];
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -317,6 +322,66 @@ void VKRenderer::DrawOverlayScreenPass()
 
 void VKRenderer::DrawFadePass()
 {
+    if (!mEnableFade)
+    {
+        return;
+    }
+
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+
+    BeginSwapchainRenderPassIfNeeded();
+    if (!mIsInRenderPass)
+    {
+        return;
+    }
+
+    if (!mFullScreenQuad)
+    {
+        return;
+    }
+
+    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    GeometryHandle gh{};
+    gh.ptr = mFullScreenQuad.get();
+
+    if (!BindVertexArrayVK(cmd, gh))
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get("Fade");
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    pipe->Bind(cmd);
+
+    VKFadePC pc{};
+    pc.colorAlpha[0] = mFadeColor.x;
+    pc.colorAlpha[1] = mFadeColor.y;
+    pc.colorAlpha[2] = mFadeColor.z;
+    pc.colorAlpha[3] = mFadeAlpha;
+
+    vkCmdPushConstants(
+        cmd,
+        pipe->GetPipelineLayout(),
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(VKFadePC),
+        &pc);
+
+    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+    AddDrawCall();
 }
 
 void VKRenderer::DrawPostEffectPass()

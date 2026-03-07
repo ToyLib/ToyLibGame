@@ -392,6 +392,38 @@ VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base)
     return d;
 }
 
+static void AddPC_FadeColorAlpha(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 16; // vec4
+    d.pushConstants.push_back(pc);
+}
+
+VKPipelineDesc MakeFade(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "Fade.vert.spv";
+    d.fsPath     = base + "Fade.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    d.depthTest  = false;
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
+
+
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+    d.colorAttachmentCount = 1;
+
+    AddPC_FadeColorAlpha(d);
+
+    return d;
+}
+
 } // namespace VKPipelinePresets
 
 } // namespace toy
