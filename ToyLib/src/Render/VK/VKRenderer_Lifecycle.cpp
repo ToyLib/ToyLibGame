@@ -118,7 +118,8 @@ bool VKRenderer::Initialize(const Application* app)
         1.0f,
         2000.0f
     );
-
+    
+    
     //==========================================================
     // Descriptors
     //  - set=0 : Scene UBO (World/UI)
@@ -161,6 +162,11 @@ bool VKRenderer::Initialize(const Application* app)
         return false;
     }
     if (!CreateOverlayDescriptorSet())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreatePostEffectDescriptorSets())
     {
         Shutdown();
         return false;

@@ -512,9 +512,19 @@ private:
     void DrawToRenderTarget(const SceneCaptureRequest& req) override;
 
 private:
+private:
     //==========================================================
     // PostEffect
+    //  - descriptor は per-frame 固定
     //==========================================================
+    std::vector<VkDescriptorSet> mPostEffectSets;
+    VkDescriptorSetLayout        mPostEffectSetLayout { VK_NULL_HANDLE };
+
+    bool CreatePostEffectDescriptorSets();
+    void UpdatePostEffectDescriptorSet(uint32_t frameIndex,
+                                       const Texture* sceneTex,
+                                       const Texture* paperTex);
+    
     bool mRenderToSceneRTThisFrame { false };
     
     struct PostEffectSetKey
@@ -545,10 +555,6 @@ private:
         }
     };
 
-    std::unordered_map<PostEffectSetKey, VkDescriptorSet, PostEffectSetKeyHash> mPostEffectSetCache;
-
-    VkDescriptorSet GetOrCreatePostEffectSet(const Texture* sceneTex, const Texture* paperTex);
-    void ClearPostEffectSetCache();
     
 };
 

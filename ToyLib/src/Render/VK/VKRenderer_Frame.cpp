@@ -97,8 +97,6 @@ bool VKRenderer::BeginFrame()
     // renderpassはここでは開始しない
     mIsInRenderPass = false;
     
-    // Post Effect
-    ClearPostEffectSetCache();
 
     mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
 
@@ -289,9 +287,14 @@ bool VKRenderer::RecreateSwapchain()
     if (!BuildDefaultPipelines())
         return false;
 
-    // shadow resources は extent に依存（CreateShadowResources の中で必要な物を再生成する前提）
-    // ※DestroyShadowResources() は CleanupSwapchain では呼んでいないので、
-    //   ここで「再生成が必要」なら先に破棄して作り直す。
+    // ★ PostEffect の descriptor は pipeline layout に依存するので作り直す
+    if (!CreatePostEffectDescriptorSets())
+    {
+        std::cerr << "[VKRenderer] RecreateSwapchain: CreatePostEffectDescriptorSets failed\n";
+        return false;
+    }
+
+    // shadow resources は extent に依存
     DestroyShadowResources();
     if (!CreateShadowResources())
         return false;

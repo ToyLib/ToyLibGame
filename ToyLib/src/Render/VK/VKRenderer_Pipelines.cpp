@@ -45,6 +45,8 @@ bool VKRenderer::BuildDefaultPipelines()
     // pipeline を作り直したら setLayout が変わる可能性がある
     ClearBaseMapSetCache();
 
+    
+
     //==========================================================
     // 1) Swapchain(RenderPass/Extent) 用パイプライン
     //==========================================================
@@ -156,13 +158,29 @@ bool VKRenderer::BuildDefaultPipelines()
     
     // PostEffect
     {
+        mPostEffectSets.clear();
+        mPostEffectSetLayout = VK_NULL_HANDLE;
+        
         VKPipelineDesc post = toy::VKPipelinePresets::MakePostEffect(base);
         if (!mPipelines.CreatePipeline("PostEffect", mDevice, mRenderPass, mSwapchainExtent, post))
         {
             return false;
         }
-    }
 
+        VKPipeline* pipe = mPipelines.Get("PostEffect");
+        if (!pipe || !pipe->IsValid())
+        {
+            return false;
+        }
+
+        mPostEffectSetLayout = pipe->GetSetLayout(0);
+        if (mPostEffectSetLayout == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VKRenderer] PostEffect set0 layout null\n";
+            return false;
+        }
+    }
+    
     // SkinnedMesh + SkinnedMesh_CW
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);

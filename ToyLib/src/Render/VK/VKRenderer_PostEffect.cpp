@@ -2,56 +2,27 @@
 // Render/VK/VKRenderer_PostEffect.cpp
 //
 // PostEffect
-//  - fullscreen quad に scene texture をかける
-//  - optional で paper texture を使う
-//  - descriptor set は PostEffect 専用に扱う
+//  - SceneRT の color texture を fullscreen quad に描く
+//  - descriptor set は per-frame 固定
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
 
 #include "Render/VK/Pipeline/VKPipeline.h"
-#include "Render/VK/VKSceneRenderTarget.h"
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/VK/VKVertexArrayBackend.h"
 #include "Asset/Material/Texture.h"
-#include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/VKTextureGPU.h"
+#include "Render/VK/VKSceneRenderTarget.h"
 
 #include <SDL3/SDL.h>
 #include <iostream>
-#include <cstring>
 
 namespace toy
 {
 
-static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
-{
-    if (!cmd) return false;
-
-    const VertexArray* va = gh.ptr;
-    if (!va) return false;
-
-    auto* backend = (VKVertexArrayBackend*)va->GetBackend();
-    if (!backend) return false;
-
-    VkBuffer vb = (VkBuffer)backend->GetVKVertexBuffer();
-    if (vb == VK_NULL_HANDLE) return false;
-
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &offset);
-
-    VkBuffer ib = (VkBuffer)backend->GetVKIndexBuffer();
-    if (ib != VK_NULL_HANDLE)
-    {
-        vkCmdBindIndexBuffer(cmd, ib, 0, (VkIndexType)backend->GetVKIndexType());
-    }
-
-    return true;
-}
-
-
 //--------------------------------------------------------------
-// PostEffect PushConstants
+// PushConstants
 //--------------------------------------------------------------
 struct VKPostEffectPC
 {
@@ -60,97 +31,173 @@ struct VKPostEffectPC
 };
 
 //--------------------------------------------------------------
-// GetOrCreatePostEffectSet
+// VertexArray bind helper
 //--------------------------------------------------------------
-VkDescriptorSet VKRenderer::GetOrCreatePostEffectSet(const Texture* sceneTex,
-                                                     const Texture* paperTex)
+static bool BindVertexArrayVK_Post(VkCommandBuffer cmd, const GeometryHandle& gh)
 {
-
-    if (!mDevice || !sceneTex)
+    if (!cmd)
     {
-        return VK_NULL_HANDLE;
+        return false;
     }
 
-    VKPipeline* pipe = mPipelines.Get("PostEffect");
-    if (!pipe || !pipe->IsValid())
+    const VertexArray* va = gh.ptr;
+    if (!va)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: PostEffect pipeline missing\n";
-        return VK_NULL_HANDLE;
+        return false;
     }
 
-    VkDescriptorSetLayout layout = pipe->GetSetLayout(0);
-    if (layout == VK_NULL_HANDLE)
+    auto* backend = static_cast<const VKVertexArrayBackend*>(va->GetBackend());
+    if (!backend)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: set0 layout null\n";
-        return VK_NULL_HANDLE;
+        return false;
     }
 
-    PostEffectSetKey key{};
-    key.frame    = mFrameIndex;
-    key.sceneTex = sceneTex;
-    key.paperTex = paperTex;
-
-    auto it = mPostEffectSetCache.find(key);
-    if (it != mPostEffectSetCache.end())
+    VkBuffer vb = static_cast<VkBuffer>(backend->GetVKVertexBuffer());
+    if (vb == VK_NULL_HANDLE)
     {
-        return it->second;
+        return false;
     }
 
-    auto* sceneGPU = dynamic_cast<const VKTextureGPU*>(sceneTex->GetGPU());
-    if (!sceneGPU)
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &offset);
+
+    VkBuffer ib = static_cast<VkBuffer>(backend->GetVKIndexBuffer());
+    if (ib != VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: sceneTex is not VKTextureGPU\n";
-        return VK_NULL_HANDLE;
-    }
-    
-    const Texture* paperTexResolved = paperTex ? paperTex : sceneTex;
-    auto* paperGPU = dynamic_cast<const VKTextureGPU*>(paperTexResolved->GetGPU());
-    if (!paperGPU)
-    {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: paperTex is not VKTextureGPU\n";
-        return VK_NULL_HANDLE;
+        vkCmdBindIndexBuffer(cmd, ib, 0, static_cast<VkIndexType>(backend->GetVKIndexType()));
     }
 
-    if (sceneGPU->GetSampler() == VK_NULL_HANDLE || sceneGPU->GetImageView() == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: sceneTex sampler/view null\n";
-        return VK_NULL_HANDLE;
-    }
+    return true;
+}
 
-    if (paperGPU->GetSampler() == VK_NULL_HANDLE || paperGPU->GetImageView() == VK_NULL_HANDLE)
+//--------------------------------------------------------------
+// CreatePostEffectDescriptorSets
+//--------------------------------------------------------------
+bool VKRenderer::CreatePostEffectDescriptorSets()
+{
+    mPostEffectSets.clear();
+
+    if (mDevice == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: paperTex sampler/view null\n";
-        return VK_NULL_HANDLE;
+        std::cerr << "[VKRenderer] CreatePostEffectDescriptorSets: device null\n";
+        return false;
     }
 
     if (mDescPool == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: mDescPool null\n";
-        return VK_NULL_HANDLE;
+        std::cerr << "[VKRenderer] CreatePostEffectDescriptorSets: desc pool null\n";
+        return false;
     }
+
+    if (mPostEffectSetLayout == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreatePostEffectDescriptorSets: set layout null\n";
+        return false;
+    }
+
+    if (mFrames.empty())
+    {
+        std::cerr << "[VKRenderer] CreatePostEffectDescriptorSets: no frames\n";
+        return false;
+    }
+
+    const uint32_t frameCount = static_cast<uint32_t>(mFrames.size());
+    mPostEffectSets.resize(frameCount, VK_NULL_HANDLE);
+
+    std::vector<VkDescriptorSetLayout> layouts(frameCount, mPostEffectSetLayout);
 
     VkDescriptorSetAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     ai.descriptorPool     = mDescPool;
-    ai.descriptorSetCount = 1;
-    ai.pSetLayouts        = &layout;
+    ai.descriptorSetCount = frameCount;
+    ai.pSetLayouts        = layouts.data();
 
-    VkDescriptorSet ds = VK_NULL_HANDLE;
-    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &ds);
-    if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
+    VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, mPostEffectSets.data());
+    if (vr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] GetOrCreatePostEffectSet: alloc failed vr=" << vr << "\n";
-        return VK_NULL_HANDLE;
+        std::cerr << "[VKRenderer] CreatePostEffectDescriptorSets failed: " << vr << "\n";
+        mPostEffectSets.clear();
+        return false;
+    }
+    
+    return true;
+}
+
+//--------------------------------------------------------------
+// UpdatePostEffectDescriptorSet
+//--------------------------------------------------------------
+void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex,
+                                               const Texture* sceneTex,
+                                               const Texture* paperTex)
+{
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        return;
     }
 
+    if (frameIndex >= mPostEffectSets.size())
+    {
+        return;
+    }
+
+    if (!sceneTex)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: sceneTex null\n";
+        return;
+    }
+
+    
+    const Texture* paperTexResolved = paperTex ? paperTex : sceneTex;
+
+    const auto* sceneGPU = dynamic_cast<const VKTextureGPU*>(sceneTex->GetGPU());
+    const auto* paperGPU = dynamic_cast<const VKTextureGPU*>(paperTexResolved->GetGPU());
+
+    if (!sceneGPU)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: sceneGPU null\n";
+        return;
+    }
+
+    if (!paperGPU)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: paperGPU null\n";
+        return;
+    }
+
+    const VkSampler   sceneSampler = sceneGPU->GetSampler();
+    const VkImageView sceneView    = sceneGPU->GetImageView();
+
+    const VkSampler   paperSampler = paperGPU->GetSampler();
+    const VkImageView paperView    = paperGPU->GetImageView();
+
+    if (sceneSampler == VK_NULL_HANDLE || sceneView == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: scene sampler/view null\n";
+        return;
+    }
+
+    if (paperSampler == VK_NULL_HANDLE || paperView == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: paper sampler/view null\n";
+        return;
+    }
+
+    const VkDescriptorSet ds = mPostEffectSets[frameIndex];
+    if (ds == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: descriptor set null\n";
+        return;
+    }
+
+    // sampler2D 用なので SHADER_READ_ONLY_OPTIMAL
     VkDescriptorImageInfo sceneII{};
-    sceneII.sampler     = sceneGPU->GetSampler();
-    sceneII.imageView   = sceneGPU->GetImageView();
+    sceneII.sampler     = sceneSampler;
+    sceneII.imageView   = sceneView;
     sceneII.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo paperII{};
-    paperII.sampler     = paperGPU->GetSampler();
-    paperII.imageView   = paperGPU->GetImageView();
+    paperII.sampler     = paperSampler;
+    paperII.imageView   = paperView;
     paperII.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet writes[2]{};
@@ -158,30 +205,20 @@ VkDescriptorSet VKRenderer::GetOrCreatePostEffectSet(const Texture* sceneTex,
     writes[0].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[0].dstSet          = ds;
     writes[0].dstBinding      = 0;
-    writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[0].dstArrayElement = 0;
     writes[0].descriptorCount = 1;
+    writes[0].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].pImageInfo      = &sceneII;
 
     writes[1].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[1].dstSet          = ds;
     writes[1].dstBinding      = 1;
-    writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    writes[1].dstArrayElement = 0;
     writes[1].descriptorCount = 1;
+    writes[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[1].pImageInfo      = &paperII;
 
-    
     vkUpdateDescriptorSets(mDevice, 2, writes, 0, nullptr);
-
-    mPostEffectSetCache.emplace(key, ds);
-    return ds;
-}
-
-//--------------------------------------------------------------
-// ClearPostEffectSetCache
-//--------------------------------------------------------------
-void VKRenderer::ClearPostEffectSetCache()
-{
-    mPostEffectSetCache.clear();
 }
 
 //--------------------------------------------------------------
@@ -210,6 +247,17 @@ void VKRenderer::DrawPostEffectPass()
         return;
     }
 
+    if (mFrameIndex >= mPostEffectSets.size())
+    {
+        return;
+    }
+
+    if (mFrameIndex >= mPostEffectSets.size())
+    {
+        std::cerr << "[PostEffect] invalid frame index\n";
+        return;
+    }
+    
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
     if (cmd == VK_NULL_HANDLE)
     {
@@ -223,7 +271,7 @@ void VKRenderer::DrawPostEffectPass()
         mIsInRenderPass = false;
     }
 
-    // 以降は swapchain 側へ描く
+    // 以降は swapchain に描く
     mRenderToSceneRTThisFrame = false;
 
     BeginSwapchainRenderPassIfNeeded();
@@ -235,7 +283,7 @@ void VKRenderer::DrawPostEffectPass()
     GeometryHandle gh{};
     gh.ptr = mFullScreenQuad.get();
 
-    if (!BindVertexArrayVK(cmd, gh))
+    if (!BindVertexArrayVK_Post(cmd, gh))
     {
         return;
     }
@@ -247,8 +295,9 @@ void VKRenderer::DrawPostEffectPass()
         return;
     }
 
-    VkDescriptorSet postSet =
-        GetOrCreatePostEffectSet(sceneTex.get(), mPost.paperTex.get());
+    UpdatePostEffectDescriptorSet(mFrameIndex, sceneTex.get(), mPost.paperTex.get());
+
+    VkDescriptorSet postSet = mPostEffectSets[mFrameIndex];
     if (postSet == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] DrawPostEffectPass: postSet null\n";
@@ -268,7 +317,7 @@ void VKRenderer::DrawPostEffectPass()
     pc.params0[0] = static_cast<float>(mPost.type);
     pc.params0[1] = mPost.intensity;
     pc.params0[2] = static_cast<float>(SDL_GetTicks()) * 0.001f;
-    pc.params0[3] = 1.0f; // flipY
+    pc.params0[3] = 1.0f; // flipY (VK SceneRT -> fullscreen sample)
 
     pc.params1[0] = (mPost.paperTex != nullptr) ? 1.0f : 0.0f;
     pc.params1[1] = 0.0f;
