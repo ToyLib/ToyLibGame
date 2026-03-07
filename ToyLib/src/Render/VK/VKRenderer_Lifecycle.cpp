@@ -199,7 +199,13 @@ void VKRenderer::Shutdown()
     }
     
     DestroyShadowResources();
-
+    if (mSceneRT)
+    {
+        mSceneRT->Unload();
+        mSceneRT.reset();
+    }
+    
+    
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================

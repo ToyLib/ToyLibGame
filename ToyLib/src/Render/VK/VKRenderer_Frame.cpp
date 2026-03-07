@@ -96,6 +96,40 @@ bool VKRenderer::BeginFrame()
 
     // renderpassはここでは開始しない
     mIsInRenderPass = false;
+    
+    // Post Effect
+    ClearPostEffectSetCache();
+
+    mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
+
+    if (mRenderToSceneRTThisFrame)
+    {
+        if (!mSceneRT)
+        {
+            mSceneRT = CreateRenderTarget();
+        }
+
+        if (!mSceneRT)
+        {
+            std::cerr << "[VKRenderer] BeginFrame: mSceneRT create failed\n";
+            return false;
+        }
+
+        if (mSceneRT->GetWidth() != (int)mScreenWidth ||
+            mSceneRT->GetHeight() != (int)mScreenHeight)
+        {
+            if (!mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight))
+            {
+                std::cerr << "[VKRenderer] BeginFrame: mSceneRT->Create failed\n";
+                return false;
+            }
+        }
+    }
+    else
+    {
+        mRenderToSceneRTThisFrame = false;
+    }
+    
 
     return true;
 }

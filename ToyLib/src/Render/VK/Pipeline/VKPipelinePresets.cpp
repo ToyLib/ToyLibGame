@@ -455,6 +455,56 @@ VKPipelineDesc MakeRenderSurface(const std::string& base)
     return d;
 }
 
+static void AddSet0_PostEffectTextures(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set0{};
+    set0.set = 0;
+
+    set0.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+
+    set0.bindings.push_back({
+        .binding = 1,
+        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+
+    d.setLayouts.push_back(set0);
+}
+static void AddPC_PostEffect(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 32;
+    d.pushConstants.push_back(pc);
+}
+VKPipelineDesc MakePostEffect(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "PostEffect.vert.spv";
+    d.fsPath     = base + "PostEffect.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    d.depthTest  = false;
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.colorAttachmentCount = 1;
+
+    AddSet0_PostEffectTextures(d);
+    AddPC_PostEffect(d);
+
+    return d;
+}
+
 } // namespace VKPipelinePresets
 
 } // namespace toy

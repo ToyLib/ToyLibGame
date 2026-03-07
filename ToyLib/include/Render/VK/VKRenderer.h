@@ -73,7 +73,7 @@ public:
     void DrawPostEffectPass() override;
     void DrawUIPass() override;
     
-   
+    
     // “描画1単位”
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
     
@@ -491,22 +491,65 @@ private:
     void ClearEmptySetCache();
     
 private:
+    //==========================================================
     // SceneCapture
+    //==========================================================
     bool mIsDrawingCapture { false };
-
+    
     static constexpr uint32_t kMaxSceneCaptureSlots = 8;
-
+    
     std::vector<std::vector<VkBuffer>>        mSceneUBO_Capture;     // [frame][slot]
     std::vector<std::vector<VkDeviceMemory>>  mSceneUBOMem_Capture;  // [frame][slot]
     std::vector<std::vector<VkDescriptorSet>> mSceneSet_Capture;     // [frame][slot]
-
+    
     uint32_t mCaptureSlotCursor { 0 };
     int      mActiveCaptureSlot { -1 };
-
+    
     // SceneCapture
     bool CreateSceneUBO_Capture();
     void DestroySceneUBO_Capture();
     void UpdateSceneUBO_Capture(const Matrix4& viewProj);
-    void DrawToRenderTarget(const SceneCaptureRequest& req) override;};
+    void DrawToRenderTarget(const SceneCaptureRequest& req) override;
+
+private:
+    //==========================================================
+    // PostEffect
+    //==========================================================
+    bool mRenderToSceneRTThisFrame { false };
+    
+    struct PostEffectSetKey
+    {
+        uint32_t frame = 0;
+        const Texture* sceneTex = nullptr;
+        const Texture* paperTex = nullptr;
+
+        bool operator==(const PostEffectSetKey& o) const
+        {
+            return frame == o.frame &&
+                   sceneTex == o.sceneTex &&
+                   paperTex == o.paperTex;
+        }
+    };
+
+    struct PostEffectSetKeyHash
+    {
+        size_t operator()(const PostEffectSetKey& k) const noexcept
+        {
+            size_t h = 1469598103934665603ull;
+            auto mix = [&](size_t v){ h ^= v; h *= 1099511628211ull; };
+
+            mix(std::hash<uint32_t>{}(k.frame));
+            mix(std::hash<const void*>{}(k.sceneTex));
+            mix(std::hash<const void*>{}(k.paperTex));
+            return h;
+        }
+    };
+
+    std::unordered_map<PostEffectSetKey, VkDescriptorSet, PostEffectSetKeyHash> mPostEffectSetCache;
+
+    VkDescriptorSet GetOrCreatePostEffectSet(const Texture* sceneTex, const Texture* paperTex);
+    void ClearPostEffectSetCache();
+    
+};
 
 } // namespace toy

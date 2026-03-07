@@ -1,3 +1,4 @@
+/*
 #version 450
 
 layout(location = 0) in vec2 vTex;
@@ -224,4 +225,23 @@ void main()
 
     // fallback
     outColor = texture(uSceneTex, uv);
+}
+*/
+#version 450
+
+layout(location = 0) in vec2 vTex;
+layout(location = 0) out vec4 outColor;
+
+layout(set = 0, binding = 0) uniform sampler2D uSceneTex;
+layout(set = 0, binding = 1) uniform sampler2D uPaperTex;
+
+layout(push_constant) uniform PostPC
+{
+    vec4 params0;
+    vec4 params1;
+} pc;
+
+void main()
+{
+    outColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

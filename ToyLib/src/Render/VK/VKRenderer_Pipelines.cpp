@@ -152,6 +152,15 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
+    
+    // PostEffect
+    {
+        VKPipelineDesc post = toy::VKPipelinePresets::MakePostEffect(base);
+        if (!mPipelines.CreatePipeline("PostEffect", mDevice, mRenderPass, mSwapchainExtent, post))
+        {
+            return false;
+        }
+    }
 
     // SkinnedMesh + SkinnedMesh_CW
     {

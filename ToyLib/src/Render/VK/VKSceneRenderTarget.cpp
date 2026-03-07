@@ -137,6 +137,7 @@ void VKSceneRenderTarget::Unload()
     // Texture wrapper は RT 自身の image/view/sampler を destroy しない
     mColorTex.reset();
 
+
     // NOTE: 呼び出し側は vkDeviceWaitIdle 済みが理想（Renderer::Shutdown/WaitIdle など）
     if (mDevice == VK_NULL_HANDLE)
     {

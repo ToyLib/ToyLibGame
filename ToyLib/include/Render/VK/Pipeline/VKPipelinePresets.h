@@ -26,6 +26,8 @@ namespace VKPipelinePresets
     VKPipelineDesc MakeFade(const std::string& base);
 
     VKPipelineDesc MakeRenderSurface(const std::string& base);
+
+    VKPipelineDesc MakePostEffect(const std::string& base);
 }
 
 } // namespace toy

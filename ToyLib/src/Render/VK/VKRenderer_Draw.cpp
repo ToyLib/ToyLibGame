@@ -135,10 +135,30 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
     if (cmd == VK_NULL_HANDLE) return;
 
-    if (!IsValidExtent(mSwapchainExtent)) return;
-    if (mRenderPass == VK_NULL_HANDLE) return;
-    if (mImageIndex >= mFramebuffers.size()) return;
-    if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE) return;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    VkExtent2D extent{};
+
+    if (mRenderToSceneRTThisFrame)
+    {
+        auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(mSceneRT.get());
+        if (!vkrt) return;
+
+        renderPass  = vkrt->GetRenderPass();
+        framebuffer = vkrt->GetFramebuffer();
+        extent      = vkrt->GetExtent();
+    }
+    else
+    {
+        if (!IsValidExtent(mSwapchainExtent)) return;
+        if (mRenderPass == VK_NULL_HANDLE) return;
+        if (mImageIndex >= mFramebuffers.size()) return;
+        if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE) return;
+
+        renderPass  = mRenderPass;
+        framebuffer = mFramebuffers[mImageIndex];
+        extent      = mSwapchainExtent;
+    }
 
     VkClearValue clears[2]{};
     clears[0].color.float32[0] = mClearColor.x;
@@ -149,29 +169,29 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     clears[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo rp{};
-    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass  = mRenderPass;
-    rp.framebuffer = mFramebuffers[mImageIndex];
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = renderPass;
+    rp.framebuffer = framebuffer;
     rp.renderArea.offset = { 0, 0 };
-    rp.renderArea.extent = mSwapchainExtent;
-    rp.clearValueCount   = 2;
-    rp.pClearValues      = clears;
+    rp.renderArea.extent = extent;
+    rp.clearValueCount = 2;
+    rp.pClearValues = clears;
 
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
     mIsInRenderPass = true;
 
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = (float)rp.renderArea.extent.height;
-    vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = -(float)rp.renderArea.extent.height;
+    vp.y = (float)extent.height;
+    vp.width  = (float)extent.width;
+    vp.height = -(float)extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
 
     VkRect2D sc{};
     sc.offset = { 0, 0 };
-    sc.extent = mSwapchainExtent;
+    sc.extent = extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 }
 
@@ -314,9 +334,6 @@ void VKRenderer::DrawFadePass()
     AddDrawCall();
 }
 
-void VKRenderer::DrawPostEffectPass()
-{
-}
 
 void VKRenderer::DrawUIPass()
 {
