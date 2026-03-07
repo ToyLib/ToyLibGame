@@ -377,7 +377,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         if (mIsDrawingCapture)
         {
             if (mFrameIndex >= mSceneSet_Capture.size()) return;
-            sceneSet = mSceneSet_Capture[mFrameIndex];
+            if (mActiveCaptureSlot < 0) return;
+            if ((size_t)mActiveCaptureSlot >= mSceneSet_Capture[mFrameIndex].size()) return;
+
+            sceneSet = mSceneSet_Capture[mFrameIndex][mActiveCaptureSlot];
         }
         else
         {

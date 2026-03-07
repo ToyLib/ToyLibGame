@@ -145,9 +145,9 @@ void FieldScene::InitField()
     mirrorComp->SetScale(10.0f, 10.0f);
     capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
     mirrorComp->SetFlip(true, true);
-    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
 
-/*
+
     // 水面を出す
     auto waterActor = CreateActor<toy::Actor>();
     waterActor->SetPosition(Vector3(20.0f, -4.0f, 40.0f));
@@ -165,7 +165,7 @@ void FieldScene::InitField()
     waterComp->SetFlip(true, true);
     waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
     waterComp->SetOpacity(0.7f);
-     */
+     
 
 }
 

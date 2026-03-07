@@ -80,6 +80,10 @@ bool VKRenderer::BeginFrame()
     }
     mSkinnedSlotCursor[mFrameIndex] = 0;
 
+    // Catureカウンターリセット
+    mCaptureSlotCursor = 0;
+    mActiveCaptureSlot = -1;
+    
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(frame.cmd, &bi);
