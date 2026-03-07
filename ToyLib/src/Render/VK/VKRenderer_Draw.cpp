@@ -187,153 +187,7 @@ void VKRenderer::EndSwapchainRenderPassIfNeeded()
     mIsInRenderPass = false;
 }
 
-//======================================================================
-// DrawToRenderTarget
-//  - SceneCapture 用の最小版
-//  - shadow はまだ描かない
-//  - main frame cmd に記録する
-//======================================================================
-void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
-{
-    if (!req.rt)
-    {
-        return;
-    }
 
-    ChangeDebugRTT();
-    
-    auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
-    if (!vkrt)
-    {
-        return;
-    }
-
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
-    {
-        return;
-    }
-
-    if (vkrt->GetWidth() <= 0 ||
-        vkrt->GetHeight() <= 0 ||
-        vkrt->GetFramebuffer() == VK_NULL_HANDLE)
-    {
-        const int w = (int)mScreenWidth;
-        const int h = (int)mScreenHeight;
-        if (!vkrt->Create(w, h))
-        {
-            std::cerr << "[VKRenderer] DrawToRenderTarget: vkrt->Create failed.\n";
-            return;
-        }
-    }
-
-    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (cmd == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    const Matrix4 prevView = mViewMatrix;
-    const Matrix4 prevProj = mProjectionMatrix;
-    const Matrix4 prevInvV = mInvView;
-
-    auto savedQueue   = mRenderQueue;
-    auto savedBuckets = mBuckets;
-
-    mViewMatrix       = req.view;
-    mProjectionMatrix = req.proj;
-    mInvView          = req.view;
-    mInvView.Invert();
-
-    BuildFrameQueues();
-    UpdateSceneUBO_World();
-
-    VkClearValue clears[2]{};
-    clears[0].color.float32[0] = mClearColor.x;
-    clears[0].color.float32[1] = mClearColor.y;
-    clears[0].color.float32[2] = mClearColor.z;
-    clears[0].color.float32[3] = 1.0f;
-    clears[1].depthStencil.depth   = 1.0f;
-    clears[1].depthStencil.stencil = 0;
-
-    VkRenderPassBeginInfo rp{};
-    rp.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass        = vkrt->GetRenderPass();
-    rp.framebuffer       = vkrt->GetFramebuffer();
-    rp.renderArea.offset = { 0, 0 };
-    rp.renderArea.extent = vkrt->GetExtent();
-    rp.clearValueCount   = 2;
-    rp.pClearValues      = clears;
-
-    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport vp{};
-    vp.x        = 0.0f;
-    vp.y        = (float)rp.renderArea.extent.height;
-    vp.width    = (float)rp.renderArea.extent.width;
-    vp.height   = -(float)rp.renderArea.extent.height;
-    vp.minDepth = 0.0f;
-    vp.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-
-    VkRect2D sc{};
-    sc.offset = { 0, 0 };
-    sc.extent = rp.renderArea.extent;
-    vkCmdSetScissor(cmd, 0, 1, &sc);
-
-    const auto& items = mRenderQueue.Items();
-
-    auto drawCaptureBucket = [&](const std::vector<uint32_t>& bucket)
-    {
-        for (uint32_t idx : bucket)
-        {
-            if (idx >= items.size())
-            {
-                continue;
-            }
-
-            const RenderItem& it = items[idx];
-
-            switch (it.type)
-            {
-                case RenderItemType::SkyDome:
-                case RenderItemType::Mesh:
-                case RenderItemType::SkinnedMesh:
-                case RenderItemType::UnlitQuad:
-                    DrawItem(it, RenderPass::World, -1);
-                    break;
-                default:
-                    break;
-            }
-        }
-    };
-
-    if (req.drawSky)
-    {
-        drawCaptureBucket(mBuckets.sky);
-    }
-
-    if (req.drawWorld)
-    {
-        drawCaptureBucket(mBuckets.worldOpaque);
-        drawCaptureBucket(mBuckets.effectPre);
-        drawCaptureBucket(mBuckets.worldTransparent);
-        drawCaptureBucket(mBuckets.effectOverlay);
-    }
-
-    vkCmdEndRenderPass(cmd);
-
-    mViewMatrix       = prevView;
-    mProjectionMatrix = prevProj;
-    mInvView          = prevInvV;
-
-    mRenderQueue = std::move(savedQueue);
-    mBuckets     = std::move(savedBuckets);
-
-    UpdateSceneUBO_World();
-    
-    ChangeDebugOnScreen();
-
-}
 //======================================================================
 // Passes
 //======================================================================
@@ -520,8 +374,16 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
     else
     {
-        if (mFrameIndex >= mSceneSet.size()) return;
-        sceneSet = mSceneSet[mFrameIndex];
+        if (mIsDrawingCapture)
+        {
+            if (mFrameIndex >= mSceneSet_Capture.size()) return;
+            sceneSet = mSceneSet_Capture[mFrameIndex];
+        }
+        else
+        {
+            if (mFrameIndex >= mSceneSet.size()) return;
+            sceneSet = mSceneSet[mFrameIndex];
+        }
     }
 
     //----------------------------------------------------------
