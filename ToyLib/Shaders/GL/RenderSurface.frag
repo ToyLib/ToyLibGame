@@ -151,6 +151,11 @@ vec4 SampleSurface(vec2 uv)
 
 void main()
 {
+    // テスト中
+    outColor = vec4(1.0, 0.0 0.0 0.8);
+    return;
+    
+    
     vec2 uv = ApplyFlip(vUV);
 
     // ============================================================

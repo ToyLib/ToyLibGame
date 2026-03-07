@@ -77,6 +77,23 @@ struct VKFadePC
     float colorAlpha[4];
 };
 
+struct VKSurfacePC
+{
+    float world[16];
+
+    // xyz=tint, w=opacity
+    float tintOpacity[4];
+
+    // x=flipX, y=flipY, z=mode, w=scanlineStrength
+    float params0[4];
+
+    // x=time, y=distortStrength, z=fresnel, w=fresnelPow
+    float params1[4];
+
+    // x=waveSpeed, y=swayStrength, z=sparkleStrength, w=reserved
+    float params2[4];
+};
+
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
     std::memcpy(out16, &m, sizeof(float) * 16);
@@ -240,9 +257,9 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     VkViewport vp{};
     vp.x = 0.0f;
-    vp.y = 0.0f;
+    vp.y = (float)rp.renderArea.extent.height;
     vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = (float)rp.renderArea.extent.height;
+    vp.height = -(float)rp.renderArea.extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
@@ -403,6 +420,9 @@ void VKRenderer::DrawUIPass()
     }
 
     DrawBucket_UI(mBuckets.ui);
+    
+    // 念のため World 用 UBO に戻す
+    UpdateSceneUBO_World();
 }
 
 //======================================================================
@@ -418,6 +438,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     if (cmd == VK_NULL_HANDLE) return;
 
     if (!BindVertexArrayVK(cmd, it.geometry)) return;
+
 
     //----------------------------------------------------------
     // SceneSet 選択（World / UI / Shadow）
@@ -481,6 +502,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 pipelineName = (it.blend == BlendMode::Additive)
                     ? "WeatherOverlayAdd"
                     : "WeatherOverlay";
+                break;
+            case RenderItemType::Surface:
+                pipelineName = "RenderSurface";
                 break;
             case RenderItemType::Debug:
                 pipelineName = "UnlitWire";
@@ -1049,6 +1073,77 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0,
             sizeof(VKDebugPC),
+            &pc);
+
+        if (it.indexCount > 0)
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        else if (it.vertexCount > 0)
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+
+        AddDrawCall();
+        return;
+    }
+    //----------------------------------------------------------
+    // Surface
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::Surface)
+    {
+        VkDescriptorSet baseMapSet =
+            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+        if (baseMapSet == VK_NULL_HANDLE) return;
+
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid()) return;
+
+        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
+
+        pipe->Bind(cmd);
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0, 2, sets,
+            0, nullptr);
+
+        SurfacePayload sp{};
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            sp = GetSurfacePayload(it.payloadIndex);
+        }
+
+        VKSurfacePC pc{};
+        StoreMat4(pc.world, it.world);
+
+        // tint / opacity
+        pc.tintOpacity[0] = sp.tint.x;
+        pc.tintOpacity[1] = sp.tint.y;
+        pc.tintOpacity[2] = sp.tint.z;
+        pc.tintOpacity[3] = sp.opacity;
+
+        // params0: flipX, flipY, mode, scanlineStrength
+        pc.params0[0] = sp.flipX ? 1.0f : 0.0f;
+        pc.params0[1] = sp.flipY ? 1.0f : 0.0f;
+        pc.params0[2] = static_cast<float>(sp.mode);
+        pc.params0[3] = sp.scanlineStrength;
+
+        // params1: time, distortStrength, fresnel, fresnelPow
+        pc.params1[0] = sp.time;
+        pc.params1[1] = 0.02f; // distortStrength
+        pc.params1[2] = 0.35f; // fresnel
+        pc.params1[3] = 2.0f;  // fresnelPow
+
+        // params2: waveSpeed, swayStrength, sparkleStrength, reserved
+        pc.params2[0] = 1.0f;  // waveSpeed
+        pc.params2[1] = 0.0f;  // swayStrength
+        pc.params2[2] = 0.0f;  // sparkleStrength
+        pc.params2[3] = 0.0f;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(VKSurfacePC),
             &pc);
 
         if (it.indexCount > 0)

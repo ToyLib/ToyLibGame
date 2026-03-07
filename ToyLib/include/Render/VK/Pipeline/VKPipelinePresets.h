@@ -24,6 +24,8 @@ namespace VKPipelinePresets
     VKPipelineDesc MakeWeatherOverlayAdd(const std::string& base);
 
     VKPipelineDesc MakeFade(const std::string& base);
+
+    VKPipelineDesc MakeRenderSurface(const std::string& base);
 }
 
 } // namespace toy

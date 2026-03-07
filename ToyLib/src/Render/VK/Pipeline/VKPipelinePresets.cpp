@@ -424,6 +424,37 @@ VKPipelineDesc MakeFade(const std::string& base)
     return d;
 }
 
+static void AddPC_Surface(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = 128; // mat4 + vec4 * 4
+    d.pushConstants.push_back(pc);
+}
+
+VKPipelineDesc MakeRenderSurface(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "RenderSurface.vert.spv";
+    d.fsPath     = base + "RenderSurface.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    d.depthTest  = true;
+    d.depthWrite = true;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.colorAttachmentCount = 1;
+
+    AddSet0_SceneUBO(d);
+    AddSet1_BaseMap(d);
+    AddPC_Surface(d);
+
+    return d;
+}
+
 } // namespace VKPipelinePresets
 
 } // namespace toy

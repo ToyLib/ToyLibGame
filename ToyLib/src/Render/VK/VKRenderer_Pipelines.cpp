@@ -96,6 +96,27 @@ bool VKRenderer::BuildDefaultPipelines()
         }
     }
 
+    // RenderSurface
+    {
+        VKPipelineDesc surf = toy::VKPipelinePresets::MakeRenderSurface(base);
+
+        surf.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        surf.cullMode  = VK_CULL_MODE_BACK_BIT;
+
+        if (!mPipelines.CreatePipeline("RenderSurface", mDevice, mRenderPass, mSwapchainExtent, surf))
+        {
+            return false;
+        }
+
+        // 必要になったら CW 版も追加可能
+        // VKPipelineDesc surfCW = surf;
+        // surfCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        // if (!mPipelines.CreatePipeline("RenderSurface_CW", mDevice, mRenderPass, mSwapchainExtent, surfCW))
+        // {
+        //     return false;
+        // }
+    }
+
     // SkyDome
     {
         VKPipelineDesc sky = toy::VKPipelinePresets::MakeSkyDome(base);
@@ -122,6 +143,7 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
+
     // Fade
     {
         VKPipelineDesc fade = toy::VKPipelinePresets::MakeFade(base);
@@ -203,6 +225,7 @@ bool VKRenderer::BuildDefaultPipelines()
 
     return true;
 }
+
 bool VKRenderer::BuildShadowPipelinesOnly()
 {
     // .h に mEnableShadow が無いので、存在チェックだけで判定する
