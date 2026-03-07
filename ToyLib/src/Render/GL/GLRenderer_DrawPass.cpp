@@ -619,7 +619,7 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     mInvView = req.view;
     mInvView.Invert();
-
+/*
     // ---- Shadow for this capture ----
     if (req.drawWorld)
     {
@@ -635,7 +635,7 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         // Sky-only のときも念のため、RT 側の描画状態に寄せる
         glDisable(GL_STENCIL_TEST);
     }
-
+*/
     // ---- Draw scene into RT ----
     BuildFrameQueues();
 
