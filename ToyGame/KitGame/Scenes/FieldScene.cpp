@@ -92,7 +92,7 @@ void FieldScene::Update(float deltaTime)
     toy::kit::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
     
     Vector3 pos = mPlayerActor->GetPosition();
-    toy::kit::DebugDraw::Sphere(pos, 10.0f, Vector3(0,1,0));
+    toy::kit::DebugDraw::Sphere(pos, 5.0f, Vector3(0,1,0), 32);
     //toy::kit::DebugDraw::Box(min, max, Vector3(1,1,0));
 }
 
