@@ -146,8 +146,6 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
     mIsInRenderPass = true;
 
-    // viewport/scissor は swapchain pass 共通（World/UI 共通で使う）
-    // ※まずは “Y反転 viewport” を維持（Macで黒い場合はここを一旦通常にして切り分け）
     VkViewport vp{};
     vp.x = 0.0f;
     vp.y = (float)rp.renderArea.extent.height;
@@ -176,9 +174,7 @@ void VKRenderer::EndSwapchainRenderPassIfNeeded()
 }
 
 //======================================================================
-// DrawToRenderTarget (SceneCapture)
-//  - いまは “最低限枠だけ”
-//  - 重要: camera state を差し替えたあと UpdateSceneUBO_World() を呼ぶ
+// DrawToRenderTarget
 //======================================================================
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
@@ -206,9 +202,6 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     VkCommandBuffer cmd = BeginOneTimeCommands();
     if (cmd == VK_NULL_HANDLE) return;
 
-    //----------------------------------------------------------
-    // camera override + World UBO update
-    //----------------------------------------------------------
     PushCameraState();
     {
         CameraState s{};
@@ -254,8 +247,6 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
-    // TODO: buckets draw (world/overlay等)
-
     vkCmdEndRenderPass(cmd);
 
     PopCameraState();
@@ -263,7 +254,7 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 }
 
 //======================================================================
-// Pass stubs
+// Passes
 //======================================================================
 void VKRenderer::DrawSkyPass()
 {
@@ -277,7 +268,6 @@ void VKRenderer::DrawSkyPass()
         return;
     }
 
-    // swapchain renderpass を開始
     BeginSwapchainRenderPassIfNeeded();
     if (!mIsInRenderPass)
     {
@@ -291,33 +281,47 @@ void VKRenderer::DrawWorldPass()
 {
     if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
 
-    // ★Swapchain pass を開始（まだなら）
     BeginSwapchainRenderPassIfNeeded();
 
     if (!mIsInRenderPass)
     {
-        return; // begin失敗
+        return;
     }
 
-    // bucket draw（swapchain renderpass 内）
     DrawBucket_World(mBuckets.worldOpaque);
     DrawBucket_World(mBuckets.effectPre);
     DrawBucket_World(mBuckets.worldTransparent);
     DrawBucket_World(mBuckets.effectOverlay);
-
-    // ★ここでは End しない（UI も同一 renderpass 内で描く）
 }
 
-void VKRenderer::DrawOverlayScreenPass() {}
+void VKRenderer::DrawOverlayScreenPass()
+{
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+
+    if (mBuckets.overlayScreen.empty())
+    {
+        return;
+    }
+
+    BeginSwapchainRenderPassIfNeeded();
+    if (!mIsInRenderPass)
+    {
+        return;
+    }
+
+    DrawBucket_OverlayScreen(mBuckets.overlayScreen);
+}
 
 void VKRenderer::DrawFadePass()
 {
-    // もし Fade が swapchain 上で描くなら、ここも renderpass 内で描く前提
-    // BeginSwapchainRenderPassIfNeeded();
-    // ... draw fade ...
 }
 
-void VKRenderer::DrawPostEffectPass() {}
+void VKRenderer::DrawPostEffectPass()
+{
+}
 
 void VKRenderer::DrawUIPass()
 {
@@ -327,7 +331,6 @@ void VKRenderer::DrawUIPass()
     const Matrix4 uiVP = Matrix4::CreateSimpleViewProj(sw, sh);
     UpdateSceneUBO_UI(uiVP);
 
-    // ★UI も swapchain renderpass 内で描く
     BeginSwapchainRenderPassIfNeeded();
     if (!mIsInRenderPass)
     {
@@ -338,7 +341,7 @@ void VKRenderer::DrawUIPass()
 }
 
 //======================================================================
-// DrawItem (Step5: shadow sample set=3 bind 対応版)
+// DrawItem
 //======================================================================
 void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex)
 {
@@ -379,17 +382,14 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     //----------------------------------------------------------
     // Pipeline name
     //----------------------------------------------------------
-    //----------------------------------------------------------
-    // Pipeline name
-    //----------------------------------------------------------
     const char* pipelineName = nullptr;
 
     if (isShadow)
     {
         switch (it.type)
         {
-            case RenderItemType::Mesh:        pipelineName = "ShadowMesh";     break;
-            case RenderItemType::SkinnedMesh: pipelineName = "ShadowSkinned";  break;
+            case RenderItemType::Mesh:        pipelineName = "ShadowMesh";    break;
+            case RenderItemType::SkinnedMesh: pipelineName = "ShadowSkinned"; break;
             default: return;
         }
     }
@@ -412,6 +412,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             case RenderItemType::SkyDome:
                 pipelineName = "SkyDome";
                 break;
+            case RenderItemType::Overlay:
+                pipelineName = (it.blend == BlendMode::Additive)
+                    ? "WeatherOverlayAdd"
+                    : "WeatherOverlay";
+                break;
             case RenderItemType::Debug:
                 pipelineName = "UnlitWire";
                 break;
@@ -432,7 +437,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         if (it.type == RenderItemType::Mesh)
         {
-            // set=0 のみ使用
             vkCmdBindDescriptorSets(
                 cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipe->GetPipelineLayout(),
@@ -464,7 +468,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                                   pipelineName);
             if (skinnedSet == VK_NULL_HANDLE) return;
 
-            // ★ShadowSkinned は set=0,1(空),2 を連番 bind
             VkDescriptorSet emptySet1 = GetOrCreateEmptySet(pipelineName, 1);
             if (emptySet1 == VK_NULL_HANDLE) return;
 
@@ -495,13 +498,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         return;
     }
-
-    //----------------------------------------------------------
-    // Normal pass（World / UI）
-    //----------------------------------------------------------
-
-    //VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
-    //if (shadowSet == VK_NULL_HANDLE) return;
 
     //----------------------------------------------------------
     // Sprite
@@ -556,14 +552,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // Mesh（★空 set=2 を埋めて 0..3 連番 bind）
+    // Mesh
     //----------------------------------------------------------
     if (it.type == RenderItemType::Mesh)
     {
         VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
         if (shadowSet == VK_NULL_HANDLE) return;
-        
-        
+
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid()) return;
 
@@ -594,7 +589,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0, 4, sets,
             0, nullptr);
 
-        // --- PushConstant & Draw（元コードと同じ） ---
         Vector3 baseColor(1,1,1);
         float specPower = 64.0f;
         float alpha = 1.0f;
@@ -610,7 +604,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             overrideEnabled = mp.overrideColor ? 1.0f : 0.0f;
             overrideColor = mp.overrideColorValue;
         }
-        
 
         float useTex = 0.0f;
 
@@ -656,16 +649,13 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
 
     //----------------------------------------------------------
-    // SkinnedMesh（0..3 連番）
-    //----------------------------------------------------------
-    //----------------------------------------------------------
-    // SkinnedMesh（Mesh と完全同一 Payload 契約）
+    // SkinnedMesh
     //----------------------------------------------------------
     if (it.type == RenderItemType::SkinnedMesh)
     {
         VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
         if (shadowSet == VK_NULL_HANDLE) return;
-        
+
         VKPipeline* pipe = mPipelines.Get(pipelineName);
         if (!pipe || !pipe->IsValid())
         {
@@ -674,7 +664,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             pipelineName = "SkinnedMesh";
         }
 
-        // set=2 (matrix palette)
         VkDescriptorSet skinnedSet =
             AcquireSkinnedSet(it.matrixPalette,
                               (uint32_t)it.paletteCount,
@@ -685,9 +674,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         const Texture* diffuseTex =
             (mat) ? mat->GetDiffuseMap().get() : nullptr;
 
-        //------------------------------------------------------
-        // ★ Mesh と同じ PushConstant 構築
-        //------------------------------------------------------
         Vector3 baseColor(1.0f, 1.0f, 1.0f);
         float   specPower = 64.0f;
         float   alpha     = 1.0f;
@@ -698,10 +684,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         if (it.payloadIndex != RenderItem::kInvalidPayload)
         {
-            // ★ここは GetSkinnedMeshPayload を使う（mSkinned を参照する）
             const SkinnedMeshPayload& sp = GetSkinnedMeshPayload(it.payloadIndex);
-
-            // ★Mesh と同じ契約の値を積む（SkinnedMeshPayload 側に同名/同意味で持たせる）
             toon            = sp.toon ? 1.0f : 0.0f;
             overrideEnabled = sp.overrideColor ? 1.0f : 0.0f;
             overrideColor   = sp.overrideColorValue;
@@ -718,7 +701,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 useTex = 1.0f;
         }
 
-        // override時はテクスチャ無効化（Meshと同じ）
         if (overrideEnabled > 0.5f)
         {
             useTex     = 0.0f;
@@ -747,9 +729,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             0, 4, sets,
             0, nullptr);
 
-        //------------------------------------------------------
-        // PushConstants（Mesh と完全一致）
-        //------------------------------------------------------
         VKMeshPC pc{};
         StoreMat4(pc.world, it.world);
 
@@ -783,7 +762,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         AddDrawCall();
         return;
     }
-    
+
     //----------------------------------------------------------
     // UnlitQuad
     //----------------------------------------------------------
@@ -835,6 +814,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         AddDrawCall();
         return;
     }
+
     //----------------------------------------------------------
     // SkyDome
     //----------------------------------------------------------
@@ -863,12 +843,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sky = GetSkyDomePayload(it.payloadIndex);
         }
 
-        // Sky 専用 UBO 更新
         UpdateSkyUBO(sky);
 
         pipe->Bind(cmd);
 
-        // SkyDome は set=0(Scene) + set=1(SkyUBO)
         VkDescriptorSet sets[2] =
         {
             sceneSet,
@@ -905,6 +883,60 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         AddDrawCall();
         return;
     }
+
+    //----------------------------------------------------------
+    // OverlayScreen / WeatherOverlay
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::Overlay)
+    {
+        if (mFrameIndex >= mOverlaySet.size())
+        {
+            return;
+        }
+
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        VkDescriptorSet overlaySet = mOverlaySet[mFrameIndex];
+        if (overlaySet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        OverlayPayload op {};
+        if (it.payloadIndex != RenderItem::kInvalidPayload)
+        {
+            op = GetOverlayPayload(it.payloadIndex);
+        }
+
+        UpdateOverlayUBO(op);
+
+        pipe->Bind(cmd);
+
+        // Preset 側が set=1 のみ使用する設計
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            1, 1, &overlaySet,
+            0, nullptr);
+
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+        }
+
+        AddDrawCall();
+        return;
+    }
+
     //----------------------------------------------------------
     // Debug / UnlitWire
     //----------------------------------------------------------
@@ -915,7 +947,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         pipe->Bind(cmd);
 
-        // set=0 only
         vkCmdBindDescriptorSets(
             cmd,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -925,7 +956,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         Vector3 color(1.0f, 1.0f, 1.0f);
         float   alpha    = 1.0f;
-        float   useLight = 0.0f; // まずはGL同様 false 寄りで固定
+        float   useLight = 0.0f;
 
         if (it.payloadIndex != RenderItem::kInvalidPayload)
         {
@@ -973,7 +1004,7 @@ PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
 }
 
 //------------------------------------------------------------------------------
-// UI bucket draw (VKRenderer only)
+// UI bucket draw
 //------------------------------------------------------------------------------
 void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
 {
@@ -985,7 +1016,6 @@ void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
 
         const RenderItem& it = items[idx];
 
-        // safety: UI以外が混ざっていたら除外
         if (it.pass != RenderPass::UI && it.layer != VisualLayer::UI)
         {
             continue;
@@ -997,7 +1027,7 @@ void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
 }
 
 //------------------------------------------------------------------------------
-// Sky bucket draw (VKRenderer only)
+// Sky bucket draw
 //------------------------------------------------------------------------------
 void VKRenderer::DrawBucket_Sky(const std::vector<uint32_t>& bucket)
 {
@@ -1013,6 +1043,31 @@ void VKRenderer::DrawBucket_Sky(const std::vector<uint32_t>& bucket)
         const RenderItem& it = items[idx];
 
         if (it.type != RenderItemType::SkyDome)
+        {
+            continue;
+        }
+
+        DrawItem(it, RenderPass::World, -1);
+    }
+}
+
+//------------------------------------------------------------------------------
+// OverlayScreen bucket draw
+//------------------------------------------------------------------------------
+void VKRenderer::DrawBucket_OverlayScreen(const std::vector<uint32_t>& bucket)
+{
+    const auto& items = mRenderQueue.Items();
+
+    for (uint32_t idx : bucket)
+    {
+        if (idx >= items.size())
+        {
+            continue;
+        }
+
+        const RenderItem& it = items[idx];
+
+        if (it.type != RenderItemType::Overlay)
         {
             continue;
         }
@@ -1059,7 +1114,6 @@ VkDescriptorSet VKRenderer::GetOrCreateEmptySet(const char* pipelineName, uint32
         return VK_NULL_HANDLE;
     }
 
-    // bindingCount=0 の layout なので vkUpdateDescriptorSets は不要
     mEmptySetCache.emplace(std::move(key), out);
     return out;
 }
@@ -1068,4 +1122,5 @@ void VKRenderer::ClearEmptySetCache()
 {
     mEmptySetCache.clear();
 }
+
 } // namespace toy

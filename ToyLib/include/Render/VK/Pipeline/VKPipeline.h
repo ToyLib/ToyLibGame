@@ -1,4 +1,3 @@
-// Render/VK/Pipeline/VKPipeline.h
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -32,6 +31,16 @@ struct VKPushConstantDesc
 
 struct VKPipelineDesc
 {
+    //==========================================================
+    // Blend mode
+    //==========================================================
+    enum class BlendMode
+    {
+        Opaque,
+        Alpha,
+        Additive
+    };
+
     // shader paths (spv)
     std::string vsPath;
     std::string fsPath;
@@ -40,7 +49,8 @@ struct VKPipelineDesc
     bool depthTest  = true;
     bool depthWrite = true;
 
-    bool alphaBlend = false;
+    // ★旧 alphaBlend の代わり
+    BlendMode blendMode = BlendMode::Opaque;
 
     VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 

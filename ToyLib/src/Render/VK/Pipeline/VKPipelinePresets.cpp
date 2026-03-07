@@ -1,6 +1,3 @@
-//======================================================================
-// Render/VK/Pipeline/VKPipelinePresets.cpp
-//======================================================================
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
 
 namespace toy
@@ -38,7 +35,7 @@ static void AddSet1_BaseMap(VKPipelineDesc& d)
     d.setLayouts.push_back(set1);
 }
 
-// ★Sky 用 set=1 UBO
+// Sky 用 set=1 UBO
 static void AddSet1_SkyUBO(VKPipelineDesc& d)
 {
     VKDescriptorSetLayoutDesc set1{};
@@ -48,6 +45,20 @@ static void AddSet1_SkyUBO(VKPipelineDesc& d)
         .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .count   = 1,
         .stages  = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
+    });
+    d.setLayouts.push_back(set1);
+}
+
+// Overlay 用 set=1 UBO
+static void AddSet1_OverlayUBO(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set1{};
+    set1.set = 1;
+    set1.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
     });
     d.setLayouts.push_back(set1);
 }
@@ -121,13 +132,13 @@ static void AddPC_DebugWorldColor(VKPipelineDesc& d)
     d.pushConstants.push_back(pc);
 }
 
-// ★Sky は world だけ push constant
+// Sky は world だけ push constant
 static void AddPC_SkyWorld(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
-    pc.size   = 64; // mat4
+    pc.size   = 64;
     d.pushConstants.push_back(pc);
 }
 
@@ -153,7 +164,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
 
     d.depthTest  = false;
     d.depthWrite = false;
-    d.alphaBlend = true;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
     d.cullMode   = VK_CULL_MODE_NONE;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
@@ -174,7 +185,7 @@ VKPipelineDesc MakeUnlitQuad(const std::string& base)
 
     d.depthTest  = true;
     d.depthWrite = false;
-    d.alphaBlend = true;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
     d.cullMode   = VK_CULL_MODE_NONE;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
@@ -195,7 +206,7 @@ VKPipelineDesc MakeUnlitWire(const std::string& base)
 
     d.depthTest  = true;
     d.depthWrite = true;
-    d.alphaBlend = true;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
     d.cullMode   = VK_CULL_MODE_NONE;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
@@ -205,7 +216,6 @@ VKPipelineDesc MakeUnlitWire(const std::string& base)
     return d;
 }
 
-// ★追加: SkyDome
 VKPipelineDesc MakeSkyDome(const std::string& base)
 {
     VKPipelineDesc d{};
@@ -215,15 +225,15 @@ VKPipelineDesc MakeSkyDome(const std::string& base)
     d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
     d.depthTest  = true;
-    d.depthWrite = false;                 // GLに合わせる
-    d.alphaBlend = false;
-    d.cullMode   = VK_CULL_MODE_NONE;     // まずは安全側
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
+    d.cullMode   = VK_CULL_MODE_FRONT_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
 
-    AddSet0_SceneUBO(d);   // Scene
-    AddSet1_SkyUBO(d);     // Sky params
-    AddPC_SkyWorld(d);     // world only
+    AddSet0_SceneUBO(d);
+    AddSet1_SkyUBO(d);
+    AddPC_SkyWorld(d);
 
     return d;
 }
@@ -238,7 +248,7 @@ VKPipelineDesc MakeMesh(const std::string& base)
 
     d.depthTest  = true;
     d.depthWrite = true;
-    d.alphaBlend = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
@@ -260,7 +270,7 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
 
     d.depthTest  = true;
     d.depthWrite = true;
-    d.alphaBlend = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
@@ -274,6 +284,50 @@ VKPipelineDesc MakeSkinnedMesh(const std::string& base)
 }
 
 //--------------------------------------------------------------
+// Overlay
+//--------------------------------------------------------------
+VKPipelineDesc MakeWeatherOverlay(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "WeatherScreen.vert.spv";
+    d.fsPath     = base + "WeatherScreen.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    d.depthTest  = false;
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.colorAttachmentCount = 1;
+
+    // set0 は不要、set1 に OverlayUBO を置く
+    AddSet1_OverlayUBO(d);
+
+    return d;
+}
+
+VKPipelineDesc MakeWeatherOverlayAdd(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "WeatherScreen.vert.spv";
+    d.fsPath     = base + "WeatherScreen.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    d.depthTest  = false;
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Additive;
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.colorAttachmentCount = 1;
+
+    AddSet1_OverlayUBO(d);
+
+    return d;
+}
+
+//--------------------------------------------------------------
 // Shadow pipelines
 //--------------------------------------------------------------
 static void SetupShadowCommon_Mesh(VKPipelineDesc& d)
@@ -282,7 +336,7 @@ static void SetupShadowCommon_Mesh(VKPipelineDesc& d)
     d.colorAttachmentCount = 0;
     d.depthTest  = true;
     d.depthWrite = true;
-    d.alphaBlend = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
@@ -301,7 +355,7 @@ static void SetupShadowCommon_Skinned(VKPipelineDesc& d)
     d.colorAttachmentCount = 0;
     d.depthTest  = true;
     d.depthWrite = true;
-    d.alphaBlend = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
     d.cullMode   = VK_CULL_MODE_BACK_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 

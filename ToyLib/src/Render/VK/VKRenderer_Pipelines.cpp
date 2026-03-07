@@ -65,11 +65,10 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
     // UnlitWire
     {
         VKPipelineDesc wire = toy::VKPipelinePresets::MakeUnlitWire(base);
-
         if (!mPipelines.CreatePipeline("UnlitWire", mDevice, mRenderPass, mSwapchainExtent, wire))
         {
             return false;
@@ -96,7 +95,7 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
     // SkyDome
     {
         VKPipelineDesc sky = toy::VKPipelinePresets::MakeSkyDome(base);
@@ -105,7 +104,25 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
+    // ★ WeatherOverlay
+    {
+        VKPipelineDesc ov = toy::VKPipelinePresets::MakeWeatherOverlay(base);
+        if (!mPipelines.CreatePipeline("WeatherOverlay", mDevice, mRenderPass, mSwapchainExtent, ov))
+        {
+            return false;
+        }
+    }
+
+    // ★ WeatherOverlayAdd
+    {
+        VKPipelineDesc ovAdd = toy::VKPipelinePresets::MakeWeatherOverlayAdd(base);
+        if (!mPipelines.CreatePipeline("WeatherOverlayAdd", mDevice, mRenderPass, mSwapchainExtent, ovAdd))
+        {
+            return false;
+        }
+    }
+
     // SkinnedMesh + SkinnedMesh_CW
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
@@ -129,10 +146,7 @@ bool VKRenderer::BuildDefaultPipelines()
 
     //==========================================================
     // 2) Shadow(RenderPass/Extent) 用パイプライン
-    //   - ここが今回のキモ：renderPass と extent を “Shadow用” にする
     //==========================================================
-    // Shadow resources がまだ無い/無効ならスキップ可
-    // （CreateShadowResources() が成功していれば、mShadowRenderPass が有効な想定）
     if (mShadowRenderPass != VK_NULL_HANDLE &&
         mShadowExtent.width > 0 && mShadowExtent.height > 0)
     {
@@ -140,10 +154,8 @@ bool VKRenderer::BuildDefaultPipelines()
         {
             VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowMesh(base);
 
-            // 影は基本 “両面” にしたいなら cull none
-            // まずは GL に合わせて back cull でもOK
-            sd.cullMode   = VK_CULL_MODE_BACK_BIT;
-            sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
             if (!mPipelines.CreatePipeline("ShadowMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
             {
@@ -163,8 +175,8 @@ bool VKRenderer::BuildDefaultPipelines()
         {
             VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowSkinnedMesh(base);
 
-            sd.cullMode   = VK_CULL_MODE_BACK_BIT;
-            sd.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
             if (!mPipelines.CreatePipeline("ShadowSkinned", mDevice, mShadowRenderPass, mShadowExtent, sd))
             {
@@ -183,7 +195,6 @@ bool VKRenderer::BuildDefaultPipelines()
 
     return true;
 }
-
 bool VKRenderer::BuildShadowPipelinesOnly()
 {
     // .h に mEnableShadow が無いので、存在チェックだけで判定する

@@ -1,6 +1,3 @@
-//======================================================================
-// Render/VK/Pipeline/VKPipelinePresets.h
-//======================================================================
 #pragma once
 
 #include "Render/VK/Pipeline/VKPipeline.h"
@@ -15,7 +12,6 @@ namespace VKPipelinePresets
     VKPipelineDesc MakeUnlitQuad(const std::string& base);
     VKPipelineDesc MakeUnlitWire(const std::string& base);
 
-    // ★追加
     VKPipelineDesc MakeSkyDome(const std::string& base);
 
     VKPipelineDesc MakeMesh(const std::string& base);

@@ -1,4 +1,3 @@
-// Render/VK/Pipeline/VKPipeline.cpp
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/VK/VKUtil.h" // ReadFileBinary / CreateShaderModule
 #include <iostream>
@@ -378,19 +377,37 @@ bool VKPipeline::Create(VkDevice device,
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
 
-    if (desc.alphaBlend)
+    switch (desc.blendMode)
     {
-        cbAtt.blendEnable         = VK_TRUE;
-        cbAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-        cbAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        cbAtt.colorBlendOp        = VK_BLEND_OP_ADD;
-        cbAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-        cbAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        cbAtt.alphaBlendOp        = VK_BLEND_OP_ADD;
-    }
-    else
-    {
-        cbAtt.blendEnable = VK_FALSE;
+        case VKPipelineDesc::BlendMode::Opaque:
+        {
+            cbAtt.blendEnable = VK_FALSE;
+            break;
+        }
+
+        case VKPipelineDesc::BlendMode::Alpha:
+        {
+            cbAtt.blendEnable         = VK_TRUE;
+            cbAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            cbAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            cbAtt.colorBlendOp        = VK_BLEND_OP_ADD;
+            cbAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            cbAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            cbAtt.alphaBlendOp        = VK_BLEND_OP_ADD;
+            break;
+        }
+
+        case VKPipelineDesc::BlendMode::Additive:
+        {
+            cbAtt.blendEnable         = VK_TRUE;
+            cbAtt.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            cbAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            cbAtt.colorBlendOp        = VK_BLEND_OP_ADD;
+            cbAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            cbAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            cbAtt.alphaBlendOp        = VK_BLEND_OP_ADD;
+            break;
+        }
     }
 
     VkPipelineColorBlendStateCreateInfo cb{};

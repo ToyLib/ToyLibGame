@@ -79,9 +79,10 @@ public:
     // “描画1単位”
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
 
-    // UI bucket（VKRenderer専用補助）
+    // bucket draw（VKRenderer専用補助）
     void DrawBucket_UI(const std::vector<uint32_t>& bucket);
     void DrawBucket_Sky(const std::vector<uint32_t>& bucket);
+    void DrawBucket_OverlayScreen(const std::vector<uint32_t>& bucket);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
 
@@ -97,7 +98,7 @@ public:
     void DestroySceneUBO();
 
     // ★更新は必ず「どっちに書くか」を明示する（上書き事故防止）
-    void UpdateSceneUBO_World();                       // mSceneUBO[frame]
+    void UpdateSceneUBO_World();                        // mSceneUBO[frame]
     void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUBO_UI[frame]
 
     // SceneSet は World/UI 両方作る（set=0）
@@ -238,7 +239,6 @@ private:
     uint32_t mImageIndex{ 0 };
     bool     mNeedRecreateSwapchain{ false };
 
-    // 画面DPI等（必要に応じて）
     float mWindowDisplayScale{ 1.0f };
 
     // swapchain renderpass の中に居るか（World/UI を同一passで描くため）
@@ -253,7 +253,7 @@ private:
 private:
     //==========================================================
     // DescriptorPool / SceneUBO / SceneSet（set=0）
-    //  - mDescPool は UBO 系（Scene set=0 / Skinned set=2）用
+    //  - mDescPool は UBO 系（Scene set=0 / Skinned set=2 / Sky / Overlay）用
     //==========================================================
     VkDescriptorPool mDescPool{ VK_NULL_HANDLE };
 
@@ -271,12 +271,18 @@ private:
     // SceneSet（per frame）: set=0
     std::vector<VkDescriptorSet> mSceneSet;     // world
     std::vector<VkDescriptorSet> mSceneSet_UI;  // ui
-    
+
     // Sky UBO / set
-    std::vector<VkBuffer>       mSkyUBO;
-    std::vector<VkDeviceMemory> mSkyUBOMem;
+    std::vector<VkBuffer>        mSkyUBO;
+    std::vector<VkDeviceMemory>  mSkyUBOMem;
     std::vector<VkDescriptorSet> mSkySet;
-    size_t mSkyUBOSize { 0 };
+    size_t mSkyUBOSize{ 0 };
+
+    // OverlayScreen UBO / set
+    std::vector<VkBuffer>        mOverlayUBO;
+    std::vector<VkDeviceMemory>  mOverlayUBOMem;
+    std::vector<VkDescriptorSet> mOverlaySet;
+    size_t mOverlayUBOSize{ 0 };
 
 private:
     //==========================================================
@@ -317,10 +323,8 @@ private:
         VkDescriptorSet  set  = VK_NULL_HANDLE;
     };
 
-    // per-frame / per-texture / per-pipeline の DS キャッシュ
     std::unordered_map<BaseMapKey, CachedDescriptorSet, BaseMapKeyHash> mBaseMapSetCache;
 
-    // BaseMap pool chain（枯れたら増やす）
     std::vector<VkDescriptorPool> mBaseMapPools;
     uint32_t mBaseMapPoolCursor = 0;
 
@@ -358,7 +362,6 @@ private:
     static constexpr uint32_t     kMaxPalette     = 96;
     static constexpr VkDeviceSize kSkinnedUBOSize = sizeof(float) * 16 * kMaxPalette;
 
-    // [frame][slot] で保持（frame毎にカーソルで使い回す）
     std::vector<std::vector<SkinnedPaletteSlot>> mSkinnedSlots;
     std::vector<uint32_t>                        mSkinnedSlotCursor;
 
@@ -371,25 +374,18 @@ private:
 private:
     //==========================================================
     // Shadow mapping（Vulkan）
-    //  - depth-only pass（GL同様 2 cascades）
-    //  - per-cascade depth image + framebuffer
-    //  - shadow scene UBO(set=0) for LightVP
     //==========================================================
     bool CreateShadowResources();
     void DestroyShadowResources();
 
-    // shadow scene UBO/set（set=0 binding=0）
     bool CreateShadowSceneUBOAndSet();
     void DestroyShadowSceneUBOAndSet();
 
-    // 行列更新
     void UpdateShadowLightMatrices();
     void UpdateShadowSceneUBO(int cascadeIndex);
 
-    // pipeline（shadow専用だけ）
     bool BuildShadowPipelinesOnly();
 
-    // shadow pass 中のカスケード番号（DrawItem に渡す用）
     int  mShadowCascadeIndex{ -1 };
 
     struct ShadowCascade
@@ -404,36 +400,30 @@ private:
 
     static constexpr int kShadowCascadeCount = 2;
 
-    // depth targets
     VkExtent2D mShadowExtent{ 0, 0 };
     VkFormat   mShadowDepthFormat{ VK_FORMAT_UNDEFINED };
 
     std::vector<ShadowCascade> mShadowCascades;
 
-    // depth-only render pass + compare sampler
     VkRenderPass mShadowRenderPass{ VK_NULL_HANDLE };
     VkSampler    mShadowSampler{ VK_NULL_HANDLE };
 
-    // shadow scene UBO/set（per frame）
     std::array<std::vector<VkBuffer>,        kShadowCascadeCount> mShadowSceneUBO;
     std::array<std::vector<VkDeviceMemory>,  kShadowCascadeCount> mShadowSceneUBOMem;
-    std::array<std::vector<VkDescriptorSet>, kShadowCascadeCount> mShadowSceneSet; // set=0
-    
-    
+    std::array<std::vector<VkDescriptorSet>, kShadowCascadeCount> mShadowSceneSet;
+
 private:
     //==========================================================
     // Shadow: sampled descriptor（set=3）
     //==========================================================
     VkDescriptorSetLayout        mShadowMapSetLayout{ VK_NULL_HANDLE };
-    std::vector<VkDescriptorSet> mShadowMapSet; // per-frame
+    std::vector<VkDescriptorSet> mShadowMapSet;
 
-    // “depth → sampled” へ遷移済みかの追跡（最小）
-    std::array<bool, 2> mShadowIsSampledLayout { false, false }; // kShadowCascadeCount=2 前提
+    std::array<bool, 2> mShadowIsSampledLayout { false, false };
 
     bool CreateShadowMapSetLayoutAndSets();
     void DestroyShadowMapSetLayoutAndSets();
 
-    // TODO: ここの重複は後で整理（CreateShadowMapSetLayoutAndSets() と被りがち）
     bool CreateShadowSampleSet();
     void UpdateShadowSampleSet();
 
@@ -446,8 +436,11 @@ private:
     VkDescriptorPool mShadowDescPoolUsed{ VK_NULL_HANDLE };
 
     void TransitionShadowDepthToSampledIfNeeded(VkCommandBuffer cmd);
-    
+
 private:
+    //==========================================================
+    // SkyDome (set=1 UBO)
+    //==========================================================
     bool CreateSkyUBO();
     void DestroySkyUBO();
     void UpdateSkyUBO(const SkyDomePayload& sky);
@@ -455,8 +448,16 @@ private:
 
 private:
     //==========================================================
+    // OverlayScreen / WeatherOverlay (set=1 UBO)
+    //==========================================================
+    bool CreateOverlayUBO();
+    void DestroyOverlayUBO();
+    void UpdateOverlayUBO(const OverlayPayload& overlay);
+    bool CreateOverlayDescriptorSet();
+
+private:
+    //==========================================================
     // 空 DescriptorSet（setの穴埋め用）
-    //  - 例: Mesh は set=2 を使わないが、0..3 を連番bindしたいケース
     //==========================================================
     struct EmptySetKey
     {

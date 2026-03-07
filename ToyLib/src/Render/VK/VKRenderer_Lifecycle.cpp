@@ -140,18 +140,27 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
+    if (!CreateOverlayUBO())
+    {
+        Shutdown();
+        return false;
+    }
     if (!CreateSceneDescriptorSet())
     {
         Shutdown();
         return false;
     }
-    
     if (!CreateSkyDescriptorSet())
     {
         Shutdown();
         return false;
     }
-    
+    if (!CreateOverlayDescriptorSet())
+    {
+        Shutdown();
+        return false;
+    }
+
     // Shadow
     CreateShadowResources();
 
@@ -189,6 +198,7 @@ void VKRenderer::Shutdown()
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
+    DestroyOverlayUBO();
     DestroySkinnedSlots();
     DestroySkyUBO();
     DestroySceneUBO();

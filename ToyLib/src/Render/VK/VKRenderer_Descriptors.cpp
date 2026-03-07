@@ -108,8 +108,8 @@ void VKRenderer::DestroyDescriptorPool()
     //----------------------------------------------------------
     // BaseMap pools は mDescPool と独立
     //----------------------------------------------------------
-    ClearBaseMapSetCache();        // pool destroy を含む
-    DestroyFallbackBaseMapSet();   // 念のため（Clear内で呼ぶが保険）
+    ClearBaseMapSetCache();
+    DestroyFallbackBaseMapSet();
 
     //----------------------------------------------------------
     // Skinned slot pool (UBO + DS)
@@ -117,7 +117,7 @@ void VKRenderer::DestroyDescriptorPool()
     DestroySkinnedSlots();
 
     //----------------------------------------------------------
-    // Scene sets は mDescPool 所有
+    // Scene / Sky / Overlay sets は mDescPool 所有
     //----------------------------------------------------------
     if (mDescPool != VK_NULL_HANDLE)
     {
@@ -150,7 +150,17 @@ void VKRenderer::DestroyDescriptorPool()
             }
         }
         mSkySet.clear();
-        
+
+        for (auto& set : mOverlaySet)
+        {
+            if (set != VK_NULL_HANDLE)
+            {
+                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
+                set = VK_NULL_HANDLE;
+            }
+        }
+        mOverlaySet.clear();
+
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
     }
@@ -159,6 +169,7 @@ void VKRenderer::DestroyDescriptorPool()
         mSceneSet.clear();
         mSceneSet_UI.clear();
         mSkySet.clear();
+        mOverlaySet.clear();
     }
 
     //----------------------------------------------------------
@@ -167,9 +178,6 @@ void VKRenderer::DestroyDescriptorPool()
     DestroyFallbackWhiteTexture();
 }
 
-//==============================================================
-// Scene UBO layout (Shader 側 set=0 binding=0)
-//==============================================================
 //==============================================================
 // Scene UBO layout (Shader 側 set=0 binding=0)
 //==============================================================
@@ -218,6 +226,18 @@ struct VKSkyUBO
     float moonDir[4];
     float rawSkyColor[4];
     float rawCloudColor[4];
+};
+
+// OverlayScreen / WeatherOverlay
+struct VKOverlayUBO
+{
+    float time[4];        // x = uTime
+    float resolution[4];  // x = width, y = height
+    float weather[4];     // x = rain, y = snow, z = fog, w = reserved
+
+    float sunPos[4];      // x = uSunPos.x, y = uSunPos.y
+    float flare[4];       // x = flareIntensity
+    float flareColor[4];  // xyz = flareColor
 };
 
 //==============================================================
@@ -1483,6 +1503,208 @@ bool VKRenderer::CreateSkyDescriptorSet()
         VkWriteDescriptorSet w{};
         w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         w.dstSet          = mSkySet[i];
+        w.dstBinding      = 0;
+        w.descriptorCount = 1;
+        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo     = &bi;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+    }
+
+    return true;
+}
+
+//==============================================================
+// Overlay UBO (set=1 binding=0)
+//==============================================================
+bool VKRenderer::CreateOverlayUBO()
+{
+    if (!mDevice || !mPhysicalDevice)
+    {
+        return false;
+    }
+
+    if (!mOverlayUBO.empty())
+    {
+        return true;
+    }
+
+    mOverlayUBOSize = sizeof(VKOverlayUBO);
+
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
+    {
+        return false;
+    }
+
+    mOverlayUBO.resize(frameCount, VK_NULL_HANDLE);
+    mOverlayUBOMem.resize(frameCount, VK_NULL_HANDLE);
+
+    for (size_t i = 0; i < frameCount; ++i)
+    {
+        if (!CreateBufferHostVisible(
+                static_cast<VkDeviceSize>(mOverlayUBOSize),
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                mOverlayUBO[i],
+                mOverlayUBOMem[i]))
+        {
+            std::cerr << "[VKRenderer] CreateOverlayUBO failed frame " << i << "\n";
+            DestroyOverlayUBO();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void VKRenderer::DestroyOverlayUBO()
+{
+    if (!mDevice)
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < mOverlayUBO.size(); ++i)
+    {
+        if (mOverlayUBO[i] != VK_NULL_HANDLE)
+        {
+            vkDestroyBuffer(mDevice, mOverlayUBO[i], nullptr);
+            mOverlayUBO[i] = VK_NULL_HANDLE;
+        }
+        if (mOverlayUBOMem[i] != VK_NULL_HANDLE)
+        {
+            vkFreeMemory(mDevice, mOverlayUBOMem[i], nullptr);
+            mOverlayUBOMem[i] = VK_NULL_HANDLE;
+        }
+    }
+
+    mOverlayUBO.clear();
+    mOverlayUBOMem.clear();
+    mOverlayUBOSize = 0;
+}
+
+//==============================================================
+// Overlay UBO update
+//==============================================================
+void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
+{
+    if (mOverlayUBOMem.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mOverlayUBOMem.size())
+    {
+        return;
+    }
+
+    VKOverlayUBO ubo{};
+
+    // time
+    ubo.time[0] = overlay.time;
+    ubo.time[1] = 0.0f;
+    ubo.time[2] = 0.0f;
+    ubo.time[3] = 0.0f;
+
+    // resolution
+    ubo.resolution[0] = overlay.resolution.x;
+    ubo.resolution[1] = overlay.resolution.y;
+    ubo.resolution[2] = 0.0f;
+    ubo.resolution[3] = 0.0f;
+
+    // weather params
+    ubo.weather[0] = overlay.rainAmount;
+    ubo.weather[1] = overlay.snowAmount;
+    ubo.weather[2] = overlay.fogAmount;
+    ubo.weather[3] = 0.0f;
+
+    // sun pos
+    ubo.sunPos[0] = overlay.sunPos.x;
+    ubo.sunPos[1] = overlay.sunPos.y;
+    ubo.sunPos[2] = 0.0f;
+    ubo.sunPos[3] = 0.0f;
+
+    // flare
+    ubo.flare[0] = overlay.flareIntensity;
+    ubo.flare[1] = 0.0f;
+    ubo.flare[2] = 0.0f;
+    ubo.flare[3] = 0.0f;
+
+    // flare color
+    ubo.flareColor[0] = overlay.flareColor.x;
+    ubo.flareColor[1] = overlay.flareColor.y;
+    ubo.flareColor[2] = overlay.flareColor.z;
+    ubo.flareColor[3] = 0.0f;
+
+    UploadToBuffer(
+        mOverlayUBOMem[mFrameIndex],
+        &ubo,
+        static_cast<VkDeviceSize>(mOverlayUBOSize));
+}
+
+//==============================================================
+// Overlay Descriptor Set (set=1 binding=0 UBO)
+//==============================================================
+bool VKRenderer::CreateOverlayDescriptorSet()
+{
+    if (!mDevice || !mDescPool)
+    {
+        return false;
+    }
+
+    const size_t frameCount = mFrames.size();
+    if (frameCount == 0)
+    {
+        return false;
+    }
+
+    if (mOverlayUBO.size() != frameCount)
+    {
+        std::cerr << "[VK] CreateOverlayDescriptorSet: OverlayUBO not ready.\n";
+        return false;
+    }
+
+    for (auto& ds : mOverlaySet)
+    {
+        if (ds != VK_NULL_HANDLE)
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
+            ds = VK_NULL_HANDLE;
+        }
+    }
+    mOverlaySet.clear();
+
+    mOverlaySet.resize(frameCount, VK_NULL_HANDLE);
+
+    // Alpha版を基準に set=1 layout を取得
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "WeatherOverlay", 1);
+    if (set1 == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VK] CreateOverlayDescriptorSet: WeatherOverlay set1 null\n";
+        return false;
+    }
+
+    for (size_t i = 0; i < frameCount; ++i)
+    {
+        VkDescriptorSetAllocateInfo ai{};
+        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool     = mDescPool;
+        ai.descriptorSetCount = 1;
+        ai.pSetLayouts        = &set1;
+
+        if (vkAllocateDescriptorSets(mDevice, &ai, &mOverlaySet[i]) != VK_SUCCESS)
+        {
+            std::cerr << "[VK] OverlaySet alloc failed frame=" << i << "\n";
+            return false;
+        }
+
+        VkDescriptorBufferInfo bi{};
+        bi.buffer = mOverlayUBO[i];
+        bi.offset = 0;
+        bi.range  = mOverlayUBOSize;
+
+        VkWriteDescriptorSet w{};
+        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet          = mOverlaySet[i];
         w.dstBinding      = 0;
         w.descriptorCount = 1;
         w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
