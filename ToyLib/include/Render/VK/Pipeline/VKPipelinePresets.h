@@ -23,6 +23,9 @@ namespace VKPipelinePresets
 
     VKPipelineDesc MakeShadowMesh(const std::string& base);
     VKPipelineDesc MakeShadowSkinnedMesh(const std::string& base);
+
+    VKPipelineDesc MakeWeatherOverlay(const std::string& base);
+    VKPipelineDesc MakeWeatherOverlayAdd(const std::string& base);
 }
 
 } // namespace toy
