@@ -80,18 +80,10 @@ struct VKFadePC
 struct VKSurfacePC
 {
     float world[16];
-
-    // xyz=tint, w=opacity
     float tintOpacity[4];
-
-    // x=flipX, y=flipY, z=mode, w=scanlineStrength
-    float params0[4];
-
-    // x=time, y=distortStrength, z=fresnel, w=fresnelPow
-    float params1[4];
-
-    // x=waveSpeed, y=swayStrength, z=sparkleStrength, w=reserved
-    float params2[4];
+    float params0[4]; // x=flipX, y=flipY, z=mode, w=scanlineStrength
+    float params1[4]; // x=time, y=distortStrength, z=fresnel, w=fresnelPow
+    float params2[4]; // x=waveSpeed, y=swayStrength, z=sparkleStrength, w=isRT
 };
 
 static void StoreMat4(float out16[16], const Matrix4& m)
@@ -208,6 +200,8 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         return;
     }
 
+    ChangeDebugRTT();
+    
     auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
     if (!vkrt)
     {
@@ -238,7 +232,6 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         return;
     }
 
-    // Save per-capture state
     const Matrix4 prevView = mViewMatrix;
     const Matrix4 prevProj = mProjectionMatrix;
     const Matrix4 prevInvV = mInvView;
@@ -246,13 +239,11 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     auto savedQueue   = mRenderQueue;
     auto savedBuckets = mBuckets;
 
-    // Override camera
     mViewMatrix       = req.view;
     mProjectionMatrix = req.proj;
     mInvView          = req.view;
     mInvView.Invert();
 
-    // capture camera 基準で queue/buckets を再構築
     BuildFrameQueues();
     UpdateSceneUBO_World();
 
@@ -289,63 +280,48 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
+    const auto& items = mRenderQueue.Items();
+
+    auto drawCaptureBucket = [&](const std::vector<uint32_t>& bucket)
+    {
+        for (uint32_t idx : bucket)
+        {
+            if (idx >= items.size())
+            {
+                continue;
+            }
+
+            const RenderItem& it = items[idx];
+
+            switch (it.type)
+            {
+                case RenderItemType::SkyDome:
+                case RenderItemType::Mesh:
+                case RenderItemType::SkinnedMesh:
+                case RenderItemType::UnlitQuad:
+                    DrawItem(it, RenderPass::World, -1);
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
     if (req.drawSky)
     {
-        DrawBucket_Sky(mBuckets.sky);
+        drawCaptureBucket(mBuckets.sky);
     }
 
     if (req.drawWorld)
     {
-        const auto& items = mRenderQueue.Items();
-
-        auto drawBucketNoSurface = [&](const std::vector<uint32_t>& bucket)
-        {
-            for (uint32_t idx : bucket)
-            {
-                if (idx >= items.size())
-                {
-                    continue;
-                }
-
-                const RenderItem& it = items[idx];
-
-                // SceneCapture 中は Surface を描かない
-                if (it.type == RenderItemType::Surface)
-                {
-                    continue;
-                }
-
-                DrawItem(it, RenderPass::World, -1);
-            }
-        };
-
-        drawBucketNoSurface(mBuckets.worldOpaque);
-        drawBucketNoSurface(mBuckets.effectPre);
-        drawBucketNoSurface(mBuckets.worldTransparent);
-        drawBucketNoSurface(mBuckets.effectOverlay);
-    }
-
-    if (req.drawOverlay)
-    {
-        DrawBucket_OverlayScreen(mBuckets.overlayScreen);
-    }
-
-    if (req.drawUI)
-    {
-        const Matrix4 uiVP = Matrix4::CreateSimpleViewProj(
-            (float)rp.renderArea.extent.width,
-            (float)rp.renderArea.extent.height);
-
-        UpdateSceneUBO_UI(uiVP);
-        DrawBucket_UI(mBuckets.ui);
-
-        // capture camera の world UBO に戻す
-        UpdateSceneUBO_World();
+        drawCaptureBucket(mBuckets.worldOpaque);
+        drawCaptureBucket(mBuckets.effectPre);
+        drawCaptureBucket(mBuckets.worldTransparent);
+        drawCaptureBucket(mBuckets.effectOverlay);
     }
 
     vkCmdEndRenderPass(cmd);
 
-    // Restore camera / queue
     mViewMatrix       = prevView;
     mProjectionMatrix = prevProj;
     mInvView          = prevInvV;
@@ -354,8 +330,10 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mBuckets     = std::move(savedBuckets);
 
     UpdateSceneUBO_World();
-}
+    
+    ChangeDebugOnScreen();
 
+}
 //======================================================================
 // Passes
 //======================================================================
@@ -1203,7 +1181,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         // params0: flipX, flipY, mode, scanlineStrength
         pc.params0[0] = sp.flipX ? 1.0f : 0.0f;
-        pc.params0[1] = sp.flipY ? 1.0f : 0.0f;
+        pc.params0[1] = sp.flipY ? 0.0f : 1.0f;
         pc.params0[2] = static_cast<float>(sp.mode);
         pc.params0[3] = sp.scanlineStrength;
 
@@ -1217,7 +1195,6 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         pc.params2[0] = 1.0f;  // waveSpeed
         pc.params2[1] = 0.0f;  // swayStrength
         pc.params2[2] = 0.0f;  // sparkleStrength
-        pc.params2[3] = 0.0f;
 
         vkCmdPushConstants(
             cmd,
