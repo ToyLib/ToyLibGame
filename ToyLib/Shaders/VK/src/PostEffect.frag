@@ -1,4 +1,3 @@
-/*
 #version 450
 
 layout(location = 0) in vec2 vTex;
@@ -226,7 +225,8 @@ void main()
     // fallback
     outColor = texture(uSceneTex, uv);
 }
-*/
+
+/*
 #version 450
 
 layout(location = 0) in vec2 vTex;
@@ -243,5 +243,12 @@ layout(push_constant) uniform PostPC
 
 void main()
 {
-    outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    vec2 uv = vTex;
+    if (int(pc.params0.w + 0.5) != 0)
+    {
+        uv.y = 1.0 - uv.y;
+    }
+
+    outColor = texture(uSceneTex, uv);
 }
+*/

@@ -484,6 +484,7 @@ static void AddPC_PostEffect(VKPipelineDesc& d)
     pc.size   = 32;
     d.pushConstants.push_back(pc);
 }
+/*
 VKPipelineDesc MakePostEffect(const std::string& base)
 {
     VKPipelineDesc d{};
@@ -504,7 +505,27 @@ VKPipelineDesc MakePostEffect(const std::string& base)
 
     return d;
 }
+*/
+VKPipelineDesc MakePostEffect(const std::string& base)
+{
+    VKPipelineDesc d{};
+    d.vsPath     = base + "PostEffect.vert.spv";
+    d.fsPath     = base + "PostEffect.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
+    d.depthTest  = false;
+    d.depthWrite = false;
+    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
+    d.cullMode   = VK_CULL_MODE_NONE;
+    d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    d.colorAttachmentCount = 1;
+
+    AddSet0_PostEffectTextures(d);
+    AddPC_PostEffect(d);
+
+    return d;
+}
 } // namespace VKPipelinePresets
 
 } // namespace toy

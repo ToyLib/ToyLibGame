@@ -91,6 +91,7 @@ void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int casca
 //==============================================================================
 void IRenderer::Draw()
 {
+
     ResetDebugCounter();
 
     if (!BeginFrame())
@@ -122,6 +123,7 @@ void IRenderer::Draw()
     DrawUIPass();
     DrawFadePass();
     EndFrame();
+    
 }
 
 //==============================================================================

@@ -65,6 +65,7 @@ struct VKPostEffectPC
 VkDescriptorSet VKRenderer::GetOrCreatePostEffectSet(const Texture* sceneTex,
                                                      const Texture* paperTex)
 {
+
     if (!mDevice || !sceneTex)
     {
         return VK_NULL_HANDLE;
@@ -168,6 +169,7 @@ VkDescriptorSet VKRenderer::GetOrCreatePostEffectSet(const Texture* sceneTex,
     writes[1].descriptorCount = 1;
     writes[1].pImageInfo      = &paperII;
 
+    
     vkUpdateDescriptorSets(mDevice, 2, writes, 0, nullptr);
 
     mPostEffectSetCache.emplace(key, ds);
@@ -214,6 +216,16 @@ void VKRenderer::DrawPostEffectPass()
         return;
     }
 
+    // World/Overlay は SceneRT に描いているので閉じる
+    if (mIsInRenderPass)
+    {
+        vkCmdEndRenderPass(cmd);
+        mIsInRenderPass = false;
+    }
+
+    // 以降は swapchain 側へ描く
+    mRenderToSceneRTThisFrame = false;
+
     BeginSwapchainRenderPassIfNeeded();
     if (!mIsInRenderPass)
     {
@@ -256,7 +268,7 @@ void VKRenderer::DrawPostEffectPass()
     pc.params0[0] = static_cast<float>(mPost.type);
     pc.params0[1] = mPost.intensity;
     pc.params0[2] = static_cast<float>(SDL_GetTicks()) * 0.001f;
-    pc.params0[3] = 0.0f; // flipY
+    pc.params0[3] = 1.0f; // flipY
 
     pc.params1[0] = (mPost.paperTex != nullptr) ? 1.0f : 0.0f;
     pc.params1[1] = 0.0f;
