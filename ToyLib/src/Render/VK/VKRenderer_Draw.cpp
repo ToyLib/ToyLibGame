@@ -197,20 +197,31 @@ void VKRenderer::EndSwapchainRenderPassIfNeeded()
 
 //======================================================================
 // DrawToRenderTarget
+//  - SceneCapture 用の最小版
+//  - shadow はまだ描かない
+//  - main frame cmd に記録する
 //======================================================================
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
-    if (!req.rt) return;
-
-    auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
-    if (!vkrt) return;
-
-    if (mDevice == VK_NULL_HANDLE || mQueueGraphics == VK_NULL_HANDLE || mCommandPool == VK_NULL_HANDLE)
+    if (!req.rt)
     {
         return;
     }
 
-    if (vkrt->GetWidth() <= 0 || vkrt->GetHeight() <= 0 || vkrt->GetFramebuffer() == VK_NULL_HANDLE)
+    auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
+    if (!vkrt)
+    {
+        return;
+    }
+
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+
+    if (vkrt->GetWidth() <= 0 ||
+        vkrt->GetHeight() <= 0 ||
+        vkrt->GetFramebuffer() == VK_NULL_HANDLE)
     {
         const int w = (int)mScreenWidth;
         const int h = (int)mScreenHeight;
@@ -221,20 +232,29 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         }
     }
 
-    VkCommandBuffer cmd = BeginOneTimeCommands();
-    if (cmd == VK_NULL_HANDLE) return;
-
-    PushCameraState();
+    VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
+    if (cmd == VK_NULL_HANDLE)
     {
-        CameraState s{};
-        s.view     = req.view;
-        s.proj     = req.proj;
-        s.invView  = req.view;
-        s.invView.Invert();
-        SetCameraState(s);
-
-        UpdateSceneUBO_World();
+        return;
     }
+
+    // Save per-capture state
+    const Matrix4 prevView = mViewMatrix;
+    const Matrix4 prevProj = mProjectionMatrix;
+    const Matrix4 prevInvV = mInvView;
+
+    auto savedQueue   = mRenderQueue;
+    auto savedBuckets = mBuckets;
+
+    // Override camera
+    mViewMatrix       = req.view;
+    mProjectionMatrix = req.proj;
+    mInvView          = req.view;
+    mInvView.Invert();
+
+    // capture camera 基準で queue/buckets を再構築
+    BuildFrameQueues();
+    UpdateSceneUBO_World();
 
     VkClearValue clears[2]{};
     clears[0].color.float32[0] = mClearColor.x;
@@ -245,9 +265,9 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     clears[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo rp{};
-    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass  = vkrt->GetRenderPass();
-    rp.framebuffer = vkrt->GetFramebuffer();
+    rp.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass        = vkrt->GetRenderPass();
+    rp.framebuffer       = vkrt->GetFramebuffer();
     rp.renderArea.offset = { 0, 0 };
     rp.renderArea.extent = vkrt->GetExtent();
     rp.clearValueCount   = 2;
@@ -256,10 +276,10 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
 
     VkViewport vp{};
-    vp.x = 0.0f;
-    vp.y = (float)rp.renderArea.extent.height;
-    vp.width  = (float)rp.renderArea.extent.width;
-    vp.height = -(float)rp.renderArea.extent.height;
+    vp.x        = 0.0f;
+    vp.y        = (float)rp.renderArea.extent.height;
+    vp.width    = (float)rp.renderArea.extent.width;
+    vp.height   = -(float)rp.renderArea.extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
@@ -269,10 +289,48 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
+    if (req.drawSky)
+    {
+        DrawBucket_Sky(mBuckets.sky);
+    }
+
+    if (req.drawWorld)
+    {
+        DrawBucket_World(mBuckets.worldOpaque);
+        DrawBucket_World(mBuckets.effectPre);
+        DrawBucket_World(mBuckets.worldTransparent);
+        DrawBucket_World(mBuckets.effectOverlay);
+    }
+
+    if (req.drawOverlay)
+    {
+        DrawBucket_OverlayScreen(mBuckets.overlayScreen);
+    }
+
+    if (req.drawUI)
+    {
+        const Matrix4 uiVP = Matrix4::CreateSimpleViewProj(
+            (float)rp.renderArea.extent.width,
+            (float)rp.renderArea.extent.height);
+
+        UpdateSceneUBO_UI(uiVP);
+        DrawBucket_UI(mBuckets.ui);
+
+        // capture camera の world UBO に戻す
+        UpdateSceneUBO_World();
+    }
+
     vkCmdEndRenderPass(cmd);
 
-    PopCameraState();
-    EndOneTimeCommands(cmd);
+    // Restore camera / queue
+    mViewMatrix       = prevView;
+    mProjectionMatrix = prevProj;
+    mInvView          = prevInvV;
+
+    mRenderQueue = std::move(savedQueue);
+    mBuckets     = std::move(savedBuckets);
+
+    UpdateSceneUBO_World();
 }
 
 //======================================================================

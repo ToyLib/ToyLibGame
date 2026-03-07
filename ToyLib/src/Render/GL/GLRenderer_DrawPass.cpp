@@ -644,7 +644,7 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     if (req.drawOverlay) DrawOverlayScreenPass();
     if (req.drawUI)      DrawUIPass();
 
-    DrawFadePass();
+    //DrawFadePass();
 
     // ---- Restore camera ----
     mViewMatrix       = prevView;
