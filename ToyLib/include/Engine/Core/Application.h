@@ -71,7 +71,6 @@ public:
     void SetEnableDebug(const bool b)        { mEnableDebug = b; }
     bool GetVisibleDebugWire()         const { return mVisibleDebugWire; }
     void SetVisibleDebuWire(const bool b)    { mVisibleDebugWire = b; }
-
     
     SDL_Window* GetSDLWindow() const { return mWindow; }
     const SDL_GLContext GetGLContext() const { return mGLContext; }

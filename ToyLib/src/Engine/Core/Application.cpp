@@ -12,6 +12,8 @@
 #include "Camera/CameraManager.h"
 #include "Engine/Debug/DebugOverlayActor.h"
 #include "Utils/MathUtil.h"
+#include "Engine/Debug/DebugDrawActor.h"
+#include "Engine/Debug/DebugDraw.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -175,6 +177,9 @@ bool Application::Initialize()
     if (mEnableDebug)
     {
         CreateActor<toy::DebugOverlayActor>();
+        CreateActor<toy::DebugDrawActor>();
+        DebugDraw::Initialize();
+
     }
     return true;
 }

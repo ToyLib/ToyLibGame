@@ -65,9 +65,6 @@ void FieldScene::InitScene()
     a->SetPosition(Vector3(100.0f, 100.0f,0));
     
     
-    toy::DebugDraw::Initialize();
-    mDebugDrawActor = CreateActor<toy::DebugDrawActor>();
-    
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)

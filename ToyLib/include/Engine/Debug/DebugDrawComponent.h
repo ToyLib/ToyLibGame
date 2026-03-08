@@ -16,6 +16,8 @@ public:
 
     void GatherRenderItems(toy::RenderQueue& q) override;
     void PreDraw();
+    
+    void ProcessInput(const struct InputState& state);
 
 private:
     std::shared_ptr<VertexArray> mVertexArray;

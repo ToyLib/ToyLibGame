@@ -1,4 +1,5 @@
 #include "Engine/Debug/DebugDrawComponent.h"
+#include "Engine/Runtime/InputSystem.h"
 
 #include "Engine/Debug/DebugDraw.h"
 #include "Engine/Debug/DebugDrawSystem.h"
@@ -23,6 +24,7 @@ DebugDrawComponent::DebugDrawComponent(Actor* owner,
     : VisualComponent(owner, drawOrder, layer)
 {
     mPipelineName = "UnlitWire";
+    mIsVisible = false;
 }
 
 void DebugDrawComponent::PreDraw()
@@ -100,6 +102,15 @@ void DebugDrawComponent::PreDraw()
     );
 }
 
+void DebugDrawComponent::ProcessInput(const struct InputState& state)
+{
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F5) == EPressed)
+    {
+        mIsVisible = !mIsVisible;
+    }
+}
+
+
 void DebugDrawComponent::GatherRenderItems(RenderQueue& q)
 {
     if (!mIsVisible)
@@ -107,13 +118,13 @@ void DebugDrawComponent::GatherRenderItems(RenderQueue& q)
         return;
     }
 
-    toy::Actor* owner = GetOwner();
+    Actor* owner = GetOwner();
     if (!owner)
     {
         return;
     }
 
-    toy::Application* app = owner->GetApp();
+    Application* app = owner->GetApp();
     if (!app)
     {
         return;
@@ -176,4 +187,6 @@ void DebugDrawComponent::GatherRenderItems(RenderQueue& q)
 
     q.Push(it);
 }
+
+
 } // namespace toy::kit
