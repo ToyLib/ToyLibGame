@@ -12,7 +12,7 @@ public:
     void Spawn(Vector3 pos);
     void Destroy();
 private:
-    class toy::GLParticleComponent* mParticle;
+    class toy::ParticleComponent* mParticle;
     class toy::PointLightComponent* mLight;
     float mLifeTime;
     Vector3 mPos;

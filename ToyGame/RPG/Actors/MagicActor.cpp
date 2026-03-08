@@ -7,7 +7,7 @@ MagicActor::MagicActor(toy::Application* a)
     , mForward(Vector3::UnitZ)
     , mSpeed(6.0f)
 {
-    mParticle = CreateComponent<toy::GLParticleComponent>();
+    mParticle = CreateComponent<toy::ParticleComponent>();
     auto tex = GetApp()->GetAssetManager()->GetTexture("fire.png");
     mParticle->SetTexture(tex);
     mParticle->InitFromFile("ToyGame/Settings/MagicParticle.json");

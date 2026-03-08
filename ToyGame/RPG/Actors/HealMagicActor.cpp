@@ -7,7 +7,7 @@ HealMagicActor::HealMagicActor(toy::Application* a)
     , mAngle(0.0f)
     , mPos(Vector3::Zero)
 {
-    mParticle = CreateComponent<toy::GLParticleComponent>();
+    mParticle = CreateComponent<toy::ParticleComponent>();
     auto tex = GetApp()->GetAssetManager()->GetTexture("parts.jpg");
     mParticle->SetTexture(tex);
     mParticle->InitFromFile("ToyGame/Settings/HealMagicParticle.json");

@@ -87,7 +87,7 @@
 
 // --- Effect 系 ---
 #include "Graphics/Effect/WireframeComponent.h"
-#include "Graphics/Effect/GLParticleComponent.h"
+#include "Graphics/Effect/ParticleComponent.h"
 #include "Graphics/Effect/RenderSurfaceComponent.h"
 #include "Graphics/Effect/SceneCaptureComponent.h"
 
