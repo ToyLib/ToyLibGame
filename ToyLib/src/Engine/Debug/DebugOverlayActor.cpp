@@ -10,7 +10,6 @@
 #include "Render/RenderBackendState.h"
 #include <iostream>
 
-#include <SDL3/SDL_scancode.h> // SDL2 なら <SDL2/SDL_scancode.h>
 
 namespace toy {
 

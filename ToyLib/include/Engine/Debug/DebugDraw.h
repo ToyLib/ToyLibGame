@@ -5,8 +5,6 @@
 namespace toy
 {
 
-class DebugDrawSystem;
-
 class DebugDraw
 {
 public:
@@ -38,10 +36,10 @@ public:
                       float length,
                       const Vector3& color = Vector3(1.0f, 1.0f, 1.0f));
 
-    static DebugDrawSystem* GetSystem();
+    static class DebugDrawSystem* GetSystem();
 
 private:
-    static DebugDrawSystem* sSystem;
+    static class DebugDrawSystem* sSystem;
 };
 
 } // namespace toy

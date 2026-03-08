@@ -5,7 +5,6 @@
 
 namespace toy
 {
-class VertexArray;
 
 class DebugDrawComponent : public VisualComponent
 {
@@ -14,13 +13,13 @@ public:
                        int drawOrder = 9999,
                        VisualLayer layer = VisualLayer::Object3D);
 
-    void GatherRenderItems(toy::RenderQueue& q) override;
+    void GatherRenderItems(class RenderQueue& q) override;
     void PreDraw();
     
-    void ProcessInput(const struct InputState& state);
+    void ProcessInput(const struct InputState& state) override;
 
 private:
-    std::shared_ptr<VertexArray> mVertexArray;
+    std::shared_ptr<class VertexArray> mVertexArray;
 };
 
 } // namespace toy::kit
