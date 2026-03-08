@@ -5,10 +5,10 @@
 namespace toy
 {
 
-class DebugDrawActor : public toy::Actor
+class DebugDrawActor : public Actor
 {
 public:
-    explicit DebugDrawActor(toy::Application* app);
+    explicit DebugDrawActor(Application* app);
 };
 
 } // namespace toy

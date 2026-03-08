@@ -4,10 +4,10 @@
 namespace toy
 {
 
-DebugDrawActor::DebugDrawActor(toy::Application* app)
+DebugDrawActor::DebugDrawActor(Application* app)
     : Actor(app)
 {
-    CreateComponent<DebugDrawComponent>(9999, toy::VisualLayer::Object3D);
+    CreateComponent<DebugDrawComponent>(9999, VisualLayer::Object3D);
 }
 
 } // namespace toy

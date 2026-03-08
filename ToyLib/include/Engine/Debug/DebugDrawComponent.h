@@ -18,7 +18,7 @@ public:
     void PreDraw();
 
 private:
-    std::shared_ptr<toy::VertexArray> mVertexArray;
+    std::shared_ptr<VertexArray> mVertexArray;
 };
 
 } // namespace toy::kit
