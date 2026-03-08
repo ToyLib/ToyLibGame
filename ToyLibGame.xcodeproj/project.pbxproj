@@ -68,6 +68,7 @@
 				7EDC06E02EDB86B60069EE3D /* Exceptions for "ToyLib" folder in "Compile Sources" phase from "ToyLibGame" target */,
 			);
 			explicitFileTypes = {
+				Shaders/VK/src/ParticleUpdate.comp = sourcecode.glsl;
 				include/Engine/Debug/DebugWireframeComponent.h = sourcecode.cpp.h;
 				include/Graphics/Sprite/TextSpriteComponent.h = sourcecode.c.h;
 				include/Utils/StringUtil.h = sourcecode.c.h;
@@ -211,7 +212,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\n# 1. Homebrewのパスを明示的に追加 (Apple Silicon / Intel 両対応)\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"\n\n# 2. パス設定\nSHADER_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/src\"\nOUTPUT_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/spv\"\n\nmkdir -p \"${OUTPUT_DIR}\"\necho \"${OUTPUT_DIR}\"\n\n# 3. コンパイル実行 (glslc を使用)\nfor shader in \"${SHADER_DIR}\"/*.{vert,frag}; do\n    if [ -f \"$shader\" ]; then\n        filename=$(basename \"$shader\")\n        echo \"Compiling: ${filename} using glslc\"\n        # glslc を使用して SPIR-V に変換\n        glslc \"$shader\" -o \"${OUTPUT_DIR}/${filename}.spv\"\n    fi\ndone\n";
+			shellScript = "#!/bin/sh\n# 1. Homebrewのパスを明示的に追加 (Apple Silicon / Intel 両対応)\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"\n\n# 2. パス設定\nSHADER_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/src\"\nOUTPUT_DIR=\"${PROJECT_DIR}/ToyLib/Shaders/VK/spv\"\n\nmkdir -p \"${OUTPUT_DIR}\"\necho \"${OUTPUT_DIR}\"\n\n# 3. コンパイル実行 (glslc を使用)\nfor shader in \"${SHADER_DIR}\"/*.{vert,frag,comp}; do\n    if [ -f \"$shader\" ]; then\n        filename=$(basename \"$shader\")\n        echo \"Compiling: ${filename} using glslc\"\n        # glslc を使用して SPIR-V に変換\n        glslc \"$shader\" -o \"${OUTPUT_DIR}/${filename}.spv\"\n    fi\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
