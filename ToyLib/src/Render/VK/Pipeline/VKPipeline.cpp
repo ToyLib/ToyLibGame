@@ -134,12 +134,11 @@ void VKPipeline::BuildVertexInput(
             addAttr(1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12);
             addAttr(2, 0, VK_FORMAT_R32G32_SFLOAT,    24);
 
-            addBinding(1, 16, VK_VERTEX_INPUT_RATE_INSTANCE);
-            addAttr(3, 1, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            addAttr(4, 1, VK_FORMAT_R32_SFLOAT,       12);
+            addBinding(1, 32, VK_VERTEX_INPUT_RATE_INSTANCE);
+            addAttr(3, 1, VK_FORMAT_R32G32B32_SFLOAT, 0);   // iPos
+            addAttr(4, 1, VK_FORMAT_R32_SFLOAT,       24);  // iLife
             break;
         }
-            
         default:
         {
             // fallback : Mesh_Pos3Nrm3Uv2 相当

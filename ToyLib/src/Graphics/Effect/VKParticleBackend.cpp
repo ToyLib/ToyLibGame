@@ -427,35 +427,51 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
 
     //==========================================================
-    // Actor のワールド位置を基準に初期配置する
+    // GL版の uEmitterPos 相当
     //==========================================================
-    Vector3 ownerPos = Vector3::Zero;
+    Vector3 emitterPos = mDesc.emitterOffset;
     if (GetOwner())
     {
-        ownerPos = GetOwner()->GetPosition();
+        emitterPos += GetOwner()->GetPosition();
     }
 
     for (uint32_t i = 0; i < mDesc.maxParticles; ++i)
     {
         ParticleGPU p{};
 
-        // とりあえず見やすいように少し散らす
-        const float x = static_cast<float>(i % 8) * 0.15f;
-        const float z = static_cast<float>(i / 8) * 0.15f;
+        // 基本は emitter 位置に置く
+        p.px = emitterPos.x;
+        p.py = emitterPos.y;
+        p.pz = emitterPos.z;
 
-        p.px = ownerPos.x + mDesc.emitterOffset.x + x;
-        p.py = ownerPos.y + mDesc.emitterOffset.y;
-        p.pz = ownerPos.z + mDesc.emitterOffset.z + z;
+        // 速度はゼロ初期化
+        p.vx = 0.0f;
+        p.vy = 0.0f;
+        p.vz = 0.0f;
 
+        //======================================================
+        // GL版と同じ考え方：
+        //  - dead は life >= lifeMax
+        //  - warmStart のときだけ一部を alive にして見た目を維持
+        //======================================================
         if (warmStart && mDesc.maxParticles > 1)
         {
+            // alive として開始
             p.life = lifeMax * (static_cast<float>(i) / static_cast<float>(mDesc.maxParticles - 1));
+
+            // 少しだけ散らしておく
+            const float x = static_cast<float>(i % 8) * 0.05f;
+            const float z = static_cast<float>(i / 8) * 0.05f;
+            p.px += x;
+            p.pz += z;
         }
         else
         {
-            p.life = 0.0f;
+            // dead 開始
+            p.life = lifeMax + 1.0f;
         }
 
+        p.pad = 0.0f;
         init[i] = p;
     }
 
@@ -508,13 +524,15 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         return;
     }
 
-    if (mParticleMemoryA == VK_NULL_HANDLE)
+    const uint32_t count = mDesc.maxParticles;
+    if (count == 0)
     {
         return;
     }
 
-    const uint32_t count = mDesc.maxParticles;
-    if (count == 0)
+    VkDeviceMemory srcMem = CurrentSrcMemory();
+    VkDeviceMemory dstMem = CurrentDstMemory();
+    if (srcMem == VK_NULL_HANDLE || dstMem == VK_NULL_HANDLE)
     {
         return;
     }
@@ -522,25 +540,12 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
 
     //==========================================================
-    // エミッタ位置（GL版 uEmitterPos 相当）
+    // GL版の uEmitterPos 相当
     //==========================================================
     Vector3 emitterPos = mDesc.emitterOffset;
     if (GetOwner())
     {
         emitterPos += GetOwner()->GetPosition();
-    }
-
-    //==========================================================
-    // src/dst
-    //  - 今は CPU 更新なので map → 読み書き
-    //  - ping-pong を使う
-    //==========================================================
-    VkDeviceMemory srcMem = CurrentSrcMemory();
-    VkDeviceMemory dstMem = CurrentDstMemory();
-
-    if (srcMem == VK_NULL_HANDLE || dstMem == VK_NULL_HANDLE)
-    {
-        return;
     }
 
     const VkDeviceSize bufSize =
@@ -561,11 +566,13 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     }
 
     //==========================================================
-    // helper
+    // hash / randomDir / spawnGate
+    //  - GL版の式に寄せる
     //==========================================================
     auto hash11 = [](float n) -> float
     {
-        return std::fmod(std::sin(n) * 43758.5453123f, 1.0f) + (std::fmod(std::sin(n) * 43758.5453123f, 1.0f) < 0.0f ? 1.0f : 0.0f);
+        float x = std::sin(n) * 43758.5453123f;
+        return x - std::floor(x);
     };
 
     auto hash31 = [&](float n) -> Vector3
@@ -585,27 +592,25 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         float lenSq = r.LengthSq();
         if (lenSq < 1.0e-6f)
         {
-            return Vector3::UnitY;
+            r = Vector3::UnitY;
         }
-
-        r.Normalize();
+        else
+        {
+            r *= (1.0f / Math::Sqrt(lenSq));
+        }
         return r;
     };
 
     auto spawnGate = [&](int id) -> bool
     {
-        float ramp = 1.0f;
-        if (mDesc.spawnRampSec > 0.0f)
-        {
-            ramp = Math::Clamp(mTimeAcc / mDesc.spawnRampSec, 0.0f, 1.0f);
-        }
+        float ramp = (mDesc.spawnRampSec <= 0.0f)
+            ? 1.0f
+            : Math::Clamp(mTimeAcc / mDesc.spawnRampSec, 0.0f, 1.0f);
 
         float p = 1.0f - std::exp(-std::max(mDesc.spawnRatePerSec, 0.0f) * deltaTime);
         p *= ramp;
 
-        float timeSlice = std::floor(mTimeAcc * 60.0f);
-        float r = hash11(static_cast<float>(id) * 3.17f + timeSlice * 0.77f);
-
+        float r = hash11(static_cast<float>(id) * 3.17f + std::floor(mTimeAcc * 60.0f) * 0.77f);
         return (r < p);
     };
 
@@ -614,19 +619,18 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     //==========================================================
     for (uint32_t i = 0; i < count; ++i)
     {
-        const ParticleGPU& s = src[i];
-        ParticleGPU d = s;
+        ParticleGPU d = src[i];
 
-        Vector3 pos(s.px, s.py, s.pz);
-        Vector3 vel(0.0f, 0.0f, 0.0f); // いまの簡易描画用 struct では速度未保持
-        float life = s.life;
+        Vector3 pos(d.px, d.py, d.pz);
+        Vector3 vel(d.vx, d.vy, d.vz);
+        float life = d.life;
 
         const bool dead = (life >= lifeMax);
 
         if (dead)
         {
             //--------------------------------------------------
-            // dead 粒
+            // dead 粒：respawn するか、死体のまま維持
             //--------------------------------------------------
             if (mDesc.spawnRatePerSec > 0.0f && spawnGate(static_cast<int>(i)))
             {
@@ -644,54 +648,26 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
                     dir.y =  std::abs(dir.y) * 0.6f + 0.4f;
                 }
 
-                dir.Normalize();
                 vel = dir * mDesc.spread;
-
-                // 速度を保持していない簡易版なので、spawn 直後の 1フレ分だけ進める
-                if (mDesc.mode == ParticleMode::Water)
-                {
-                    vel.y -= mDesc.gravity * deltaTime;
-                }
-                else if (mDesc.mode == ParticleMode::Smoke)
-                {
-                    vel.y += mDesc.lift * deltaTime;
-                }
-
-                pos += vel * deltaTime;
             }
             else
             {
-                // keep dead
                 life = lifeMax + 1.0f;
-                pos  = pos;
+                vel  = Vector3::Zero;
             }
         }
         else
         {
             //--------------------------------------------------
-            // alive 粒
-            // ※ 現在の 16byte 描画用 struct では速度を保持していないので、
-            //    GL版の完全一致ではなく「見た目優先の簡易版」になる
+            // alive 粒：GL版同様、力を加えて積分
             //--------------------------------------------------
-            Vector3 dir = randomDir(static_cast<int>(i), life + mTimeAcc);
-
             if (mDesc.mode == ParticleMode::Water)
             {
-                dir.y = -std::abs(dir.y) * 0.6f - 0.4f;
-                dir.Normalize();
-                vel = dir * mDesc.spread;
                 vel.y -= mDesc.gravity * deltaTime;
             }
             else if (mDesc.mode == ParticleMode::Smoke)
             {
-                dir.y = std::abs(dir.y) * 0.6f + 0.4f;
-                dir.Normalize();
-                vel = dir * mDesc.spread * 0.25f;
                 vel.y += mDesc.lift * deltaTime;
-            }
-            else
-            {
-                vel = dir * (mDesc.spread * 0.25f);
             }
 
             pos  += vel * deltaTime;
@@ -706,7 +682,11 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         d.px   = pos.x;
         d.py   = pos.y;
         d.pz   = pos.z;
+        d.vx   = vel.x;
+        d.vy   = vel.y;
+        d.vz   = vel.z;
         d.life = life;
+        d.pad  = 0.0f;
 
         dst[i] = d;
     }
@@ -714,7 +694,7 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     vkUnmapMemory(device, dstMem);
     vkUnmapMemory(device, srcMem);
 
-    // 次フレームは更新後バッファを描画に使う
+    // 次フレームは更新後を読む
     mPingPong = !mPingPong;
 }
 
