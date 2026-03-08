@@ -93,10 +93,10 @@ void EnemyActor::UpdateActor(float deltaTime)
     }
     if (mCollider->GetTargetState() == toy::TargetState::Locked)
     {
-        auto v = mCollider->GetCenterPosition();
+        //auto v = mCollider->GetCenterPosition();
 
-        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        if (scInfo.visible)
+        //auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
+        //if (scInfo.visible)
         {
             mLockOnSigne->SetVisible(true);
         }

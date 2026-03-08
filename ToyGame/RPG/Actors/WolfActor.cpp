@@ -33,22 +33,21 @@ WolfActor::WolfActor(toy::Application* a)
     soundCmomp->Play();
     
     // 空間に出る文字
-    auto textActor = GetApp()->CreateActor<toy::Actor>();
-    textActor->SetPosition(Vector3(0.0f, 7.0f, 0.0f));
-    auto text = textActor->CreateComponent<toy::TextBillboardComponent>(500);
+    auto text = CreateComponent<toy::TextBillboardComponent>(500);
     text->SetFont(GetApp()->GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 50));
     text->SetColor(Vector3(1.0f, 0.0f, 0.0f));
     text->SetText("Bow \nwow !");
 
-    textActor->SetPosition(GetPosition());
-    textActor->SetScale(0.03f);
     
     mTargetActor = GetApp()->CreateActor<toy::Actor>();
-    mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::Object2D);
+    mTarget = CreateComponent<toy::GroundConformSpriteComponent>();
     mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
     mTarget->SetBlendAdd(false);
-    mTarget->SetIsTopLeft(false);
-
+    mTarget->SetSize(5, 5);
+    mTarget->SetAlpha(1.0f);
+    mTarget->SetGroundLift(0.2f);
+    mTarget->SetGridDiv(4);              // まずは4で十分
+    mTarget->SetMaxDeltaFromCenter(0.6f);// ガタつき抑制
 
 }
 
@@ -78,15 +77,7 @@ void WolfActor::UpdateActor(float deltaTime)
     mTarget->SetVisible(false);
     if (mColleder->GetTargetState() == toy::TargetState::Candidate)
     {
-        auto bb = mColleder->GetBoundingVolume()->GetWorldAABB();
-        auto v = (bb.max + bb.min) * 0.5f;
-
-        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        if (scInfo.visible)
-        {
-            mTargetActor->SetPosition(Vector3(scInfo.virtualScreen.x, scInfo.virtualScreen.y, 0));
-            mTarget->SetVisible(true);
-        }
+        mTarget->SetVisible(true);
     }
 }
 

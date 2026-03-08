@@ -26,6 +26,7 @@ void HealMagicActor::UpdateActor(float deltaTime)
     {
         mParticle->Stop();
         mLight->SetEnabled(false);
+        mLight->SetColor(Vector3(0,0,0));
     }
     else
     {
@@ -35,6 +36,7 @@ void HealMagicActor::UpdateActor(float deltaTime)
         mPos.y -= 2.5f * deltaTime;
         
         SetPosition(Vector3(x, mPos.y, z));
+        mLight->SetColor(Vector3(0.3f, 0.8f, 0.4));
 
     }
     

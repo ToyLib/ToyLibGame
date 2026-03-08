@@ -21,7 +21,7 @@ public:
 private:
     ActionType mAction;
     toy::SkeletalMeshComponent* meshComp;
-    toy::SpriteComponent* mTarget;
+    toy::GroundConformSpriteComponent* mTarget;
     toy::Actor* mTargetActor;
     toy::ColliderComponent* mColleder;
     

@@ -26,6 +26,8 @@ void MagicActor::UpdateActor(float deltaTime)
     {
         mParticle->Start();
         mLight->SetEnabled(true);
+        mLight->SetColor(Vector3(1.0f, 0.8f, 0.1f));
+
     }
     else if (mLifeTime < 5.0f)
     {
@@ -37,6 +39,7 @@ void MagicActor::UpdateActor(float deltaTime)
         mParticle->Stop();
         mParticle->Reset();
         mLight->SetEnabled(false);
+        mLight->SetColor(Vector3(0.0f, 0.0f, 0.0f));
     }
 }
 
