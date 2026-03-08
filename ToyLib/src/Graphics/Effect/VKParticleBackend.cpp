@@ -310,8 +310,8 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
 
     it.depthTest  = true;
     it.depthWrite = false;
-    it.blend      = mDesc.additiveBlend ? BlendMode::Additive : BlendMode::Alpha;
-    it.cull       = CullMode::Back;
+    it.blend      = BlendMode::Additive;   // ★まずは固定で加算合成
+    it.cull       = CullMode::None;        // ★billboard は cull しない
     it.frontFace  = FrontFace::CCW;
 
     it.pipeline    = renderer->GetPipelineHandle(mRenderPipelineName);
@@ -321,7 +321,7 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     it.world    = Matrix4::Identity;
     it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
 
-    // ここがポイント：既存の SpriteQuad を使う
+    // 既存の SpriteQuad を使う
     it.geometry = renderer->GetSpriteQuadHandle();
 
     it.gpuInstanceVB = CurrentSrcBuffer();
@@ -390,7 +390,6 @@ void VKParticleBackend::ReleaseVK()
 
 void VKParticleBackend::InitParticleBuffers(bool warmStart)
 {
-
     auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
     VkDevice device = backend->GetVKDevice();
     VkPhysicalDevice physicalDevice = backend->GetVKPhysicalDevice();
@@ -427,18 +426,27 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
 
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
 
+    //==========================================================
+    // Actor のワールド位置を基準に初期配置する
+    //==========================================================
+    Vector3 ownerPos = Vector3::Zero;
+    if (GetOwner())
+    {
+        ownerPos = GetOwner()->GetPosition();
+    }
+
     for (uint32_t i = 0; i < mDesc.maxParticles; ++i)
     {
         ParticleGPU p{};
 
-        // とりあえず見えるように少し散らす
+        // とりあえず見やすいように少し散らす
         const float x = static_cast<float>(i % 8) * 0.15f;
         const float z = static_cast<float>(i / 8) * 0.15f;
 
-        p.px = mDesc.emitterOffset.x + x;
-        p.py = mDesc.emitterOffset.y;
-        p.pz = mDesc.emitterOffset.z + z;
-        
+        p.px = ownerPos.x + mDesc.emitterOffset.x + x;
+        p.py = ownerPos.y + mDesc.emitterOffset.y;
+        p.pz = ownerPos.z + mDesc.emitterOffset.z + z;
+
         if (warmStart && mDesc.maxParticles > 1)
         {
             p.life = lifeMax * (static_cast<float>(i) / static_cast<float>(mDesc.maxParticles - 1));
@@ -448,12 +456,6 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
             p.life = 0.0f;
         }
 
-        p.vx = 0.0f;
-        p.vy = 0.0f;
-        p.vz = 0.0f;
-
-
-        p.pad = 0.0f;
         init[i] = p;
     }
 
@@ -495,13 +497,225 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
     }
 
     mPingPong = false;
-    
 }
 
 void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
 {
-    (void)deltaTime;
-    // ここは後で compute pipeline + dispatch を実装
+    auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
+    VkDevice device = backend->GetVKDevice();
+    if (device == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    if (mParticleMemoryA == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    const uint32_t count = mDesc.maxParticles;
+    if (count == 0)
+    {
+        return;
+    }
+
+    const float lifeMax = std::max(0.01f, mDesc.particleLife);
+
+    //==========================================================
+    // エミッタ位置（GL版 uEmitterPos 相当）
+    //==========================================================
+    Vector3 emitterPos = mDesc.emitterOffset;
+    if (GetOwner())
+    {
+        emitterPos += GetOwner()->GetPosition();
+    }
+
+    //==========================================================
+    // src/dst
+    //  - 今は CPU 更新なので map → 読み書き
+    //  - ping-pong を使う
+    //==========================================================
+    VkDeviceMemory srcMem = CurrentSrcMemory();
+    VkDeviceMemory dstMem = CurrentDstMemory();
+
+    if (srcMem == VK_NULL_HANDLE || dstMem == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    const VkDeviceSize bufSize =
+        static_cast<VkDeviceSize>(sizeof(ParticleGPU) * count);
+
+    ParticleGPU* src = nullptr;
+    ParticleGPU* dst = nullptr;
+
+    if (vkMapMemory(device, srcMem, 0, bufSize, 0, reinterpret_cast<void**>(&src)) != VK_SUCCESS)
+    {
+        return;
+    }
+
+    if (vkMapMemory(device, dstMem, 0, bufSize, 0, reinterpret_cast<void**>(&dst)) != VK_SUCCESS)
+    {
+        vkUnmapMemory(device, srcMem);
+        return;
+    }
+
+    //==========================================================
+    // helper
+    //==========================================================
+    auto hash11 = [](float n) -> float
+    {
+        return std::fmod(std::sin(n) * 43758.5453123f, 1.0f) + (std::fmod(std::sin(n) * 43758.5453123f, 1.0f) < 0.0f ? 1.0f : 0.0f);
+    };
+
+    auto hash31 = [&](float n) -> Vector3
+    {
+        return Vector3(
+            hash11(n + 1.0f),
+            hash11(n + 2.0f),
+            hash11(n + 3.0f)
+        );
+    };
+
+    auto randomDir = [&](int id, float t) -> Vector3
+    {
+        float n = static_cast<float>(id) * 12.9898f + t * 78.233f;
+        Vector3 r = hash31(n) * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+
+        float lenSq = r.LengthSq();
+        if (lenSq < 1.0e-6f)
+        {
+            return Vector3::UnitY;
+        }
+
+        r.Normalize();
+        return r;
+    };
+
+    auto spawnGate = [&](int id) -> bool
+    {
+        float ramp = 1.0f;
+        if (mDesc.spawnRampSec > 0.0f)
+        {
+            ramp = Math::Clamp(mTimeAcc / mDesc.spawnRampSec, 0.0f, 1.0f);
+        }
+
+        float p = 1.0f - std::exp(-std::max(mDesc.spawnRatePerSec, 0.0f) * deltaTime);
+        p *= ramp;
+
+        float timeSlice = std::floor(mTimeAcc * 60.0f);
+        float r = hash11(static_cast<float>(id) * 3.17f + timeSlice * 0.77f);
+
+        return (r < p);
+    };
+
+    //==========================================================
+    // update
+    //==========================================================
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const ParticleGPU& s = src[i];
+        ParticleGPU d = s;
+
+        Vector3 pos(s.px, s.py, s.pz);
+        Vector3 vel(0.0f, 0.0f, 0.0f); // いまの簡易描画用 struct では速度未保持
+        float life = s.life;
+
+        const bool dead = (life >= lifeMax);
+
+        if (dead)
+        {
+            //--------------------------------------------------
+            // dead 粒
+            //--------------------------------------------------
+            if (mDesc.spawnRatePerSec > 0.0f && spawnGate(static_cast<int>(i)))
+            {
+                life = 0.0f;
+                pos  = emitterPos;
+
+                Vector3 dir = randomDir(static_cast<int>(i), mTimeAcc);
+
+                if (mDesc.mode == ParticleMode::Water)
+                {
+                    dir.y = -std::abs(dir.y) * 0.6f - 0.4f;
+                }
+                else if (mDesc.mode == ParticleMode::Smoke)
+                {
+                    dir.y =  std::abs(dir.y) * 0.6f + 0.4f;
+                }
+
+                dir.Normalize();
+                vel = dir * mDesc.spread;
+
+                // 速度を保持していない簡易版なので、spawn 直後の 1フレ分だけ進める
+                if (mDesc.mode == ParticleMode::Water)
+                {
+                    vel.y -= mDesc.gravity * deltaTime;
+                }
+                else if (mDesc.mode == ParticleMode::Smoke)
+                {
+                    vel.y += mDesc.lift * deltaTime;
+                }
+
+                pos += vel * deltaTime;
+            }
+            else
+            {
+                // keep dead
+                life = lifeMax + 1.0f;
+                pos  = pos;
+            }
+        }
+        else
+        {
+            //--------------------------------------------------
+            // alive 粒
+            // ※ 現在の 16byte 描画用 struct では速度を保持していないので、
+            //    GL版の完全一致ではなく「見た目優先の簡易版」になる
+            //--------------------------------------------------
+            Vector3 dir = randomDir(static_cast<int>(i), life + mTimeAcc);
+
+            if (mDesc.mode == ParticleMode::Water)
+            {
+                dir.y = -std::abs(dir.y) * 0.6f - 0.4f;
+                dir.Normalize();
+                vel = dir * mDesc.spread;
+                vel.y -= mDesc.gravity * deltaTime;
+            }
+            else if (mDesc.mode == ParticleMode::Smoke)
+            {
+                dir.y = std::abs(dir.y) * 0.6f + 0.4f;
+                dir.Normalize();
+                vel = dir * mDesc.spread * 0.25f;
+                vel.y += mDesc.lift * deltaTime;
+            }
+            else
+            {
+                vel = dir * (mDesc.spread * 0.25f);
+            }
+
+            pos  += vel * deltaTime;
+            life += deltaTime;
+
+            if (life >= lifeMax)
+            {
+                life = lifeMax + 1.0f;
+            }
+        }
+
+        d.px   = pos.x;
+        d.py   = pos.y;
+        d.pz   = pos.z;
+        d.life = life;
+
+        dst[i] = d;
+    }
+
+    vkUnmapMemory(device, dstMem);
+    vkUnmapMemory(device, srcMem);
+
+    // 次フレームは更新後バッファを描画に使う
+    mPingPong = !mPingPong;
 }
 
 VkBuffer VKParticleBackend::CurrentSrcBuffer() const

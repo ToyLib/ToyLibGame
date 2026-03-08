@@ -538,8 +538,8 @@ VKPipelineDesc MakeParticle(const std::string& base)
 
     d.depthTest  = true;
     d.depthWrite = false;
-    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
-    d.cullMode   = VK_CULL_MODE_BACK_BIT;
+    d.blendMode  = VKPipelineDesc::BlendMode::Additive;
+    d.cullMode   = VK_CULL_MODE_NONE;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
 

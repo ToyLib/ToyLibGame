@@ -30,6 +30,7 @@ public:
                            const VisualComponent& host) override;
 
 private:
+    /*
     struct ParticleGPU
     {
         float px, py, pz;
@@ -37,7 +38,12 @@ private:
         float vx, vy, vz;
         float pad;
     };
-
+*/
+    struct ParticleGPU
+    {
+        float px, py, pz;
+        float life;
+    };
 private:
     void InitIfNeeded();
     void ReleaseVK();

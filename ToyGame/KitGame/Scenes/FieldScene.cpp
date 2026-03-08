@@ -155,7 +155,7 @@ void FieldScene::InitField()
     waterCapture->Init({ .width = 512, .height = 512 });
     waterCapture->SetCaptureMode(toy::CaptureMode::Water);
 
-    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>(1000);
+    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
     waterComp->SetTexture(waterCapture->GetColorTexture());
     waterComp->SetScale(40.0f, 40.0f);
     waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
@@ -229,8 +229,8 @@ void FieldScene::DeployFire(Vector3 pos)
 {
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
-    auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
-    fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
+    //auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
+    //fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
   
     fireActor->SetPosition(Vector3(-8, 0, -30));
     fireActor->SetScale(0.02f);

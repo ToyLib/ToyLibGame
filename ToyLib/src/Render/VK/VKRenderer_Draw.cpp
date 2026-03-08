@@ -315,9 +315,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
     if (cmd == VK_NULL_HANDLE) return;
 
+    
     if (it.type != RenderItemType::Particle)
     {
-        if (!BindVertexArrayVK(cmd, it.geometry)) return;
+        BindVertexArrayVK(cmd, it.geometry);
     }
     
     //----------------------------------------------------------
@@ -1080,13 +1081,26 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         {
             return;
         }
-        
 
-        // binding 0 は先頭の BindVertexArrayVK(cmd, it.geometry) で設定済み
-        // binding 1 だけ追加で bind する
-        VkBuffer instanceVB = it.gpuInstanceVB;
-        VkDeviceSize instanceOffset = 0;
-        vkCmdBindVertexBuffers(cmd, 1, 1, &instanceVB, &instanceOffset);
+        // ★ Particle だけは generic bind を使わず、ここで binding0/1 を両方 bind する
+        const VertexArray* va = it.geometry.ptr;
+        if (!va)
+        {
+            return;
+        }
+
+        auto* backend = (VKVertexArrayBackend*)va->GetBackend();
+        if (!backend)
+        {
+            return;
+        }
+
+        VkBuffer quadVB = (VkBuffer)backend->GetVKVertexBuffer();
+        VkBuffer quadIB = (VkBuffer)backend->GetVKIndexBuffer();
+        if (quadVB == VK_NULL_HANDLE || quadIB == VK_NULL_HANDLE)
+        {
+            return;
+        }
 
         const ParticlePayload& pp = GetParticlePayload(it.payloadIndex);
 
@@ -1136,25 +1150,23 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sizeof(VKParticlePC),
             &pc);
 
-        if (it.indexCount > 0)
+        VkBuffer bufs[2] =
         {
-            vkCmdDrawIndexed(
-                cmd,
-                it.indexCount,
-                static_cast<uint32_t>(it.instanceCount),
-                0,
-                0,
-                0);
-        }
-        else if (it.vertexCount > 0)
-        {
-            vkCmdDraw(
-                cmd,
-                it.vertexCount,
-                static_cast<uint32_t>(it.instanceCount),
-                0,
-                0);
-        }
+            quadVB,
+            it.gpuInstanceVB
+        };
+        VkDeviceSize offs[2] = { 0, 0 };
+
+        vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offs);
+        vkCmdBindIndexBuffer(cmd, quadIB, 0, (VkIndexType)backend->GetVKIndexType());
+
+        vkCmdDrawIndexed(
+            cmd,
+            it.indexCount,
+            static_cast<uint32_t>(it.instanceCount),
+            0,
+            0,
+            0);
 
         AddDrawCall();
         return;

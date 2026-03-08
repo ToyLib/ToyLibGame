@@ -507,7 +507,7 @@ void GLParticleBackend::InitParticleBuffers(bool warmStart)
         p.px = 0.0f;
         p.py = 0.0f;
         p.pz = 0.0f;
-
+        
         p.vx = 0.0f;
         p.vy = 0.0f;
         p.vz = 0.0f;
