@@ -16,6 +16,7 @@
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
+#include "Render/VK/VKShaderTypes.h"
 
 #include "Render/VK/VKUtil.h"
 #include "Render/VK/Pipeline/VKPipeline.h"
@@ -28,13 +29,6 @@
 namespace toy
 {
 
-//--------------------------------------------------------------
-// Shadow scene UBO (minimal)
-//--------------------------------------------------------------
-struct VKShadowSceneUBO
-{
-    float lightVP[16];
-};
 
 //--------------------------------------------------------------
 // Depth format helper

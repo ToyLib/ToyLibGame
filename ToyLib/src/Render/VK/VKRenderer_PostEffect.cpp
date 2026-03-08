@@ -7,6 +7,7 @@
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
+#include "Render/VK/VKPushConstants.h"
 
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Asset/Geometry/VertexArray.h"
@@ -20,15 +21,6 @@
 
 namespace toy
 {
-
-//--------------------------------------------------------------
-// PushConstants
-//--------------------------------------------------------------
-struct VKPostEffectPC
-{
-    float params0[4]; // x=postType, y=intensity, z=time, w=flipY
-    float params1[4]; // x=usePaperTex, y/z/w=reserved
-};
 
 //--------------------------------------------------------------
 // VertexArray bind helper

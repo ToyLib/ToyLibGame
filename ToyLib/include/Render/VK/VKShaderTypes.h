@@ -65,6 +65,12 @@ struct VKOverlayUBO
     float flareColor[4];  // xyz = flareColor
 };
 
-
+//--------------------------------------------------------------
+// Shadow scene UBO (minimal)
+//--------------------------------------------------------------
+struct VKShadowSceneUBO
+{
+    float lightVP[16];
+};
 
 } // namespace toy
