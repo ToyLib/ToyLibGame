@@ -6,17 +6,13 @@
 namespace toy
 {
 class VertexArray;
-}
 
-namespace toy::kit
-{
-
-class DebugDrawComponent : public toy::VisualComponent
+class DebugDrawComponent : public VisualComponent
 {
 public:
-    DebugDrawComponent(toy::Actor* owner,
+    DebugDrawComponent(Actor* owner,
                        int drawOrder = 9999,
-                       toy::VisualLayer layer = toy::VisualLayer::Object3D);
+                       VisualLayer layer = VisualLayer::Object3D);
 
     void GatherRenderItems(toy::RenderQueue& q) override;
     void PreDraw();

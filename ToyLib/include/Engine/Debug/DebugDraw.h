@@ -2,7 +2,7 @@
 
 #include "Utils/MathUtil.h"
 
-namespace toy::kit
+namespace toy
 {
 
 class DebugDrawSystem;
@@ -44,4 +44,4 @@ private:
     static DebugDrawSystem* sSystem;
 };
 
-} // namespace toy::kit
+} // namespace toy

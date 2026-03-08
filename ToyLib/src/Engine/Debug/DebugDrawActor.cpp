@@ -1,7 +1,7 @@
-#include "Debug/DebugDrawActor.h"
-#include "Debug/DebugDrawComponent.h"
+#include "Engine/Debug/DebugDrawActor.h"
+#include "Engine/Debug/DebugDrawComponent.h"
 
-namespace toy::kit
+namespace toy
 {
 
 DebugDrawActor::DebugDrawActor(toy::Application* app)
@@ -10,4 +10,4 @@ DebugDrawActor::DebugDrawActor(toy::Application* app)
     CreateComponent<DebugDrawComponent>(9999, toy::VisualLayer::Object3D);
 }
 
-} // namespace toy::kit
+} // namespace toy

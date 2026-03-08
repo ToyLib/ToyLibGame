@@ -143,3 +143,8 @@
 #include "Utils/StringUtil.h"
 
 
+// Debug
+#include "Engine/Debug/DebugDraw.h"
+#include "Engine/Debug/DebugDrawSystem.h"
+#include "Engine/Debug/DebugDrawActor.h"
+#include "Engine/Debug/DebugDrawComponent.h"

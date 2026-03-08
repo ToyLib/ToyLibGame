@@ -1,7 +1,7 @@
-#include "Debug/DebugDrawComponent.h"
+#include "Engine/Debug/DebugDrawComponent.h"
 
-#include "Debug/DebugDraw.h"
-#include "Debug/DebugDrawSystem.h"
+#include "Engine/Debug/DebugDraw.h"
+#include "Engine/Debug/DebugDrawSystem.h"
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
@@ -14,12 +14,12 @@
 
 #include <vector>
 
-namespace toy::kit
+namespace toy
 {
 
-DebugDrawComponent::DebugDrawComponent(toy::Actor* owner,
+DebugDrawComponent::DebugDrawComponent(Actor* owner,
                                        int drawOrder,
-                                       toy::VisualLayer layer)
+                                       VisualLayer layer)
     : VisualComponent(owner, drawOrder, layer)
 {
     mPipelineName = "UnlitWire";
@@ -90,7 +90,7 @@ void DebugDrawComponent::PreDraw()
         indices.push_back(vi++);
     }
 
-    mVertexArray = std::make_shared<toy::VertexArray>(
+    mVertexArray = std::make_shared<VertexArray>(
         numVerts,
         verts.data(),
         norms.data(),
@@ -100,7 +100,7 @@ void DebugDrawComponent::PreDraw()
     );
 }
 
-void DebugDrawComponent::GatherRenderItems(toy::RenderQueue& q)
+void DebugDrawComponent::GatherRenderItems(RenderQueue& q)
 {
     if (!mIsVisible)
     {
@@ -141,22 +141,22 @@ void DebugDrawComponent::GatherRenderItems(toy::RenderQueue& q)
     //
     // ここでは白固定で最小実装にする。
     // ----------------------------------------------------------
-    toy::DebugPayload dp {};
+    DebugPayload dp {};
     dp.color = Vector3(1.0f, 1.0f, 1.0f);
     dp.alpha = 1.0f;
 
     const uint32_t payloadIndex = q.PushDebugPayload(dp);
 
-    toy::RenderItem it {};
-    it.pass      = toy::RenderPass::World;
+    RenderItem it {};
+    it.pass      = RenderPass::World;
     it.layer     = GetLayer();
     it.drawOrder = GetDrawOrder();
 
-    it.type     = toy::RenderItemType::Debug;
-    it.dispatch = toy::GetDispatch(it.type);
+    it.type     = RenderItemType::Debug;
+    it.dispatch = GetDispatch(it.type);
 
     it.geometry.ptr = mVertexArray.get();
-    it.topology     = toy::PrimitiveTopology::Lines;
+    it.topology     = PrimitiveTopology::Lines;
     it.vertexCount  = static_cast<int>(mVertexArray->GetNumVerts());
     it.indexCount   = static_cast<int>(mVertexArray->GetNumIndices());
 
@@ -169,8 +169,8 @@ void DebugDrawComponent::GatherRenderItems(toy::RenderQueue& q)
     it.blend      = toy::BlendMode::Alpha;
     it.depthTest  = true;
     it.depthWrite = true;
-    it.cull       = toy::CullMode::None;
-    it.frontFace  = toy::FrontFace::CCW;
+    it.cull       = CullMode::None;
+    it.frontFace  = FrontFace::CCW;
 
     it.payloadIndex = payloadIndex;
 

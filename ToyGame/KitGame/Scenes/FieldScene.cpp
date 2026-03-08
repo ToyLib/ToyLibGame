@@ -65,8 +65,8 @@ void FieldScene::InitScene()
     a->SetPosition(Vector3(100.0f, 100.0f,0));
     
     
-    toy::kit::DebugDraw::Initialize();
-    mDebugDrawActor = CreateActor<toy::kit::DebugDrawActor>();
+    toy::DebugDraw::Initialize();
+    mDebugDrawActor = CreateActor<toy::DebugDrawActor>();
     
 }
 
@@ -88,12 +88,12 @@ void FieldScene::Update(float deltaTime)
     
     
     
-    toy::kit::DebugDraw::Clear();
-    toy::kit::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
+    toy::DebugDraw::Clear();
+    toy::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
     
     Vector3 pos = mPlayerActor->GetPosition();
-    toy::kit::DebugDraw::Sphere(pos, 5.0f, Vector3(0,1,0), 32);
-    //toy::kit::DebugDraw::Box(min, max, Vector3(1,1,0));
+    toy::DebugDraw::Sphere(pos, 5.0f, Vector3(0,1,0), 32);
+    //toy::DebugDraw::Box(min, max, Vector3(1,1,0));
 }
 
 void FieldScene::InitField()

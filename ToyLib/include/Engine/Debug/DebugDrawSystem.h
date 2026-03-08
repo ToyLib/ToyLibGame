@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace toy::kit
+namespace toy
 {
 
 struct DebugLine
@@ -56,4 +56,4 @@ private:
     std::vector<DebugLine> mLines;
 };
 
-} // namespace toy::kit
+} // namespace toy

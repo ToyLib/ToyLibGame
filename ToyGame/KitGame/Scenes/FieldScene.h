@@ -22,6 +22,6 @@ private:
     
     class toy::TextSpriteComponent* mTextComp;
     
-    toy::kit::DebugDrawActor* mDebugDrawActor;
+    toy::DebugDrawActor* mDebugDrawActor;
     toy::Actor* mPlayerActor;
 };

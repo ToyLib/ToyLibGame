@@ -1,6 +1,6 @@
-#include "Debug/DebugDrawSystem.h"
+#include "Engine/Debug/DebugDrawSystem.h"
 
-namespace toy::kit
+namespace toy
 {
 
 void DebugDrawSystem::Clear()
@@ -191,4 +191,4 @@ void DebugDrawSystem::AddArrow(const Vector3& origin,
     AddLine(tip, tip + back - wingU, color);
 }
 
-} // namespace toy::kit
+} // namespace toy

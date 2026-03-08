@@ -1,7 +1,7 @@
-#include "Debug/DebugDraw.h"
-#include "Debug/DebugDrawSystem.h"
+#include "Engine/Debug/DebugDraw.h"
+#include "Engine/Debug/DebugDrawSystem.h"
 
-namespace toy::kit
+namespace toy
 {
 
 DebugDrawSystem* DebugDraw::sSystem = nullptr;
@@ -86,4 +86,4 @@ DebugDrawSystem* DebugDraw::GetSystem()
     return sSystem;
 }
 
-} // namespace toy::kit
+} // namespace toy
