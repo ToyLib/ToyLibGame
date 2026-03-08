@@ -13,7 +13,7 @@
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/VK/VKVertexArrayBackend.h"
 #include "Asset/Material/Texture.h"
-#include "Asset/Material/VKTextureGPU.h"
+#include "Render/VK/VKTextureGPU.h"
 #include "Render/VK/VKSceneRenderTarget.h"
 
 #include <SDL3/SDL.h>

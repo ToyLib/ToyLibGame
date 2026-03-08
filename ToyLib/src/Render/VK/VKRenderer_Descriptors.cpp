@@ -18,7 +18,7 @@
 #include "Render/VK/VKUtil.h"
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/VK/VKShaderTypes.h"
-#include "Asset/Material/VKTextureGPU.h"
+#include "Render/VK/VKTextureGPU.h"
 #include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
