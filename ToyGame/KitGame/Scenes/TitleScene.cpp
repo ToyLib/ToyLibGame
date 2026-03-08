@@ -46,7 +46,7 @@ void TitleScene::Update(float dt)
     {
         mColor = 0.0f;
     }
-    mLogoMesh->SetContourColor(Vector3(mColor, 0.0f, 0.0f));
+    mLogoMesh->SetContourColor(Vector3(mColor, 1.0f - mColor, 0.0f));
 
 
 

@@ -13,9 +13,9 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::FeilyLand;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
-    effectDesc.paperTex = GetApp()-> GetAssetManager()->GetTexture("paper_tex.png");
+    effectDesc.paperTex = GetApp()-> GetAssetManager()->GetTexture("Texture/note_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
     
     
