@@ -63,11 +63,25 @@ static void AddSet1_OverlayUBO(VKPipelineDesc& d)
     d.setLayouts.push_back(set1);
 }
 
+static void AddSet0_Empty(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set0{};
+    set0.set = 0;
+    d.setLayouts.push_back(set0);
+}
+
 static void AddSet1_Empty(VKPipelineDesc& d)
 {
     VKDescriptorSetLayoutDesc set1{};
     set1.set = 1;
     d.setLayouts.push_back(set1);
+}
+
+static void AddSet2_Empty(VKPipelineDesc& d)
+{
+    VKDescriptorSetLayoutDesc set2{};
+    set2.set = 2;
+    d.setLayouts.push_back(set2);
 }
 
 static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
@@ -255,6 +269,7 @@ VKPipelineDesc MakeMesh(const std::string& base)
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
+    AddSet2_Empty(d);
     AddSet3_ShadowSample(d);
     AddPC_ObjectMaterial(d);
     return d;
@@ -301,9 +316,9 @@ VKPipelineDesc MakeWeatherOverlay(const std::string& base)
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
 
-    // set0 は不要、set1 に OverlayUBO を置く
+    // shader / bind 側が set=1 前提なので元に戻す
+    AddSet0_Empty(d);
     AddSet1_OverlayUBO(d);
-
     return d;
 }
 
@@ -322,8 +337,9 @@ VKPipelineDesc MakeWeatherOverlayAdd(const std::string& base)
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
 
+    // shader / bind 側が set=1 前提なので元に戻す
+    AddSet0_Empty(d);
     AddSet1_OverlayUBO(d);
-
     return d;
 }
 
@@ -397,7 +413,7 @@ static void AddPC_FadeColorAlpha(VKPipelineDesc& d)
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size   = 16; // vec4
+    pc.size   = 16;
     d.pushConstants.push_back(pc);
 }
 
@@ -412,15 +428,11 @@ VKPipelineDesc MakeFade(const std::string& base)
     d.depthTest  = false;
     d.depthWrite = false;
     d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
-
-
     d.cullMode   = VK_CULL_MODE_NONE;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-
     d.colorAttachmentCount = 1;
 
     AddPC_FadeColorAlpha(d);
-
     return d;
 }
 
@@ -429,7 +441,7 @@ static void AddPC_Surface(VKPipelineDesc& d)
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size   = 128; // mat4 + vec4 * 4
+    pc.size   = 128;
     d.pushConstants.push_back(pc);
 }
 
@@ -476,6 +488,7 @@ static void AddSet0_PostEffectTextures(VKPipelineDesc& d)
 
     d.setLayouts.push_back(set0);
 }
+
 static void AddPC_PostEffect(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
@@ -484,7 +497,7 @@ static void AddPC_PostEffect(VKPipelineDesc& d)
     pc.size   = 32;
     d.pushConstants.push_back(pc);
 }
-/*
+
 VKPipelineDesc MakePostEffect(const std::string& base)
 {
     VKPipelineDesc d{};
@@ -505,27 +518,38 @@ VKPipelineDesc MakePostEffect(const std::string& base)
 
     return d;
 }
-*/
-VKPipelineDesc MakePostEffect(const std::string& base)
+
+static void AddPC_Particle(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT;
+    pc.offset = 0;
+    pc.size   = 48;
+    d.pushConstants.push_back(pc);
+}
+
+VKPipelineDesc MakeParticle(const std::string& base)
 {
     VKPipelineDesc d{};
-    d.vsPath     = base + "PostEffect.vert.spv";
-    d.fsPath     = base + "PostEffect.frag.spv";
-    d.layout     = VKPipelineDesc::VertexLayout::Vec2_Pos2;
+    d.vsPath     = base + "Particle.vert.spv";
+    d.fsPath     = base + "Particle.frag.spv";
+    d.layout     = VKPipelineDesc::VertexLayout::Particle_Pos3Uv2_InstPos3Life1;
     d.topology   = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    d.depthTest  = false;
+    d.depthTest  = true;
     d.depthWrite = false;
-    d.blendMode  = VKPipelineDesc::BlendMode::Opaque;
-    d.cullMode   = VK_CULL_MODE_NONE;
+    d.blendMode  = VKPipelineDesc::BlendMode::Alpha;
+    d.cullMode   = VK_CULL_MODE_BACK_BIT;
     d.frontFace  = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     d.colorAttachmentCount = 1;
 
-    AddSet0_PostEffectTextures(d);
-    AddPC_PostEffect(d);
+    AddSet0_SceneUBO(d);
+    AddSet1_BaseMap(d);
+    AddPC_Particle(d);
 
     return d;
 }
+
 } // namespace VKPipelinePresets
 
 } // namespace toy

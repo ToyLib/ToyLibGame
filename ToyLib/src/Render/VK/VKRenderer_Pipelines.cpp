@@ -33,6 +33,7 @@ namespace toy
 //--------------------------------------------------------------
 // ctor/dtor
 //--------------------------------------------------------------
+/*
 bool VKRenderer::BuildDefaultPipelines()
 {
     const std::string base = mShaderPath + "VK/spv/";
@@ -201,6 +202,15 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
+    
+    // Particle
+    {
+        VKPipelineDesc particle = toy::VKPipelinePresets::MakeParticle(base);
+        if (!mPipelines.CreatePipeline("Particle", mDevice, mRenderPass, mSwapchainExtent, particle))
+        {
+            return false;
+        }
+    }
 
     //==========================================================
     // 2) Shadow(RenderPass/Extent) 用パイプライン
@@ -246,6 +256,256 @@ bool VKRenderer::BuildDefaultPipelines()
 
             if (!mPipelines.CreatePipeline("ShadowSkinned_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
             {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+*/
+bool VKRenderer::BuildDefaultPipelines()
+{
+    const std::string base = mShaderPath + "VK/spv/";
+
+    //==========================================================
+    // swapchain recreate 等で呼ばれるので、古い pipeline を確実に破棄
+    //==========================================================
+    mPipelines.DestroyAll();
+
+    // pipeline を作り直したら setLayout が変わる可能性がある
+    ClearBaseMapSetCache();
+
+    // PostEffect は pipeline recreate 後に layout を取り直す
+    mPostEffectSets.clear();
+    mPostEffectSetLayout = VK_NULL_HANDLE;
+
+    //==========================================================
+    // 1) Swapchain(RenderPass/Extent) 用パイプライン
+    //==========================================================
+    // Sprite
+    {
+        VKPipelineDesc sprite = toy::VKPipelinePresets::MakeSprite(base);
+        if (!mPipelines.CreatePipeline("Sprite", mDevice, mRenderPass, mSwapchainExtent, sprite))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Sprite\n";
+            return false;
+        }
+    }
+
+    // UnlitQuad
+    {
+        VKPipelineDesc uq = toy::VKPipelinePresets::MakeUnlitQuad(base);
+        if (!mPipelines.CreatePipeline("UnlitQuad", mDevice, mRenderPass, mSwapchainExtent, uq))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: UnlitQuad\n";
+            return false;
+        }
+    }
+
+    // UnlitWire
+    {
+        VKPipelineDesc wire = toy::VKPipelinePresets::MakeUnlitWire(base);
+        if (!mPipelines.CreatePipeline("UnlitWire", mDevice, mRenderPass, mSwapchainExtent, wire))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: UnlitWire\n";
+            return false;
+        }
+    }
+
+    // Mesh + Mesh_CW
+    {
+        VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
+
+        mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        mesh.cullMode  = VK_CULL_MODE_BACK_BIT;
+
+        if (!mPipelines.CreatePipeline("Mesh", mDevice, mRenderPass, mSwapchainExtent, mesh))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Mesh\n";
+            return false;
+        }
+
+        VKPipelineDesc meshCW = mesh;
+        meshCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+        if (!mPipelines.CreatePipeline("Mesh_CW", mDevice, mRenderPass, mSwapchainExtent, meshCW))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Mesh_CW\n";
+            return false;
+        }
+    }
+
+    // RenderSurface
+    {
+        VKPipelineDesc surf = toy::VKPipelinePresets::MakeRenderSurface(base);
+
+        surf.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        surf.cullMode  = VK_CULL_MODE_BACK_BIT;
+
+        if (!mPipelines.CreatePipeline("RenderSurface", mDevice, mRenderPass, mSwapchainExtent, surf))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: RenderSurface\n";
+            return false;
+        }
+
+        // 必要になったら CW 版も追加可能
+        // std::cerr << "[VKRenderer] Creating pipeline: RenderSurface_CW\n";
+        // VKPipelineDesc surfCW = surf;
+        // surfCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        // if (!mPipelines.CreatePipeline("RenderSurface_CW", mDevice, mRenderPass, mSwapchainExtent, surfCW))
+        // {
+        //     std::cerr << "[VKRenderer] Failed pipeline: RenderSurface_CW\n";
+        //     return false;
+        // }
+    }
+
+    // SkyDome
+    {
+        VKPipelineDesc sky = toy::VKPipelinePresets::MakeSkyDome(base);
+        if (!mPipelines.CreatePipeline("SkyDome", mDevice, mRenderPass, mSwapchainExtent, sky))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: SkyDome\n";
+            return false;
+        }
+    }
+
+    // WeatherOverlay
+    {
+        VKPipelineDesc ov = toy::VKPipelinePresets::MakeWeatherOverlay(base);
+        if (!mPipelines.CreatePipeline("WeatherOverlay", mDevice, mRenderPass, mSwapchainExtent, ov))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: WeatherOverlay\n";
+            return false;
+        }
+    }
+
+    // WeatherOverlayAdd
+    {
+        VKPipelineDesc ovAdd = toy::VKPipelinePresets::MakeWeatherOverlayAdd(base);
+        if (!mPipelines.CreatePipeline("WeatherOverlayAdd", mDevice, mRenderPass, mSwapchainExtent, ovAdd))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: WeatherOverlayAdd\n";
+            return false;
+        }
+    }
+
+    // Fade
+    {
+        VKPipelineDesc fade = toy::VKPipelinePresets::MakeFade(base);
+        if (!mPipelines.CreatePipeline("Fade", mDevice, mRenderPass, mSwapchainExtent, fade))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Fade\n";
+            return false;
+        }
+    }
+
+    // PostEffect
+    {
+
+        VKPipelineDesc post = toy::VKPipelinePresets::MakePostEffect(base);
+        if (!mPipelines.CreatePipeline("PostEffect", mDevice, mRenderPass, mSwapchainExtent, post))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: PostEffect\n";
+            return false;
+        }
+
+        VKPipeline* pipe = mPipelines.Get("PostEffect");
+        if (!pipe || !pipe->IsValid())
+        {
+            std::cerr << "[VKRenderer] Invalid pipeline after create: PostEffect\n";
+            return false;
+        }
+
+        mPostEffectSetLayout = pipe->GetSetLayout(0);
+        if (mPostEffectSetLayout == VK_NULL_HANDLE)
+        {
+            std::cerr << "[VKRenderer] PostEffect set0 layout null\n";
+            return false;
+        }
+    }
+
+    // SkinnedMesh + SkinnedMesh_CW
+    {
+        VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
+
+        sk.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        sk.cullMode  = VK_CULL_MODE_BACK_BIT;
+
+        if (!mPipelines.CreatePipeline("SkinnedMesh", mDevice, mRenderPass, mSwapchainExtent, sk))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: SkinnedMesh\n";
+            return false;
+        }
+
+        VKPipelineDesc skCW = sk;
+        skCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+        if (!mPipelines.CreatePipeline("SkinnedMesh_CW", mDevice, mRenderPass, mSwapchainExtent, skCW))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: SkinnedMesh_CW\n";
+            return false;
+        }
+    }
+
+    // Particle
+    {
+        VKPipelineDesc particle = toy::VKPipelinePresets::MakeParticle(base);
+        if (!mPipelines.CreatePipeline("Particle", mDevice, mRenderPass, mSwapchainExtent, particle))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Particle\n";
+            return false;
+        }
+    }
+
+    //==========================================================
+    // 2) Shadow(RenderPass/Extent) 用パイプライン
+    //==========================================================
+    if (mShadowRenderPass != VK_NULL_HANDLE &&
+        mShadowExtent.width > 0 && mShadowExtent.height > 0)
+    {
+        // ShadowMesh + ShadowMesh_CW
+        {
+            VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowMesh(base);
+
+            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("ShadowMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            {
+                std::cerr << "[VKRenderer] Failed pipeline: ShadowMesh\n";
+                return false;
+            }
+
+            VKPipelineDesc sdCW = sd;
+            sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("ShadowMesh_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            {
+                std::cerr << "[VKRenderer] Failed pipeline: ShadowMesh_CW\n";
+                return false;
+            }
+        }
+
+        // ShadowSkinned + ShadowSkinned_CW
+        {
+            VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowSkinnedMesh(base);
+
+            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("ShadowSkinned", mDevice, mShadowRenderPass, mShadowExtent, sd))
+            {
+                std::cerr << "[VKRenderer] Failed pipeline: ShadowSkinned\n";
+                return false;
+            }
+
+            VKPipelineDesc sdCW = sd;
+            sdCW.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+            if (!mPipelines.CreatePipeline("ShadowSkinned_CW", mDevice, mShadowRenderPass, mShadowExtent, sdCW))
+            {
+                std::cerr << "[VKRenderer] Failed pipeline: ShadowSkinned_CW\n";
                 return false;
             }
         }

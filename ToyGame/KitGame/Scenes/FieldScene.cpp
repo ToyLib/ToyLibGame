@@ -252,12 +252,6 @@ void FieldScene::DeployFire(Vector3 pos)
     auto fireLight = fireActor->CreateComponent<toy::PointLightComponent>();
     fireLight->SetColor(Vector3(1.0f, 0.5f, 0.0f));
     
-    if (!toy::RenderBackendState::Get().IsGL())
-    {
-        return;
-    }
-    
-
     
     // Actor
     auto particleActorGPU = CreateActor<toy::Actor>();

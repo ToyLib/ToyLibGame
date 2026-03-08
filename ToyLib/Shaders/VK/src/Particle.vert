@@ -1,32 +1,25 @@
 #version 450
 
 layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aUV;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aUV;
 
-// instance data
 layout(location = 3) in vec3 iPos;
 layout(location = 4) in float iLife;
 
 layout(location = 0) out vec2 vUV;
 layout(location = 1) out float vAlpha;
 
-//============================================================
-// Scene UBO
-// set=0, binding=0
-//============================================================
 layout(set = 0, binding = 0) uniform SceneUBO
 {
     mat4 uViewProj;
 } uScene;
 
-//============================================================
-// Push Constants
-//============================================================
 layout(push_constant) uniform ParticlePC
 {
-    vec4 uCameraRight; // xyz used
-    vec4 uCameraUp;    // xyz used
-    vec4 uParams;      // x=size, y=lifeMax, z/w=reserved
+    vec4 uCameraRight;
+    vec4 uCameraUp;
+    vec4 uParams;
 } pc;
 
 void main()

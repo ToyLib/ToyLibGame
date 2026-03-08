@@ -85,7 +85,8 @@ struct VKPipelineDesc
         Sprite_Pos3Nrm3Uv2, // 8 floats interleaved (32 bytes)
         Mesh_Pos3Nrm3Uv2,   // same as sprite for now
         Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4, // 64 bytes
-        Vec2_Pos2           // 2 floats interleaved (8 bytes)
+        Vec2_Pos2,          // 2 floats interleaved (8 bytes)
+        Particle_Pos3Uv2_InstPos3Life1
     };
 
     VertexLayout layout = VertexLayout::Sprite_Pos3Nrm3Uv2;
@@ -144,7 +145,7 @@ private:
 
 private:
     static void BuildVertexInput(VKPipelineDesc::VertexLayout layout,
-                                 VkVertexInputBindingDescription& outBinding,
+                                 std::vector<VkVertexInputBindingDescription>& outBindings,
                                  std::vector<VkVertexInputAttributeDescription>& outAttrs);
 
     static VkShaderModule LoadShaderModule(VkDevice device, const std::string& spvPath);

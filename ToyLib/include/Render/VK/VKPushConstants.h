@@ -62,5 +62,11 @@ struct VKPostEffectPC
     float params1[4]; // x=usePaperTex, y/z/w=reserved
 };
 
+struct VKParticlePC
+{
+    float cameraRight[4];
+    float cameraUp[4];
+    float params[4]; // x=size, y=lifeMax
+};
 
 } // namespcae toy

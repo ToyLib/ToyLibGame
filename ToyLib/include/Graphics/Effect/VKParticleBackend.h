@@ -33,9 +33,9 @@ private:
     struct ParticleGPU
     {
         float px, py, pz;
+        float life;   // ← 4番目に life
         float vx, vy, vz;
-        float life;
-        float pad; // alignment safety
+        float pad;
     };
 
 private:

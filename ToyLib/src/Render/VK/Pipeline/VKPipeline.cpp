@@ -64,21 +64,28 @@ VkShaderModule VKPipeline::LoadShaderModule(VkDevice device, const std::string& 
     return mod;
 }
 
-void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
-                                  VkVertexInputBindingDescription& outBinding,
-                                  std::vector<VkVertexInputAttributeDescription>& outAttrs)
+void VKPipeline::BuildVertexInput(
+    VKPipelineDesc::VertexLayout layout,
+    std::vector<VkVertexInputBindingDescription>& outBindings,
+    std::vector<VkVertexInputAttributeDescription>& outAttrs)
 {
+    outBindings.clear();
     outAttrs.clear();
 
-    outBinding = {};
-    outBinding.binding   = 0;
-    outBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    auto addBinding = [&](uint32_t binding, uint32_t stride, VkVertexInputRate rate)
+    {
+        VkVertexInputBindingDescription b{};
+        b.binding   = binding;
+        b.stride    = stride;
+        b.inputRate = rate;
+        outBindings.push_back(b);
+    };
 
-    auto addAttr = [&](uint32_t loc, VkFormat fmt, uint32_t offset)
+    auto addAttr = [&](uint32_t loc, uint32_t binding, VkFormat fmt, uint32_t offset)
     {
         VkVertexInputAttributeDescription a{};
         a.location = loc;
-        a.binding  = 0;
+        a.binding  = binding;
         a.format   = fmt;
         a.offset   = offset;
         outAttrs.push_back(a);
@@ -89,34 +96,58 @@ void VKPipeline::BuildVertexInput(VKPipelineDesc::VertexLayout layout,
         case VKPipelineDesc::VertexLayout::Sprite_Pos3Nrm3Uv2:
         case VKPipelineDesc::VertexLayout::Mesh_Pos3Nrm3Uv2:
         {
-            outBinding.stride = 32;
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
+            // binding 0 : pos3 + nrm3 + uv2
+            addBinding(0, 32, VK_VERTEX_INPUT_RATE_VERTEX);
+
+            addAttr(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
+            addAttr(1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12);
+            addAttr(2, 0, VK_FORMAT_R32G32_SFLOAT,    24);
             break;
         }
+
         case VKPipelineDesc::VertexLayout::Skinned_Pos3Nrm3Uv2_Bone4U32_Weight4:
         {
-            outBinding.stride = 64;
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT,     0);
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT,    12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,       24);
-            addAttr(3, VK_FORMAT_R32G32B32A32_UINT,   32);
-            addAttr(4, VK_FORMAT_R32G32B32A32_SFLOAT, 48);
+            // binding 0 : pos3 + nrm3 + uv2 + bone4u32 + weight4
+            addBinding(0, 64, VK_VERTEX_INPUT_RATE_VERTEX);
+
+            addAttr(0, 0, VK_FORMAT_R32G32B32_SFLOAT,     0);
+            addAttr(1, 0, VK_FORMAT_R32G32B32_SFLOAT,    12);
+            addAttr(2, 0, VK_FORMAT_R32G32_SFLOAT,       24);
+            addAttr(3, 0, VK_FORMAT_R32G32B32A32_UINT,   32);
+            addAttr(4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 48);
             break;
         }
+
         case VKPipelineDesc::VertexLayout::Vec2_Pos2:
         {
-            outBinding.stride = 8;
-            addAttr(0, VK_FORMAT_R32G32_SFLOAT, 0);
+            // binding 0 : pos2
+            addBinding(0, 8, VK_VERTEX_INPUT_RATE_VERTEX);
+
+            addAttr(0, 0, VK_FORMAT_R32G32_SFLOAT, 0);
             break;
         }
+
+        case VKPipelineDesc::VertexLayout::Particle_Pos3Uv2_InstPos3Life1:
+        {
+            addBinding(0, 32, VK_VERTEX_INPUT_RATE_VERTEX);
+            addAttr(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
+            addAttr(1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12);
+            addAttr(2, 0, VK_FORMAT_R32G32_SFLOAT,    24);
+
+            addBinding(1, 32, VK_VERTEX_INPUT_RATE_INSTANCE);
+            addAttr(3, 1, VK_FORMAT_R32G32B32_SFLOAT, 0);
+            addAttr(4, 1, VK_FORMAT_R32_SFLOAT,       12);
+            break;
+        }
+
         default:
         {
-            outBinding.stride = 32;
-            addAttr(0, VK_FORMAT_R32G32B32_SFLOAT, 0);
-            addAttr(1, VK_FORMAT_R32G32B32_SFLOAT, 12);
-            addAttr(2, VK_FORMAT_R32G32_SFLOAT,    24);
+            // fallback : Mesh_Pos3Nrm3Uv2 相当
+            addBinding(0, 32, VK_VERTEX_INPUT_RATE_VERTEX);
+
+            addAttr(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0);
+            addAttr(1, 0, VK_FORMAT_R32G32B32_SFLOAT, 12);
+            addAttr(2, 0, VK_FORMAT_R32G32_SFLOAT,    24);
             break;
         }
     }
@@ -264,28 +295,49 @@ bool VKPipeline::Create(VkDevice device,
 {
     Destroy();
 
-    if (!device || !renderPass || extent.width == 0 || extent.height == 0)
+    if (device == VK_NULL_HANDLE || renderPass == VK_NULL_HANDLE)
     {
+        std::cerr << "[VKPipeline] Create failed: invalid device/renderPass\n";
         return false;
     }
+
+    if (extent.width == 0 || extent.height == 0)
+    {
+        std::cerr << "[VKPipeline] Create failed: invalid extent\n";
+        return false;
+    }
+
     if (desc.vsPath.empty() || desc.fsPath.empty())
     {
-        std::cerr << "[VKPipeline] Create failed: empty shader path\n";
+        std::cerr << "[VKPipeline] Create failed: shader path is empty\n";
         return false;
     }
 
     mDevice = device;
 
+    //----------------------------------------------------------
+    // Shader modules
+    //----------------------------------------------------------
     VkShaderModule vs = LoadShaderModule(device, desc.vsPath);
-    VkShaderModule fs = LoadShaderModule(device, desc.fsPath);
-    if (!vs || !fs)
+    if (vs == VK_NULL_HANDLE)
     {
-        if (vs) vkDestroyShaderModule(device, vs, nullptr);
-        if (fs) vkDestroyShaderModule(device, fs, nullptr);
+        std::cerr << "[VKPipeline] LoadShaderModule failed: " << desc.vsPath << "\n";
         return false;
     }
 
+    VkShaderModule fs = LoadShaderModule(device, desc.fsPath);
+    if (fs == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKPipeline] LoadShaderModule failed: " << desc.fsPath << "\n";
+        vkDestroyShaderModule(device, vs, nullptr);
+        return false;
+    }
+
+    //----------------------------------------------------------
+    // Shader stages
+    //----------------------------------------------------------
     VkPipelineShaderStageCreateInfo stages[2]{};
+
     stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
     stages[0].module = vs;
@@ -296,32 +348,31 @@ bool VKPipeline::Create(VkDevice device,
     stages[1].module = fs;
     stages[1].pName  = "main";
 
+    //----------------------------------------------------------
     // Vertex input
-    VkVertexInputBindingDescription binding{};
+    //----------------------------------------------------------
+    std::vector<VkVertexInputBindingDescription> bindings;
     std::vector<VkVertexInputAttributeDescription> attrs;
-    BuildVertexInput(desc.layout, binding, attrs);
-    if (binding.stride == 0 || attrs.empty())
-    {
-        std::cerr << "[VKPipeline] Invalid vertex layout. stride=0 or attrs empty\n";
-        vkDestroyShaderModule(device, vs, nullptr);
-        vkDestroyShaderModule(device, fs, nullptr);
-        Destroy();
-        return false;
-    }
+    BuildVertexInput(desc.layout, bindings, attrs);
 
     VkPipelineVertexInputStateCreateInfo vi{};
     vi.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vi.vertexBindingDescriptionCount   = 1;
-    vi.pVertexBindingDescriptions      = &binding;
+    vi.vertexBindingDescriptionCount   = static_cast<uint32_t>(bindings.size());
+    vi.pVertexBindingDescriptions      = bindings.empty() ? nullptr : bindings.data();
     vi.vertexAttributeDescriptionCount = static_cast<uint32_t>(attrs.size());
-    vi.pVertexAttributeDescriptions    = attrs.data();
+    vi.pVertexAttributeDescriptions    = attrs.empty() ? nullptr : attrs.data();
 
+    //----------------------------------------------------------
+    // Input assembly
+    //----------------------------------------------------------
     VkPipelineInputAssemblyStateCreateInfo ia{};
     ia.sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     ia.topology               = desc.topology;
     ia.primitiveRestartEnable = VK_FALSE;
 
-    // Dynamic viewport/scissor
+    //----------------------------------------------------------
+    // Viewport / Scissor
+    //----------------------------------------------------------
     VkPipelineViewportStateCreateInfo vp{};
     vp.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
@@ -331,7 +382,6 @@ bool VKPipeline::Create(VkDevice device,
     {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
-        // ※ depth bias を動的にするなら VK_DYNAMIC_STATE_DEPTH_BIAS を追加する
     };
 
     VkPipelineDynamicStateCreateInfo dyn{};
@@ -339,25 +389,33 @@ bool VKPipeline::Create(VkDevice device,
     dyn.dynamicStateCount = 2;
     dyn.pDynamicStates    = dynStates;
 
+    //----------------------------------------------------------
+    // Rasterizer
+    //----------------------------------------------------------
     VkPipelineRasterizationStateCreateInfo rs{};
     rs.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rs.depthClampEnable        = VK_FALSE;
     rs.rasterizerDiscardEnable = VK_FALSE;
     rs.polygonMode             = VK_POLYGON_MODE_FILL;
-    rs.lineWidth               = 1.0f;
     rs.cullMode                = desc.cullMode;
     rs.frontFace               = desc.frontFace;
-
-    // ★Shadow向け depth bias
     rs.depthBiasEnable         = desc.depthBiasEnable ? VK_TRUE : VK_FALSE;
     rs.depthBiasConstantFactor = desc.depthBiasConstantFactor;
     rs.depthBiasClamp          = desc.depthBiasClamp;
     rs.depthBiasSlopeFactor    = desc.depthBiasSlopeFactor;
+    rs.lineWidth               = 1.0f;
 
+    //----------------------------------------------------------
+    // Multisample
+    //----------------------------------------------------------
     VkPipelineMultisampleStateCreateInfo ms{};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.sampleShadingEnable  = VK_FALSE;
 
+    //----------------------------------------------------------
+    // Depth stencil
+    //----------------------------------------------------------
     VkPipelineDepthStencilStateCreateInfo ds{};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = desc.depthTest  ? VK_TRUE : VK_FALSE;
@@ -366,70 +424,118 @@ bool VKPipeline::Create(VkDevice device,
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
-    //==========================================================
+    //----------------------------------------------------------
     // Color blend
-    //  - depth-only pass は colorAttachmentCount=0
-    //==========================================================
-    VkPipelineColorBlendAttachmentState cbAtt{};
-    cbAtt.colorWriteMask =
-        VK_COLOR_COMPONENT_R_BIT |
-        VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT |
-        VK_COLOR_COMPONENT_A_BIT;
+    //----------------------------------------------------------
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments;
+    blendAttachments.resize(desc.colorAttachmentCount);
 
-    switch (desc.blendMode)
+    for (uint32_t i = 0; i < desc.colorAttachmentCount; ++i)
     {
-        case VKPipelineDesc::BlendMode::Opaque:
-        {
-            cbAtt.blendEnable = VK_FALSE;
-            break;
-        }
+        auto& a = blendAttachments[i];
+        a.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
 
-        case VKPipelineDesc::BlendMode::Alpha:
+        switch (desc.blendMode)
         {
-            cbAtt.blendEnable         = VK_TRUE;
-            cbAtt.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-            cbAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            cbAtt.colorBlendOp        = VK_BLEND_OP_ADD;
-            cbAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            cbAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-            cbAtt.alphaBlendOp        = VK_BLEND_OP_ADD;
-            break;
-        }
+            case VKPipelineDesc::BlendMode::Opaque:
+            {
+                a.blendEnable = VK_FALSE;
+                break;
+            }
 
-        case VKPipelineDesc::BlendMode::Additive:
-        {
-            cbAtt.blendEnable         = VK_TRUE;
-            cbAtt.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            cbAtt.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            cbAtt.colorBlendOp        = VK_BLEND_OP_ADD;
-            cbAtt.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            cbAtt.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            cbAtt.alphaBlendOp        = VK_BLEND_OP_ADD;
-            break;
+            case VKPipelineDesc::BlendMode::Alpha:
+            {
+                a.blendEnable         = VK_TRUE;
+                a.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                a.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                a.colorBlendOp        = VK_BLEND_OP_ADD;
+                a.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                a.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                a.alphaBlendOp        = VK_BLEND_OP_ADD;
+                break;
+            }
+
+            case VKPipelineDesc::BlendMode::Additive:
+            {
+                a.blendEnable         = VK_TRUE;
+                a.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+                a.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+                a.colorBlendOp        = VK_BLEND_OP_ADD;
+                a.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                a.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                a.alphaBlendOp        = VK_BLEND_OP_ADD;
+                break;
+            }
         }
     }
 
     VkPipelineColorBlendStateCreateInfo cb{};
-    cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb.logicOpEnable   = VK_FALSE;
+    cb.attachmentCount = static_cast<uint32_t>(blendAttachments.size());
+    cb.pAttachments    = blendAttachments.empty() ? nullptr : blendAttachments.data();
 
-    const uint32_t caCount = desc.colorAttachmentCount;
-    cb.attachmentCount = caCount;
+    //----------------------------------------------------------
+    // Descriptor set layouts
+    //----------------------------------------------------------
+    std::vector<VkDescriptorSetLayout> setLayouts;
+    mSetLayouts.clear();
 
-    // attachmentCount=0 の時は pAttachments=nullptr でOK（depth-only subpass向け）
-    cb.pAttachments = (caCount == 0) ? nullptr : &cbAtt;
-
-    // Pipeline layout（Desc 駆動：setLayouts）
-    if (!CreateDescriptorSetLayouts(desc))
+    if (!desc.setLayouts.empty())
     {
-        std::cerr << "[VKPipeline] CreateDescriptorSetLayouts failed\n";
-        vkDestroyShaderModule(device, vs, nullptr);
-        vkDestroyShaderModule(device, fs, nullptr);
-        Destroy();
-        return false;
+        uint32_t maxSet = 0;
+        for (const auto& sl : desc.setLayouts)
+        {
+            maxSet = std::max(maxSet, sl.set);
+        }
+
+        mSetLayouts.resize(maxSet + 1, VK_NULL_HANDLE);
+        setLayouts.resize(maxSet + 1, VK_NULL_HANDLE);
+
+        for (const auto& sl : desc.setLayouts)
+        {
+            std::vector<VkDescriptorSetLayoutBinding> bindingsDesc;
+            bindingsDesc.reserve(sl.bindings.size());
+
+            for (const auto& b : sl.bindings)
+            {
+                VkDescriptorSetLayoutBinding vkbind{};
+                vkbind.binding            = b.binding;
+                vkbind.descriptorType     = b.type;
+                vkbind.descriptorCount    = b.count;
+                vkbind.stageFlags         = b.stages;
+                vkbind.pImmutableSamplers = nullptr;
+                bindingsDesc.push_back(vkbind);
+            }
+
+            VkDescriptorSetLayoutCreateInfo linfo{};
+            linfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            linfo.bindingCount = static_cast<uint32_t>(bindingsDesc.size());
+            linfo.pBindings    = bindingsDesc.empty() ? nullptr : bindingsDesc.data();
+
+            VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+            VkResult lres = vkCreateDescriptorSetLayout(device, &linfo, nullptr, &layout);
+            if (lres != VK_SUCCESS)
+            {
+                std::cerr << "[VKPipeline] vkCreateDescriptorSetLayout failed: " << lres << "\n";
+                vkDestroyShaderModule(device, vs, nullptr);
+                vkDestroyShaderModule(device, fs, nullptr);
+                Destroy();
+                return false;
+            }
+
+            mSetLayouts[sl.set] = layout;
+            setLayouts[sl.set]  = layout;
+        }
     }
 
-    // Push constants（Desc 駆動）
+    //----------------------------------------------------------
+    // Push constant ranges
+    //----------------------------------------------------------
     std::vector<VkPushConstantRange> pcRanges;
     pcRanges.reserve(desc.pushConstants.size());
 
@@ -442,46 +548,55 @@ bool VKPipeline::Create(VkDevice device,
         pcRanges.push_back(r);
     }
 
-    VkPipelineLayoutCreateInfo lci{};
-    lci.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    lci.setLayoutCount         = static_cast<uint32_t>(mSetLayouts.size());
-    lci.pSetLayouts            = mSetLayouts.empty() ? nullptr : mSetLayouts.data();
-    lci.pushConstantRangeCount = static_cast<uint32_t>(pcRanges.size());
-    lci.pPushConstantRanges    = pcRanges.empty() ? nullptr : pcRanges.data();
+    //----------------------------------------------------------
+    // Pipeline layout
+    //----------------------------------------------------------
+    VkPipelineLayoutCreateInfo pl{};
+    pl.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl.setLayoutCount         = static_cast<uint32_t>(setLayouts.size());
+    pl.pSetLayouts            = setLayouts.empty() ? nullptr : setLayouts.data();
+    pl.pushConstantRangeCount = static_cast<uint32_t>(pcRanges.size());
+    pl.pPushConstantRanges    = pcRanges.empty() ? nullptr : pcRanges.data();
 
-    VkResult vr = vkCreatePipelineLayout(device, &lci, nullptr, &mLayout);
-    if (vr != VK_SUCCESS)
+    if (vkCreatePipelineLayout(device, &pl, nullptr, &mLayout) != VK_SUCCESS)
     {
-        std::cerr << "[VKPipeline] vkCreatePipelineLayout failed: " << vr << "\n";
+        std::cerr << "[VKPipeline] vkCreatePipelineLayout failed\n";
         vkDestroyShaderModule(device, vs, nullptr);
         vkDestroyShaderModule(device, fs, nullptr);
         Destroy();
         return false;
     }
 
-    VkGraphicsPipelineCreateInfo pci{};
-    pci.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pci.stageCount          = 2;
-    pci.pStages             = stages;
-    pci.pVertexInputState   = &vi;
-    pci.pInputAssemblyState = &ia;
-    pci.pViewportState      = &vp;
-    pci.pRasterizationState = &rs;
-    pci.pMultisampleState   = &ms;
-    pci.pDepthStencilState  = &ds;
-    pci.pColorBlendState    = &cb;
-    pci.pDynamicState       = &dyn;
-    pci.layout              = mLayout;
-    pci.renderPass          = renderPass;
-    pci.subpass             = 0;
+    //----------------------------------------------------------
+    // Graphics pipeline
+    //----------------------------------------------------------
+    VkGraphicsPipelineCreateInfo gp{};
+    gp.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gp.stageCount          = 2;
+    gp.pStages             = stages;
+    gp.pVertexInputState   = &vi;
+    gp.pInputAssemblyState = &ia;
+    gp.pViewportState      = &vp;
+    gp.pRasterizationState = &rs;
+    gp.pMultisampleState   = &ms;
+    gp.pDepthStencilState  = &ds;
+    gp.pColorBlendState    = &cb;
+    gp.pDynamicState       = &dyn;
+    gp.layout              = mLayout;
+    gp.renderPass          = renderPass;
+    gp.subpass             = 0;
 
-    vr = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pci, nullptr, &mPipeline);
+    VkResult vr = vkCreateGraphicsPipelines(device,
+                                            VK_NULL_HANDLE,
+                                            1,
+                                            &gp,
+                                            nullptr,
+                                            &mPipeline);
 
-    // shader modules no longer needed after pipeline creation
     vkDestroyShaderModule(device, vs, nullptr);
     vkDestroyShaderModule(device, fs, nullptr);
 
-    if (vr != VK_SUCCESS || !mPipeline)
+    if (vr != VK_SUCCESS)
     {
         std::cerr << "[VKPipeline] vkCreateGraphicsPipelines failed: " << vr << "\n";
         Destroy();

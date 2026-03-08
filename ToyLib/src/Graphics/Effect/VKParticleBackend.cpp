@@ -18,9 +18,110 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <cstring>
 
 namespace toy
 {
+
+namespace
+{
+    uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice,
+                                 uint32_t typeFilter,
+                                 VkMemoryPropertyFlags props)
+    {
+        VkPhysicalDeviceMemoryProperties memProps{};
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+
+        for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+        {
+            const bool typeOk = (typeFilter & (1u << i)) != 0;
+            const bool propOk = (memProps.memoryTypes[i].propertyFlags & props) == props;
+            if (typeOk && propOk)
+            {
+                return i;
+            }
+        }
+
+        return UINT32_MAX;
+    }
+
+    bool CreateSimpleBuffer(VkPhysicalDevice physicalDevice,
+                            VkDevice device,
+                            VkDeviceSize size,
+                            VkBufferUsageFlags usage,
+                            VkMemoryPropertyFlags props,
+                            VkBuffer& outBuffer,
+                            VkDeviceMemory& outMemory)
+    {
+        outBuffer = VK_NULL_HANDLE;
+        outMemory = VK_NULL_HANDLE;
+
+        VkBufferCreateInfo bci{};
+        bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bci.size  = size;
+        bci.usage = usage;
+        bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        if (vkCreateBuffer(device, &bci, nullptr, &outBuffer) != VK_SUCCESS)
+        {
+            return false;
+        }
+
+        VkMemoryRequirements req{};
+        vkGetBufferMemoryRequirements(device, outBuffer, &req);
+
+        const uint32_t memType =
+            FindMemoryTypeIndex(physicalDevice, req.memoryTypeBits, props);
+        if (memType == UINT32_MAX)
+        {
+            vkDestroyBuffer(device, outBuffer, nullptr);
+            outBuffer = VK_NULL_HANDLE;
+            return false;
+        }
+
+        VkMemoryAllocateInfo mai{};
+        mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        mai.allocationSize  = req.size;
+        mai.memoryTypeIndex = memType;
+
+        if (vkAllocateMemory(device, &mai, nullptr, &outMemory) != VK_SUCCESS)
+        {
+            vkDestroyBuffer(device, outBuffer, nullptr);
+            outBuffer = VK_NULL_HANDLE;
+            outMemory = VK_NULL_HANDLE;
+            return false;
+        }
+
+        if (vkBindBufferMemory(device, outBuffer, outMemory, 0) != VK_SUCCESS)
+        {
+            vkFreeMemory(device, outMemory, nullptr);
+            vkDestroyBuffer(device, outBuffer, nullptr);
+            outBuffer = VK_NULL_HANDLE;
+            outMemory = VK_NULL_HANDLE;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool UploadWholeBuffer(VkDevice device,
+                           VkDeviceMemory memory,
+                           const void* srcData,
+                           VkDeviceSize size)
+    {
+        void* dst = nullptr;
+        if (vkMapMemory(device, memory, 0, size, 0, &dst) != VK_SUCCESS)
+        {
+            return false;
+        }
+
+        std::memcpy(dst, srcData, static_cast<size_t>(size));
+        vkUnmapMemory(device, memory);
+        return true;
+    }
+}
+
+
 
 VKParticleBackend::VKParticleBackend(Actor* owner)
     : IParticleBackend(owner)
@@ -191,24 +292,15 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
         return;
     }
 
-    const Matrix4 view = renderer->GetViewMatrix();
-    const Matrix4 proj = renderer->GetProjectionMatrix();
-    const Matrix4 viewProj = view * proj;
-
-    Vector3 camRight(view.mat[0][0], view.mat[1][0], view.mat[2][0]);
-    Vector3 camUp   (view.mat[0][1], view.mat[1][1], view.mat[2][1]);
-    camRight.Normalize();
-    camUp.Normalize();
-
-    ParticlePayload pp {};
-    pp.cameraRight     = camRight;
-    pp.cameraUp        = camUp;
+    ParticlePayload pp{};
+    pp.cameraRight     = renderer->GetInvViewMatrix().GetXAxis();
+    pp.cameraUp        = renderer->GetInvViewMatrix().GetYAxis();
     pp.particleLifeMax = mDesc.particleLife;
     pp.particleSize    = mDesc.size;
 
     const uint32_t payloadIndex = outQueue.PushParticlePayload(pp);
 
-    RenderItem it {};
+    RenderItem it{};
     it.pass      = RenderPass::World;
     it.layer     = host.GetLayer();
     it.drawOrder = host.GetDrawOrder();
@@ -227,9 +319,13 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     it.textureUnit = 0;
 
     it.world    = Matrix4::Identity;
-    it.viewProj = viewProj;
+    it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
 
-    // ここは後で VK 用の quad/instance buffer 参照に置き換える
+    // ここがポイント：既存の SpriteQuad を使う
+    it.geometry = renderer->GetSpriteQuadHandle();
+
+    it.gpuInstanceVB = CurrentSrcBuffer();
+
     it.instanceCount = static_cast<int>(mDesc.maxParticles);
     it.topology      = PrimitiveTopology::Triangles;
     it.indexCount    = 6;
@@ -253,7 +349,6 @@ void VKParticleBackend::InitIfNeeded()
 
 void VKParticleBackend::ReleaseVK()
 {
-    //auto& backend = RenderBackendState::Get();
     auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
     VkDevice device = backend->GetVKDevice();
 
@@ -295,8 +390,112 @@ void VKParticleBackend::ReleaseVK()
 
 void VKParticleBackend::InitParticleBuffers(bool warmStart)
 {
-    (void)warmStart;
-    // ここは後で CreateBufferHostVisible / 初期データ upload を実装
+
+    auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
+    VkDevice device = backend->GetVKDevice();
+    VkPhysicalDevice physicalDevice = backend->GetVKPhysicalDevice();
+    if (device == VK_NULL_HANDLE || physicalDevice == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    // 既存を破棄して作り直し
+    if (mParticleBufferA != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(device, mParticleBufferA, nullptr);
+        mParticleBufferA = VK_NULL_HANDLE;
+    }
+    if (mParticleMemoryA != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(device, mParticleMemoryA, nullptr);
+        mParticleMemoryA = VK_NULL_HANDLE;
+    }
+
+    if (mParticleBufferB != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(device, mParticleBufferB, nullptr);
+        mParticleBufferB = VK_NULL_HANDLE;
+    }
+    if (mParticleMemoryB != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(device, mParticleMemoryB, nullptr);
+        mParticleMemoryB = VK_NULL_HANDLE;
+    }
+
+    std::vector<ParticleGPU> init;
+    init.resize(mDesc.maxParticles);
+
+    const float lifeMax = std::max(0.01f, mDesc.particleLife);
+
+    for (uint32_t i = 0; i < mDesc.maxParticles; ++i)
+    {
+        ParticleGPU p{};
+
+        // とりあえず見えるように少し散らす
+        const float x = static_cast<float>(i % 8) * 0.15f;
+        const float z = static_cast<float>(i / 8) * 0.15f;
+
+        p.px = mDesc.emitterOffset.x + x;
+        p.py = mDesc.emitterOffset.y;
+        p.pz = mDesc.emitterOffset.z + z;
+        
+        if (warmStart && mDesc.maxParticles > 1)
+        {
+            p.life = lifeMax * (static_cast<float>(i) / static_cast<float>(mDesc.maxParticles - 1));
+        }
+        else
+        {
+            p.life = 0.0f;
+        }
+
+        p.vx = 0.0f;
+        p.vy = 0.0f;
+        p.vz = 0.0f;
+
+
+        p.pad = 0.0f;
+        init[i] = p;
+    }
+
+    const VkDeviceSize bufSize =
+        static_cast<VkDeviceSize>(sizeof(ParticleGPU) * init.size());
+
+    const VkBufferUsageFlags usage =
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+    const VkMemoryPropertyFlags memProps =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
+                            mParticleBufferA, mParticleMemoryA))
+    {
+        std::cerr << "[VKParticleBackend] Create buffer A failed\n";
+        return;
+    }
+
+    if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
+                            mParticleBufferB, mParticleMemoryB))
+    {
+        std::cerr << "[VKParticleBackend] Create buffer B failed\n";
+        return;
+    }
+
+    if (!UploadWholeBuffer(device, mParticleMemoryA, init.data(), bufSize))
+    {
+        std::cerr << "[VKParticleBackend] Upload buffer A failed\n";
+        return;
+    }
+
+    if (!UploadWholeBuffer(device, mParticleMemoryB, init.data(), bufSize))
+    {
+        std::cerr << "[VKParticleBackend] Upload buffer B failed\n";
+        return;
+    }
+
+    mPingPong = false;
+    
 }
 
 void VKParticleBackend::UpdateParticlesGPU(float deltaTime)

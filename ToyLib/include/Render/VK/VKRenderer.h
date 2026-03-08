@@ -85,7 +85,7 @@ public:
     PipelineHandle GetPipelineHandle(const std::string& name) override;
     
     const VkDevice GetVKDevice() const { return mDevice; }
-    
+    const VkPhysicalDevice GetVKPhysicalDevice() const { return mPhysicalDevice; }
 public:
     //==========================================================
     // Descriptor / UBO（set=0/1/2/3 の管理）

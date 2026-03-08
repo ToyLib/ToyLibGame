@@ -50,7 +50,7 @@ void OutdoorStage::InitStage()
     auto treeActor = mApp->CreateActor<toy::Actor>();
     treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
     treeActor->SetScale(0.02);
-    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>(100);
+    auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>();
     treeBillboard->SetTexture(mApp->GetAssetManager()->GetTexture("tree.png"));
     treeBillboard->SetVisible(true);
     treeActor->CreateComponent<toy::GravityComponent>();

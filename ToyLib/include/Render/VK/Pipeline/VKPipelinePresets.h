@@ -28,6 +28,13 @@ namespace VKPipelinePresets
     VKPipelineDesc MakeRenderSurface(const std::string& base);
 
     VKPipelineDesc MakePostEffect(const std::string& base);
+
+// Particle
+    VKPipelineDesc MakeParticle(const std::string& base);
+
+    // ※ compute 用は VKPipelineDesc とは別設計になる可能性が高いので
+    //   まずは宣言だけ保留でもOK
+    // VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base);
 }
 
 } // namespace toy

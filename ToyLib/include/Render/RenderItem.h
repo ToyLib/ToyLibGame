@@ -5,6 +5,9 @@
 #include "Render/RenderHandles.h"
 #include "Render/VisualLayer.h"
 #include "Utils/MathUtil.h"
+
+#include <vulkan/vulkan.h>
+
 #include <cstddef>
 #include <cstdint>
 
@@ -86,6 +89,8 @@ struct RenderItem
     //========================
     uint32_t gpuVAO        { 0 };
     int      instanceCount { 0 };
+    
+    VkBuffer gpuInstanceVB { VK_NULL_HANDLE };
 };
 
 RenderItem::DispatchFn GetDispatch(RenderItemType type);

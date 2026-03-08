@@ -315,9 +315,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
     if (cmd == VK_NULL_HANDLE) return;
 
-    if (!BindVertexArrayVK(cmd, it.geometry)) return;
-
-
+    if (it.type != RenderItemType::Particle)
+    {
+        if (!BindVertexArrayVK(cmd, it.geometry)) return;
+    }
+    
     //----------------------------------------------------------
     // SceneSet 選択（World / UI / Shadow）
     //----------------------------------------------------------
@@ -397,6 +399,9 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 break;
             case RenderItemType::Debug:
                 pipelineName = "UnlitWire";
+                break;
+            case RenderItemType::Particle:
+                pipelineName = "Particle";
                 break;
             default:
                 return;
@@ -1038,6 +1043,118 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
         else if (it.vertexCount > 0)
             vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+
+        AddDrawCall();
+        return;
+    }
+    
+    //----------------------------------------------------------
+    // Particle
+    //----------------------------------------------------------
+    if (it.type == RenderItemType::Particle)
+    {
+        if (sceneSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        VkDescriptorSet baseMapSet =
+            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+        if (baseMapSet == VK_NULL_HANDLE)
+        {
+            return;
+        }
+
+        VKPipeline* pipe = mPipelines.Get(pipelineName);
+        if (!pipe || !pipe->IsValid())
+        {
+            return;
+        }
+
+        if (it.payloadIndex == RenderItem::kInvalidPayload)
+        {
+            return;
+        }
+
+        if (it.gpuInstanceVB == VK_NULL_HANDLE)
+        {
+            return;
+        }
+        
+
+        // binding 0 は先頭の BindVertexArrayVK(cmd, it.geometry) で設定済み
+        // binding 1 だけ追加で bind する
+        VkBuffer instanceVB = it.gpuInstanceVB;
+        VkDeviceSize instanceOffset = 0;
+        vkCmdBindVertexBuffers(cmd, 1, 1, &instanceVB, &instanceOffset);
+
+        const ParticlePayload& pp = GetParticlePayload(it.payloadIndex);
+
+        VkDescriptorSet sets[2] =
+        {
+            sceneSet,
+            baseMapSet
+        };
+
+        pipe->Bind(cmd);
+
+        vkCmdBindDescriptorSets(
+            cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipe->GetPipelineLayout(),
+            0, 2, sets,
+            0, nullptr);
+
+        struct VKParticlePC
+        {
+            float cameraRight[4];
+            float cameraUp[4];
+            float params[4]; // x=size, y=lifeMax
+        };
+
+        VKParticlePC pc{};
+        pc.cameraRight[0] = pp.cameraRight.x;
+        pc.cameraRight[1] = pp.cameraRight.y;
+        pc.cameraRight[2] = pp.cameraRight.z;
+        pc.cameraRight[3] = 0.0f;
+
+        pc.cameraUp[0] = pp.cameraUp.x;
+        pc.cameraUp[1] = pp.cameraUp.y;
+        pc.cameraUp[2] = pp.cameraUp.z;
+        pc.cameraUp[3] = 0.0f;
+
+        pc.params[0] = pp.particleSize;
+        pc.params[1] = pp.particleLifeMax;
+        pc.params[2] = 0.0f;
+        pc.params[3] = 0.0f;
+
+        vkCmdPushConstants(
+            cmd,
+            pipe->GetPipelineLayout(),
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            sizeof(VKParticlePC),
+            &pc);
+
+        if (it.indexCount > 0)
+        {
+            vkCmdDrawIndexed(
+                cmd,
+                it.indexCount,
+                static_cast<uint32_t>(it.instanceCount),
+                0,
+                0,
+                0);
+        }
+        else if (it.vertexCount > 0)
+        {
+            vkCmdDraw(
+                cmd,
+                it.vertexCount,
+                static_cast<uint32_t>(it.instanceCount),
+                0,
+                0);
+        }
 
         AddDrawCall();
         return;

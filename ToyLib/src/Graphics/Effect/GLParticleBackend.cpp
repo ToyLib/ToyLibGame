@@ -280,6 +280,7 @@ void GLParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     it.payloadIndex = payloadIndex;
 
     outQueue.Push(it);
+    
 }
 
 //======================================================================
