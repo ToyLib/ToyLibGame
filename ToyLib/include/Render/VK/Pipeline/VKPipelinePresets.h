@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/VK/Pipeline/VKPipeline.h"
+#include "Render/VK/Pipeline/VKComputePipeline.h"
 #include <string>
 
 namespace toy
@@ -32,9 +33,7 @@ namespace VKPipelinePresets
 // Particle
     VKPipelineDesc MakeParticle(const std::string& base);
 
-    // ※ compute 用は VKPipelineDesc とは別設計になる可能性が高いので
-    //   まずは宣言だけ保留でもOK
-    // VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base);
+    VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base);
 }
 
 } // namespace toy

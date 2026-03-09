@@ -2,152 +2,130 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-//============================================================
-// Particle data
-//============================================================
-struct Particle
+struct ParticleGPU
 {
-    vec3 pos;
-    vec3 vel;
-    float life;
+    vec4 posLife; // xyz=pos, w=life
+    vec4 velPad;  // xyz=vel, w=pad
 };
 
-//============================================================
-// SSBO
-//  set=0, binding=0 : src
-//  set=0, binding=1 : dst
-//============================================================
-layout(std430, set = 0, binding = 0) readonly buffer ParticleSrcBuffer
+layout(set = 0, binding = 0, std430) readonly buffer SrcParticles
 {
-    Particle srcParticles[];
+    ParticleGPU srcParticles[];
 };
 
-layout(std430, set = 0, binding = 1) writeonly buffer ParticleDstBuffer
+layout(set = 0, binding = 1, std430) writeonly buffer DstParticles
 {
-    Particle dstParticles[];
+    ParticleGPU dstParticles[];
 };
 
-//============================================================
-// Push Constants
-//============================================================
-layout(push_constant) uniform ParticleUpdatePC
+layout(push_constant) uniform UpdatePC
 {
-    vec4 params0;     // x=deltaTime, y=time, z=lifeMax, w=mode
-    vec4 emitterPos;  // xyz=emitter position
-    vec4 params1;     // x=gravity, y=lift, z=spread, w=spawnRate
-    vec4 params2;     // x=spawnRampSec, y=maxParticles, z/w=reserved
+    float deltaTime;
+    float time;
+    float lifeMax;
+    int   mode;
+
+    vec4 emitterPos;
+    vec4 misc0; // x=gravity y=lift z=spread w=spawnRate
+    vec4 misc1; // x=spawnRampSec y=maxParticles
 } pc;
 
-//============================================================
-// helpers
-//============================================================
-float hash11(float p)
+float hash11(float n)
 {
-    p = fract(p * 0.1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
+    return fract(sin(n) * 43758.5453123);
 }
 
-vec3 hash31(float p)
+vec3 hash31(float n)
 {
-    vec3 p3 = fract(vec3(p) * vec3(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.xxy + p3.yzz) * p3.zyx);
+    return vec3(
+        hash11(n + 1.0),
+        hash11(n + 2.0),
+        hash11(n + 3.0)
+    );
 }
 
-vec3 randomDir(float seed)
+vec3 randomDir(int id, float t)
 {
-    vec3 h = hash31(seed) * 2.0 - 1.0;
-    float len2 = dot(h, h);
-    if (len2 < 1e-5)
-    {
-        return vec3(0.0, 1.0, 0.0);
-    }
-    return normalize(h);
+    float n = float(id) * 12.9898 + t * 78.233;
+    vec3 r = hash31(n) * 2.0 - 1.0;
+    float len2 = max(dot(r, r), 1e-6);
+    return r * inversesqrt(len2);
 }
 
-bool spawnGate(uint index, float time, float spawnRate, float spawnRampSec)
+bool spawnGate(int id)
 {
-    if (spawnRate <= 0.0)
-    {
-        return false;
-    }
-
-    float gate = spawnRate;
-    if (spawnRampSec > 0.0001)
-    {
-        gate *= clamp(time / spawnRampSec, 0.0, 1.0);
-    }
-
-    float phase = fract(time * gate + float(index) * 0.6180339);
-    return phase < 0.08;
+    float ramp = (pc.misc1.x <= 0.0) ? 1.0 : clamp(pc.time / pc.misc1.x, 0.0, 1.0);
+    float p = 1.0 - exp(-max(pc.misc0.w, 0.0) * pc.deltaTime);
+    p *= ramp;
+    float r = hash11(float(id) * 3.17 + floor(pc.time * 60.0) * 0.77);
+    return (r < p);
 }
 
 void main()
 {
-    uint index = gl_GlobalInvocationID.x;
-    if (index >= uint(pc.params2.y))
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= uint(pc.misc1.y))
     {
         return;
     }
 
-    float deltaTime   = pc.params0.x;
-    float time        = pc.params0.y;
-    float lifeMax     = pc.params0.z;
-    int   mode        = int(pc.params0.w + 0.5);
+    ParticleGPU s = srcParticles[id];
+    ParticleGPU d = s;
 
-    vec3 emitter      = pc.emitterPos.xyz;
+    vec3 pos = s.posLife.xyz;
+    float life = s.posLife.w;
+    vec3 vel = s.velPad.xyz;
 
-    float gravity     = pc.params1.x;
-    float lift        = pc.params1.y;
-    float spread      = pc.params1.z;
-    float spawnRate   = pc.params1.w;
-
-    float spawnRamp   = pc.params2.x;
-
-    Particle p = srcParticles[index];
-
-    // advance life
-    p.life += deltaTime;
-
-    bool dead = (p.life >= lifeMax);
+    bool dead = (life >= pc.lifeMax);
 
     if (dead)
     {
-        if (spawnGate(index, time, spawnRate, spawnRamp))
+        if (pc.misc0.w > 0.0 && spawnGate(int(id)))
         {
-            vec3 dir = randomDir(float(index) + time * 17.0);
+            life = 0.0;
+            pos  = pc.emitterPos.xyz;
 
-            if (mode == 1) // Water
+            vec3 dir = randomDir(int(id), pc.time);
+
+            if (pc.mode == 1)
             {
-                dir.y = abs(dir.y) + 0.5;
-                dir = normalize(dir);
+                dir.y = -abs(dir.y) * 0.6 - 0.4;
             }
-            else if (mode == 2) // Smoke
+            else if (pc.mode == 2)
             {
-                dir.y = abs(dir.y) * 0.35 + 0.65;
-                dir = normalize(dir);
+                dir.y = abs(dir.y) * 0.6 + 0.4;
             }
 
-            p.pos  = emitter;
-            p.vel  = dir * spread;
-            p.vel.y += lift;
-            p.life = 0.0;
+            vel = dir * pc.misc0.z;
         }
         else
         {
-            // keep dead particle parked
-            p.pos  = emitter;
-            p.vel  = vec3(0.0);
-            p.life = lifeMax + 1.0;
+            life = pc.lifeMax + 1.0;
+            vel  = vec3(0.0);
         }
     }
     else
     {
-        p.vel.y += (-gravity + lift) * deltaTime;
-        p.pos += p.vel * deltaTime;
+        if (pc.mode == 1)
+        {
+            vel.y -= pc.misc0.x * pc.deltaTime;
+        }
+        else if (pc.mode == 2)
+        {
+            vel.y += pc.misc0.y * pc.deltaTime;
+        }
+
+        pos  += vel * pc.deltaTime;
+        life += pc.deltaTime;
+
+        if (life >= pc.lifeMax)
+        {
+            life = pc.lifeMax + 1.0;
+        }
     }
 
-    dstParticles[index] = p;
+    d.posLife = vec4(pos, life);
+    d.velPad  = vec4(vel, 0.0);
+
+    dstParticles[id] = d;
 }

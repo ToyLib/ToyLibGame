@@ -550,6 +550,62 @@ VKPipelineDesc MakeParticle(const std::string& base)
     return d;
 }
 
+VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base)
+{
+    VKComputePipelineDesc d{};
+    d.csPath = base + "ParticleUpdate.comp.spv";
+
+    //==========================================================
+    // set=0
+    //  binding=0 : src particle SSBO
+    //  binding=1 : dst particle SSBO
+    //==========================================================
+    VKDescriptorSetLayoutDesc set0{};
+    set0.set = 0;
+
+    set0.bindings.push_back({
+        .binding = 0,
+        .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_COMPUTE_BIT
+    });
+
+    set0.bindings.push_back({
+        .binding = 1,
+        .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .count   = 1,
+        .stages  = VK_SHADER_STAGE_COMPUTE_BIT
+    });
+
+    d.setLayouts.push_back(set0);
+
+    //==========================================================
+    // Push Constants
+    //
+    // C++ 側で合わせる前提:
+    // struct VKParticleUpdatePC
+    // {
+    //     float deltaTime;
+    //     float time;
+    //     float lifeMax;
+    //     int   mode;
+    //
+    //     float emitterPos[4];
+    //     float misc0[4]; // gravity, lift, spread, spawnRate
+    //     float misc1[4]; // spawnRampSec, maxParticles, ...
+    // };
+    //
+    // 合計 16 * 4 = 64 bytes
+    //==========================================================
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_COMPUTE_BIT;
+    pc.offset = 0;
+    pc.size   = 64;
+    d.pushConstants.push_back(pc);
+
+    return d;
+}
+
 } // namespace VKPipelinePresets
 
 } // namespace toy

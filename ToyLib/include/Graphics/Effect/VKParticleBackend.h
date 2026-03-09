@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Graphics/Effect/IParticleBackend.h"
+#include "Render/VK/Pipeline/VKComputePipeline.h"
 
 #include <vulkan/vulkan.h>
+#include <memory>
 #include <string>
 
 namespace toy
@@ -32,22 +34,25 @@ public:
 private:
     struct ParticleGPU
     {
-        float px, py, pz;
-        float vx, vy, vz;
-        float life;
-        float pad;
+        float px, py, pz, life;
+        float vx, vy, vz, pad;
     };
+
 private:
     void InitIfNeeded();
     void ReleaseVK();
 
     void InitParticleBuffers(bool warmStart);
-    void UpdateParticlesGPU(float deltaTime);
-
+    void UpdateParticlesCPU(float deltaTime);
+    void UpdateParticlesCompute(float deltaTime);
+    
     VkBuffer CurrentSrcBuffer() const;
     VkBuffer CurrentDstBuffer() const;
     VkDeviceMemory CurrentSrcMemory() const;
     VkDeviceMemory CurrentDstMemory() const;
+
+    bool CreateUpdatePipeline();
+    bool CreateUpdateDescriptorSets();
 
 private:
     ParticleDesc mDesc {};
@@ -60,6 +65,8 @@ private:
 
     bool mPendingHardReset { true };
     int  mSkipDrawFrames   { 2 };
+    
+    bool mUseComputeUpdate { false };
 
     std::string mRenderPipelineName { "Particle" };
     std::string mUpdatePipelineName { "ParticleUpdateCompute" };
@@ -68,6 +75,11 @@ private:
     VkDeviceMemory mParticleMemoryA { VK_NULL_HANDLE };
     VkBuffer       mParticleBufferB { VK_NULL_HANDLE };
     VkDeviceMemory mParticleMemoryB { VK_NULL_HANDLE };
+
+    std::unique_ptr<VKComputePipeline> mUpdatePipeline;
+    VkDescriptorSetLayout mUpdateSetLayout { VK_NULL_HANDLE };
+    VkDescriptorSet       mUpdateSetAtoB   { VK_NULL_HANDLE };
+    VkDescriptorSet       mUpdateSetBtoA   { VK_NULL_HANDLE };
 };
 
 } // namespace toy

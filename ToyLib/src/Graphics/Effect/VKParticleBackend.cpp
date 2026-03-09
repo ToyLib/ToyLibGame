@@ -7,6 +7,7 @@
 
 #include "Render/IRenderer.h"
 #include "Render/VK/VKRenderer.h"
+#include "Render/VK/Pipeline/VKPipelinePresets.h"
 #include "Render/RenderQueue.h"
 #include "Render/RenderItem.h"
 #include "Render/RenderItemPayloads.h"
@@ -23,108 +24,122 @@
 namespace toy
 {
 
+struct VKParticleUpdatePC
+{
+    float deltaTime;
+    float time;
+    float lifeMax;
+    int   mode;
+    
+    float emitterPos[4];
+    float misc0[4]; // gravity, lift, spread, spawnRate
+    float misc1[4]; // spawnRampSec, maxParticles, reserved, reserved
+};
+static_assert(sizeof(VKParticleUpdatePC) == 64, "VKParticleUpdatePC must be 64 bytes");
+
+
 namespace
 {
-    uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice,
-                                 uint32_t typeFilter,
-                                 VkMemoryPropertyFlags props)
+uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice,
+                             uint32_t typeFilter,
+                             VkMemoryPropertyFlags props)
+{
+    VkPhysicalDeviceMemoryProperties memProps{};
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
+    
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
     {
-        VkPhysicalDeviceMemoryProperties memProps{};
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
-
-        for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+        const bool typeOk = (typeFilter & (1u << i)) != 0;
+        const bool propOk = (memProps.memoryTypes[i].propertyFlags & props) == props;
+        if (typeOk && propOk)
         {
-            const bool typeOk = (typeFilter & (1u << i)) != 0;
-            const bool propOk = (memProps.memoryTypes[i].propertyFlags & props) == props;
-            if (typeOk && propOk)
-            {
-                return i;
-            }
+            return i;
         }
-
-        return UINT32_MAX;
     }
+    
+    return UINT32_MAX;
+}
 
-    bool CreateSimpleBuffer(VkPhysicalDevice physicalDevice,
-                            VkDevice device,
-                            VkDeviceSize size,
-                            VkBufferUsageFlags usage,
-                            VkMemoryPropertyFlags props,
-                            VkBuffer& outBuffer,
-                            VkDeviceMemory& outMemory)
+bool CreateSimpleBuffer(VkPhysicalDevice physicalDevice,
+                        VkDevice device,
+                        VkDeviceSize size,
+                        VkBufferUsageFlags usage,
+                        VkMemoryPropertyFlags props,
+                        VkBuffer& outBuffer,
+                        VkDeviceMemory& outMemory)
+{
+    outBuffer = VK_NULL_HANDLE;
+    outMemory = VK_NULL_HANDLE;
+    
+    VkBufferCreateInfo bci{};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size  = size;
+    bci.usage = usage;
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateBuffer(device, &bci, nullptr, &outBuffer) != VK_SUCCESS)
     {
+        return false;
+    }
+    
+    VkMemoryRequirements req{};
+    vkGetBufferMemoryRequirements(device, outBuffer, &req);
+    
+    const uint32_t memType =
+    FindMemoryTypeIndex(physicalDevice, req.memoryTypeBits, props);
+    if (memType == UINT32_MAX)
+    {
+        vkDestroyBuffer(device, outBuffer, nullptr);
+        outBuffer = VK_NULL_HANDLE;
+        return false;
+    }
+    
+    VkMemoryAllocateInfo mai{};
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize  = req.size;
+    mai.memoryTypeIndex = memType;
+    
+    if (vkAllocateMemory(device, &mai, nullptr, &outMemory) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(device, outBuffer, nullptr);
         outBuffer = VK_NULL_HANDLE;
         outMemory = VK_NULL_HANDLE;
-
-        VkBufferCreateInfo bci{};
-        bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bci.size  = size;
-        bci.usage = usage;
-        bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateBuffer(device, &bci, nullptr, &outBuffer) != VK_SUCCESS)
-        {
-            return false;
-        }
-
-        VkMemoryRequirements req{};
-        vkGetBufferMemoryRequirements(device, outBuffer, &req);
-
-        const uint32_t memType =
-            FindMemoryTypeIndex(physicalDevice, req.memoryTypeBits, props);
-        if (memType == UINT32_MAX)
-        {
-            vkDestroyBuffer(device, outBuffer, nullptr);
-            outBuffer = VK_NULL_HANDLE;
-            return false;
-        }
-
-        VkMemoryAllocateInfo mai{};
-        mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        mai.allocationSize  = req.size;
-        mai.memoryTypeIndex = memType;
-
-        if (vkAllocateMemory(device, &mai, nullptr, &outMemory) != VK_SUCCESS)
-        {
-            vkDestroyBuffer(device, outBuffer, nullptr);
-            outBuffer = VK_NULL_HANDLE;
-            outMemory = VK_NULL_HANDLE;
-            return false;
-        }
-
-        if (vkBindBufferMemory(device, outBuffer, outMemory, 0) != VK_SUCCESS)
-        {
-            vkFreeMemory(device, outMemory, nullptr);
-            vkDestroyBuffer(device, outBuffer, nullptr);
-            outBuffer = VK_NULL_HANDLE;
-            outMemory = VK_NULL_HANDLE;
-            return false;
-        }
-
-        return true;
+        return false;
     }
-
-    bool UploadWholeBuffer(VkDevice device,
-                           VkDeviceMemory memory,
-                           const void* srcData,
-                           VkDeviceSize size)
+    
+    if (vkBindBufferMemory(device, outBuffer, outMemory, 0) != VK_SUCCESS)
     {
-        void* dst = nullptr;
-        if (vkMapMemory(device, memory, 0, size, 0, &dst) != VK_SUCCESS)
-        {
-            return false;
-        }
-
-        std::memcpy(dst, srcData, static_cast<size_t>(size));
-        vkUnmapMemory(device, memory);
-        return true;
+        vkFreeMemory(device, outMemory, nullptr);
+        vkDestroyBuffer(device, outBuffer, nullptr);
+        outBuffer = VK_NULL_HANDLE;
+        outMemory = VK_NULL_HANDLE;
+        return false;
     }
+    
+    return true;
+}
+
+bool UploadWholeBuffer(VkDevice device,
+                       VkDeviceMemory memory,
+                       const void* srcData,
+                       VkDeviceSize size)
+{
+    void* dst = nullptr;
+    if (vkMapMemory(device, memory, 0, size, 0, &dst) != VK_SUCCESS)
+    {
+        return false;
+    }
+    
+    std::memcpy(dst, srcData, static_cast<size_t>(size));
+    vkUnmapMemory(device, memory);
+    return true;
+}
 }
 
 
 
 VKParticleBackend::VKParticleBackend(Actor* owner)
-    : IParticleBackend(owner)
+: IParticleBackend(owner)
 {
 }
 
@@ -136,19 +151,19 @@ VKParticleBackend::~VKParticleBackend()
 void VKParticleBackend::Init(const ParticleDesc& desc)
 {
     mDesc = desc;
-
+    
     mDesc.maxParticles    = std::max<uint32_t>(1, mDesc.maxParticles);
     mDesc.particleLife    = std::max(0.01f, mDesc.particleLife);
     mDesc.size            = std::max(0.01f, mDesc.size);
     mDesc.spawnRatePerSec = std::max(0.0f,  mDesc.spawnRatePerSec);
     mDesc.spawnRampSec    = std::max(0.0f,  mDesc.spawnRampSec);
-
+    
     mRunning = true;
     mTimeAcc = 0.0f;
     mComponentLifeAcc = 0.0f;
     mPendingHardReset = true;
     mSkipDrawFrames   = 2;
-
+    
     InitIfNeeded();
 }
 
@@ -159,17 +174,17 @@ bool VKParticleBackend::InitFromFile(const std::string& filePath)
     {
         return false;
     }
-
+    
     nlohmann::json data;
     file >> data;
-
+    
     ParticleDesc desc {};
-
+    
     if (data.contains("mode"))
     {
         std::string modeStr;
         JsonHelper::GetString(data, "mode", modeStr);
-
+        
         if (modeStr == "Water" || modeStr == "water")
         {
             desc.mode = ParticleMode::Water;
@@ -183,7 +198,7 @@ bool VKParticleBackend::InitFromFile(const std::string& filePath)
             desc.mode = ParticleMode::Spark;
         }
     }
-
+    
     JsonHelper::GetInt  (data, "maxParticles",    reinterpret_cast<int&>(desc.maxParticles));
     JsonHelper::GetFloat(data, "componentLife",   desc.componentLife);
     JsonHelper::GetFloat(data, "particleLife",    desc.particleLife);
@@ -193,10 +208,10 @@ bool VKParticleBackend::InitFromFile(const std::string& filePath)
     JsonHelper::GetFloat(data, "spread",          desc.spread);
     JsonHelper::GetFloat(data, "gravity",         desc.gravity);
     JsonHelper::GetFloat(data, "lift",            desc.lift);
-
+    
     JsonHelper::GetBool(data, "additiveBlend", desc.additiveBlend);
     JsonHelper::GetBool(data, "warmStart",     desc.warmStart);
-
+    
     Init(desc);
     return true;
 }
@@ -230,6 +245,16 @@ void VKParticleBackend::Update(float deltaTime)
         if (mInitialized)
         {
             InitParticleBuffers(false);
+
+            // ★ バッファを作り直したので descriptor set も張り直す
+            if (mUseComputeUpdate)
+            {
+                if (!CreateUpdateDescriptorSets())
+                {
+                    std::cerr << "[VKParticleBackend] Update: CreateUpdateDescriptorSets failed after hard reset\n";
+                    mUseComputeUpdate = false;
+                }
+            }
         }
         return;
     }
@@ -251,8 +276,14 @@ void VKParticleBackend::Update(float deltaTime)
 
     mTimeAcc += deltaTime;
 
-    // ここは後で compute dispatch を実装
-    UpdateParticlesGPU(deltaTime);
+    if (mUseComputeUpdate)
+    {
+        UpdateParticlesCompute(deltaTime);
+    }
+    else
+    {
+        UpdateParticlesCPU(deltaTime);
+    }
 }
 
 void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
@@ -263,75 +294,75 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
         --mSkipDrawFrames;
         return;
     }
-
+    
     if (!host.IsVisible() || !mRunning)
     {
         return;
     }
-
+    
     if (!mInitialized || !host.GetTexture())
     {
         return;
     }
-
+    
     auto* owner = GetOwner();
     if (!owner)
     {
         return;
     }
-
+    
     auto* app = owner->GetApp();
     if (!app)
     {
         return;
     }
-
+    
     auto* renderer = app->GetRenderer();
     if (!renderer)
     {
         return;
     }
-
+    
     ParticlePayload pp{};
     pp.cameraRight     = renderer->GetInvViewMatrix().GetXAxis();
     pp.cameraUp        = renderer->GetInvViewMatrix().GetYAxis();
     pp.particleLifeMax = mDesc.particleLife;
     pp.particleSize    = mDesc.size;
-
+    
     const uint32_t payloadIndex = outQueue.PushParticlePayload(pp);
-
+    
     RenderItem it{};
     it.pass      = RenderPass::World;
     it.layer     = host.GetLayer();
     it.drawOrder = host.GetDrawOrder();
-
+    
     it.type     = RenderItemType::Particle;
     it.dispatch = GetDispatch(it.type);
-
+    
     it.depthTest  = true;
     it.depthWrite = false;
     it.blend      = BlendMode::Additive;   // ★まずは固定で加算合成
     it.cull       = CullMode::None;        // ★billboard は cull しない
     it.frontFace  = FrontFace::CCW;
-
+    
     it.pipeline    = renderer->GetPipelineHandle(mRenderPipelineName);
     it.texture.ptr = host.GetTexture().get();
     it.textureUnit = 0;
-
+    
     it.world    = Matrix4::Identity;
     it.viewProj = renderer->GetViewMatrix() * renderer->GetProjectionMatrix();
-
+    
     // 既存の SpriteQuad を使う
     it.geometry = renderer->GetSpriteQuadHandle();
-
+    
     it.gpuInstanceVB = CurrentSrcBuffer();
-
+    
     it.instanceCount = static_cast<int>(mDesc.maxParticles);
     it.topology      = PrimitiveTopology::Triangles;
     it.indexCount    = 6;
-
+    
     it.payloadIndex = payloadIndex;
-
+    
     outQueue.Push(it);
 }
 
@@ -341,8 +372,19 @@ void VKParticleBackend::InitIfNeeded()
     {
         return;
     }
-
+    
     InitParticleBuffers(mDesc.warmStart);
+    
+    mUseComputeUpdate = false;
+    
+    if (CreateUpdatePipeline())
+    {
+        if (CreateUpdateDescriptorSets())
+        {
+            mUseComputeUpdate = true;
+        }
+    }
+    
     mInitialized = true;
     mPingPong = false;
 }
@@ -351,7 +393,12 @@ void VKParticleBackend::ReleaseVK()
 {
     auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
     VkDevice device = backend->GetVKDevice();
-
+    
+    mUpdatePipeline.reset();
+    mUpdateSetLayout = VK_NULL_HANDLE;
+    mUpdateSetAtoB = VK_NULL_HANDLE;
+    mUpdateSetBtoA = VK_NULL_HANDLE;
+    
     if (device == VK_NULL_HANDLE)
     {
         mParticleBufferA = VK_NULL_HANDLE;
@@ -361,7 +408,7 @@ void VKParticleBackend::ReleaseVK()
         mInitialized = false;
         return;
     }
-
+    
     if (mParticleBufferA != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, mParticleBufferA, nullptr);
@@ -372,7 +419,7 @@ void VKParticleBackend::ReleaseVK()
         vkFreeMemory(device, mParticleMemoryA, nullptr);
         mParticleMemoryA = VK_NULL_HANDLE;
     }
-
+    
     if (mParticleBufferB != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, mParticleBufferB, nullptr);
@@ -383,7 +430,7 @@ void VKParticleBackend::ReleaseVK()
         vkFreeMemory(device, mParticleMemoryB, nullptr);
         mParticleMemoryB = VK_NULL_HANDLE;
     }
-
+    
     mInitialized = false;
     mPingPong = false;
 }
@@ -397,7 +444,7 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
     {
         return;
     }
-
+    
     // 既存を破棄して作り直し
     if (mParticleBufferA != VK_NULL_HANDLE)
     {
@@ -409,7 +456,7 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
         vkFreeMemory(device, mParticleMemoryA, nullptr);
         mParticleMemoryA = VK_NULL_HANDLE;
     }
-
+    
     if (mParticleBufferB != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, mParticleBufferB, nullptr);
@@ -420,12 +467,12 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
         vkFreeMemory(device, mParticleMemoryB, nullptr);
         mParticleMemoryB = VK_NULL_HANDLE;
     }
-
+    
     std::vector<ParticleGPU> init;
     init.resize(mDesc.maxParticles);
-
+    
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
-
+    
     //==========================================================
     // GL版の uEmitterPos 相当
     //==========================================================
@@ -434,21 +481,21 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
     {
         emitterPos += GetOwner()->GetPosition();
     }
-
+    
     for (uint32_t i = 0; i < mDesc.maxParticles; ++i)
     {
         ParticleGPU p{};
-
+        
         // 基本は emitter 位置に置く
         p.px = emitterPos.x;
         p.py = emitterPos.y;
         p.pz = emitterPos.z;
-
+        
         // 速度はゼロ初期化
         p.vx = 0.0f;
         p.vy = 0.0f;
         p.vz = 0.0f;
-
+        
         //======================================================
         // GL版と同じ考え方：
         //  - dead は life >= lifeMax
@@ -459,63 +506,112 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
             // alive として開始
             p.life = lifeMax * (static_cast<float>(i) / static_cast<float>(mDesc.maxParticles - 1));
 
-            // 少しだけ散らしておく
+            // 少しだけ散らす
             const float x = static_cast<float>(i % 8) * 0.05f;
             const float z = static_cast<float>(i / 8) * 0.05f;
             p.px += x;
             p.pz += z;
+
+            // ★ GL版の respawn と同じ考え方で初速も与える
+            auto hash11 = [](float n) -> float
+            {
+                float x = std::sin(n) * 43758.5453123f;
+                return x - std::floor(x);
+            };
+
+            auto hash31 = [&](float n) -> Vector3
+            {
+                return Vector3(
+                    hash11(n + 1.0f),
+                    hash11(n + 2.0f),
+                    hash11(n + 3.0f)
+                );
+            };
+
+            auto randomDir = [&](int id, float t) -> Vector3
+            {
+                float n = static_cast<float>(id) * 12.9898f + t * 78.233f;
+                Vector3 r = hash31(n) * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+
+                float lenSq = r.LengthSq();
+                if (lenSq < 1.0e-6f)
+                {
+                    r = Vector3::UnitY;
+                }
+                else
+                {
+                    r *= (1.0f / Math::Sqrt(lenSq));
+                }
+
+                return r;
+            };
+
+            Vector3 dir = randomDir(static_cast<int>(i), 0.0f);
+
+            if (mDesc.mode == ParticleMode::Water)
+            {
+                dir.y = -std::abs(dir.y) * 0.6f - 0.4f;
+            }
+            else if (mDesc.mode == ParticleMode::Smoke)
+            {
+                dir.y =  std::abs(dir.y) * 0.6f + 0.4f;
+            }
+
+            p.vx = dir.x * mDesc.spread;
+            p.vy = dir.y * mDesc.spread;
+            p.vz = dir.z * mDesc.spread;
         }
         else
         {
             // dead 開始
             p.life = lifeMax + 1.0f;
         }
-
+        
         p.pad = 0.0f;
         init[i] = p;
     }
-
+    
     const VkDeviceSize bufSize =
-        static_cast<VkDeviceSize>(sizeof(ParticleGPU) * init.size());
-
+    static_cast<VkDeviceSize>(sizeof(ParticleGPU) * init.size());
+    
     const VkBufferUsageFlags usage =
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
+    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    
     const VkMemoryPropertyFlags memProps =
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    
     if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
                             mParticleBufferA, mParticleMemoryA))
     {
         std::cerr << "[VKParticleBackend] Create buffer A failed\n";
         return;
     }
-
+    
     if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
                             mParticleBufferB, mParticleMemoryB))
     {
         std::cerr << "[VKParticleBackend] Create buffer B failed\n";
         return;
     }
-
+    
     if (!UploadWholeBuffer(device, mParticleMemoryA, init.data(), bufSize))
     {
         std::cerr << "[VKParticleBackend] Upload buffer A failed\n";
         return;
     }
-
+    
     if (!UploadWholeBuffer(device, mParticleMemoryB, init.data(), bufSize))
     {
         std::cerr << "[VKParticleBackend] Upload buffer B failed\n";
         return;
     }
-
+    
     mPingPong = false;
 }
 
-void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
+void VKParticleBackend::UpdateParticlesCPU(float deltaTime)
 {
     auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
     VkDevice device = backend->GetVKDevice();
@@ -523,22 +619,22 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     {
         return;
     }
-
+    
     const uint32_t count = mDesc.maxParticles;
     if (count == 0)
     {
         return;
     }
-
+    
     VkDeviceMemory srcMem = CurrentSrcMemory();
     VkDeviceMemory dstMem = CurrentDstMemory();
     if (srcMem == VK_NULL_HANDLE || dstMem == VK_NULL_HANDLE)
     {
         return;
     }
-
+    
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
-
+    
     //==========================================================
     // GL版の uEmitterPos 相当
     //==========================================================
@@ -547,24 +643,24 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
     {
         emitterPos += GetOwner()->GetPosition();
     }
-
+    
     const VkDeviceSize bufSize =
-        static_cast<VkDeviceSize>(sizeof(ParticleGPU) * count);
-
+    static_cast<VkDeviceSize>(sizeof(ParticleGPU) * count);
+    
     ParticleGPU* src = nullptr;
     ParticleGPU* dst = nullptr;
-
+    
     if (vkMapMemory(device, srcMem, 0, bufSize, 0, reinterpret_cast<void**>(&src)) != VK_SUCCESS)
     {
         return;
     }
-
+    
     if (vkMapMemory(device, dstMem, 0, bufSize, 0, reinterpret_cast<void**>(&dst)) != VK_SUCCESS)
     {
         vkUnmapMemory(device, srcMem);
         return;
     }
-
+    
     //==========================================================
     // hash / randomDir / spawnGate
     //  - GL版の式に寄せる
@@ -574,21 +670,21 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         float x = std::sin(n) * 43758.5453123f;
         return x - std::floor(x);
     };
-
+    
     auto hash31 = [&](float n) -> Vector3
     {
         return Vector3(
-            hash11(n + 1.0f),
-            hash11(n + 2.0f),
-            hash11(n + 3.0f)
-        );
+                       hash11(n + 1.0f),
+                       hash11(n + 2.0f),
+                       hash11(n + 3.0f)
+                       );
     };
-
+    
     auto randomDir = [&](int id, float t) -> Vector3
     {
         float n = static_cast<float>(id) * 12.9898f + t * 78.233f;
         Vector3 r = hash31(n) * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
-
+        
         float lenSq = r.LengthSq();
         if (lenSq < 1.0e-6f)
         {
@@ -600,33 +696,33 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         }
         return r;
     };
-
+    
     auto spawnGate = [&](int id) -> bool
     {
         float ramp = (mDesc.spawnRampSec <= 0.0f)
-            ? 1.0f
-            : Math::Clamp(mTimeAcc / mDesc.spawnRampSec, 0.0f, 1.0f);
-
+        ? 1.0f
+        : Math::Clamp(mTimeAcc / mDesc.spawnRampSec, 0.0f, 1.0f);
+        
         float p = 1.0f - std::exp(-std::max(mDesc.spawnRatePerSec, 0.0f) * deltaTime);
         p *= ramp;
-
+        
         float r = hash11(static_cast<float>(id) * 3.17f + std::floor(mTimeAcc * 60.0f) * 0.77f);
         return (r < p);
     };
-
+    
     //==========================================================
     // update
     //==========================================================
     for (uint32_t i = 0; i < count; ++i)
     {
         ParticleGPU d = src[i];
-
+        
         Vector3 pos(d.px, d.py, d.pz);
         Vector3 vel(d.vx, d.vy, d.vz);
         float life = d.life;
-
+        
         const bool dead = (life >= lifeMax);
-
+        
         if (dead)
         {
             //--------------------------------------------------
@@ -636,9 +732,9 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
             {
                 life = 0.0f;
                 pos  = emitterPos;
-
+                
                 Vector3 dir = randomDir(static_cast<int>(i), mTimeAcc);
-
+                
                 if (mDesc.mode == ParticleMode::Water)
                 {
                     dir.y = -std::abs(dir.y) * 0.6f - 0.4f;
@@ -647,7 +743,7 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
                 {
                     dir.y =  std::abs(dir.y) * 0.6f + 0.4f;
                 }
-
+                
                 vel = dir * mDesc.spread;
             }
             else
@@ -669,16 +765,16 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
             {
                 vel.y += mDesc.lift * deltaTime;
             }
-
+            
             pos  += vel * deltaTime;
             life += deltaTime;
-
+            
             if (life >= lifeMax)
             {
                 life = lifeMax + 1.0f;
             }
         }
-
+        
         d.px   = pos.x;
         d.py   = pos.y;
         d.pz   = pos.z;
@@ -687,13 +783,13 @@ void VKParticleBackend::UpdateParticlesGPU(float deltaTime)
         d.vz   = vel.z;
         d.life = life;
         d.pad  = 0.0f;
-
+        
         dst[i] = d;
     }
-
+    
     vkUnmapMemory(device, dstMem);
     vkUnmapMemory(device, srcMem);
-
+    
     // 次フレームは更新後を読む
     mPingPong = !mPingPong;
 }
@@ -718,4 +814,266 @@ VkDeviceMemory VKParticleBackend::CurrentDstMemory() const
     return mPingPong ? mParticleMemoryA : mParticleMemoryB;
 }
 
+bool VKParticleBackend::CreateUpdatePipeline()
+{
+    auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr;
+    if (!app)
+    {
+        return false;
+    }
+    
+    auto* renderer = app->GetRenderer();
+    auto* backend = static_cast<VKRenderer*>(renderer);
+    if (!backend)
+    {
+        return false;
+    }
+    
+    VkDevice device = backend->GetVKDevice();
+    if (device == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    
+    const std::string base = backend->GetShaderPath() + "VK/spv/";
+    
+    mUpdatePipeline.reset();
+    
+    VKComputePipelineDesc desc =
+    toy::VKPipelinePresets::MakeParticleUpdateCompute(base);
+    
+    mUpdatePipeline = std::make_unique<VKComputePipeline>();
+    if (!mUpdatePipeline->Create(device, desc))
+    {
+        std::cerr << "[VKParticleBackend] CreateUpdatePipeline failed\n";
+        mUpdatePipeline.reset();
+        return false;
+    }
+    
+    mUpdateSetLayout = mUpdatePipeline->GetSetLayout(0);
+    if (mUpdateSetLayout == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKParticleBackend] CreateUpdatePipeline: set0 layout null\n";
+        mUpdatePipeline.reset();
+        return false;
+    }
+    
+    return true;
+}
+
+bool VKParticleBackend::CreateUpdateDescriptorSets()
+{
+    auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr;
+    if (!app)
+    {
+        return false;
+    }
+    
+    auto* renderer = app->GetRenderer();
+    auto* backend = static_cast<VKRenderer*>(renderer);
+    if (!backend)
+    {
+        return false;
+    }
+    
+    VkDevice device = backend->GetVKDevice();
+    VkDescriptorPool descPool = backend->GetDescriptorPool();
+    
+    if (device == VK_NULL_HANDLE || descPool == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    
+    if (mUpdateSetLayout == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    
+    mUpdateSetAtoB = VK_NULL_HANDLE;
+    mUpdateSetBtoA = VK_NULL_HANDLE;
+    
+    VkDescriptorSetLayout layouts[2] =
+    {
+        mUpdateSetLayout,
+        mUpdateSetLayout
+    };
+    
+    VkDescriptorSet sets[2] = { VK_NULL_HANDLE, VK_NULL_HANDLE };
+    
+    VkDescriptorSetAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    ai.descriptorPool = descPool;
+    ai.descriptorSetCount = 2;
+    ai.pSetLayouts = layouts;
+    
+    if (vkAllocateDescriptorSets(device, &ai, sets) != VK_SUCCESS)
+    {
+        std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: allocate failed\n";
+        return false;
+    }
+    
+    mUpdateSetAtoB = sets[0];
+    mUpdateSetBtoA = sets[1];
+    
+    auto writeSet = [&](VkDescriptorSet ds, VkBuffer srcBuf, VkBuffer dstBuf)
+    {
+        VkDescriptorBufferInfo srcInfo{};
+        srcInfo.buffer = srcBuf;
+        srcInfo.offset = 0;
+        srcInfo.range  = VK_WHOLE_SIZE;
+        
+        VkDescriptorBufferInfo dstInfo{};
+        dstInfo.buffer = dstBuf;
+        dstInfo.offset = 0;
+        dstInfo.range  = VK_WHOLE_SIZE;
+        
+        VkWriteDescriptorSet writes[2]{};
+        
+        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[0].dstSet = ds;
+        writes[0].dstBinding = 0;
+        writes[0].descriptorCount = 1;
+        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[0].pBufferInfo = &srcInfo;
+        
+        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[1].dstSet = ds;
+        writes[1].dstBinding = 1;
+        writes[1].descriptorCount = 1;
+        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[1].pBufferInfo = &dstInfo;
+        
+        vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+    };
+    
+    if (mParticleBufferA == VK_NULL_HANDLE || mParticleBufferB == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: particle buffers not ready\n";
+        return false;
+    }
+    
+    writeSet(mUpdateSetAtoB, mParticleBufferA, mParticleBufferB);
+    writeSet(mUpdateSetBtoA, mParticleBufferB, mParticleBufferA);
+    
+    return true;
+}
+
+void VKParticleBackend::UpdateParticlesCompute(float deltaTime)
+{
+    auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr;
+    if (!app)
+    {
+        return;
+    }
+
+    auto* renderer = app->GetRenderer();
+    auto* backend = static_cast<VKRenderer*>(renderer);
+    if (!backend)
+    {
+        return;
+    }
+
+    VkDevice device = backend->GetVKDevice();
+    if (device == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    if (!mUpdatePipeline || !mUpdatePipeline->IsValid())
+    {
+        return;
+    }
+
+    VkDescriptorSet updateSet = mPingPong ? mUpdateSetBtoA : mUpdateSetAtoB;
+    if (updateSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkCommandBuffer cmd = backend->GetCurrentCommandBuffer();
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    const float lifeMax = std::max(0.01f, mDesc.particleLife);
+
+    Vector3 emitterPos = mDesc.emitterOffset;
+    if (GetOwner())
+    {
+        emitterPos += GetOwner()->GetPosition();
+    }
+
+    VKParticleUpdatePC pc{};
+    pc.deltaTime = deltaTime;
+    pc.time      = mTimeAcc;
+    pc.lifeMax   = lifeMax;
+    pc.mode      = static_cast<int>(mDesc.mode);
+
+    pc.emitterPos[0] = emitterPos.x;
+    pc.emitterPos[1] = emitterPos.y;
+    pc.emitterPos[2] = emitterPos.z;
+    pc.emitterPos[3] = 0.0f;
+
+    pc.misc0[0] = mDesc.gravity;
+    pc.misc0[1] = mDesc.lift;
+    pc.misc0[2] = mDesc.spread;
+    pc.misc0[3] = mDesc.spawnRatePerSec;
+
+    pc.misc1[0] = mDesc.spawnRampSec;
+    pc.misc1[1] = static_cast<float>(mDesc.maxParticles);
+    pc.misc1[2] = 0.0f;
+    pc.misc1[3] = 0.0f;
+
+    mUpdatePipeline->Bind(cmd);
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        mUpdatePipeline->GetPipelineLayout(),
+        0,
+        1,
+        &updateSet,
+        0,
+        nullptr);
+
+    vkCmdPushConstants(
+        cmd,
+        mUpdatePipeline->GetPipelineLayout(),
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(VKParticleUpdatePC),
+        &pc);
+
+    constexpr uint32_t kLocalSizeX = 64;
+    const uint32_t groupCountX =
+        (mDesc.maxParticles + kLocalSizeX - 1) / kLocalSizeX;
+
+    vkCmdDispatch(cmd, groupCountX, 1, 1);
+
+    // 次フレームの描画/更新で dst を安全に読めるように barrier
+    VkBuffer barrierBuffer = CurrentDstBuffer();
+
+    VkBufferMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = barrierBuffer;
+    barrier.offset = 0;
+    barrier.size   = VK_WHOLE_SIZE;
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        1, &barrier,
+        0, nullptr);
+
+    mPingPong = !mPingPong;
+    
+}
 } // namespace toy

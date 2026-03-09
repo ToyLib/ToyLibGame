@@ -107,6 +107,16 @@ public:
     // BaseMap(set=1)
     VkDescriptorSet GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName);
     
+    VkDescriptorPool GetDescriptorPool() const { return mDescPool; }
+    VkCommandBuffer GetCurrentCommandBuffer() const
+    {
+        if (mFrames.empty())
+        {
+            return VK_NULL_HANDLE;
+        }
+        return mFrames[mFrameIndex].cmd;
+    }
+    
 private:
     //==========================================================
     // Vulkan 初期化（大枠）

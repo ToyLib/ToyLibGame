@@ -19,6 +19,7 @@ struct VKComputePipelineDesc
     std::vector<VKPushConstantDesc>        pushConstants {};
 };
 
+
 class VKComputePipeline
 {
 public:

@@ -191,6 +191,7 @@ public:
         return mInvView.GetTranslation();
     }
     
+    const std::string GetShaderPath() const { return mShaderPath; }
 
     //--------------------------------------------------------------------------
     // Screen / UI
