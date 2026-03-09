@@ -541,7 +541,6 @@ void Application::UpdateFrame()
 void Application::InitAssetManager(const std::string& path, float dpi)
 {
     mAssetManager->SetAssetsPath(path);
-    mAssetManager->SetWindowDisplayScale(dpi);
 }
 
 
@@ -568,8 +567,6 @@ void Application::HandleWindowResized()
     }
     std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
     
-    float dpi = static_cast<float>(pixelH) /  static_cast<float>(pixelW);
-    mAssetManager->SetWindowDisplayScale(dpi);
 }
 
 void Application::SetFullscreen(bool enable)
