@@ -68,9 +68,6 @@ public:
     std::string GetAssetsPath() const { return mAssetsPath; }
     void SetAssetsPath(const std::string& path) { mAssetsPath = path; }
 
-    // DPI スケール（UI などで使用）
-    void SetWindowDisplayScale(float scale) { mWindowDisplayScale = scale; }
-
     // 登録済みアセットをすべて破棄（シーン切り替え等）
     void UnloadData();
 
@@ -87,8 +84,6 @@ private:
     // アセットの基準パス（GameApp 側で設定）
     std::string mAssetsPath { "ToyGame/Assets" };
 
-    // DPI スケール（UI 調整用）
-    float mWindowDisplayScale { 1.0f };
 };
 
 } // namespace toy

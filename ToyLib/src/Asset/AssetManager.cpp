@@ -190,8 +190,7 @@ std::shared_ptr<TextFont> AssetManager::GetFont(const std::string& fileName,
 
     const std::string fullPath = mAssetsPath + fileName;
 
-    // DPI スケールを反映してロード
-    if (!font->Load(fullPath, pointSize * mWindowDisplayScale))
+    if (!font->Load(fullPath, pointSize))
     {
         std::cerr << "[AssetManager] Failed to load font: "
                   << fullPath << " (size: " << pointSize << ")"
