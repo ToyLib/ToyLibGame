@@ -270,10 +270,33 @@ void GLRenderer::DrawShadowPass()
 
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-    Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
-    Vector3 lightDir  = mLightingManager->GetLightDirection();
-    Vector3 lightPos  = camCenter - lightDir * 50.0f;
+    Vector3 camPos = mInvView.GetTranslation();
 
+    Vector3 camForward = mInvView.GetZAxis();
+    if (camForward.LengthSq() < 1.0e-6f)
+    {
+        camForward = Vector3(0, 0, 1);
+    }
+    camForward.Normalize();
+
+    Vector3 camCenter = camPos + camForward * 30.0f;
+
+    DirectionalLight dir{};
+    if (auto lm = GetLightingManager())
+    {
+        dir = lm->GetDirectionalLight();
+    }
+    Vector3 lightDir = dir.GetDirection();
+    if (lightDir.LengthSq() < 1.0e-6f)
+    {
+        lightDir = Vector3(0, -1, 0);
+    }
+    lightDir.Normalize();
+    
+
+    const float base = std::max(mShadowOrthoWidth, mShadowOrthoHeight);
+    const float lightDist = base * 2.0f;
+    Vector3 lightPos = camCenter - lightDir * lightDist;
     Matrix4 lightView = Matrix4::CreateLookAt(lightPos, camCenter, Vector3::UnitY);
 
     const float orthoW[kShadowCascadeCount] =
@@ -281,7 +304,6 @@ void GLRenderer::DrawShadowPass()
         mShadowOrthoWidth,
         mShadowOrthoWidth * 4.0f
     };
-
     const float orthoH[kShadowCascadeCount] =
     {
         mShadowOrthoHeight,

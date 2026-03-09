@@ -43,7 +43,7 @@ bool GLRenderer::LoadShaders()
         return false;
 
     // Mesh (Phong)
-    vShaderName = mShaderPath + "Mesh.vert";
+    vShaderName = mShaderPath + "StaticMesh.vert";
     fShaderName = mShaderPath + "MeshPhong.frag";
     mShaders["Mesh"] = std::make_shared<GLShader>();
     if (!mShaders["Mesh"]->Load(vShaderName.c_str(), fShaderName.c_str()))
