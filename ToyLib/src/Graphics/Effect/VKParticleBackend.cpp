@@ -807,6 +807,8 @@ void VKParticleBackend::UpdateParticlesCPU(float deltaTime)
     
     // 次フレームは更新後を読む
     mPingPong = !mPingPong;
+    
+    std::cerr << "Particle Updated by CPU " << std::endl;
 }
 
 VkBuffer VKParticleBackend::CurrentSrcBuffer() const
