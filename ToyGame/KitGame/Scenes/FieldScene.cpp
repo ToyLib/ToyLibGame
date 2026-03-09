@@ -318,22 +318,22 @@ void FieldScene::DeployFire(Vector3 pos)
         toy::ParticleDesc desc;
         
         // --- 基本 ---
-        desc.maxParticles   = 40;        // 旧 num
-        desc.particleLife   = 1.0f;       // 旧 partLife
+        desc.maxParticles   = 60;        // 旧 num
+        desc.particleLife   = 1.5f;       // 旧 partLife
         desc.size           = 2.0f;       // 旧 size
         desc.mode           = toy::ParticleMode::Water;
         
         // --- エミッタ ---
         desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
         desc.spawnRatePerSec = 5.0f;     // 1秒あたりの発生数
-        desc.spawnRampSec    = 2.6f;      // 立ち上がり時間
+        desc.spawnRampSec    = 1.6f;      // 立ち上がり時間
         
         // --- 見た目 ---
         desc.additiveBlend  = true;       // SetAddBlend(true) 相当
         
         // --- 物理 ---
         desc.gravity = 6.0f;              // Smoke
-        desc.lift    = 2.0f;              // 上昇力
+        desc.lift    = 0.0f;              // 上昇力
         desc.spread  = 1.0f;              // 拡散速度
         
         // --- コンポーネント寿命 ---
