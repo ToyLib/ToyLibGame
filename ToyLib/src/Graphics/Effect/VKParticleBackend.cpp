@@ -439,6 +439,12 @@ void VKParticleBackend::ReleaseVK()
         mParticleMemoryB = VK_NULL_HANDLE;
     }
     
+    mUpdatePipeline.reset();
+    mUpdateSetLayout = VK_NULL_HANDLE;
+    mUpdateSetAtoB   = VK_NULL_HANDLE;
+    mUpdateSetBtoA   = VK_NULL_HANDLE;
+    mUseComputeUpdate = false;
+    
     mInitialized = false;
     mPingPong = false;
 }
@@ -885,93 +891,99 @@ bool VKParticleBackend::CreateUpdateDescriptorSets()
     {
         return false;
     }
-    
+
     auto* renderer = app->GetRenderer();
     auto* backend = static_cast<VKRenderer*>(renderer);
     if (!backend)
     {
         return false;
     }
-    
+
     VkDevice device = backend->GetVKDevice();
     VkDescriptorPool descPool = backend->GetDescriptorPool();
-    
+
     if (device == VK_NULL_HANDLE || descPool == VK_NULL_HANDLE)
     {
         return false;
     }
-    
+
     if (mUpdateSetLayout == VK_NULL_HANDLE)
     {
         return false;
     }
-    
-    mUpdateSetAtoB = VK_NULL_HANDLE;
-    mUpdateSetBtoA = VK_NULL_HANDLE;
-    
-    VkDescriptorSetLayout layouts[2] =
+
+    //----------------------------------------------------------
+    // 初回だけ allocate
+    //----------------------------------------------------------
+    if (mUpdateSetAtoB == VK_NULL_HANDLE || mUpdateSetBtoA == VK_NULL_HANDLE)
     {
-        mUpdateSetLayout,
-        mUpdateSetLayout
-    };
-    
-    VkDescriptorSet sets[2] = { VK_NULL_HANDLE, VK_NULL_HANDLE };
-    
-    VkDescriptorSetAllocateInfo ai{};
-    ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ai.descriptorPool = descPool;
-    ai.descriptorSetCount = 2;
-    ai.pSetLayouts = layouts;
-    
-    if (vkAllocateDescriptorSets(device, &ai, sets) != VK_SUCCESS)
+        VkDescriptorSetLayout layouts[2] =
+        {
+            mUpdateSetLayout,
+            mUpdateSetLayout
+        };
+
+        VkDescriptorSet sets[2] = { VK_NULL_HANDLE, VK_NULL_HANDLE };
+
+        VkDescriptorSetAllocateInfo ai{};
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = descPool;
+        ai.descriptorSetCount = 2;
+        ai.pSetLayouts = layouts;
+
+        if (vkAllocateDescriptorSets(device, &ai, sets) != VK_SUCCESS)
+        {
+            std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: allocate failed\n";
+            return false;
+        }
+
+        mUpdateSetAtoB = sets[0];
+        mUpdateSetBtoA = sets[1];
+    }
+
+    //----------------------------------------------------------
+    // 毎回 update
+    //----------------------------------------------------------
+    if (mParticleBufferA == VK_NULL_HANDLE || mParticleBufferB == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: allocate failed\n";
+        std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: particle buffers not ready\n";
         return false;
     }
-    
-    mUpdateSetAtoB = sets[0];
-    mUpdateSetBtoA = sets[1];
-    
+
     auto writeSet = [&](VkDescriptorSet ds, VkBuffer srcBuf, VkBuffer dstBuf)
     {
         VkDescriptorBufferInfo srcInfo{};
         srcInfo.buffer = srcBuf;
         srcInfo.offset = 0;
         srcInfo.range  = VK_WHOLE_SIZE;
-        
+
         VkDescriptorBufferInfo dstInfo{};
         dstInfo.buffer = dstBuf;
         dstInfo.offset = 0;
         dstInfo.range  = VK_WHOLE_SIZE;
-        
+
         VkWriteDescriptorSet writes[2]{};
-        
+
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[0].dstSet = ds;
         writes[0].dstBinding = 0;
         writes[0].descriptorCount = 1;
         writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[0].pBufferInfo = &srcInfo;
-        
+
         writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[1].dstSet = ds;
         writes[1].dstBinding = 1;
         writes[1].descriptorCount = 1;
         writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes[1].pBufferInfo = &dstInfo;
-        
+
         vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
     };
-    
-    if (mParticleBufferA == VK_NULL_HANDLE || mParticleBufferB == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKParticleBackend] CreateUpdateDescriptorSets: particle buffers not ready\n";
-        return false;
-    }
-    
+
     writeSet(mUpdateSetAtoB, mParticleBufferA, mParticleBufferB);
     writeSet(mUpdateSetBtoA, mParticleBufferB, mParticleBufferA);
-    
+
     return true;
 }
 
