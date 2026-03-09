@@ -154,6 +154,7 @@ void DebugDrawComponent::GatherRenderItems(RenderQueue& q)
     // ----------------------------------------------------------
     DebugPayload dp {};
     dp.color = Vector3(1.0f, 1.0f, 1.0f);
+    dp.color = GetOwner()->GetApp()->GetRenderer()->GetWireColor();
     dp.alpha = 1.0f;
 
     const uint32_t payloadIndex = q.PushDebugPayload(dp);

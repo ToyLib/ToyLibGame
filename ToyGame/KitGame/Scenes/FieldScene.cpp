@@ -87,6 +87,10 @@ void FieldScene::Update(float deltaTime)
     
     toy::DebugDraw::Clear();
     toy::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
+    toy::DebugDraw::Ray(Vector3(0,3,0), Vector3::UnitZ, 200.0f, Vector3(1,0,0));
+    toy::DebugDraw::Ray(Vector3::Zero, Vector3::UnitX, 200.0f, Vector3(1,0,0));
+    toy::DebugDraw::Ray(Vector3(0,3,0), Vector3::UnitX, 200.0f, Vector3(1,0,0));
+
     
     Vector3 pos = mPlayerActor->GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, Vector3(0,1,0), 32);
