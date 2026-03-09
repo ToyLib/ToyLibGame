@@ -130,43 +130,43 @@ void FieldScene::InitField()
     treeCollider->GetBoundingVolume()->ComputeBoundingVolume(Vector3(-100, -256, -4), Vector3(100, 200, 4));
     treeCollider->SetFlags(toy::C_WALL | toy::C_FOOT);
 
-    
-    // 鏡を出す
-    auto mirrorActor = CreateActor<toy::Actor>();
-    mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
-    mirrorActor->SetScale(1.0f);
-    Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
-    mirrorActor->SetRotation(q);
-    auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-    capture->Init({.width=512, .height=512 });
-    capture->SetCaptureMode(toy::CaptureMode::Mirror);
+    {
+        // 鏡を出す
+        auto mirrorActor = CreateActor<toy::Actor>();
+        mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
+        mirrorActor->SetScale(1.0f);
+        Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
+        mirrorActor->SetRotation(q);
+        auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
+        capture->Init({.width=512, .height=512 });
+        capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
-    auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
-    mirrorComp->SetTexture(capture->GetColorTexture());
-    mirrorComp->SetScale(10.0f, 10.0f);
-    capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
-    mirrorComp->SetFlip(true, true);
-    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
+        auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
+        mirrorComp->SetTexture(capture->GetColorTexture());
+        mirrorComp->SetScale(10.0f, 10.0f);
+        capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
+        mirrorComp->SetFlip(true, true);
+        mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
+    }
+    {
+        // 水面を出す
+        auto waterActor = CreateActor<toy::Actor>();
+        waterActor->SetPosition(Vector3(20.0f, -4.0f, 40.0f));
+        waterActor->SetScale(1.0f);
+        Quaternion q = Quaternion(Vector3::UnitX, Math::ToRadians(90.0f));
+        waterActor->SetRotation(q);
+        auto waterCapture = waterActor->CreateComponent<toy::SceneCaptureComponent>();
+        waterCapture->Init({ .width = 512, .height = 512 });
+        waterCapture->SetCaptureMode(toy::CaptureMode::Water);
 
-
-    // 水面を出す
-    auto waterActor = CreateActor<toy::Actor>();
-    waterActor->SetPosition(Vector3(20.0f, -4.0f, 40.0f));
-    waterActor->SetScale(1.0f);
-    q = Quaternion(Vector3::UnitX, Math::ToRadians(90.0f));
-    waterActor->SetRotation(q);
-    auto waterCapture = waterActor->CreateComponent<toy::SceneCaptureComponent>();
-    waterCapture->Init({ .width = 512, .height = 512 });
-    waterCapture->SetCaptureMode(toy::CaptureMode::Water);
-
-    auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
-    waterComp->SetTexture(waterCapture->GetColorTexture());
-    waterComp->SetScale(40.0f, 40.0f);
-    waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
-    waterComp->SetFlip(true, true);
-    waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
-    waterComp->SetOpacity(0.7f);
-     
+        auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
+        waterComp->SetTexture(waterCapture->GetColorTexture());
+        waterComp->SetScale(40.0f, 40.0f);
+        waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
+        waterComp->SetFlip(true, true);
+        waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
+        waterComp->SetOpacity(0.7f);
+    }
 
 }
 

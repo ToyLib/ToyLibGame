@@ -373,7 +373,7 @@ void GLRenderer::RestoreAfterShadowPass()
 }
 
 
-//==============================================================================
+//================================= =============================================
 // Individual passes
 //==============================================================================
 
@@ -623,28 +623,51 @@ void GLRenderer::DrawPostEffectPass()
 //==============================================================================
 // DrawToRenderTarget
 //==============================================================================
-
 void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
-    if (!req.rt) return;
+    if (!req.rt)
+    {
+        return;
+    }
 
     ChangeDebugRTT();
 
-    // ---- Save per-capture state ----
+    //==========================================================================
+    // Save current camera state
+    //==========================================================================
     const Matrix4 prevView = mViewMatrix;
     const Matrix4 prevProj = mProjectionMatrix;
     const Matrix4 prevInvV = mInvView;
 
+    //==========================================================================
+    // Save current framebuffer state
+    //==========================================================================
     GLint prevFBO = 0;
-    GLint prevVP[4];
+    GLint prevVP[4] = {};
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
     glGetIntegerv(GL_VIEWPORT, prevVP);
 
-    // ---- Bind RT + viewport ----
+    //==========================================================================
+    // Bind render target
+    //==========================================================================
     req.rt->Bind();
-    glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
+    glViewport(0, 0,
+        static_cast<GLsizei>(req.rt->GetWidth()),
+        static_cast<GLsizei>(req.rt->GetHeight()));
 
-    // Sky-only の場合は「色を毎回クリアしない」方が水面で破綻しにくい
+    //==========================================================================
+    // Reset GL state for SceneCapture
+    //  - Windows/OpenGL では前パスの state 汚染を受けやすいため明示する
+    //==========================================================================
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+
+    //==========================================================================
+    // Clear target
+    //  - Sky only の場合は色を残して depth だけ消す
+    //==========================================================================
     if (req.drawWorld || req.drawOverlay || req.drawUI)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -654,58 +677,61 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         glClear(GL_DEPTH_BUFFER_BIT);
     }
 
-    // ---- Override camera ----
-    mViewMatrix       = req.view;
+    //==========================================================================
+    // Override camera
+    //==========================================================================
+    mViewMatrix = req.view;
     mProjectionMatrix = req.proj;
-
     mInvView = req.view;
     mInvView.Invert();
-/*
-    // ---- Shadow for this capture ----
+
+    /*
+    //==========================================================================
+    // Optional shadow pass
+    //==========================================================================
     if (req.drawWorld)
     {
         DrawShadowPass();
 
-        // RestoreAfterShadowPass() が画面 VP に戻すので、RT に戻す
+        // Shadow pass 後に画面側へ戻る実装なら RT を再バインド
         RestoreAfterShadowPass();
         req.rt->Bind();
-        glViewport(0, 0, (GLsizei)req.rt->GetWidth(), (GLsizei)req.rt->GetHeight());
+        glViewport(0, 0,
+                   static_cast<GLsizei>(req.rt->GetWidth()),
+                   static_cast<GLsizei>(req.rt->GetHeight()));
     }
     else
     {
-        // Sky-only のときも念のため、RT 側の描画状態に寄せる
         glDisable(GL_STENCIL_TEST);
     }
-*/
-    // ---- Draw scene into RT ----
+    */
+
+    //==========================================================================
+    // Build render queues
+    //==========================================================================
     BuildFrameQueues();
 
-    /*
-    if (req.drawSky)     DrawSkyPass();
-    if (req.drawWorld)   DrawWorldPass();
-    if (req.drawOverlay) DrawOverlayScreenPass();
-    if (req.drawUI)      DrawUIPass();
-     */
-    
     const auto& items = mRenderQueue.Items();
 
     auto drawBucket = [&](const std::vector<uint32_t>& bucket)
-    {
-        for (uint32_t idx : bucket)
         {
-            if (idx >= items.size()) continue;
-
-            const RenderItem& it = items[idx];
-
-            // UI 混入 safety
-            if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+            for (uint32_t idx : bucket)
             {
-                continue;
-            }
+                if (idx >= items.size())
+                {
+                    continue;
+                }
 
-            // SceneCapture 内で危ないものを除外
-            switch (it.type)
-            {
+                const RenderItem& it = items[idx];
+
+                // UI は SceneCapture に混ぜない
+                if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+                {
+                    continue;
+                }
+
+                switch (it.type)
+                {
                 case RenderItemType::SkyDome:
                 case RenderItemType::Mesh:
                 case RenderItemType::SkinnedMesh:
@@ -714,18 +740,20 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
                     DrawItem(it, RenderPass::World, -1);
                     break;
 
-                // Debug は SceneCapture には不要。
-                // RT 用 pipeline/renderpass 互換の問題も避けるため除外する。
+                    // SceneCapture では除外
                 case RenderItemType::Surface:
                 case RenderItemType::Overlay:
                 case RenderItemType::Sprite:
                 case RenderItemType::Debug:
                 default:
                     break;
+                }
             }
-        }
-    };
+        };
 
+    //==========================================================================
+    // Draw capture contents
+    //==========================================================================
     if (req.drawSky)
     {
         drawBucket(mBuckets.sky);
@@ -738,20 +766,21 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         drawBucket(mBuckets.worldTransparent);
         drawBucket(mBuckets.effectOverlay);
     }
-    
-    
 
-    // ---- Restore camera ----
-    mViewMatrix       = prevView;
+    //==========================================================================
+    // Restore camera
+    //==========================================================================
+    mViewMatrix = prevView;
     mProjectionMatrix = prevProj;
-    mInvView          = prevInvV;
+    mInvView = prevInvV;
 
-    // ---- Restore FBO + viewport ----
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
+    //==========================================================================
+    // Restore framebuffer
+    //==========================================================================
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFBO));
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 
     ChangeDebugOnScreen();
 }
-
 
 } // namespace toy
