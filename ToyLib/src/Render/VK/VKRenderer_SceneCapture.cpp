@@ -383,12 +383,12 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
                 case RenderItemType::SkinnedMesh:
                 case RenderItemType::UnlitQuad:
                 case RenderItemType::Particle:
-                case RenderItemType::Surface:
                     DrawItem(it, RenderPass::World, -1);
                     break;
 
                 // Debug は SceneCapture には不要。
                 // RT 用 pipeline/renderpass 互換の問題も避けるため除外する。
+                case RenderItemType::Surface:
                 case RenderItemType::Overlay:
                 case RenderItemType::Sprite:
                 case RenderItemType::Debug:

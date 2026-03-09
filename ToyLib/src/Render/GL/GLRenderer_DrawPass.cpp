@@ -639,12 +639,66 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     // ---- Draw scene into RT ----
     BuildFrameQueues();
 
+    /*
     if (req.drawSky)     DrawSkyPass();
     if (req.drawWorld)   DrawWorldPass();
     if (req.drawOverlay) DrawOverlayScreenPass();
     if (req.drawUI)      DrawUIPass();
+     */
+    
+    const auto& items = mRenderQueue.Items();
 
-    //DrawFadePass();
+    auto drawBucket = [&](const std::vector<uint32_t>& bucket)
+    {
+        for (uint32_t idx : bucket)
+        {
+            if (idx >= items.size()) continue;
+
+            const RenderItem& it = items[idx];
+
+            // UI 混入 safety
+            if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+            {
+                continue;
+            }
+
+            // SceneCapture 内で危ないものを除外
+            switch (it.type)
+            {
+                case RenderItemType::SkyDome:
+                case RenderItemType::Mesh:
+                case RenderItemType::SkinnedMesh:
+                case RenderItemType::UnlitQuad:
+                case RenderItemType::Particle:
+                    DrawItem(it, RenderPass::World, -1);
+                    break;
+
+                // Debug は SceneCapture には不要。
+                // RT 用 pipeline/renderpass 互換の問題も避けるため除外する。
+                case RenderItemType::Surface:
+                case RenderItemType::Overlay:
+                case RenderItemType::Sprite:
+                case RenderItemType::Debug:
+                default:
+                    break;
+            }
+        }
+    };
+
+    if (req.drawSky)
+    {
+        drawBucket(mBuckets.sky);
+    }
+
+    if (req.drawWorld)
+    {
+        drawBucket(mBuckets.worldOpaque);
+        drawBucket(mBuckets.effectPre);
+        drawBucket(mBuckets.worldTransparent);
+        drawBucket(mBuckets.effectOverlay);
+    }
+    
+    
 
     // ---- Restore camera ----
     mViewMatrix       = prevView;
