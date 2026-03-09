@@ -24,8 +24,8 @@
     "color": [0.4, 0.4, 0.4]
   },
   "shadow": {
-    "near": 1.0,
-    "far": 1000.0,
+    "near": 10.0,
+    "far": 500.0,
     "bias": 0.001,
     "ortho_width": 100.0,
     "ortho_height": 100.0,

@@ -252,7 +252,6 @@ void GLRenderer::EndFrame()
 //==============================================================================
 // Shadow pass
 //==============================================================================
-
 void GLRenderer::DrawShadowPass()
 {
     GLint prevFBO = 0;
@@ -260,6 +259,9 @@ void GLRenderer::DrawShadowPass()
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
     glGetIntegerv(GL_VIEWPORT, prevVP);
 
+    //---------------------------------------------------------
+    // Shadow pass state
+    //---------------------------------------------------------
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
@@ -268,48 +270,58 @@ void GLRenderer::DrawShadowPass()
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+    // Vulkan 相当の depth bias
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.75f, 1.25f);
+
+    // depth のみ書く
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-    Vector3 camPos = mInvView.GetTranslation();
+    //---------------------------------------------------------
+    // Light camera
+    //---------------------------------------------------------
+    Vector3 camCenter = mInvView.GetTranslation() + mInvView.GetZAxis() * 30.0f;
+    Vector3 lightDir  = mLightingManager->GetLightDirection();
+    Vector3 lightPos  = camCenter - lightDir * 50.0f;
 
-    Vector3 camForward = mInvView.GetZAxis();
-    if (camForward.LengthSq() < 1.0e-6f)
-    {
-        camForward = Vector3(0, 0, 1);
-    }
-    camForward.Normalize();
-
-    Vector3 camCenter = camPos + camForward * 30.0f;
-
-    DirectionalLight dir{};
-    if (auto lm = GetLightingManager())
-    {
-        dir = lm->GetDirectionalLight();
-    }
-    Vector3 lightDir = dir.GetDirection();
-    if (lightDir.LengthSq() < 1.0e-6f)
-    {
-        lightDir = Vector3(0, -1, 0);
-    }
-    lightDir.Normalize();
-    
-
-    const float base = std::max(mShadowOrthoWidth, mShadowOrthoHeight);
-    const float lightDist = base * 2.0f;
-    Vector3 lightPos = camCenter - lightDir * lightDist;
     Matrix4 lightView = Matrix4::CreateLookAt(lightPos, camCenter, Vector3::UnitY);
 
+    //---------------------------------------------------------
+    // Texel Snapping
+    //---------------------------------------------------------
+    {
+        float orthoW = mShadowOrthoWidth;
+        float orthoH = mShadowOrthoHeight;
+
+        float texelSizeX = orthoW / static_cast<float>(mShadowFBOWidth);
+        float texelSizeY = orthoH / static_cast<float>(mShadowFBOHeight);
+
+        Vector3 origin = lightView.GetTranslation();
+
+        origin.x = std::floor(origin.x / texelSizeX) * texelSizeX;
+        origin.y = std::floor(origin.y / texelSizeY) * texelSizeY;
+
+        lightView.SetTranslation(origin);
+    }
+
+    //---------------------------------------------------------
+    // Cascade sizes
+    //---------------------------------------------------------
     const float orthoW[kShadowCascadeCount] =
     {
         mShadowOrthoWidth,
         mShadowOrthoWidth * 4.0f
     };
+
     const float orthoH[kShadowCascadeCount] =
     {
         mShadowOrthoHeight,
         mShadowOrthoHeight * 4.0f
     };
 
+    //---------------------------------------------------------
+    // Render cascades
+    //---------------------------------------------------------
     for (int i = 0; i < kShadowCascadeCount; ++i)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, mShadowFBO[i]);
@@ -324,16 +336,23 @@ void GLRenderer::DrawShadowPass()
             mShadowFar);
 
         Matrix4 lightVP = lightView * lightProj;
+
         mLightSpaceMatrix[i] = lightVP;
 
-        // caster は BuildFrameQueues() 側で集約済み
         DrawBucket_Shadow(mBuckets.shadowCaster, i);
     }
 
+    //---------------------------------------------------------
+    // Restore state
+    //---------------------------------------------------------
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prevFBO);
     glViewport(prevVP[0], prevVP[1], prevVP[2], prevVP[3]);
 }
+
 void GLRenderer::RestoreAfterShadowPass()
 {
     glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
