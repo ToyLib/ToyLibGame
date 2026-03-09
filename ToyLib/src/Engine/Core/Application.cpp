@@ -567,6 +567,9 @@ void Application::HandleWindowResized()
         mRenderer->OnWindowResized(pixelW, pixelH);
     }
     std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
+    
+    float dpi = static_cast<float>(pixelH) /  static_cast<float>(pixelW);
+    mAssetManager->SetWindowDisplayScale(dpi);
 }
 
 void Application::SetFullscreen(bool enable)
