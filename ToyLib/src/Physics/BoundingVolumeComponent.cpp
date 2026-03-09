@@ -30,7 +30,7 @@ BoundingVolumeComponent::BoundingVolumeComponent(Actor* a)
     if (GetOwner()->GetApp()->GetEnableDebug())
     {
         mWireframe = std::make_unique<DebugWireframeComponent>(GetOwner(), 1000);
-        Vector3 color = GetOwner()->GetApp()->GetRenderer()->GetOOBColor();
+        Vector3 color = GetOwner()->GetApp()->GetRenderer()->GetOBBColor();
         mWireframe->SetColor(color);
     }
 }

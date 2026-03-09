@@ -76,10 +76,10 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     JsonHelper::GetVector3(data, "wireColor", mWireColor);
     
     //---------------------------------------------------------
-    // OOBカラー
+    // OBBカラー
     //   "oobColor": [1.0, 1.0, 1.0]
     //---------------------------------------------------------
-    JsonHelper::GetVector3(data, "oobColor", mOOBColor);
+    JsonHelper::GetVector3(data, "obbColor", mOBBColor);
     
     
     //---------------------------------------------------------
