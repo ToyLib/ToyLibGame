@@ -76,6 +76,13 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     JsonHelper::GetVector3(data, "wireColor", mWireColor);
     
     //---------------------------------------------------------
+    // OOBカラー
+    //   "oobColor": [1.0, 1.0, 1.0]
+    //---------------------------------------------------------
+    JsonHelper::GetVector3(data, "oobColor", mOOBColor);
+    
+    
+    //---------------------------------------------------------
     // アンビエントカラー
     //   "ambient": [1.0, 1.0, 1.0]
     //---------------------------------------------------------

@@ -9,20 +9,17 @@ void DebugDrawSystem::Clear()
 }
 
 void DebugDrawSystem::AddLine(const Vector3& a,
-                              const Vector3& b,
-                              const Vector3& color)
+                              const Vector3& b)
 {
     DebugLine line {};
     line.a = a;
     line.b = b;
-    line.color = color;
     mLines.emplace_back(line);
 }
 
 void DebugDrawSystem::AddRay(const Vector3& origin,
                              const Vector3& dir,
-                             float length,
-                             const Vector3& color)
+                             float length)
 {
     Vector3 d = dir;
     if (d.LengthSq() <= Math::NearZeroEpsilon || length <= 0.0f)
@@ -32,12 +29,11 @@ void DebugDrawSystem::AddRay(const Vector3& origin,
 
     d.Normalize();
 
-    AddLine(origin, origin + d * length, color);
+    AddLine(origin, origin + d * length);
 }
 
 void DebugDrawSystem::AddBox(const Vector3& min,
-                             const Vector3& max,
-                             const Vector3& color)
+                             const Vector3& max)
 {
     const Vector3 v0(min.x, min.y, min.z);
     const Vector3 v1(max.x, min.y, min.z);
@@ -50,27 +46,26 @@ void DebugDrawSystem::AddBox(const Vector3& min,
     const Vector3 v7(min.x, max.y, max.z);
 
     // bottom
-    AddLine(v0, v1, color);
-    AddLine(v1, v2, color);
-    AddLine(v2, v3, color);
-    AddLine(v3, v0, color);
+    AddLine(v0, v1);
+    AddLine(v1, v2);
+    AddLine(v2, v3);
+    AddLine(v3, v0);
 
     // top
-    AddLine(v4, v5, color);
-    AddLine(v5, v6, color);
-    AddLine(v6, v7, color);
-    AddLine(v7, v4, color);
+    AddLine(v4, v5);
+    AddLine(v5, v6);
+    AddLine(v6, v7);
+    AddLine(v7, v4);
 
     // vertical
-    AddLine(v0, v4, color);
-    AddLine(v1, v5, color);
-    AddLine(v2, v6, color);
-    AddLine(v3, v7, color);
+    AddLine(v0, v4);
+    AddLine(v1, v5);
+    AddLine(v2, v6);
+    AddLine(v3, v7);
 }
 
 void DebugDrawSystem::AddSphere(const Vector3& center,
                                 float radius,
-                                const Vector3& color,
                                 int segments)
 {
     if (radius <= 0.0f)
@@ -99,7 +94,7 @@ void DebugDrawSystem::AddSphere(const Vector3& center,
             center.y + Math::Sin(t1) * radius,
             center.z);
 
-        AddLine(p0, p1, color);
+        AddLine(p0, p1);
     }
 
     // XZ
@@ -118,7 +113,7 @@ void DebugDrawSystem::AddSphere(const Vector3& center,
             center.y,
             center.z + Math::Sin(t1) * radius);
 
-        AddLine(p0, p1, color);
+        AddLine(p0, p1);
     }
 
     // YZ
@@ -137,14 +132,13 @@ void DebugDrawSystem::AddSphere(const Vector3& center,
             center.y + Math::Cos(t1) * radius,
             center.z + Math::Sin(t1) * radius);
 
-        AddLine(p0, p1, color);
+        AddLine(p0, p1);
     }
 }
 
 void DebugDrawSystem::AddArrow(const Vector3& origin,
                                const Vector3& dir,
-                               float length,
-                               const Vector3& color)
+                               float length)
 {
     Vector3 d = dir;
     if (d.LengthSq() <= Math::NearZeroEpsilon || length <= 0.0f)
@@ -156,7 +150,7 @@ void DebugDrawSystem::AddArrow(const Vector3& origin,
 
     const Vector3 tip = origin + d * length;
 
-    AddLine(origin, tip, color);
+    AddLine(origin, tip);
 
     // 矢印の頭
     const float headLen = length * 0.2f;
@@ -185,10 +179,10 @@ void DebugDrawSystem::AddArrow(const Vector3& origin,
     const Vector3 wingR = right * (headLen * 0.5f);
     const Vector3 wingU = up    * (headLen * 0.5f);
 
-    AddLine(tip, tip + back + wingR, color);
-    AddLine(tip, tip + back - wingR, color);
-    AddLine(tip, tip + back + wingU, color);
-    AddLine(tip, tip + back - wingU, color);
+    AddLine(tip, tip + back + wingR);
+    AddLine(tip, tip + back - wingR);
+    AddLine(tip, tip + back + wingU);
+    AddLine(tip, tip + back - wingU);
 }
 
 } // namespace toy

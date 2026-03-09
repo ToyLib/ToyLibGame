@@ -29,55 +29,50 @@ void DebugDraw::Clear()
 }
 
 void DebugDraw::Line(const Vector3& a,
-                     const Vector3& b,
-                     const Vector3& color)
+                     const Vector3& b)
 {
     if (sSystem)
     {
-        sSystem->AddLine(a, b, color);
+        sSystem->AddLine(a, b);
     }
 }
 
 void DebugDraw::Ray(const Vector3& origin,
                     const Vector3& dir,
-                    float length,
-                    const Vector3& color)
+                    float length)
 {
     if (sSystem)
     {
-        sSystem->AddRay(origin, dir, length, color);
+        sSystem->AddRay(origin, dir, length);
     }
 }
 
 void DebugDraw::Box(const Vector3& min,
-                    const Vector3& max,
-                    const Vector3& color)
+                    const Vector3& max)
 {
     if (sSystem)
     {
-        sSystem->AddBox(min, max, color);
+        sSystem->AddBox(min, max);
     }
 }
 
 void DebugDraw::Sphere(const Vector3& center,
                        float radius,
-                       const Vector3& color,
                        int segments)
 {
     if (sSystem)
     {
-        sSystem->AddSphere(center, radius, color, segments);
+        sSystem->AddSphere(center, radius, segments);
     }
 }
 
 void DebugDraw::Arrow(const Vector3& origin,
                       const Vector3& dir,
-                      float length,
-                      const Vector3& color)
+                      float length)
 {
     if (sSystem)
     {
-        sSystem->AddArrow(origin, dir, length, color);
+        sSystem->AddArrow(origin, dir, length);
     }
 }
 

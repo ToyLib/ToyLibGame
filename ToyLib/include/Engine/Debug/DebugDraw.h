@@ -14,27 +14,22 @@ public:
     static void Clear();
 
     static void Line(const Vector3& a,
-                     const Vector3& b,
-                     const Vector3& color = Vector3(1.0f, 1.0f, 1.0f));
+                     const Vector3& b);
 
     static void Ray(const Vector3& origin,
                     const Vector3& dir,
-                    float length,
-                    const Vector3& color = Vector3(1.0f, 1.0f, 1.0f));
+                    float length);
 
     static void Box(const Vector3& min,
-                    const Vector3& max,
-                    const Vector3& color = Vector3(1.0f, 1.0f, 1.0f));
+                    const Vector3& max);
 
     static void Sphere(const Vector3& center,
                        float radius,
-                       const Vector3& color = Vector3(1.0f, 1.0f, 1.0f),
                        int segments = 16);
 
     static void Arrow(const Vector3& origin,
                       const Vector3& dir,
-                      float length,
-                      const Vector3& color = Vector3(1.0f, 1.0f, 1.0f));
+                      float length);
 
     static class DebugDrawSystem* GetSystem();
 

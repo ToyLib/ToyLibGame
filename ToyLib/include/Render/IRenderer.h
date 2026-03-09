@@ -153,6 +153,7 @@ public:
 
     void SetWireColor(const Vector3& color) { mWireColor = color; }
     const Vector3& GetWireColor() const { return mWireColor; }
+    const Vector3& GetOOBColor() const { return mOOBColor; }
 
     void AddDrawCall() { ++mDebugActiveScreen->drawCallCount; }
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
@@ -386,6 +387,7 @@ protected:
 
     Vector3 mClearColor { Vector3(0.2f, 0.5f, 0.8f) };
     Vector3 mWireColor  { Vector3(1.0f, 1.0f, 1.0f) };
+    Vector3 mOOBColor   { Vector3(1.0f, 1.0f, 1.0f) };
 
     DebugInfo  mDebugOnScreen {};
     DebugInfo  mDebugRTT {};

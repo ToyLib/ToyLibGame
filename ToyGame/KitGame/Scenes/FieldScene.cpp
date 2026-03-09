@@ -86,15 +86,15 @@ void FieldScene::Update(float deltaTime)
     
     
     toy::DebugDraw::Clear();
-    toy::DebugDraw::Ray(Vector3::Zero, Vector3::UnitZ, 200.0f, Vector3(1,0,0));
-    toy::DebugDraw::Ray(Vector3(0,3,0), Vector3::UnitZ, 200.0f, Vector3(1,0,0));
-    toy::DebugDraw::Ray(Vector3::Zero, Vector3::UnitX, 200.0f, Vector3(1,0,0));
-    toy::DebugDraw::Ray(Vector3(0,3,0), Vector3::UnitX, 200.0f, Vector3(1,0,0));
+    toy::DebugDraw::Ray(Vector3(0,0,-100), Vector3::UnitZ, 200.0f);
+    toy::DebugDraw::Ray(Vector3(0,5,-100), Vector3::UnitZ, 200.0f);
+    toy::DebugDraw::Ray(Vector3(-100,0,0), Vector3::UnitX, 200.0f);
+    toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
     Vector3 pos = mPlayerActor->GetPosition();
-    toy::DebugDraw::Sphere(pos, 5.0f, Vector3(0,1,0), 32);
-    //toy::DebugDraw::Box(min, max, Vector3(1,1,0));
+    toy::DebugDraw::Sphere(pos, 5.0f, 32);
+    //toy::DebugDraw::Box(min, max);
 }
 
 void FieldScene::InitField()
@@ -228,7 +228,6 @@ void FieldScene::DeployBrick(Vector3 pos)
 
 }
 
-#include "Render/RenderBackendState.h"
 void FieldScene::DeployFire(Vector3 pos)
 {
     // 焚き火
