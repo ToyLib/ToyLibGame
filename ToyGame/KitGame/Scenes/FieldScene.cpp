@@ -229,9 +229,9 @@ void FieldScene::DeployFire(Vector3 pos)
 {
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
-    //auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
-    //fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
-  
+    auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
+    fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
+    
     fireActor->SetPosition(Vector3(-8, 0, -30));
     fireActor->SetScale(0.02f);
     auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
@@ -246,7 +246,7 @@ void FieldScene::DeployFire(Vector3 pos)
     fireSound->SetVolume(1.0f);
     fireSound->Enable3DSound(true);
     fireSound->Play();
-
+    
     
     // ライト
     auto fireLight = fireActor->CreateComponent<toy::PointLightComponent>();
@@ -256,48 +256,96 @@ void FieldScene::DeployFire(Vector3 pos)
     // Actor
     auto particleActorGPU = CreateActor<toy::Actor>();
     particleActorGPU->SetPosition(fireActor->GetPosition());
-
+    
     // Component
     auto* particle = particleActorGPU
-        ->CreateComponent<toy::ParticleComponent>();
-
+    ->CreateComponent<toy::ParticleComponent>();
+    
     particle->SetTexture(
-        GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
+                         GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
     
-    //==============================
-    // Desc で全設定
-    //==============================
-    toy::ParticleDesc desc;
-
-    // --- 基本 ---
-    desc.maxParticles   = 10;        // 旧 num
-    desc.particleLife   = 0.6f;       // 旧 partLife
-    desc.size           = 5.5f;       // 旧 size
-    desc.mode           = toy::ParticleMode::Smoke;
-
-    // --- エミッタ ---
-    desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
-    desc.spawnRatePerSec = 30.0f;     // 1秒あたりの発生数
-    desc.spawnRampSec    = 0.6f;      // 立ち上がり時間
-
-    // --- 見た目 ---
-    desc.additiveBlend  = true;       // SetAddBlend(true) 相当
-
-    // --- 物理 ---
-    desc.gravity = 0.0f;              // Smoke
-    desc.lift    = 2.0f;              // 上昇力
-    desc.spread  = 2.0f;              // 拡散速度
-
-    // --- コンポーネント寿命 ---
-    // 0 = 無限（焚き火用）
-    desc.componentLife = 0.0f;
-
-    // --- 初期分散（塊回避） ---
-    desc.warmStart = true;
-
+    {
+        //==============================
+        // Desc で全設定
+        //==============================
+        toy::ParticleDesc desc;
+        
+        // --- 基本 ---
+        desc.maxParticles   = 10;        // 旧 num
+        desc.particleLife   = 0.6f;       // 旧 partLife
+        desc.size           = 5.5f;       // 旧 size
+        desc.mode           = toy::ParticleMode::Smoke;
+        
+        // --- エミッタ ---
+        desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
+        desc.spawnRatePerSec = 30.0f;     // 1秒あたりの発生数
+        desc.spawnRampSec    = 0.6f;      // 立ち上がり時間
+        
+        // --- 見た目 ---
+        desc.additiveBlend  = true;       // SetAddBlend(true) 相当
+        
+        // --- 物理 ---
+        desc.gravity = 0.0f;              // Smoke
+        desc.lift    = 2.0f;              // 上昇力
+        desc.spread  = 2.0f;              // 拡散速度
+        
+        // --- コンポーネント寿命 ---
+        // 0 = 無限（焚き火用）
+        desc.componentLife = 0.0f;
+        
+        // --- 初期分散（塊回避） ---
+        desc.warmStart = true;
+        
+        
+        particle->Init(desc);
+        //particle->InitFromFile("ToyGame/Settings/Fire.json");
+        particle->Start();
     
-    particle->Init(desc);
-    //particle->InitFromFile("ToyGame/Settings/Fire.json");
-    particle->Start();
+    }
+    {
+        auto a = CreateActor<toy::Actor>();
+        a->SetPosition(Vector3(8, 4, -30));
+        a->SetScale(0.2f);
+        auto p = a->CreateComponent<toy::ParticleComponent>();
+        p->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/parts.jpg"));
+        auto l = a->CreateComponent<toy::PointLightComponent>();
+        l->SetColor(Vector3(0.5f, 0.5f, 1.0f));
+        
+        
+        //==============================
+        // Desc で全設定
+        //==============================
+        toy::ParticleDesc desc;
+        
+        // --- 基本 ---
+        desc.maxParticles   = 40;        // 旧 num
+        desc.particleLife   = 1.0f;       // 旧 partLife
+        desc.size           = 2.0f;       // 旧 size
+        desc.mode           = toy::ParticleMode::Water;
+        
+        // --- エミッタ ---
+        desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
+        desc.spawnRatePerSec = 5.0f;     // 1秒あたりの発生数
+        desc.spawnRampSec    = 2.6f;      // 立ち上がり時間
+        
+        // --- 見た目 ---
+        desc.additiveBlend  = true;       // SetAddBlend(true) 相当
+        
+        // --- 物理 ---
+        desc.gravity = 6.0f;              // Smoke
+        desc.lift    = 2.0f;              // 上昇力
+        desc.spread  = 1.0f;              // 拡散速度
+        
+        // --- コンポーネント寿命 ---
+        // 0 = 無限（焚き火用）
+        desc.componentLife = 0.0f;
+        
+        // --- 初期分散（塊回避） ---
+        desc.warmStart = true;
+        
+        
+        p->Init(desc);
+        p->Start();
+    }
 
 }
