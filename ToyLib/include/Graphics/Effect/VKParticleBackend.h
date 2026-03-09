@@ -30,6 +30,8 @@ public:
 
     void GatherRenderItems(RenderQueue& outQueue,
                            const VisualComponent& host) override;
+    
+    void UpdateParticlesCompute(VkCommandBuffer cmd, float deltaTime);
 
 private:
     struct ParticleGPU
@@ -44,7 +46,6 @@ private:
 
     void InitParticleBuffers(bool warmStart);
     void UpdateParticlesCPU(float deltaTime);
-    void UpdateParticlesCompute(float deltaTime);
     
     VkBuffer CurrentSrcBuffer() const;
     VkBuffer CurrentDstBuffer() const;
@@ -67,6 +68,8 @@ private:
     int  mSkipDrawFrames   { 2 };
     
     bool mUseComputeUpdate { false };
+    bool mNeedsComputeDispatch { false };
+    float mPendingComputeDeltaTime { 0.0f };
 
     std::string mRenderPipelineName { "Particle" };
     std::string mUpdatePipelineName { "ParticleUpdateCompute" };

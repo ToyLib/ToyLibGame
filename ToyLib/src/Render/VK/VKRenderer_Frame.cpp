@@ -97,6 +97,9 @@ bool VKRenderer::BeginFrame()
     // renderpassはここでは開始しない
     mIsInRenderPass = false;
     
+    // ★ここで queued compute を記録
+    RecordQueuedParticleComputes(frame.cmd);
+    
 
     mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
 

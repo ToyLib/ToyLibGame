@@ -278,7 +278,8 @@ void VKParticleBackend::Update(float deltaTime)
 
     if (mUseComputeUpdate)
     {
-        UpdateParticlesCompute(deltaTime);
+        mNeedsComputeDispatch = true;
+        mPendingComputeDeltaTime = deltaTime;
     }
     else
     {
@@ -364,6 +365,13 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     it.payloadIndex = payloadIndex;
     
     outQueue.Push(it);
+    
+    if (mNeedsComputeDispatch)
+    {
+        auto* vkRenderer = static_cast<VKRenderer*>(renderer);
+        vkRenderer->EnqueueParticleCompute(this, mPendingComputeDeltaTime);
+        mNeedsComputeDispatch = false;
+    }
 }
 
 void VKParticleBackend::InitIfNeeded()
@@ -437,15 +445,35 @@ void VKParticleBackend::ReleaseVK()
 
 void VKParticleBackend::InitParticleBuffers(bool warmStart)
 {
-    auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
+    auto* owner = GetOwner();
+    if (!owner)
+    {
+        return;
+    }
+
+    auto* app = owner->GetApp();
+    if (!app)
+    {
+        return;
+    }
+
+    auto* renderer = app->GetRenderer();
+    auto* backend  = static_cast<VKRenderer*>(renderer);
+    if (!backend)
+    {
+        return;
+    }
+
     VkDevice device = backend->GetVKDevice();
     VkPhysicalDevice physicalDevice = backend->GetVKPhysicalDevice();
     if (device == VK_NULL_HANDLE || physicalDevice == VK_NULL_HANDLE)
     {
         return;
     }
-    
-    // 既存を破棄して作り直し
+
+    //----------------------------------------------------------
+    // 既存バッファ破棄
+    //----------------------------------------------------------
     if (mParticleBufferA != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, mParticleBufferA, nullptr);
@@ -456,7 +484,7 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
         vkFreeMemory(device, mParticleMemoryA, nullptr);
         mParticleMemoryA = VK_NULL_HANDLE;
     }
-    
+
     if (mParticleBufferB != VK_NULL_HANDLE)
     {
         vkDestroyBuffer(device, mParticleBufferB, nullptr);
@@ -467,84 +495,74 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
         vkFreeMemory(device, mParticleMemoryB, nullptr);
         mParticleMemoryB = VK_NULL_HANDLE;
     }
-    
-    std::vector<ParticleGPU> init;
-    init.resize(mDesc.maxParticles);
-    
+
+    //----------------------------------------------------------
+    // 初期データ作成
+    //----------------------------------------------------------
+    std::vector<ParticleGPU> init(mDesc.maxParticles);
+
     const float lifeMax = std::max(0.01f, mDesc.particleLife);
-    
-    //==========================================================
-    // GL版の uEmitterPos 相当
-    //==========================================================
-    Vector3 emitterPos = mDesc.emitterOffset;
-    if (GetOwner())
+
+    Vector3 emitterPos = mDesc.emitterOffset + owner->GetPosition();
+
+    auto hash11 = [](float n) -> float
     {
-        emitterPos += GetOwner()->GetPosition();
-    }
-    
+        float x = std::sin(n) * 43758.5453123f;
+        return x - std::floor(x);
+    };
+
+    auto hash31 = [&](float n) -> Vector3
+    {
+        return Vector3(
+            hash11(n + 1.0f),
+            hash11(n + 2.0f),
+            hash11(n + 3.0f)
+        );
+    };
+
+    auto randomDir = [&](int id, float t) -> Vector3
+    {
+        float n = static_cast<float>(id) * 12.9898f + t * 78.233f;
+        Vector3 r = hash31(n) * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
+
+        float lenSq = r.LengthSq();
+        if (lenSq < 1.0e-6f)
+        {
+            return Vector3::UnitY;
+        }
+
+        r *= (1.0f / Math::Sqrt(lenSq));
+        return r;
+    };
+
     for (uint32_t i = 0; i < mDesc.maxParticles; ++i)
     {
         ParticleGPU p{};
-        
-        // 基本は emitter 位置に置く
-        p.px = emitterPos.x;
-        p.py = emitterPos.y;
-        p.pz = emitterPos.z;
-        
-        // 速度はゼロ初期化
-        p.vx = 0.0f;
-        p.vy = 0.0f;
-        p.vz = 0.0f;
-        
+
         //======================================================
-        // GL版と同じ考え方：
-        //  - dead は life >= lifeMax
-        //  - warmStart のときだけ一部を alive にして見た目を維持
+        // 基本は dead 状態で emitter に置く
+        //======================================================
+        p.px   = emitterPos.x;
+        p.py   = emitterPos.y;
+        p.pz   = emitterPos.z;
+        p.life = lifeMax + 1.0f;
+
+        p.vx  = 0.0f;
+        p.vy  = 0.0f;
+        p.vz  = 0.0f;
+        p.pad = 0.0f;
+
+        //======================================================
+        // warmStart のときだけ alive にして初速も与える
         //======================================================
         if (warmStart && mDesc.maxParticles > 1)
         {
-            // alive として開始
             p.life = lifeMax * (static_cast<float>(i) / static_cast<float>(mDesc.maxParticles - 1));
 
-            // 少しだけ散らす
             const float x = static_cast<float>(i % 8) * 0.05f;
             const float z = static_cast<float>(i / 8) * 0.05f;
             p.px += x;
             p.pz += z;
-
-            // ★ GL版の respawn と同じ考え方で初速も与える
-            auto hash11 = [](float n) -> float
-            {
-                float x = std::sin(n) * 43758.5453123f;
-                return x - std::floor(x);
-            };
-
-            auto hash31 = [&](float n) -> Vector3
-            {
-                return Vector3(
-                    hash11(n + 1.0f),
-                    hash11(n + 2.0f),
-                    hash11(n + 3.0f)
-                );
-            };
-
-            auto randomDir = [&](int id, float t) -> Vector3
-            {
-                float n = static_cast<float>(id) * 12.9898f + t * 78.233f;
-                Vector3 r = hash31(n) * 2.0f - Vector3(1.0f, 1.0f, 1.0f);
-
-                float lenSq = r.LengthSq();
-                if (lenSq < 1.0e-6f)
-                {
-                    r = Vector3::UnitY;
-                }
-                else
-                {
-                    r *= (1.0f / Math::Sqrt(lenSq));
-                }
-
-                return r;
-            };
 
             Vector3 dir = randomDir(static_cast<int>(i), 0.0f);
 
@@ -554,60 +572,57 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
             }
             else if (mDesc.mode == ParticleMode::Smoke)
             {
-                dir.y =  std::abs(dir.y) * 0.6f + 0.4f;
+                dir.y = std::abs(dir.y) * 0.6f + 0.4f;
             }
 
             p.vx = dir.x * mDesc.spread;
             p.vy = dir.y * mDesc.spread;
             p.vz = dir.z * mDesc.spread;
         }
-        else
-        {
-            // dead 開始
-            p.life = lifeMax + 1.0f;
-        }
-        
-        p.pad = 0.0f;
+
         init[i] = p;
     }
-    
+
+    //----------------------------------------------------------
+    // GPUバッファ作成
+    //----------------------------------------------------------
     const VkDeviceSize bufSize =
-    static_cast<VkDeviceSize>(sizeof(ParticleGPU) * init.size());
-    
+        static_cast<VkDeviceSize>(sizeof(ParticleGPU) * init.size());
+
     const VkBufferUsageFlags usage =
-    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
     const VkMemoryPropertyFlags memProps =
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
     if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
                             mParticleBufferA, mParticleMemoryA))
     {
         std::cerr << "[VKParticleBackend] Create buffer A failed\n";
         return;
     }
-    
+
     if (!CreateSimpleBuffer(physicalDevice, device, bufSize, usage, memProps,
                             mParticleBufferB, mParticleMemoryB))
     {
         std::cerr << "[VKParticleBackend] Create buffer B failed\n";
         return;
     }
-    
+
     if (!UploadWholeBuffer(device, mParticleMemoryA, init.data(), bufSize))
     {
         std::cerr << "[VKParticleBackend] Upload buffer A failed\n";
         return;
     }
-    
+
     if (!UploadWholeBuffer(device, mParticleMemoryB, init.data(), bufSize))
     {
         std::cerr << "[VKParticleBackend] Upload buffer B failed\n";
         return;
     }
-    
+
     mPingPong = false;
 }
 
@@ -958,23 +973,9 @@ bool VKParticleBackend::CreateUpdateDescriptorSets()
     return true;
 }
 
-void VKParticleBackend::UpdateParticlesCompute(float deltaTime)
+void VKParticleBackend::UpdateParticlesCompute(VkCommandBuffer cmd, float deltaTime)
 {
-    auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr;
-    if (!app)
-    {
-        return;
-    }
-
-    auto* renderer = app->GetRenderer();
-    auto* backend = static_cast<VKRenderer*>(renderer);
-    if (!backend)
-    {
-        return;
-    }
-
-    VkDevice device = backend->GetVKDevice();
-    if (device == VK_NULL_HANDLE)
+    if (cmd == VK_NULL_HANDLE)
     {
         return;
     }
@@ -986,12 +987,6 @@ void VKParticleBackend::UpdateParticlesCompute(float deltaTime)
 
     VkDescriptorSet updateSet = mPingPong ? mUpdateSetBtoA : mUpdateSetAtoB;
     if (updateSet == VK_NULL_HANDLE)
-    {
-        return;
-    }
-
-    VkCommandBuffer cmd = backend->GetCurrentCommandBuffer();
-    if (cmd == VK_NULL_HANDLE)
     {
         return;
     }
@@ -1051,7 +1046,7 @@ void VKParticleBackend::UpdateParticlesCompute(float deltaTime)
 
     vkCmdDispatch(cmd, groupCountX, 1, 1);
 
-    // 次フレームの描画/更新で dst を安全に読めるように barrier
+    // compute 書き込み → vertex input / shader read へ
     VkBuffer barrierBuffer = CurrentDstBuffer();
 
     VkBufferMemoryBarrier barrier{};
@@ -1067,13 +1062,15 @@ void VKParticleBackend::UpdateParticlesCompute(float deltaTime)
     vkCmdPipelineBarrier(
         cmd,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         0,
         0, nullptr,
         1, &barrier,
         0, nullptr);
 
     mPingPong = !mPingPong;
-    
 }
+
 } // namespace toy

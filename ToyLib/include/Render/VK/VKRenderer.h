@@ -35,6 +35,15 @@ namespace toy
 
 class Application;
 class Texture;
+class VKParticleBackend;
+
+struct ParticleComputeJob
+{
+    VKParticleBackend* backend { nullptr };
+    float deltaTime { 0.0f };
+};
+
+
 
 //======================================================================
 // VKRenderer
@@ -566,7 +575,14 @@ private:
             return h;
         }
     };
+    
 
+public:
+    void EnqueueParticleCompute(VKParticleBackend* backend, float deltaTime);
+    void RecordQueuedParticleComputes(VkCommandBuffer cmd);
+
+private:
+    std::vector<ParticleComputeJob> mParticleComputeJobs {};
     
 };
 

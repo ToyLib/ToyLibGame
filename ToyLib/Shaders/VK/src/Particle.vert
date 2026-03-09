@@ -46,9 +46,16 @@ void main()
     vUV = aUV;
 
     float alpha = 1.0;
-    if (lifeMax > 0.0001)
+
+    // dead 粒は描かない
+    if (iLife >= lifeMax)
     {
-        alpha = clamp(1.0 - (iLife / lifeMax), 0.0, 1.0);
+        alpha = 0.0;
+    }
+    else if (lifeMax > 0.0001)
+    {
+        float t = clamp(iLife / lifeMax, 0.0, 1.0);
+        alpha = 1.0 - t;
     }
 
     vAlpha = alpha;
