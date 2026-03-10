@@ -80,15 +80,16 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     // 表示文字列を組み立て（\n で改行）
     std::string text;
     text += "=== Debug ===\n";
-    text += StringUtil::Format("Renderer   : <<\n",     backend);
+    text += StringUtil::Format("Backend    : <<\n",     backend);
     text += StringUtil::Format("FPS        : <<\n",     mSmoothedFPS);
-    text += StringUtil::Format("FrameTime  : << ms\n",  stats.FrameTimeMs);
+    text += StringUtil::Format("DeltaTime  : << ms\n",  stats.DeltaTimeMs);
     text += StringUtil::Format("Actors     : <<\n",     stats.ActorCount);
     text += StringUtil::Format("Colliders  : <<\n",     stats.ColliderCount);
     text += StringUtil::Format("DrawCalls  : <<\n",     stats.DrawCallCount);
     text += StringUtil::Format("RTTCalls   : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("PhysTime   : << ms\n",  stats.PhysicsTimeMs);
     text += StringUtil::Format("RenderTime : << ms\n",  stats.RenderTimeMs);
+    text += StringUtil::Format("FrameTIme  : << ms\n",  stats.FrameTmeMs);
     text += StringUtil::Format("Resolution : << x <<",  stats.ScreenW, stats.ScreenH);
 
     mTextComp->SetText(text);

@@ -189,25 +189,38 @@ void Application::RunLoop()
     while (mIsActive)
     {
         ProcessInput();
-        UpdateFrame();
-        Draw();
+        
+        {
+            // 描画時間の計測開始
+            Uint64 frameBegin = SDL_GetPerformanceCounter();
+            
+            UpdateFrame();
+            
+            // 計測終了
+            Uint64 frameEnd = SDL_GetPerformanceCounter();
+            // ns →msに変換（double→float）
+            double frameMs = (frameEnd - frameBegin) * 1000.0
+            / static_cast<double>(SDL_GetPerformanceFrequency());
+            mDebugStats.FrameTmeMs = static_cast<float>(frameMs);
+        }
+        {
+            // 描画時間の計測開始
+            Uint64 renderBegin = SDL_GetPerformanceCounter();
+            Draw();
+            // 計測終了
+            Uint64 renderEnd = SDL_GetPerformanceCounter();
+            // ns →msに変換（double→float）
+            double renderMs = (renderEnd - renderBegin) * 1000.0
+            / static_cast<double>(SDL_GetPerformanceFrequency());
+            
+            mDebugStats.RenderTimeMs = static_cast<float>(renderMs);
+        }
     }
 }
 
 void Application::Draw()
 {
-    // 描画時間の計測開始
-    Uint64 renderBegin = SDL_GetPerformanceCounter();
-
     mRenderer->Draw();
-    
-    // 計測終了
-    Uint64 renderEnd = SDL_GetPerformanceCounter();
-    // ns →msに変換（double→float）
-    double renderMs = (renderEnd - renderBegin) * 1000.0
-                    / static_cast<double>(SDL_GetPerformanceFrequency());
-
-    mDebugStats.RenderTimeMs = static_cast<float>(renderMs);
 }
 
 void Application::Shutdown()
@@ -521,7 +534,7 @@ void Application::UpdateFrame()
     
     // デバッグ情報取得
     auto& stats = mDebugStats;
-    stats.FrameTimeMs = deltaTime * 1000.0f;
+    stats.DeltaTimeMs = deltaTime * 1000.0f;
     stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 
     stats.ActorCount         = static_cast<int>(mActors.size());
