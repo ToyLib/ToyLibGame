@@ -16,7 +16,6 @@ struct DebugStats
     
     float PhysicsTimeMs      { 0.0f };
     float RenderTimeMs       { 0.0f };
-    float FrameTmeMs         { 0.0f };
     
     float UpdateGameTimeMs   { 0.0f };
     float ActorUpdateTimeMs  { 0.0f };
@@ -24,6 +23,7 @@ struct DebugStats
     float SoundTimeMs        { 0.0f };
     float TimeOfDayTimeMs    { 0.0f };
     float DebugStatsTimeMs   { 0.0f };
+
     float UpdateTotalTimeMs  { 0.0f };
     
     int ScreenW              { 0 };

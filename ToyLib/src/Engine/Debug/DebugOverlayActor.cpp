@@ -87,18 +87,17 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     text += StringUtil::Format("DrawCalls    : <<\n",     stats.DrawCallCount);
     text += StringUtil::Format("RTTCalls     : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("RenderTime   : << ms\n",  stats.RenderTimeMs);
-    //text += StringUtil::Format("FrameTime  : << ms\n",  stats.FrameTmeMs);
+    text += StringUtil::Format("UpdateTtL    : << ms\n",  stats.UpdateTotalTimeMs);
+    text += "-------------\n";
     text += StringUtil::Format("UpdateGame   : << ms\n",   stats.UpdateGameTimeMs);
     text += StringUtil::Format("ActorUpdate  : << ms\n",  stats.ActorUpdateTimeMs);
     text += StringUtil::Format("ActorFinalize: << ms\n",  stats.ActorFinalizeTimeMs);
     text += StringUtil::Format("SoundTime    : << ms\n",  stats.SoundTimeMs);
     text += StringUtil::Format("TimeOfDay    : << ms\n",  stats.TimeOfDayTimeMs);
     text += StringUtil::Format("DebugStats   : << ms\n",  stats.DebugStatsTimeMs);
-    text += StringUtil::Format("UpdateTtL    : << ms\n",  stats.UpdateTotalTimeMs);
-    
-
-    text += StringUtil::Format("PhysTime   : << ms\n",   stats.PhysicsTimeMs);
-    text += StringUtil::Format("Resolution : << x <<",  stats.ScreenW, stats.ScreenH);
+    text += StringUtil::Format("PhysTime     : << ms\n",   stats.PhysicsTimeMs);
+    text += "-------------\n";
+    text += StringUtil::Format("Resolution   : << x <<",  stats.ScreenW, stats.ScreenH);
 
     mTextComp->SetText(text);
     
