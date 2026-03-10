@@ -120,7 +120,7 @@ void FieldScene::InitField()
 
     // 木（ビルボード）
     auto treeActor = CreateActor<toy::Actor>();
-    treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
+    treeActor->SetPosition(Vector3(20.0f, 4.5f, -50.0f));
     treeActor->SetScale(0.02);
     auto treeBillboard = treeActor->CreateComponent<toy::BillboardComponent>();
     treeBillboard->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/tree.png"));
@@ -256,18 +256,18 @@ void FieldScene::DeployFire(Vector3 pos)
     fireLight->SetColor(Vector3(1.0f, 0.5f, 0.0f));
     
     
-    // Actor
-    auto particleActorGPU = CreateActor<toy::Actor>();
-    particleActorGPU->SetPosition(fireActor->GetPosition());
-    
-    // Component
-    auto* particle = particleActorGPU
-    ->CreateComponent<toy::ParticleComponent>();
-    
-    particle->SetTexture(
-                         GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
-    
     {
+
+        // Actor
+        auto particleActorGPU = CreateActor<toy::Actor>();
+        particleActorGPU->SetPosition(fireActor->GetPosition());
+        // Component
+        auto* particle = particleActorGPU
+            ->CreateComponent<toy::ParticleComponent>();
+
+        particle->SetTexture(
+            GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
+
         //==============================
         // Desc で全設定
         //==============================

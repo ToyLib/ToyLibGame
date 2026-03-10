@@ -22,7 +22,7 @@ GameRPG::~GameRPG()
 
 void GameRPG::InitGame()
 {
-    InitAssetManager("ToyGame/Assets/RPG/", GetRenderer()->GetWindowDisplayScale());
+    InitAssetManager("ToyGame/Assets/RPG/");
 
     LoadData();
     

@@ -551,7 +551,7 @@ void Application::UpdateFrame()
 // アセットディレクトリの設定
 //=============================================================
 
-void Application::InitAssetManager(const std::string& path, float dpi)
+void Application::InitAssetManager(const std::string& path)
 {
     mAssetManager->SetAssetsPath(path);
 }

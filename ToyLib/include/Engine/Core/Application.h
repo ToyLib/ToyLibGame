@@ -84,7 +84,7 @@ protected:
     virtual void ShutdownGame() {}
     virtual void ProcessInput(const struct InputState& input) {}
 
-    void InitAssetManager(const std::string& path, float dpi = 1.0f);
+    void InitAssetManager(const std::string& path);
     
 private:
     //-----------------------------------------
