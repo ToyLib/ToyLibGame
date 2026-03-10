@@ -189,13 +189,7 @@ void Application::RunLoop()
     while (mIsActive)
     {
         ProcessInput();
-        
-        {
-
-            UpdateFrame();
-            
-
-        }
+        UpdateFrame();
         {
             // 描画時間の計測開始
             Uint64 renderBegin = SDL_GetPerformanceCounter();
@@ -448,7 +442,6 @@ void Application::LoadData()
 //=============================================================
 // ゲームメインルーチン（1フレーム更新）
 //=============================================================
-
 void Application::UpdateFrame()
 {
     // 固定フレームレート (60fps 相当)
@@ -467,49 +460,74 @@ void Application::UpdateFrame()
         deltaTime = 0.025f;
     }
     mTicksCount = now;
-    
+
     if (mIsPause)
     {
         return;
     }
-    
-    // 描画時間の計測開始
-    Uint64 frameBegin = SDL_GetPerformanceCounter();
-    
-    
+
+    const double perfFreq = static_cast<double>(SDL_GetPerformanceFrequency());
+
+    auto ToMs = [perfFreq](Uint64 begin, Uint64 end) -> float
+    {
+        return static_cast<float>((end - begin) * 1000.0 / perfFreq);
+    };
+
+    Uint64 updateBegin = SDL_GetPerformanceCounter();
+
+    //==========================================================
+    // TimeOfDay
+    //==========================================================
+    Uint64 todBegin = SDL_GetPerformanceCounter();
     mTimeOfDaySys->Update(deltaTime);
+    Uint64 todEnd = SDL_GetPerformanceCounter();
+    mDebugStats.TimeOfDayTimeMs = ToMs(todBegin, todEnd);
+
+    //==========================================================
+    // Game固有更新
+    //==========================================================
+    Uint64 gameBegin = SDL_GetPerformanceCounter();
     UpdateGame(deltaTime);
-    
-    //===========================
-    // 物理処理の計測
-    //===========================
+    Uint64 gameEnd = SDL_GetPerformanceCounter();
+    mDebugStats.UpdateGameTimeMs = ToMs(gameBegin, gameEnd);
+
+    //==========================================================
+    // Physics
+    //==========================================================
     Uint64 physBegin = SDL_GetPerformanceCounter();
-
     mPhysWorld->Test();
-
-    // Physのパフォーマンスカウンター
     Uint64 physEnd = SDL_GetPerformanceCounter();
-    double physMs = (physEnd - physBegin) * 1000.0
-                  / static_cast<double>(SDL_GetPerformanceFrequency());
+    mDebugStats.PhysicsTimeMs = ToMs(physBegin, physEnd);
 
-    mDebugStats.PhysicsTimeMs = static_cast<float>(physMs);
+    //==========================================================
+    // Actor Update
+    //==========================================================
+    Uint64 actorBegin = SDL_GetPerformanceCounter();
 
-    
     mIsUpdatingActors = true;
     for (auto& a : mActors)
     {
         a->Update(deltaTime);
     }
     mIsUpdatingActors = false;
-    
+
+    Uint64 actorEnd = SDL_GetPerformanceCounter();
+    mDebugStats.ActorUpdateTimeMs = ToMs(actorBegin, actorEnd);
+
+    //==========================================================
+    // Actor finalize
+    //  - PendingActors 反映
+    //  - Dead Actor 削除
+    //==========================================================
+    Uint64 finalizeBegin = SDL_GetPerformanceCounter();
+
     for (auto& p : mPendingActors)
     {
         p->ComputeWorldTransform();
         mActors.emplace_back(std::move(p));
     }
     mPendingActors.clear();
-    
-    // EDeadのActorを削除する
+
     mActors.erase(
         std::remove_if(
             mActors.begin(),
@@ -521,34 +539,45 @@ void Application::UpdateFrame()
         ),
         mActors.end()
     );
-    
+
+    Uint64 finalizeEnd = SDL_GetPerformanceCounter();
+    mDebugStats.ActorFinalizeTimeMs = ToMs(finalizeBegin, finalizeEnd);
+
+    //==========================================================
+    // Sound
+    //==========================================================
+    Uint64 soundBegin = SDL_GetPerformanceCounter();
+
     if (mSoundMixer)
     {
         Matrix4 inv = GetRenderer()->GetInvViewMatrix();
         mSoundMixer->Update(deltaTime, inv);
     }
-    
-    
-    
-    // 計測終了
-    Uint64 frameEnd = SDL_GetPerformanceCounter();
-    // ns →msに変換（double→float）
-    double frameMs = (frameEnd - frameBegin) * 1000.0
-    / static_cast<double>(SDL_GetPerformanceFrequency());
-    mDebugStats.FrameTmeMs = static_cast<float>(frameMs);
-    
-    // デバッグ情報取得
+
+    Uint64 soundEnd = SDL_GetPerformanceCounter();
+    mDebugStats.SoundTimeMs = ToMs(soundBegin, soundEnd);
+
+    //==========================================================
+    // DebugStats 集計
+    //==========================================================
+    Uint64 statsBegin = SDL_GetPerformanceCounter();
+
     auto& stats = mDebugStats;
-    stats.DeltaTimeMs = deltaTime * 1000.0f;
-    stats.FPS         = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
+    stats.DeltaTimeMs      = deltaTime * 1000.0f;
+    stats.FPS              = (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 
-    stats.ActorCount         = static_cast<int>(mActors.size());
-    stats.ColliderCount      = mPhysWorld ? static_cast<int>(mPhysWorld->GetColliderCount()) : 0;
-    stats.DrawCallCount      = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
-    stats.OffDrawCallCount   = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;
-    stats.ScreenW            = mScreenWidth;
-    stats.ScreenH            = mScreenHeight;
+    stats.ActorCount       = static_cast<int>(mActors.size());
+    stats.ColliderCount    = mPhysWorld ? static_cast<int>(mPhysWorld->GetColliderCount()) : 0;
+    stats.DrawCallCount    = mRenderer  ? mRenderer->GetDrawCallCount() : 0;
+    stats.OffDrawCallCount = mRenderer  ? mRenderer->GetRTTDrawCallCount() : 0;
+    stats.ScreenW          = mScreenWidth;
+    stats.ScreenH          = mScreenHeight;
 
+    Uint64 statsEnd = SDL_GetPerformanceCounter();
+    mDebugStats.DebugStatsTimeMs = ToMs(statsBegin, statsEnd);
+
+    Uint64 updateEnd = SDL_GetPerformanceCounter();
+    mDebugStats.UpdateTotalTimeMs = ToMs(updateBegin, updateEnd);
 }
 
 
