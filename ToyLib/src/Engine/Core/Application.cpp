@@ -191,17 +191,10 @@ void Application::RunLoop()
         ProcessInput();
         
         {
-            // 描画時間の計測開始
-            Uint64 frameBegin = SDL_GetPerformanceCounter();
-            
+
             UpdateFrame();
             
-            // 計測終了
-            Uint64 frameEnd = SDL_GetPerformanceCounter();
-            // ns →msに変換（double→float）
-            double frameMs = (frameEnd - frameBegin) * 1000.0
-            / static_cast<double>(SDL_GetPerformanceFrequency());
-            mDebugStats.FrameTmeMs = static_cast<float>(frameMs);
+
         }
         {
             // 描画時間の計測開始
@@ -480,6 +473,10 @@ void Application::UpdateFrame()
         return;
     }
     
+    // 描画時間の計測開始
+    Uint64 frameBegin = SDL_GetPerformanceCounter();
+    
+    
     mTimeOfDaySys->Update(deltaTime);
     UpdateGame(deltaTime);
     
@@ -531,6 +528,14 @@ void Application::UpdateFrame()
         mSoundMixer->Update(deltaTime, inv);
     }
     
+    
+    
+    // 計測終了
+    Uint64 frameEnd = SDL_GetPerformanceCounter();
+    // ns →msに変換（double→float）
+    double frameMs = (frameEnd - frameBegin) * 1000.0
+    / static_cast<double>(SDL_GetPerformanceFrequency());
+    mDebugStats.FrameTmeMs = static_cast<float>(frameMs);
     
     // デバッグ情報取得
     auto& stats = mDebugStats;
