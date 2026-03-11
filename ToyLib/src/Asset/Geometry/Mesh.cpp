@@ -147,7 +147,7 @@ int Mesh::BuildEvalNodeRecursive(const aiNode* node, int parentIndex)
     mEvalNodes[myIndex].children.reserve(node->mNumChildren);
     for (unsigned int i = 0; i < node->mNumChildren; ++i)
     {
-        int childIndex = BuildEvalNodeRecursive(node->mChildren[i], myIndex);
+        const int childIndex = BuildEvalNodeRecursive(node->mChildren[i], myIndex);
         if (childIndex >= 0)
         {
             mEvalNodes[myIndex].children.emplace_back(childIndex);
@@ -177,7 +177,7 @@ const Mesh::AnimationCache* Mesh::FindAnimationCache(const aiAnimation* pAnimati
 void Mesh::ComputeBoneHierarchyCached(float animationTime,
                                       int evalNodeIndex,
                                       const Matrix4& parentTransform,
-                                      const AnimationCache* animCache)
+                                      const Mesh::AnimationCache* animCache)
 {
     const EvalNode& node = mEvalNodes[evalNodeIndex];
 
@@ -914,7 +914,7 @@ void Mesh::ComputePoseAtTime(
         return;
     }
 
-    const AnimationCache* animCache = FindAnimationCache(pAnimation);
+    const Mesh::AnimationCache* animCache = FindAnimationCache(pAnimation);
 
     const Matrix4 identity = Matrix4::Identity;
     ComputeBoneHierarchyCached(animationTime, mRootEvalNodeIndex, identity, animCache);
