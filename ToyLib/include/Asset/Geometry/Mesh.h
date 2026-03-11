@@ -5,15 +5,14 @@
 
 #include <vector>
 #include <string>
-#include <map>
 #include <memory>
+#include <unordered_map>
+#include <cstdint>
 
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 
 namespace toy {
-
-
 
 // アニメーション対応メッシュ
 class Mesh
@@ -65,39 +64,30 @@ public:
     bool HasAnimation() const { return !mAnimationClips.empty(); }
 
 private:
-    // コピー禁止（AssetManager 経由の shared_ptr 前提）
+    // 先に前方宣言しておく
+    struct EvalNode;
+    struct AnimationCache;
+
+private:
     Mesh(const Mesh&) = delete;
     Mesh& operator=(const Mesh&) = delete;
 
-    // メッシュデータ読み込み（頂点/インデックス、ボーン有無の判定）
     void LoadMeshData();
-
-    // マテリアル読み込み
     void LoadMaterials(class AssetManager* assetMamager, const std::string& meshFilename);
-
-    // アニメーションクリップ読み込み
     void LoadAnimations();
 
-    // 通常メッシュ生成（ボーンなし）
+    void BuildEvalNodes();
+    int  BuildEvalNodeRecursive(const aiNode* node, int parentIndex);
+
     void CreateMesh(const aiMesh* m);
-
-    // スキンメッシュ生成（ボーンあり）
     void CreateMeshBone(const aiMesh* m);
-
-    // 単一 aiMesh のボーン情報を収集
     void LoadBones(const aiMesh* m, std::vector<struct VertexBoneData>& bones);
 
-    // ボーン階層を再帰的に巡回してボーン行列を計算
-    void ComputeBoneHierarchy(float animationTime,
-                              const aiNode* pNode,
-                              const Matrix4& parentTransform,
-                              const aiAnimation* pAnimation);
+    void ComputeBoneHierarchyCached(float animationTime,
+                                    int evalNodeIndex,
+                                    const Matrix4& parentTransform,
+                                    const AnimationCache* animCache);
 
-    // ノード名に一致するアニメーションチャネルを探す
-    const aiNodeAnim* FindNodeAnim(const aiAnimation* pAnimation,
-                                   const std::string& nodeName);
-
-    // 補間計算（スケール / 回転 / 平行移動）
     void CalcInterpolatedScaling(Vector3& outVec,
                                  float animationTime,
                                  const aiNodeAnim* pNodeAnim);
@@ -110,7 +100,6 @@ private:
                                   float animationTime,
                                   const aiNodeAnim* pNodeAnim);
 
-    // 補間に使うキーインデックスを探す
     unsigned int FindScaling(float animationTime,
                              const aiNodeAnim* pNodeAnim);
     unsigned int FindRotation(float animationTime,
@@ -118,37 +107,49 @@ private:
     unsigned int FindPosition(float animationTime,
                               const aiNodeAnim* pNodeAnim);
 
+    const AnimationCache* FindAnimationCache(const aiAnimation* pAnimation) const;
+
 private:
-    // Assimp シーンデータ
+    struct EvalNode
+    {
+        std::string name;
+        int         parentIndex { -1 };
+        int         boneIndex   { -1 };
+        Matrix4     defaultTransform { Matrix4::Identity };
+        std::vector<int> children;
+    };
+
+    struct AnimationCache
+    {
+        const aiAnimation* animation { nullptr };
+        std::vector<const aiNodeAnim*> channelsByEvalNode;
+    };
+
+private:
     Assimp::Importer mImporter {};
     const aiScene*   mScene { nullptr };
 
-    // ボーン名 → ボーンインデックス
-    std::map<std::string, uint32_t> mBoneMapping {};
+    std::unordered_map<std::string, uint32_t> mBoneMapping {};
 
-    // ボーン数
     uint32_t mNumBones { 0 };
-
-    // ボーンごとのオフセット行列・最終変換行列
     std::vector<struct BoneInfo> mBoneInfo;
 
-    // ルートノードの逆変換行列
     Matrix4 mGlobalInverseTransform { Matrix4::Identity };
 
-    // 頂点配列（1ファイルに複数メッシュがある場合も考慮）
     std::vector<std::shared_ptr<class VertexArray>> mVertexArray;
-
-    // マテリアル一覧（VertexArray の MaterialIndex と対応）
     std::vector<std::shared_ptr<class Material>> mMaterials;
-
-    // アニメーションクリップ一覧
     std::vector<class AnimationClip> mAnimationClips;
 
-    // 使用シェーダー名（例："Mesh", "Skinned"）
-    std::string mShaderName;
+    std::vector<EvalNode> mEvalNodes;
+    int mRootEvalNodeIndex { -1 };
 
-    // スペキュラー係数
+    std::vector<AnimationCache> mAnimationCaches;
+    std::unordered_map<const aiAnimation*, size_t> mAnimationCacheIndex;
+
+    std::string mShaderName;
     float mSpecPower { 1.0f };
+
+    float mMinBoneWeightThreshold { 0.01f };
 };
 
 } // namespace toy
