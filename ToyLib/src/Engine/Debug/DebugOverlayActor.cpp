@@ -85,6 +85,7 @@ void DebugOverlayActor::RefreshOverlayText()
     }
 
     std::string text;
+    text.clear();
     text.reserve(512);
 
     text += "=== Debug ===\n";
