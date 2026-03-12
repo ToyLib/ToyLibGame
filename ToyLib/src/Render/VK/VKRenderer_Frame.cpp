@@ -35,11 +35,16 @@ namespace toy
 //--------------------------------------------------------------
 bool VKRenderer::BeginFrame()
 {
-    if (mDevice == VK_NULL_HANDLE || mSwapchain == VK_NULL_HANDLE || mFrames.empty())
+    if (mDevice == VK_NULL_HANDLE ||
+        mSwapchain == VK_NULL_HANDLE ||
+        mFrames.empty())
     {
         return false;
     }
 
+    //---------------------------------------------------------
+    // swapchain recreate
+    //---------------------------------------------------------
     if (mNeedRecreateSwapchain)
     {
         if (!RecreateSwapchain())
@@ -51,23 +56,29 @@ bool VKRenderer::BeginFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // ---------------------------------------------------------
-    // frame fence wait
-    // ---------------------------------------------------------
-    VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+    //---------------------------------------------------------
+    // wait previous frame
+    //---------------------------------------------------------
+    VkResult wr = vkWaitForFences(
+        mDevice,
+        1,
+        &frame.inFlight,
+        VK_TRUE,
+        UINT64_MAX);
+
     if (wr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkWaitForFences failed: " << wr << "\n";
         return false;
     }
 
-    // ---------------------------------------------------------
-    // acquire next image
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
+    // acquire swapchain image
+    //---------------------------------------------------------
     VkResult ar = vkAcquireNextImageKHR(
         mDevice,
         mSwapchain,
-        UINT64_MAX,
+        1000000000, // ★1秒 timeout
         frame.imageAvailable,
         VK_NULL_HANDLE,
         &mImageIndex);
@@ -80,13 +91,13 @@ bool VKRenderer::BeginFrame()
 
     if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR)
     {
-        std::cerr << "[VKRenderer] Acquire failed: " << ar << "\n";
+        std::cerr << "[VKRenderer] vkAcquireNextImageKHR failed: " << ar << "\n";
         return false;
     }
 
-    // ---------------------------------------------------------
-    // 取得した swapchain image が、以前の frame でまだ使われているなら待つ
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
+    // image in flight check
+    //---------------------------------------------------------
     if (mImageIndex < mImagesInFlight.size() &&
         mImagesInFlight[mImageIndex] != VK_NULL_HANDLE)
     {
@@ -99,73 +110,100 @@ bool VKRenderer::BeginFrame()
 
         if (iwr != VK_SUCCESS)
         {
-            std::cerr << "[VKRenderer] image-in-flight wait failed: " << iwr << "\n";
+            std::cerr << "[VKRenderer] image fence wait failed\n";
             return false;
         }
     }
 
-    // この image は今回の frame fence が担当する
     if (mImageIndex < mImagesInFlight.size())
     {
         mImagesInFlight[mImageIndex] = frame.inFlight;
     }
 
-    // ---------------------------------------------------------
-    // acquire 成功後に fence reset
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
+    // reset fence
+    //---------------------------------------------------------
     VkResult rr = vkResetFences(mDevice, 1, &frame.inFlight);
     if (rr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkResetFences failed: " << rr << "\n";
+        std::cerr << "[VKRenderer] vkResetFences failed\n";
         return false;
     }
 
-    // ---------------------------------------------------------
-    // command buffer reset
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
+    // reset command buffer
+    //---------------------------------------------------------
     VkResult cr = vkResetCommandBuffer(frame.cmd, 0);
     if (cr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkResetCommandBuffer failed: " << cr << "\n";
+        std::cerr << "[VKRenderer] vkResetCommandBuffer failed\n";
         return false;
     }
 
-    // per-frame skinned slot cursor reset
-    if (mSkinnedSlotCursor.size() != mFrames.size())
-    {
-        mSkinnedSlotCursor.resize(mFrames.size(), 0);
-    }
-    mSkinnedSlotCursor[mFrameIndex] = 0;
-
-    // capture カウンター reset
-    mCaptureSlotCursor = 0;
-    mActiveCaptureSlot = -1;
-
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
     // begin command buffer
-    // ---------------------------------------------------------
+    //---------------------------------------------------------
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     VkResult br = vkBeginCommandBuffer(frame.cmd, &bi);
     if (br != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed: " << br << "\n";
+        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed\n";
         return false;
     }
 
-    // World UBO 更新
-    UpdateSceneUBO_World();
+    //---------------------------------------------------------
+    // per-frame state reset
+    //---------------------------------------------------------
+    if (mSkinnedSlotCursor.size() != mFrames.size())
+    {
+        mSkinnedSlotCursor.resize(mFrames.size(), 0);
+    }
 
-    // BaseMap(set=1) キャッシュは毎フレーム捨てる
+    mSkinnedSlotCursor[mFrameIndex] = 0;
+
+    mCaptureSlotCursor = 0;
+    mActiveCaptureSlot = -1;
+
     mBaseMapSetCache.clear();
 
-    // render pass はここでは開始しない
     mIsInRenderPass = false;
 
-    // queued compute を記録
+    //---------------------------------------------------------
+    // update world UBO
+    //---------------------------------------------------------
+    UpdateSceneUBO_World();
+
+    //---------------------------------------------------------
+    // compute particle update
+    //---------------------------------------------------------
     RecordQueuedParticleComputes(frame.cmd);
 
+    //---------------------------------------------------------
+    // compute -> graphics barrier
+    //---------------------------------------------------------
+    VkMemoryBarrier mb{};
+    mb.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mb.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    mb.dstAccessMask =
+        VK_ACCESS_SHADER_READ_BIT |
+        VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+
+    vkCmdPipelineBarrier(
+        frame.cmd,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        1, &mb,
+        0, nullptr,
+        0, nullptr);
+
+    //---------------------------------------------------------
+    // SceneRT check
+    //---------------------------------------------------------
     mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
 
     if (mRenderToSceneRTThisFrame)
@@ -177,24 +215,21 @@ bool VKRenderer::BeginFrame()
 
         if (!mSceneRT)
         {
-            std::cerr << "[VKRenderer] BeginFrame: mSceneRT create failed\n";
+            std::cerr << "[VKRenderer] SceneRT create failed\n";
             return false;
         }
 
-        if (mSceneRT->GetWidth() != static_cast<int>(mScreenWidth) ||
-            mSceneRT->GetHeight() != static_cast<int>(mScreenHeight))
+        if (mSceneRT->GetWidth() != (int)mScreenWidth ||
+            mSceneRT->GetHeight() != (int)mScreenHeight)
         {
-            if (!mSceneRT->Create(static_cast<int>(mScreenWidth),
-                                  static_cast<int>(mScreenHeight)))
+            if (!mSceneRT->Create(
+                    (int)mScreenWidth,
+                    (int)mScreenHeight))
             {
-                std::cerr << "[VKRenderer] BeginFrame: mSceneRT->Create failed\n";
+                std::cerr << "[VKRenderer] SceneRT resize failed\n";
                 return false;
             }
         }
-    }
-    else
-    {
-        mRenderToSceneRTThisFrame = false;
     }
 
     return true;
@@ -202,62 +237,94 @@ bool VKRenderer::BeginFrame()
 
 void VKRenderer::EndFrame()
 {
-    if (mDevice == VK_NULL_HANDLE || mSwapchain == VK_NULL_HANDLE || mFrames.empty())
+    if (mDevice == VK_NULL_HANDLE ||
+        mSwapchain == VK_NULL_HANDLE ||
+        mFrames.empty())
     {
         return;
     }
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // render pass を開いたままなら閉じる
+    //---------------------------------------------------------
+    // ensure render pass closed
+    //---------------------------------------------------------
     EndSwapchainRenderPassIfNeeded();
 
+    //---------------------------------------------------------
+    // end command buffer
+    //---------------------------------------------------------
     VkResult er = vkEndCommandBuffer(frame.cmd);
     if (er != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkEndCommandBuffer failed: " << er << "\n";
+        std::cerr << "[VKRenderer] vkEndCommandBuffer failed\n";
         return;
     }
 
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //---------------------------------------------------------
+    // submit
+    //---------------------------------------------------------
+    VkPipelineStageFlags waitStage =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo si{};
-    si.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    si.waitSemaphoreCount   = 1;
-    si.pWaitSemaphores      = &frame.imageAvailable;
-    si.pWaitDstStageMask    = &waitStage;
-    si.commandBufferCount   = 1;
-    si.pCommandBuffers      = &frame.cmd;
-    si.signalSemaphoreCount = 1;
-    si.pSignalSemaphores    = &frame.renderFinished;
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkResult sr = vkQueueSubmit(mQueueGraphics, 1, &si, frame.inFlight);
+    si.waitSemaphoreCount = 1;
+    si.pWaitSemaphores = &frame.imageAvailable;
+    si.pWaitDstStageMask = &waitStage;
+
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &frame.cmd;
+
+    si.signalSemaphoreCount = 1;
+    si.pSignalSemaphores = &frame.renderFinished;
+
+    VkResult sr = vkQueueSubmit(
+        mQueueGraphics,
+        1,
+        &si,
+        frame.inFlight);
+
     if (sr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkQueueSubmit failed: " << sr << "\n";
+        std::cerr << "[VKRenderer] vkQueueSubmit failed\n";
         return;
     }
 
+    //---------------------------------------------------------
+    // present
+    //---------------------------------------------------------
     VkPresentInfoKHR pi{};
-    pi.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
     pi.waitSemaphoreCount = 1;
-    pi.pWaitSemaphores    = &frame.renderFinished;
-    pi.swapchainCount     = 1;
-    pi.pSwapchains        = &mSwapchain;
-    pi.pImageIndices      = &mImageIndex;
+    pi.pWaitSemaphores = &frame.renderFinished;
 
-    VkResult pr = vkQueuePresentKHR(mQueuePresent, &pi);
+    pi.swapchainCount = 1;
+    pi.pSwapchains = &mSwapchain;
+    pi.pImageIndices = &mImageIndex;
 
-    if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR)
+    VkResult pr = vkQueuePresentKHR(
+        mQueuePresent,
+        &pi);
+
+    if (pr == VK_ERROR_OUT_OF_DATE_KHR ||
+        pr == VK_SUBOPTIMAL_KHR)
     {
         mNeedRecreateSwapchain = true;
     }
     else if (pr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkQueuePresentKHR failed: " << pr << "\n";
+        std::cerr << "[VKRenderer] vkQueuePresentKHR failed\n";
     }
 
-    mFrameIndex = (mFrameIndex + 1) % static_cast<uint32_t>(mFrames.size());
+    //---------------------------------------------------------
+    // next frame
+    //---------------------------------------------------------
+    mFrameIndex =
+        (mFrameIndex + 1) %
+        static_cast<uint32_t>(mFrames.size());
 }
 
 //======================================================================
