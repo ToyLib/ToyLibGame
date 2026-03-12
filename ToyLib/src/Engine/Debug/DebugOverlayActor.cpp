@@ -1,4 +1,3 @@
-// Engine/Debug/DebugOverlayActor.cpp
 #include "Engine/Debug/DebugOverlayActor.h"
 #include "Engine/Core/Application.h"
 #include "Engine/Runtime/InputSystem.h"
@@ -6,10 +5,10 @@
 #include "Asset/Font/TextFont.h"
 #include "Asset/AssetManager.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
+#include "Graphics/Sprite/SpriteComponent.h"
 #include "Asset/Material/Texture.h"
 #include "Render/RenderBackendState.h"
-#include <iostream>
-
+#include "Utils/StringUtil.h"
 
 namespace toy {
 
@@ -18,46 +17,65 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
 {
     SetActorID("DebugOverlay");
 
-    // 左上に固定（SpriteComponent 側で原点が左上になるようにしている前提）
     SetPosition(Vector3::Zero);
 
-    // TextSpriteComponent を作成（UI レイヤー）
     mTextComp = CreateComponent<TextSpriteComponent>(1000, VisualLayer::UI);
 
-    // デバッグ用フォントを取得
     auto debugFont = app->mSystemAssetManager->GetFont("Hermit-Bold.otf", 20);
     mTextComp->SetFont(debugFont);
-    // 色
     mTextComp->SetColor(mTextColor);
-    
-    // 背景用スプライト
+
     auto white = app->mSystemAssetManager->GetWhite1x1Texture();
     mBgSprite = CreateComponent<SpriteComponent>(999, VisualLayer::UI);
     mBgSprite->SetTexture(white);
-    mBgSprite->SetColor(Vector3(0.2f, 0.2f, 0.2f)); // グレー
-    mBgSprite->SetAlpha(0.6f);                      // 半透明
+    mBgSprite->SetColor(Vector3(0.2f, 0.2f, 0.2f));
+    mBgSprite->SetAlpha(0.6f);
 
+    if (RenderBackendState::Get().IsVK())
+    {
+        mBackendName = "Vulkan";
+    }
+    else
+    {
+        mBackendName = "OpenGL";
+    }
+
+    SetEnabled(false);
+}
+
+const std::string& DebugOverlayActor::GetBackendName() const
+{
+    return mBackendName;
 }
 
 void DebugOverlayActor::SetEnabled(bool enabled)
 {
     mEnabled = enabled;
+
     if (mTextComp)
     {
         mTextComp->SetVisible(enabled);
+    }
+    if (mBgSprite)
+    {
         mBgSprite->SetVisible(enabled);
     }
+
+    if (enabled)
+    {
+        mRefreshAccum = mRefreshInterval;
+        RefreshOverlayText();
+    }
 }
+
 void DebugOverlayActor::SetWireVisible(bool visible)
 {
     mWireVisible = visible;
     GetApp()->SetVisibleDebuWire(mWireVisible);
 }
 
-
-void DebugOverlayActor::UpdateActor(float deltaTime)
+void DebugOverlayActor::RefreshOverlayText()
 {
-
     auto* app   = GetApp();
     auto& stats = app->GetDebugStats();
 
@@ -65,21 +83,12 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     {
         return;
     }
-    
-    std::string backend = "";
-    if (RenderBackendState::Get().IsGL())
-    {
-        backend = "OpenGL";
-    }
-    if (RenderBackendState::Get().IsVK())
-    {
-        backend = "Vulkan";
-    }
 
-    // 表示文字列を組み立て（\n で改行）
     std::string text;
+    text.reserve(512);
+
     text += "=== Debug ===\n";
-    text += StringUtil::Format("Backend      : <<\n",     backend);
+    text += StringUtil::Format("Backend      : <<\n",     GetBackendName());
     text += StringUtil::Format("FPS          : <<\n",     mSmoothedFPS);
     text += StringUtil::Format("DeltaTime    : << ms\n",  stats.DeltaTimeMs);
     text += StringUtil::Format("Actors       : <<\n",     stats.ActorCount);
@@ -87,36 +96,42 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
     text += StringUtil::Format("DrawCalls    : <<\n",     stats.DrawCallCount);
     text += StringUtil::Format("RTTCalls     : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("RenderTime   : << ms\n",  stats.RenderTimeMs);
-    text += StringUtil::Format("UpdateTtL    : << ms\n",  stats.UpdateTotalTimeMs);
+    text += StringUtil::Format("UpdateTTL    : << ms\n",  stats.UpdateTotalTimeMs);
     text += "-------------\n";
-    text += StringUtil::Format("UpdateGame   : << ms\n",   stats.UpdateGameTimeMs);
+    text += StringUtil::Format("UpdateGame   : << ms\n",  stats.UpdateGameTimeMs);
     text += StringUtil::Format("ActorUpdate  : << ms\n",  stats.ActorUpdateTimeMs);
     text += StringUtil::Format("ActorFinalize: << ms\n",  stats.ActorFinalizeTimeMs);
     text += StringUtil::Format("SoundTime    : << ms\n",  stats.SoundTimeMs);
     text += StringUtil::Format("TimeOfDay    : << ms\n",  stats.TimeOfDayTimeMs);
     text += StringUtil::Format("DebugStats   : << ms\n",  stats.DebugStatsTimeMs);
-    text += StringUtil::Format("PhysTime     : << ms\n",   stats.PhysicsTimeMs);
+    text += StringUtil::Format("PhysTime     : << ms\n",  stats.PhysicsTimeMs);
     text += "-------------\n";
     text += StringUtil::Format("Resolution   : << x <<",  stats.ScreenW, stats.ScreenH);
 
     mTextComp->SetText(text);
-    
-    
+
     auto tex = mTextComp->GetTexture();
     if (!tex)
     {
         return;
     }
-    
+
     const float pad = 6.0f;
-    float w = static_cast<float>(tex->GetWidth());
-    float h = static_cast<float>(tex->GetHeight());
+    const float w = static_cast<float>(tex->GetWidth());
+    const float h = static_cast<float>(tex->GetHeight());
 
-    
-    // 1x1背景なら「倍率=ピクセル」でも意図通り
     mBgSprite->SetScale(w + pad * 2.0f, h + pad * 2.0f);
+}
 
-    // FPS をちょっとだけ平滑化
+void DebugOverlayActor::UpdateActor(float deltaTime)
+{
+    if (!mEnabled || !mTextComp || !mBgSprite)
+    {
+        return;
+    }
+
+    auto& stats = GetApp()->GetDebugStats();
+
     if (stats.FPS > 0.0f)
     {
         mSmoothedFPS = (mSmoothedFPS == 0.0f)
@@ -124,20 +139,25 @@ void DebugOverlayActor::UpdateActor(float deltaTime)
                      : (mSmoothedFPS * 0.8f + stats.FPS * 0.2f);
     }
 
+    mRefreshAccum += deltaTime;
+    if (mRefreshAccum >= mRefreshInterval)
+    {
+        mRefreshAccum = 0.0f;
+        RefreshOverlayText();
+    }
 }
 
-void DebugOverlayActor::ActorInput(const InputState &state)
+void DebugOverlayActor::ActorInput(const InputState& state)
 {
-    // F3 で ON/OFF
     if (state.Keyboard.GetKeyState(SDL_SCANCODE_F3) == EPressed)
     {
         SetEnabled(!mEnabled);
     }
+
     if (state.Keyboard.GetKeyState(SDL_SCANCODE_F4) == EPressed)
     {
         SetWireVisible(!mWireVisible);
     }
-    
 }
 
 } // namespace toy
