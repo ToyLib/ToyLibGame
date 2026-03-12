@@ -51,12 +51,25 @@ bool VKRenderer::BeginFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
-    vkResetFences(mDevice, 1, &frame.inFlight);
+    // ---------------------------------------------------------
+    // frame fence wait
+    // ---------------------------------------------------------
+    VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+    if (wr != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkWaitForFences failed: " << wr << "\n";
+        return false;
+    }
 
+    // ---------------------------------------------------------
+    // acquire next image
+    // ---------------------------------------------------------
     VkResult ar = vkAcquireNextImageKHR(
-        mDevice, mSwapchain, UINT64_MAX,
-        frame.imageAvailable, VK_NULL_HANDLE,
+        mDevice,
+        mSwapchain,
+        UINT64_MAX,
+        frame.imageAvailable,
+        VK_NULL_HANDLE,
         &mImageIndex);
 
     if (ar == VK_ERROR_OUT_OF_DATE_KHR)
@@ -64,42 +77,94 @@ bool VKRenderer::BeginFrame()
         mNeedRecreateSwapchain = true;
         return false;
     }
-    // ★SUBOPTIMAL は “成功扱い” にする（戻す）
+
     if (ar != VK_SUCCESS && ar != VK_SUBOPTIMAL_KHR)
     {
         std::cerr << "[VKRenderer] Acquire failed: " << ar << "\n";
         return false;
     }
 
-    vkResetCommandBuffer(frame.cmd, 0);
+    // ---------------------------------------------------------
+    // 取得した swapchain image が、以前の frame でまだ使われているなら待つ
+    // ---------------------------------------------------------
+    if (mImageIndex < mImagesInFlight.size() &&
+        mImagesInFlight[mImageIndex] != VK_NULL_HANDLE)
+    {
+        VkResult iwr = vkWaitForFences(
+            mDevice,
+            1,
+            &mImagesInFlight[mImageIndex],
+            VK_TRUE,
+            UINT64_MAX);
 
-    // per-frame skinned slot cursor reset（サイズ保証込みで）
+        if (iwr != VK_SUCCESS)
+        {
+            std::cerr << "[VKRenderer] image-in-flight wait failed: " << iwr << "\n";
+            return false;
+        }
+    }
+
+    // この image は今回の frame fence が担当する
+    if (mImageIndex < mImagesInFlight.size())
+    {
+        mImagesInFlight[mImageIndex] = frame.inFlight;
+    }
+
+    // ---------------------------------------------------------
+    // acquire 成功後に fence reset
+    // ---------------------------------------------------------
+    VkResult rr = vkResetFences(mDevice, 1, &frame.inFlight);
+    if (rr != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkResetFences failed: " << rr << "\n";
+        return false;
+    }
+
+    // ---------------------------------------------------------
+    // command buffer reset
+    // ---------------------------------------------------------
+    VkResult cr = vkResetCommandBuffer(frame.cmd, 0);
+    if (cr != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkResetCommandBuffer failed: " << cr << "\n";
+        return false;
+    }
+
+    // per-frame skinned slot cursor reset
     if (mSkinnedSlotCursor.size() != mFrames.size())
     {
         mSkinnedSlotCursor.resize(mFrames.size(), 0);
     }
     mSkinnedSlotCursor[mFrameIndex] = 0;
 
-    // Catureカウンターリセット
+    // capture カウンター reset
     mCaptureSlotCursor = 0;
     mActiveCaptureSlot = -1;
-    
+
+    // ---------------------------------------------------------
+    // begin command buffer
+    // ---------------------------------------------------------
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    vkBeginCommandBuffer(frame.cmd, &bi);
 
-    // ★重要：ここで World UBO 更新（Shadow用にも必要）
+    VkResult br = vkBeginCommandBuffer(frame.cmd, &bi);
+    if (br != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkBeginCommandBuffer failed: " << br << "\n";
+        return false;
+    }
+
+    // World UBO 更新
     UpdateSceneUBO_World();
 
-    // ★重要：BaseMap(set=1) キャッシュは毎フレーム捨てる
+    // BaseMap(set=1) キャッシュは毎フレーム捨てる
     mBaseMapSetCache.clear();
 
-    // renderpassはここでは開始しない
+    // render pass はここでは開始しない
     mIsInRenderPass = false;
-    
-    // ★ここで queued compute を記録
+
+    // queued compute を記録
     RecordQueuedParticleComputes(frame.cmd);
-    
 
     mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
 
@@ -116,10 +181,11 @@ bool VKRenderer::BeginFrame()
             return false;
         }
 
-        if (mSceneRT->GetWidth() != (int)mScreenWidth ||
-            mSceneRT->GetHeight() != (int)mScreenHeight)
+        if (mSceneRT->GetWidth() != static_cast<int>(mScreenWidth) ||
+            mSceneRT->GetHeight() != static_cast<int>(mScreenHeight))
         {
-            if (!mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight))
+            if (!mSceneRT->Create(static_cast<int>(mScreenWidth),
+                                  static_cast<int>(mScreenHeight)))
             {
                 std::cerr << "[VKRenderer] BeginFrame: mSceneRT->Create failed\n";
                 return false;
@@ -130,7 +196,6 @@ bool VKRenderer::BeginFrame()
     {
         mRenderToSceneRTThisFrame = false;
     }
-    
 
     return true;
 }
@@ -144,7 +209,7 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
-    // 念のため：render pass を開いたままなら閉じる
+    // render pass を開いたままなら閉じる
     EndSwapchainRenderPassIfNeeded();
 
     VkResult er = vkEndCommandBuffer(frame.cmd);
@@ -192,7 +257,7 @@ void VKRenderer::EndFrame()
         std::cerr << "[VKRenderer] vkQueuePresentKHR failed: " << pr << "\n";
     }
 
-    mFrameIndex = (mFrameIndex + 1) % (uint32_t)mFrames.size();
+    mFrameIndex = (mFrameIndex + 1) % static_cast<uint32_t>(mFrames.size());
 }
 
 //======================================================================
@@ -301,6 +366,7 @@ bool VKRenderer::RecreateSwapchain()
     DestroyShadowResources();
     if (!CreateShadowResources())
         return false;
+    
 
     return true;
 }

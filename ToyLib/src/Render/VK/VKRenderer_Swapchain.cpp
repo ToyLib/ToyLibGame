@@ -327,6 +327,9 @@ bool VKRenderer::CreateSwapchainAndViews()
         return false;
     }
 
+    // ★追加
+    mImagesInFlight.assign(scImgCount, VK_NULL_HANDLE);
+    
     mSwapchainImageViews.resize(scImgCount, VK_NULL_HANDLE);
     for (uint32_t i = 0; i < scImgCount; ++i)
     {

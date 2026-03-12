@@ -175,16 +175,6 @@ bool VKRenderer::Initialize(const Application* app)
     // Shadow
     CreateShadowResources();
 
-    //==========================================================
-    // Skinned slots (set=2)
-    //  - VKRenderer 側だけで完結（GL側・IRenderer側は触らない）
-    //==========================================================
-    //if (!CreateSkinnedSlots())
-    {
-    //    Shutdown();
-    //    return false;
-    }
-
     std::cerr << "[VKRenderer] Init OK. Swapchain("
               << mSwapchainExtent.width << "x" << mSwapchainExtent.height
               << ") Scale=" << mWindowDisplayScale

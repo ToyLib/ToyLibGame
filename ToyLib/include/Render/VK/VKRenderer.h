@@ -303,6 +303,8 @@ private:
     std::vector<VkDescriptorSet> mOverlaySet;
     size_t mOverlayUBOSize{ 0 };
     
+    std::vector<VkFence> mImagesInFlight;
+    
 private:
     //==========================================================
     // BaseMap(set=1)
