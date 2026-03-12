@@ -85,8 +85,8 @@ void EnemyActor::UpdateActor(float deltaTime)
     {
         auto v = mCollider->GetCenterPosition();
 
-        auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
-        if (scInfo.visible)
+        //auto scInfo = GetApp()->GetRenderer()->WorldToScreen(v);
+        //if (scInfo.visible)
         {
             mCandidateSigne->SetVisible(true);
         }

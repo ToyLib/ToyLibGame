@@ -72,6 +72,8 @@ void FieldScene::ProcessInput(const struct toy::InputState &input)
     
 }
 
+int prevHour = 0;
+
 void FieldScene::Update(float deltaTime)
 {
     if (mWeather)
@@ -81,7 +83,14 @@ void FieldScene::Update(float deltaTime)
     
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
-    mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
+
+	if (h != prevHour)
+    {
+        prevHour = h;
+
+        mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
+    }
+
     
     
     
