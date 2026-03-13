@@ -82,6 +82,8 @@ void FieldScene::Update(float deltaTime)
     }
     
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
+    auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
+    (void)m;
         
 
 	if (h != prevHour)
