@@ -82,18 +82,13 @@ void FieldScene::Update(float deltaTime)
     }
     
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
-    auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
+        
 
 	if (h != prevHour)
     {
-        prevHour = h;
-
         mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
     }
 
-    
-    
-    
     toy::DebugDraw::Clear();
     toy::DebugDraw::Ray(Vector3(0,0,-100), Vector3::UnitZ, 200.0f);
     toy::DebugDraw::Ray(Vector3(0,5,-100), Vector3::UnitZ, 200.0f);
