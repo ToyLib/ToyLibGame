@@ -37,6 +37,7 @@ WolfActor::WolfActor(toy::Application* a)
     text->SetFont(GetApp()->GetAssetManager()->GetFont("rounded-mplus-1c-bold.ttf", 50));
     text->SetColor(Vector3(1.0f, 0.0f, 0.0f));
     text->SetText("Bow \nwow !");
+    text->SetScale(0.01f);
 
     
     mTargetActor = GetApp()->CreateActor<toy::Actor>();
