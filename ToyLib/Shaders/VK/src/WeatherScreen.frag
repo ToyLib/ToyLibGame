@@ -100,7 +100,7 @@ float snowPattern(vec2 uv)
         float speed = 0.1 + hash1(fi * 3.2) * 0.5;
 
         // 左上原点UVで「下向き」に落とす
-        float y = fract(hash1(fi * 2.1) + uTime * speed);
+        float y = fract(hash1(fi * 2.1) - uTime * speed);
 
         vec2 snowPos = vec2(x, y);
 
