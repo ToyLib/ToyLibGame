@@ -64,7 +64,8 @@ void TitleScene::Update(float dt)
 
 void TitleScene::ProcessInput(const toy::InputState& input)
 {
-    if (input.Keyboard.GetKeyState(SDL_SCANCODE_RETURN) == toy::EPressed)
+    if (input.IsButtonPressed(toy::GameButton::A)
+        || input.IsButtonPressed(toy::GameButton::Start))
     {
         RequestChange(std::make_unique<StageScene>());
     }
