@@ -73,6 +73,10 @@ bool GLRenderer::Initialize(const Application* app)
         std::cerr << "Failed to initialize GLAD!" << std::endl;
         return false;
     }
+    
+    const GLubyte* deviceName = glGetString(GL_RENDERER);
+    mDeviceName = std::string(reinterpret_cast<const char*>(deviceName));
+    std::cerr << "GPU: " << mDeviceName << std::endl;
 
     // Shaders
     if (!LoadShaders())

@@ -8,6 +8,7 @@
 #include "Graphics/Sprite/SpriteComponent.h"
 #include "Asset/Material/Texture.h"
 #include "Render/RenderBackendState.h"
+#include "Render/IRenderer.h"
 #include "Utils/StringUtil.h"
 
 namespace toy {
@@ -87,9 +88,13 @@ void DebugOverlayActor::RefreshOverlayText()
     std::string text;
     text.clear();
     text.reserve(512);
+    
+    std::string deviceName = GetApp()->GetRenderer()->GetDeviceName();
 
     text += "=== Debug ===\n";
     text += StringUtil::Format("Backend      : <<\n",     GetBackendName());
+    text += StringUtil::Format("DeviceName   : <<\n",     deviceName);
+    text += "-------------\n";
     text += StringUtil::Format("FPS          : <<\n",     mSmoothedFPS);
     text += StringUtil::Format("DeltaTime    : << ms\n",  stats.DeltaTimeMs);
     text += StringUtil::Format("Actors       : <<\n",     stats.ActorCount);

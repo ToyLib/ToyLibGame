@@ -192,6 +192,8 @@ bool VKRenderer::PickPhysicalDevice()
         VkPhysicalDeviceProperties props{};
         vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
         std::cerr << "[VKRenderer] GPU: " << props.deviceName << "\n";
+        mDeviceName = props.deviceName;
+        
         return true;
     }
 

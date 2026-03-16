@@ -128,6 +128,8 @@ class IRenderer
 public:
     IRenderer();
     virtual ~IRenderer();
+    
+    const std::string GetDeviceName() const { return mDeviceName; }
 
     //--------------------------------------------------------------------------
     // Initialize / Shutdown
@@ -358,6 +360,8 @@ public:
     
 protected:
     SDL_Window*   mWindow             { nullptr };
+    
+    std::string mDeviceName;
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
