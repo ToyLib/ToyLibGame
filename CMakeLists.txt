@@ -234,6 +234,7 @@ if(WIN32)
         "${VCPKG_BIN_DIR}/zlib1.dll"
         "${VCPKG_BIN_DIR}/SDL3_ttf.dll"
         "${VCPKG_BIN_DIR}/assimp-vc145-mt.dll"
+        "${VCPKG_BIN_DIR}/fmt.dll"
         "${VCPKG_BIN_DIR}/freetype.dll"
         "${VCPKG_BIN_DIR}/bz2.dll"
         "${VCPKG_BIN_DIR}/openal32.dll"
@@ -258,9 +259,10 @@ elseif(UNIX AND NOT APPLE)
     # SDL3: system -> source fallback（Linuxのみ）
     toy_linux_find_or_vendored_sdl3()
 
-    # Assimp / OpenAL
+    # Assimp / OpenAL / fmt
     find_package(assimp REQUIRED)
     find_package(OpenAL REQUIRED)
+    find_package(fmt REQUIRED)
 
     # mpg123
     find_package(PkgConfig QUIET)
@@ -312,6 +314,7 @@ elseif(UNIX AND NOT APPLE)
             SDL3_ttf::SDL3_ttf
             assimp::assimp
             OpenAL::OpenAL
+            fmt::fmt
             glad
             ${MPG123_TARGET}
     )
