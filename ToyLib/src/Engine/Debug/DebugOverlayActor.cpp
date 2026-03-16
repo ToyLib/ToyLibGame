@@ -92,8 +92,8 @@ void DebugOverlayActor::RefreshOverlayText()
     std::string deviceName = GetApp()->GetRenderer()->GetDeviceName();
 
     text += "=== Debug ===\n";
-    text += StringUtil::Format("Backend      : <<\n",     GetBackendName());
-    text += StringUtil::Format("DeviceName   : <<\n",     deviceName);
+    text += StringUtil::Format("<<\n",                    deviceName);
+    text += StringUtil::Format("<<\n",                    GetBackendName());
     text += "-------------\n";
     text += StringUtil::Format("FPS          : <<\n",     mSmoothedFPS);
     text += StringUtil::Format("DeltaTime    : << ms\n",  stats.DeltaTimeMs);
