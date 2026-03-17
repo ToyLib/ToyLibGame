@@ -96,7 +96,7 @@ out vec4 outColor;
 
 uniform sampler2D uSceneTex;
 
-uniform int   uPostType;    // 0=None 1=Sepia 2=CRT 3=FairyLand 4=Watercolor 5=Grayscale
+uniform int   uPostType;    // 0=None 1=Sepia 2=CRT 3=FairyLand 4=Watercolor 5=Grayscale, 6=Monochrome
 uniform float uIntensity;   // 0..1
 uniform float uTime;        // seconds (optional but recommended)
 uniform int   uFlipY;       // 0/1
