@@ -45,6 +45,12 @@ vec3 applySepia(vec3 c)
     return clamp(s, 0.0, 1.0);
 }
 
+vec3 applyGrayscale(vec3 c)
+{
+    float g = dot(c, vec3(0.299, 0.587, 0.114));
+    return vec3(g);
+}
+
 vec2 barrelDistort(vec2 uv, float k)
 {
     vec2 p = uv * 2.0 - 1.0;
@@ -239,6 +245,44 @@ void main()
         return;
     }
 
+    // ------------------------------------------------------------
+    // Grayscale
+    // ------------------------------------------------------------
+    if (uPostType == 5)
+    {
+        vec3 c = texture(uSceneTex, uv).rgb;
+        vec3 g = applyGrayscale(c);
+
+        vec3 outRgb = mix(c, g, I);
+        outColor = vec4(outRgb, 1.0);
+        return;
+    }
+    
+    // ------------------------------------------------------------
+    // Monochrome
+    // ------------------------------------------------------------
+    if (uPostType == 6)
+    {
+        vec3 c = texture(uSceneTex, uv).rgb;
+
+        // 通常グレースケール
+        float g = dot(c, vec3(0.299, 0.587, 0.114));
+        vec3 gray = vec3(g);
+
+        // 二値化（しきい値は中央固定でもOK）
+        float threshold = 0.5;
+        vec3 bw = vec3(step(threshold, g));
+
+        // I に応じて段階的に遷移
+        // 0.0 → 元画像
+        // 0.5 → グレースケール
+        // 1.0 → 完全白黒
+        vec3 mid = mix(c, gray, clamp(I * 2.0, 0.0, 1.0));
+        vec3 outRgb = mix(mid, bw, clamp((I - 0.5) * 2.0, 0.0, 1.0));
+
+        outColor = vec4(outRgb, 1.0);
+        return;
+    }
     // fallback
     outColor = texture(uSceneTex, uv);
 }

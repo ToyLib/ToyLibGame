@@ -96,7 +96,7 @@ out vec4 outColor;
 
 uniform sampler2D uSceneTex;
 
-uniform int   uPostType;    // 0=None 1=Sepia 2=CRT
+uniform int   uPostType;    // 0=None 1=Sepia 2=CRT 3=FairyLand 4=Watercolor 5=Grayscale
 uniform float uIntensity;   // 0..1
 uniform float uTime;        // seconds (optional but recommended)
 uniform int   uFlipY;       // 0/1
@@ -123,6 +123,12 @@ vec3 applySepia(vec3 c)
     s.g = dot(c, vec3(0.349, 0.686, 0.168));
     s.b = dot(c, vec3(0.272, 0.534, 0.131));
     return clamp(s, 0.0, 1.0);
+}
+
+vec3 applyGrayscale(vec3 c)
+{
+    float g = dot(c, vec3(0.299, 0.587, 0.114));
+    return vec3(g);
 }
 
 // CRT-ish warp
@@ -216,6 +222,7 @@ void main()
             outColor = vec4(0.0, 0.0, 0.0, 1.0);
             return;
         }
+
         // 2) subtle horizontal jitter
         float jitter = (hash12(vec2(floor(warped.y * 240.0), uTime)) - 0.5) * 0.0025 * I;
         warped.x += jitter;
@@ -249,7 +256,9 @@ void main()
         c = mix(c, pow(c, vec3(1.05)), 0.35 * I);
 
         outColor = vec4(c, 1.0);
+        return;
     }
+
     // ------------------------------------------------------------
     // FairyLand (A): pastel + sky-fog (top weighted) + gentle dreamy warp
     // ------------------------------------------------------------
@@ -260,9 +269,6 @@ void main()
 
         // --------------------------------------------
         // 1) "sky fog" factor (top weighted)
-        //   - bottom(ground) : 0
-        //   - top(sky)       : 1
-        //   調整：0.35/0.85 を動かすと霧の始まる高さが変わる
         // --------------------------------------------
         float sky = smoothstep(0.35, 0.85, uv2.y);
 
@@ -272,7 +278,6 @@ void main()
         // --------------------------------------------
         // 2) dreamy warp (weaken on ground)
         // --------------------------------------------
-        // ground側は揺らさない/少なめ、空側だけ少し揺らす
         float warpStrength = I * mix(0.25, 1.0, sky);
         uv2 = dreamyWarp(uv2, uTime, warpStrength);
 
@@ -281,7 +286,6 @@ void main()
         // --------------------------------------------
         // 3) pastel lift (global but gentle)
         // --------------------------------------------
-        // 明るく柔らかく（やりすぎると白っぽくなるので控えめ）
         c = pow(c, vec3(mix(1.0, 0.88, I)));
 
         // 彩度は少しだけ上げて「おとぎ感」
@@ -290,19 +294,17 @@ void main()
         // --------------------------------------------
         // 4) sky fog color (top only)
         // --------------------------------------------
-        // ラベンダーの霧：上に寄せる
-        vec3 fogTint = vec3(0.85, 0.80, 0.90);      // lavender-ish
-        float fogAmt = (0.10 + 0.40 * sky) * I;     // 上ほど濃い（調整ポイント）
+        vec3 fogTint = vec3(0.85, 0.80, 0.90);
+        float fogAmt = (0.10 + 0.40 * sky) * I;
 
-        // fog-ish lift (上の方だけ「霞む」)
         c = mix(c, fogTint, fogAmt);
 
         // --------------------------------------------
-        // 5) vignette: keep it very mild (avoid "narrow view")
+        // 5) vignette: keep it very mild
         // --------------------------------------------
         vec2 p = uv2 * 2.0 - 1.0;
         float r2 = dot(p, p);
-        float vig = 1.0 - (0.10 * I) * r2;          // かなり弱め
+        float vig = 1.0 - (0.10 * I) * r2;
         c *= clamp(vig, 0.0, 1.0);
 
         // --------------------------------------------
@@ -324,16 +326,15 @@ void main()
 
         // gentle “watercolor” shaping: slightly desaturate + lift
         c = adjustSaturation(c, mix(1.0, 0.95, I));
-        c = pow(c, vec3(mix(1.0, 0.90, I)));      // soft bright
+        c = pow(c, vec3(mix(1.0, 0.90, I)));
         c = clamp(c, 0.0, 1.0);
 
         // paper: texture version or procedural fallback
         float p = 1.0;
         if (uUsePaperTex != 0)
         {
-            // tile paper texture (assumes grayscale or rgb)
             vec3 pt = texture(uPaperTex, uv).rgb;
-            p = dot(pt, vec3(0.333));// grayscale
+            p = dot(pt, vec3(0.333));
         }
         else
         {
@@ -352,4 +353,45 @@ void main()
         return;
     }
 
+    // ------------------------------------------------------------
+    // Grayscale
+    // ------------------------------------------------------------
+    if (uPostType == 5)
+    {
+        vec3 c = texture(uSceneTex, uv).rgb;
+        vec3 g = applyGrayscale(c);
+
+        vec3 outRgb = mix(c, g, I);
+        outColor = vec4(outRgb, 1.0);
+        return;
+    }
+    
+    // ------------------------------------------------------------
+    // Monochrome
+    // ------------------------------------------------------------
+    if (uPostType == 6)
+    {
+        vec3 c = texture(uSceneTex, uv).rgb;
+
+        // 通常グレースケール
+        float g = dot(c, vec3(0.299, 0.587, 0.114));
+        vec3 gray = vec3(g);
+
+        // 二値化（しきい値は中央固定でもOK）
+        float threshold = 0.5;
+        vec3 bw = vec3(step(threshold, g));
+
+        // I に応じて段階的に遷移
+        // 0.0 → 元画像
+        // 0.5 → グレースケール
+        // 1.0 → 完全白黒
+        vec3 mid = mix(c, gray, clamp(I * 2.0, 0.0, 1.0));
+        vec3 outRgb = mix(mid, bw, clamp((I - 0.5) * 2.0, 0.0, 1.0));
+
+        outColor = vec4(outRgb, 1.0);
+        return;
+    }
+
+    // fallback
+    outColor = texture(uSceneTex, uv);
 }

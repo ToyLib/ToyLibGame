@@ -572,6 +572,8 @@ void GLRenderer::DrawPostEffectPass()
     {
         case PostEffectType::None:
         case PostEffectType::Sepia:
+        case PostEffectType::Grayscale:
+        case PostEffectType::Monochrome:
         case PostEffectType::CRT:
         {
             sh->SetIntUniform  (Post::PostType,   (int)mPost.type);

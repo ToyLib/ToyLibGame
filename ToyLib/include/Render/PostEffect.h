@@ -10,7 +10,9 @@ enum class PostEffectType
     Sepia,
     CRT,
     FeilyLand,
-    Watercolor
+    Watercolor,
+    Grayscale,
+    Monochrome
 };
 
 struct PostEffectDesc
