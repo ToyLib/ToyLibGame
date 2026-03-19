@@ -1,47 +1,56 @@
 #pragma once
+
 #include "Graphics/VisualComponent.h"
+#include "Render/RenderQueue.h"
 #include "Utils/MathUtil.h"
+#include <memory>
 
 namespace toy {
 
-//======================================================================
-// Overlay（画面全体の後処理系エフェクト）
-// ・雨粒のスクリーンスペース描画
-// ・霧のポストエフェクト
-// ・雪のスクリーンスペース描画
-//
-// ※ WeatherManager から数値をセットされ、Draw() で強さに応じて描画。
-// ※ SkyDome（空・太陽）とは独立しており、画面へのオーバーレイ担当。
-//======================================================================
+class VertexArray;
+
 class WeatherOverlayComponent : public VisualComponent
 {
 public:
-    WeatherOverlayComponent(class Actor* owner,
-                            int drawOrder = 100,
+    WeatherOverlayComponent(Actor* a,
+                            int drawOrder = 1000,
                             VisualLayer layer = VisualLayer::OverlayScreen);
 
-    // 画面全体のオーバーレイ描画
-    //void Draw() override;
     void GatherRenderItems(RenderQueue& outQueue) override;
-    //------ 天候強度のセット（WeatherManager から渡される） ------
-    void SetRainAmount (const float amt) { mRainAmount = amt; }
-    void SetFogAmount  (const float amt) { mFogAmount  = amt; }
-    void SetSnowAmout  (const float amt) { mSnowAmount = amt; }
-    
-    //------ 太陽/月の方向のセット（WeatherManager から渡される） ------
-    void SetSunDir(const Vector3& dir)  { mSunDir = dir; }
-    void SetMoonDir(const Vector3& dir) { mMoonDir = dir; }
+
+    //==========================================================
+    // Parameter setters
+    //  - WeatherType は知らず、描画パラメータだけ受け取る
+    //==========================================================
+    void SetRainAmount(float v)       { mRainAmount = v; }
+    void SetFogAmount(float v)        { mFogAmount = v; }
+    void SetSnowAmout(float v)        { mSnowAmount = v; }   // 既存名維持
+    void SetFlareIntensity(float v)   { mFlareIntensity = v; }
+
+    void SetSunDir(const Vector3& v)  { mSunDir = v; }
+    void SetMoonDir(const Vector3& v) { mMoonDir = v; }
+
+    void SetFlareColor(const Vector3& v) { mFlareColor = v; }
+
+    float GetRainAmount() const       { return mRainAmount; }
+    float GetFogAmount() const        { return mFogAmount; }
+    float GetSnowAmount() const       { return mSnowAmount; }
+    float GetFlareIntensity() const   { return mFlareIntensity; }
 
 private:
-    //------ 各エフェクトの強度（0.0〜1.0） ------
-    float mRainAmount  { 0.0f };   // 雨（雨粒の量・密度）
-    float mFogAmount   { 0.0f };    // 霧（画面の白み・減衰）
-    float mSnowAmount  { 0.0f };   // 雪（雪粒の量・密度）
+    std::shared_ptr<VertexArray> mVertexArray;
+    std::string mPipelineName;
 
+    // 描画パラメータ
+    float mRainAmount     { 0.0f };
+    float mFogAmount      { 0.0f };
+    float mSnowAmount     { 0.0f };
+    float mFlareIntensity { 0.0f };
 
-    // 太陽/月の向き
-    Vector3 mSunDir  { Vector3::UnitY };
-    Vector3 mMoonDir { Vector3::UnitY };
+    Vector3 mSunDir       { Vector3::Zero };
+    Vector3 mMoonDir      { Vector3::Zero };
+
+    Vector3 mFlareColor   { 1.0f, 0.9f, 0.7f };
 };
 
 } // namespace toy

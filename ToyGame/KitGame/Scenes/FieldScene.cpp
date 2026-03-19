@@ -13,14 +13,14 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Monochrome;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 0.9f;
     effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/note_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(6000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(14.0f, 0.0f);
 
    
@@ -187,7 +187,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::SIMPLE);
 }
 
 

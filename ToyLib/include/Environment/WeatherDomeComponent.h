@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Environment/SkyDomeComponent.h"
-#include "Environment/WeatherType.h"
+#include "Environment/WeatherTypes.h"
 #include "Utils/MathUtil.h"
 
 namespace toy {

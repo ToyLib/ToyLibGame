@@ -378,18 +378,19 @@ static bool DispatchSkyDome(IRenderer& r,
     }
 
     auto* sh = it.pipeline.ptrGLShader;
-    if (!sh || !it.geometry.ptr)
+    if (!sh || !it.geometry.ptr || it.indexCount == 0)
     {
         return true;
     }
 
-    SkyDomePayload sky {};
+    sh->SetActive();
+
+    SkyDomePayload sky{};
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         sky = r.GetSkyDomePayload(it.payloadIndex);
     }
 
-    // NOTE: SkyDomeは contract(v1) 外なので従来名維持
     if (sky.useMVP)
     {
         sh->SetMatrixUniform("uMVP", sky.mvp);
@@ -425,18 +426,19 @@ static bool DispatchOverlay(IRenderer& r,
     }
 
     auto* sh = it.pipeline.ptrGLShader;
-    if (!sh || !it.geometry.ptr)
+    if (!sh || !it.geometry.ptr || it.indexCount == 0)
     {
         return true;
     }
 
-    OverlayPayload op {};
+    sh->SetActive();
+
+    OverlayPayload op{};
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         op = r.GetOverlayPayload(it.payloadIndex);
     }
 
-    // NOTE: Overlayは contract(v1) 外なので従来名維持
     sh->SetFloatUniform("uTime", op.time);
 
     sh->SetFloatUniform("uRainAmount", op.rainAmount);
@@ -449,13 +451,13 @@ static bool DispatchOverlay(IRenderer& r,
     sh->SetVector2Uniform("uSunPos",         op.sunPos);
     sh->SetVectorUniform ("uFlareColor",     op.flareColor);
 
+
     it.geometry.ptr->SetActive();
     glDrawElements(GL_TRIANGLES, it.indexCount, GL_UNSIGNED_INT, nullptr);
 
     r.AddDrawCall();
     return true;
 }
-
 //============================================================
 // Debug
 //============================================================

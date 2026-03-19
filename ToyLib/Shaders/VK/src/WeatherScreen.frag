@@ -5,7 +5,9 @@ layout(location = 0) out vec4 outColor;
 
 //==================================================
 // WeatherOverlay.frag (Vulkan)
-//  - C++側の sunUv はそのまま使う
+//  - WeatherType は知らない
+//  - parameter-driven
+//  - C++側の sunUv は左上原点UV前提
 //  - frag側で gl_FragCoord だけ左上原点系に揃える
 //==================================================
 
@@ -14,7 +16,7 @@ layout(std140, set = 1, binding = 0) uniform OverlayUBO
     vec4 time;        // x = uTime
     vec4 resolution;  // x = width, y = height
     vec4 weather;     // x = rain, y = snow, z = fog
-    vec4 sunPos;      // x = uSunPos.x, y = uSunPos.y （C++側で反転済み）
+    vec4 sunPos;      // x = uSunPos.x, y = uSunPos.y
     vec4 flare;       // x = flareIntensity
     vec4 flareColor;  // xyz = flareColor
 } uOverlay;
@@ -98,9 +100,7 @@ float snowPattern(vec2 uv)
 
         float x     = hash1(fi * 1.3) + sin(uTime * 0.2 + fi) * 0.01;
         float speed = 0.1 + hash1(fi * 3.2) * 0.5;
-
-        // 左上原点UVで「下向き」に落とす
-        float y = fract(hash1(fi * 2.1) - uTime * speed);
+        float y     = fract(hash1(fi * 2.1) - uTime * speed);
 
         vec2 snowPos = vec2(x, y);
 
@@ -124,8 +124,6 @@ float fogPattern(vec2 uv)
 
 //==================================================
 // Lens flare
-//  - uSunPos は C++側で「左上原点UV」に揃っている前提
-//  - fragPxTopLeft も左上原点ピクセルに揃えて計算
 //==================================================
 vec3 computeLensFlare(vec2 fragPxTopLeft)
 {
@@ -140,7 +138,10 @@ vec3 computeLensFlare(vec2 fragPxTopLeft)
 
     vec2 axis     = centerPx - sunPx;
     float axisLen = length(axis);
-    if (axisLen < 1e-4) axisLen = 1e-4;
+    if (axisLen < 1e-4)
+    {
+        axisLen = 1e-4;
+    }
 
     vec2 dir = axis / axisLen;
 
@@ -221,9 +222,7 @@ vec3 computeLensFlare(vec2 fragPxTopLeft)
         float wave  = 0.5 + 0.5 * sin(6.28318 * (t * freq + 0.25));
         float bigMask = smoothstep(0.6, 0.9, wave);
 
-        float smallScale = 0.7;
-        float bigScale   = 1.6;
-        float sizeFactor = mix(smallScale, bigScale, bigMask);
+        float sizeFactor = mix(0.7, 1.6, bigMask);
         float r = baseR * sizeFactor;
 
         float s = mix(-span * 0.6, span * 0.6, t);
@@ -252,7 +251,6 @@ vec3 computeLensFlare(vec2 fragPxTopLeft)
 //==================================================
 void main()
 {
-    // frag側でだけ左上原点に揃える
     vec2 fragPxTopLeft = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
     vec2 uv            = fragPxTopLeft / uResolution;
 
@@ -278,13 +276,18 @@ void main()
     vec3 overlay = vec3(1.0) * alpha;
     vec3 flare   = computeLensFlare(fragPxTopLeft);
 
-    float flareLuma = max(flare.r, max(flare.g, flare.b));
-    flareLuma = clamp(flareLuma, 0.0, 1.0);
-
+    float flareLuma  = clamp(max(flare.r, max(flare.g, flare.b)), 0.0, 1.0);
     float flareAlpha = flareLuma * 0.7;
     float finalAlpha = clamp(alpha + flareAlpha, 0.0, 1.0);
 
     vec3 finalColor = overlay + flare;
 
-    outColor = vec4(finalColor, finalAlpha);
+    if (finalAlpha <= 0.0001)
+    {
+        outColor = vec4(0.0);
+    }
+    else
+    {
+        outColor = vec4(finalColor, finalAlpha);
+    }
 }
