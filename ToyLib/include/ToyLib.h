@@ -102,6 +102,7 @@
 #include "Environment/WeatherDomeComponent.h"
 #include "Environment/WeatherOverlayComponent.h"
 #include "Environment/WeatherManager.h"
+#include "Environment/SnowFieldComponent.h"
 
 //======================================
 // Movement

@@ -4,6 +4,8 @@
 #include "../Actors/RPGCharacter.h"
 #include "../Actors/EnemyActor.h"
 
+#include "Environment/SnowFieldComponent.h"
+
 FieldScene::FieldScene()
 {
     
@@ -57,12 +59,20 @@ void FieldScene::InitScene()
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
     
+    { // テスト用スプライト
+        auto a = CreateActor<toy::Actor>();
+        auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
+        sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
+        a->SetPosition(Vector3(100.0f, 100.0f,0));
+    }
     
-    // テスト用スプライト
-    auto a = CreateActor<toy::Actor>();
-    auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
-    sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
-    a->SetPosition(Vector3(100.0f, 100.0f,0));
+    { // テスト用雪
+        auto a = CreateActor<toy::Actor>();
+        auto sn = a->CreateComponent<toy::SnowFieldComponent>();
+        sn->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
+        sn->SetBaseScale(0.005f);
+    }
+    
     
     
 }
@@ -86,7 +96,7 @@ void FieldScene::Update(float deltaTime)
     (void)m;
         
 
-	if (h != prevHour)
+	//if (h != prevHour)
     {
         mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
     }
@@ -187,7 +197,8 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    mWeather->ChangeWeather(toy::WeatherType::SNOW);
+    overlay->SetVisible(false);
 }
 
 
