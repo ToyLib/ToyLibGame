@@ -556,7 +556,7 @@ void WeatherDomeComponent::ComputeFogFromSky(float timeOfDay)
             break;
 
         case WeatherType::SNOW:
-            cloudMix    = 0.70f;
+            cloudMix    = 0.90f;
             mFogDensity = 0.0100f;
             skyHorizon  = Vector3(0.80f, 0.80f, 0.82f);
             cloudColor  = skyHorizon;

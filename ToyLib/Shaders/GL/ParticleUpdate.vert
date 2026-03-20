@@ -203,7 +203,7 @@ vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
 
     if (topOnly)
     {
-        float topBand = halfExt.y * 0.35;
+        float topBand = halfExt.y * 0.65;
         p.y = center.y + halfExt.y - topBand * r.y;
     }
     else
@@ -254,11 +254,11 @@ void main()
             //======================================================
             pos = randomFieldPos(id, uTime, uFieldCenter, uFieldExtent, (uRespawnTop != 0));
 
-            vec3 dir = randomDir(id, uTime);
-            vel.x = uWind.x + dir.x * 0.15;
-            vel.y = -(0.6 + abs(dir.y) * 0.4);
-            vel.z = uWind.z + dir.z * 0.15;
-
+            vec3 dir = randomDir(int(id), pc.time);
+            vel.x = pc.wind.x + dir.x * 0.12;
+            vel.y = -(0.35 + abs(dir.y) * 0.55);
+            vel.z = pc.wind.z + dir.z * 0.12;
+            
             life = 0.0;
         }
         else if (uSpawnRate > 0.0 && spawnGate(id) > 0.5)

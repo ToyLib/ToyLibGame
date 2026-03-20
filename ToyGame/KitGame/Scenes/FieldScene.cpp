@@ -106,7 +106,7 @@ void FieldScene::InitScene()
         // ---------------------------------------------------------
         // SnowField 専用
         // ---------------------------------------------------------
-        desc.fieldExtent = Vector3(60.0f, 18.0f, 60.0f);
+        desc.fieldExtent = Vector3(60.0f, 20.0f, 60.0f);
         desc.wind         = Vector3(0.12f, 0.0f, 0.05f);
 
         desc.followCamera = true;
@@ -319,13 +319,12 @@ void FieldScene::DeployFire(Vector3 pos)
     {
 
         // Actor
-        auto particleActorGPU = CreateActor<toy::Actor>();
-        particleActorGPU->SetPosition(fireActor->GetPosition());
+        auto a = CreateActor<toy::Actor>();
+        a->SetPosition(fireActor->GetPosition());
         // Component
-        auto* particle = particleActorGPU
-            ->CreateComponent<toy::ParticleComponent>();
+        auto* p = a->CreateComponent<toy::ParticleComponent>();
 
-        particle->SetTexture(
+        p->SetTexture(
             GetApp()->GetAssetManager()->GetTexture("Field/fire.png"));
 
         //==============================
@@ -360,9 +359,9 @@ void FieldScene::DeployFire(Vector3 pos)
         desc.warmStart = true;
         
         
-        particle->Init(desc);
-        //particle->InitFromFile("ToyGame/Settings/Fire.json");
-        particle->Start();
+        p->Init(desc);
+        //p->InitFromFile("ToyGame/Settings/Fire.json");
+        p->Start();
     
     }
     {

@@ -87,7 +87,7 @@ void WeatherManager::ApplyWeatherParams()
 
         case WeatherType::SNOW:
             rainAmount     = 0.0f;
-            fogAmount      = 0.7f;
+            fogAmount      = 0.8f;
             snowAmount     = 0.8f;
             flareIntensity = 0.0f;
             break;
