@@ -112,8 +112,6 @@ void FieldScene::InitScene()
         desc.followCamera = true;
         desc.respawnTop   = true;
 
-        desc.spawnTopY    = 10.0f;
-        desc.killBottomY  = -1.0f;
         
         snow->Init(desc);
         snow->Start();

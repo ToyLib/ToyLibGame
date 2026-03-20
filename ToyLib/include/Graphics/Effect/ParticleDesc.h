@@ -44,9 +44,6 @@ struct ParticleDesc
     bool  followCamera    { false };
     bool  respawnTop      { true };
 
-    // 明示的な高さ指定
-    float spawnTopY       { 8.0f };
-    float killBottomY     { -2.0f };
 };
 
 } // namespace toy
