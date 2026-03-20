@@ -403,6 +403,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 break;
             case RenderItemType::Particle:
                 pipelineName = "Particle";
+                if (it.blend != BlendMode::Additive)
+                {
+                    pipelineName = "Particle_Alpha";
+                }
                 break;
             default:
                 return;

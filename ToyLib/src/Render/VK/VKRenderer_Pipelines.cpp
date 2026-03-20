@@ -456,7 +456,15 @@ bool VKRenderer::BuildDefaultPipelines()
             std::cerr << "[VKRenderer] Failed pipeline: Particle\n";
             return false;
         }
+        particle.blendMode = VKPipelineDesc::BlendMode::Alpha;
+        if (!mPipelines.CreatePipeline("Particle_Alpha", mDevice, mRenderPass, mSwapchainExtent, particle))
+        {
+            std::cerr << "[VKRenderer] Failed pipeline: Particle_Alpha\n";
+            return false;
+        }
+
     }
+
 
     //==========================================================
     // 2) Shadow(RenderPass/Extent) 用パイプライン

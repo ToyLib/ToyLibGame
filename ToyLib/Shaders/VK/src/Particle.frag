@@ -20,12 +20,17 @@ void main()
 
     vec4 tex = texture(uParticleTex, vUV);
 
-    // 黒背景や完全透明を落とす
-    if (tex.a <= 0.001 || (tex.r + tex.g + tex.b) <= 0.01)
+    // 完全透明だけ落とす
+    if (tex.a <= 0.001)
     {
         discard;
     }
 
-    // 加算合成前提
-    outColor = vec4(tex.rgb * vAlpha, 1.0);
+    float alpha = tex.a * vAlpha;
+    if (alpha <= 0.001)
+    {
+        discard;
+    }
+
+    outColor = vec4(tex.rgb, alpha);
 }

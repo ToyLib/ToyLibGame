@@ -332,7 +332,10 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     
     it.depthTest  = true;
     it.depthWrite = false;
-    it.blend      = BlendMode::Additive;   // ★まずは固定で加算合成
+    if (mDesc.additiveBlend)
+        it.blend      = BlendMode::Additive;
+    else
+        it.blend      = BlendMode::Alpha;
     it.cull       = CullMode::None;        // ★billboard は cull しない
     it.frontFace  = FrontFace::CCW;
     
