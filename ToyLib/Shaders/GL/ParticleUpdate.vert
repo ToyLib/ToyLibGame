@@ -78,7 +78,6 @@ struct MaterialData
     float specPower;
 };
 
-// Max palette size must match engine-side upload
 const int kMaxPalette = 96;
 
 struct SkinnedData
@@ -91,74 +90,69 @@ uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
 uniform SkinnedData  uSkinned;
 
-//==============================================================
+//======================================================================
 // ParticleUpdate.vert
-//----------------------------------------------------------------------
-// GPU パーティクル更新シェーダ（Transform Feedback 用）
+// ---------------------------------------------------------------------
+// Transform Feedback 用の GPU particle update shader
 //
-// ・入力：粒ごとの状態（pos / vel / life）
-// ・出力：更新後の状態を Transform Feedback で VBO に書き戻す
-// ・描画はしない（C++ 側で GL_RASTERIZER_DISCARD を有効にする）
+// 入力:
+//   aPos  : 現在位置
+//   aVel  : 現在速度
+//   aLife : 経過寿命
 //
-// life の扱い：
-// ・life は「経過秒」
-// ・life >= uLifeMax なら dead とみなす
-// ・dead 粒は spawnGate を通った時だけ respawn される
+// 出力:
+//   tfPos / tfVel / tfLife
 //
 // mode:
-//   0: Spark
-//   1: Water
-//   2: Smoke
-//   3: SnowField
-//==============================================================
+//   0 = Spark
+//   1 = Water
+//   2 = Smoke
+//   3 = SnowField
+//======================================================================
 
-//==============================================================
-// Inputs（src VBO から）
-//==============================================================
-layout(location = 0) in vec3  aPos;   // 現在位置
-layout(location = 1) in vec3  aVel;   // 現在速度
-layout(location = 2) in float aLife;  // 経過寿命（秒）
+//----------------------------------------------------------------------
+// Input attributes
+//----------------------------------------------------------------------
+layout(location = 0) in vec3  aPos;
+layout(location = 1) in vec3  aVel;
+layout(location = 2) in float aLife;
 
-//==============================================================
-// Transform Feedback outputs（dst VBO へ interleaved 書き戻し）
-//==============================================================
+//----------------------------------------------------------------------
+// Transform Feedback outputs
+//----------------------------------------------------------------------
 out vec3  tfPos;
 out vec3  tfVel;
 out float tfLife;
 
-//==============================================================
-// Uniforms（CPU から供給）
-//==============================================================
-uniform float uDeltaTime;   // dt（秒）
-uniform float uTime;        // 経過時間（秒）…スポーンのランプ等に使用
+//----------------------------------------------------------------------
+// Common update uniforms
+//----------------------------------------------------------------------
+uniform float uDeltaTime;
+uniform float uTime;
 
-uniform float uLifeMax;     // 粒寿命（秒）
-uniform vec3  uEmitterPos;  // リスポーン位置（ワールド座標）
+uniform float uLifeMax;
+uniform vec3  uEmitterPos;
 
-// mode：C++ 側の enum と一致させる
-// 0:Spark 1:Water 2:Smoke 3:SnowField
 uniform int   uMode;
 
-// 力・拡散
-uniform float uGravity;     // Water / SnowField 用（下向き加速度）
-uniform float uLift;        // Smoke 用（上向き加速度）
-uniform float uSpread;      // 初速スケール（dir * spread）
+uniform float uGravity;
+uniform float uLift;
+uniform float uSpread;
 
-// スポーン制御
-// uSpawnRate : 1秒あたりのリスポーン試行率（0 = respawn しない）
-// uSpawnRampSec : ランプ時間（0 = 即 100%）
 uniform float uSpawnRate;
 uniform float uSpawnRampSec;
 
-// SnowField 用
-uniform vec3  uFieldCenter;
-uniform vec3  uFieldExtent;
-uniform vec3  uWind;
-uniform int   uRespawnTop;
+//----------------------------------------------------------------------
+// SnowField uniforms
+//----------------------------------------------------------------------
+uniform vec3 uFieldCenter;
+uniform vec3 uFieldExtent;
+uniform vec3 uWind;
+uniform int  uRespawnTop;
 
-//==============================================================
-// 乱数（決定性のある hash。テクスチャ不要）
-//==============================================================
+//----------------------------------------------------------------------
+// Hash helpers
+//----------------------------------------------------------------------
 float hash11(float n)
 {
     return fract(sin(n) * 43758.5453123);
@@ -173,10 +167,9 @@ vec3 hash31(float n)
     );
 }
 
-//--------------------------------------------------------------
-// randomDir
-// 粒ID と時間から「単位ベクトルっぽい」方向を生成する
-//--------------------------------------------------------------
+//----------------------------------------------------------------------
+// Random unit-ish direction from particle id and time
+//----------------------------------------------------------------------
 vec3 randomDir(int id, float t)
 {
     float n = float(id) * 12.9898 + t * 78.233;
@@ -186,10 +179,11 @@ vec3 randomDir(int id, float t)
     return r * inversesqrt(len2);
 }
 
-//--------------------------------------------------------------
-// randomFieldPos
-// SnowField 用：field 内のランダム位置を返す
-//--------------------------------------------------------------
+//----------------------------------------------------------------------
+// SnowField spawn position
+//  - XZ: field 全体にばらまく
+//  - Y : topOnly 時は上側帯域から再配置
+//----------------------------------------------------------------------
 vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
 {
     float n = float(id) * 17.13 + floor(t * 60.0) * 0.37;
@@ -214,11 +208,9 @@ vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
     return p;
 }
 
-//--------------------------------------------------------------
-// spawnGate
-// ・「uSpawnRate（/sec）」を「フレームごとの発生確率」に変換し、
-//   ハッシュ乱数で gate を通った粒だけ respawn させる。
-//--------------------------------------------------------------
+//----------------------------------------------------------------------
+// Respawn probability gate for Spark / Water / Smoke
+//----------------------------------------------------------------------
 float spawnGate(int id)
 {
     float ramp = (uSpawnRampSec <= 0.0) ? 1.0 : clamp(uTime / uSpawnRampSec, 0.0, 1.0);
@@ -227,13 +219,12 @@ float spawnGate(int id)
     p *= ramp;
 
     float r = hash11(float(id) * 3.17 + floor(uTime * 60.0) * 0.77);
-
     return (r < p) ? 1.0 : 0.0;
 }
 
 void main()
 {
-    // TF専用でも明示しておく
+    // TF 専用だが明示しておく
     gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
 
     int id = gl_VertexID;
@@ -244,28 +235,28 @@ void main()
 
     bool dead = (life >= uLifeMax);
 
+    //------------------------------------------------------------------
+    // Dead particle handling
+    //------------------------------------------------------------------
     if (dead)
     {
         if (uMode == 3)
         {
-            //======================================================
             // SnowField:
-            // dead 粒は field 内に直接再配置
-            //======================================================
+            // field 内へ再配置して、風＋落下速度を与える
             pos = randomFieldPos(id, uTime, uFieldCenter, uFieldExtent, (uRespawnTop != 0));
 
-            vec3 dir = randomDir(int(id), pc.time);
-            vel.x = pc.wind.x + dir.x * 0.12;
+            vec3 dir = randomDir(id, uTime);
+            vel.x = uWind.x + dir.x * 0.12;
             vel.y = -(0.35 + abs(dir.y) * 0.55);
-            vel.z = pc.wind.z + dir.z * 0.12;
-            
+            vel.z = uWind.z + dir.z * 0.12;
+
             life = 0.0;
         }
         else if (uSpawnRate > 0.0 && spawnGate(id) > 0.5)
         {
-            //======================================================
-            // Spark / Water / Smoke: respawn
-            //======================================================
+            // Spark / Water / Smoke:
+            // emitter 位置から respawn
             life = 0.0;
             pos  = uEmitterPos;
 
@@ -286,15 +277,16 @@ void main()
         }
         else
         {
+            // dead のまま維持
             life = uLifeMax + 1.0;
             vel  = vec3(0.0);
         }
     }
+    //------------------------------------------------------------------
+    // Alive particle update
+    //------------------------------------------------------------------
     else
     {
-        //==========================================================
-        // alive 粒：力を加えて積分 → 寿命を進める
-        //==========================================================
         if (uMode == 1)
         {
             // Water
@@ -329,9 +321,9 @@ void main()
                 pos = randomFieldPos(id, uTime, uFieldCenter, uFieldExtent, (uRespawnTop != 0));
 
                 vec3 dir = randomDir(id, uTime);
-                vel.x = uWind.x + dir.x * 0.15;
-                vel.y = -(0.6 + abs(dir.y) * 0.4);
-                vel.z = uWind.z + dir.z * 0.15;
+                vel.x = uWind.x + dir.x * 0.12;
+                vel.y = -(0.35 + abs(dir.y) * 0.55);
+                vel.z = uWind.z + dir.z * 0.12;
 
                 life = 0.0;
             }
@@ -345,6 +337,9 @@ void main()
         }
     }
 
+    //------------------------------------------------------------------
+    // Transform Feedback writeback
+    //------------------------------------------------------------------
     tfPos  = pos;
     tfVel  = vel;
     tfLife = life;
