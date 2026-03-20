@@ -15,15 +15,15 @@ void FieldScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Watercolor;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(6000.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(14.0f, 0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(16.0f, 0.0f);
 
    
     
@@ -66,12 +66,12 @@ void FieldScene::InitScene()
         a->SetPosition(Vector3(100.0f, 100.0f,0));
     }
     
-    { // テスト用雪
+    /*{ // テスト用雪
         auto a = CreateActor<toy::Actor>();
         auto sn = a->CreateComponent<toy::SnowFieldComponent>();
         sn->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
         sn->SetBaseScale(0.005f);
-    }
+    }*/
     
     
     
@@ -197,8 +197,8 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::SNOW);
-    overlay->SetVisible(false);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    //overlay->SetVisible(false);
 }
 
 
