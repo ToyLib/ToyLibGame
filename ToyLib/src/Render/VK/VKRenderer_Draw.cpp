@@ -402,12 +402,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 pipelineName = "UnlitWire";
                 break;
             case RenderItemType::Particle:
-                pipelineName = "Particle";
-                if (it.blend != BlendMode::Additive)
-                {
-                    pipelineName = "Particle_Alpha";
-                }
-                break;
+                pipelineName = (it.blend == BlendMode::Additive)
+                    ? "Particle"
+                    : "Particle_Alpha";
+                    break;
             default:
                 return;
         }
