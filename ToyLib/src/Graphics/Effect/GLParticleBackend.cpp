@@ -55,6 +55,18 @@ static const unsigned int kQuadIndices[6] =
     0,3,2
 };
 
+namespace
+{
+    std::mt19937 gRng(1337u);
+
+    float RandRange(float min, float max)
+    {
+        std::uniform_real_distribution<float> dist(min, max);
+        return dist(gRng);
+    }
+}
+
+
 //======================================================================
 // ctor / dtor
 //======================================================================
@@ -407,6 +419,24 @@ void GLParticleBackend::UpdateParticlesGPU(float deltaTime)
     mUpdateShader->SetFloatUniform(ParticleUpdate::Spread,  mDesc.spread);
     mUpdateShader->SetFloatUniform(ParticleUpdate::SpawnRate,    mDesc.spawnRatePerSec);
     mUpdateShader->SetFloatUniform(ParticleUpdate::SpawnRampSec, mDesc.spawnRampSec);
+    
+    
+    if (mDesc.mode == ParticleMode::SnowField)
+    {
+        Vector3 fieldCenter = emitterWorld;
+        if (mDesc.followCamera)
+        {
+            if (auto* renderer = GetOwner()->GetApp()->GetRenderer())
+            {
+                fieldCenter = renderer->GetInvViewMatrix().GetTranslation();
+            }
+        }
+
+        mUpdateShader->SetVectorUniform("uFieldCenter", fieldCenter);
+        mUpdateShader->SetVectorUniform("uFieldExtent", mDesc.fieldExtent);
+        mUpdateShader->SetVectorUniform("uWind",        mDesc.wind);
+        mUpdateShader->SetIntUniform   ("uRespawnTop",  mDesc.respawnTop ? 1 : 0);
+    }
 
     glEnable(GL_RASTERIZER_DISCARD);
     glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, dst);
@@ -466,12 +496,37 @@ void GLParticleBackend::ApplyModePresetIfNeeded()
     if (mDesc.mode == ParticleMode::Water)
     {
         mDesc.gravity = std::max(mDesc.gravity, 9.8f);
-        mDesc.lift = 0.0f;
+        mDesc.lift    = 0.0f;
     }
     else if (mDesc.mode == ParticleMode::Smoke)
     {
         mDesc.gravity = 0.0f;
-        mDesc.lift = std::max(mDesc.lift, 2.0f);
+        mDesc.lift    = std::max(mDesc.lift, 2.0f);
+    }
+    else if (mDesc.mode == ParticleMode::SnowField)
+    {
+        mDesc.maxParticles    = std::max<uint32_t>(mDesc.maxParticles, 256u);
+        mDesc.componentLife   = 0.0f;   // 常時稼働
+        mDesc.particleLife    = std::max(mDesc.particleLife, 8.0f);
+        mDesc.size            = std::max(0.01f, mDesc.size);
+
+        // いまは既存 update ロジックのまま使うので
+        // 既存モードに悪影響のない preset だけ入れる
+        mDesc.spawnRatePerSec = 0.0f;
+        mDesc.spawnRampSec    = 0.0f;
+
+        mDesc.gravity         = std::max(mDesc.gravity, 0.6f);
+        mDesc.lift            = 0.0f;
+
+        mDesc.additiveBlend   = false;
+        mDesc.warmStart       = true;
+
+        if (mDesc.fieldExtent.x <= 0.0f) mDesc.fieldExtent.x = 20.0f;
+        if (mDesc.fieldExtent.y <= 0.0f) mDesc.fieldExtent.y = 12.0f;
+        if (mDesc.fieldExtent.z <= 0.0f) mDesc.fieldExtent.z = 20.0f;
+
+        mDesc.followCamera = true;
+        mDesc.respawnTop   = true;
     }
 }
 
@@ -485,13 +540,15 @@ ParticleMode GLParticleBackend::ParseModeString(const std::string& s)
     {
         return ParticleMode::Smoke;
     }
+    if (s == "SnowField" || s == "snowfield" || s == "snow")
+    {
+        return ParticleMode::SnowField;
+    }
     return ParticleMode::Spark;
 }
 
 void GLParticleBackend::InitParticleBuffers(bool warmStart)
 {
-    InitIfNeeded();
-
     const uint32_t N = mDesc.maxParticles;
 
     std::vector<Particle> init;
@@ -500,30 +557,91 @@ void GLParticleBackend::InitParticleBuffers(bool warmStart)
     std::mt19937 rng(1337u);
     std::uniform_real_distribution<float> u11(-1.0f, 1.0f);
 
+    auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr;
+    auto* renderer = app ? app->GetRenderer() : nullptr;
+
+    Vector3 emitterWorld = Vector3::Zero;
+    if (GetOwner())
+    {
+        emitterWorld = GetOwner()->GetWorldTransform().GetTranslation() + mDesc.emitterOffset;
+    }
+
+    Vector3 fieldCenter = emitterWorld;
+    if (mDesc.followCamera && renderer)
+    {
+        fieldCenter = renderer->GetInvViewMatrix().GetTranslation();
+    }
+
     for (uint32_t i = 0; i < N; ++i)
     {
         auto& p = init[i];
 
-        p.px = 0.0f;
-        p.py = 0.0f;
-        p.pz = 0.0f;
-        
-        p.vx = 0.0f;
-        p.vy = 0.0f;
-        p.vz = 0.0f;
-
-        if (warmStart)
+        if (mDesc.mode == ParticleMode::SnowField)
         {
-            const float t = (N > 1) ? (static_cast<float>(i) / static_cast<float>(N - 1)) : 0.0f;
-            p.life = t * mDesc.particleLife;
+            const Vector3 halfExt = mDesc.fieldExtent * 0.5f;
 
-            p.vx = u11(rng) * 0.05f;
-            p.vy = u11(rng) * 0.05f;
-            p.vz = u11(rng) * 0.05f;
+            // ------------------------------------------------------
+            // 初期位置
+            // ------------------------------------------------------
+            p.px = fieldCenter.x + RandRange(-halfExt.x, halfExt.x);
+            p.pz = fieldCenter.z + RandRange(-halfExt.z, halfExt.z);
+
+            if (warmStart)
+            {
+                p.py = fieldCenter.y + RandRange(-halfExt.y, halfExt.y);
+            }
+            else
+            {
+                p.py = fieldCenter.y + halfExt.y;
+            }
+
+            // ------------------------------------------------------
+            // 初期速度
+            // ------------------------------------------------------
+            const float fall = RandRange(0.8f, 1.2f) * std::max(mDesc.gravity, 0.01f);
+
+            p.vx = mDesc.wind.x + RandRange(-0.15f, 0.15f);
+            p.vy = -fall;
+            p.vz = mDesc.wind.z + RandRange(-0.15f, 0.15f);
+
+            // ------------------------------------------------------
+            // 寿命
+            // ------------------------------------------------------
+            if (warmStart)
+            {
+                p.life = RandRange(0.0f, std::max(mDesc.particleLife, 0.1f));
+            }
+            else
+            {
+                p.life = 0.0f;
+            }
         }
         else
         {
-            p.life = mDesc.particleLife + 1.0f;
+            //======================================================
+            // 既存モード（Spark / Water / Smoke）は従来のまま
+            //======================================================
+            p.px = 0.0f;
+            p.py = 0.0f;
+            p.pz = 0.0f;
+
+            p.vx = 0.0f;
+            p.vy = 0.0f;
+            p.vz = 0.0f;
+
+            if (warmStart)
+            {
+                const float t = (N > 1) ? (static_cast<float>(i) / static_cast<float>(N - 1)) : 0.0f;
+                p.life = t * mDesc.particleLife;
+
+                p.vx = u11(rng) * 0.05f;
+                p.vy = u11(rng) * 0.05f;
+                p.vz = u11(rng) * 0.05f;
+            }
+            else
+            {
+                p.life = mDesc.particleLife + 1.0f;
+            }
         }
     }
 

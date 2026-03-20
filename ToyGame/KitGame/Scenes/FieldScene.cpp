@@ -72,7 +72,52 @@ void FieldScene::InitScene()
         sn->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
         sn->SetBaseScale(0.005f);
     }*/
-    
+    {
+        auto a = CreateActor<toy::Actor>();
+        auto snow = a->CreateComponent<toy::ParticleComponent>();
+        snow->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
+        
+        toy::ParticleDesc desc;
+
+        desc.mode = toy::ParticleMode::SnowField;
+
+        // ---------------------------------------------------------
+        // 基本
+        // ---------------------------------------------------------
+        desc.maxParticles = 512;
+
+        desc.componentLife = 0.0f;   // 常時稼働
+        desc.particleLife  = 10.0f;
+
+        desc.size = 0.08f;
+
+        desc.spawnRatePerSec = 0.0f; // SnowField では未使用
+        desc.spawnRampSec    = 0.0f;
+
+        desc.spread  = 0.0f;         // SnowField では未使用
+        desc.gravity = 0.35f;
+        desc.lift    = 0.0f;
+
+        desc.additiveBlend = false;
+        desc.warmStart     = true;
+
+        desc.emitterOffset = Vector3::Zero;
+
+        // ---------------------------------------------------------
+        // SnowField 専用
+        // ---------------------------------------------------------
+        desc.fieldExtent  = Vector3(24.0f, 14.0f, 24.0f);
+        desc.wind         = Vector3(0.12f, 0.0f, 0.05f);
+
+        desc.followCamera = true;
+        desc.respawnTop   = true;
+
+        desc.spawnTopY    = 10.0f;
+        desc.killBottomY  = -1.0f;
+        
+        snow->Init(desc);
+        snow->Start();
+    }
     
     
 }

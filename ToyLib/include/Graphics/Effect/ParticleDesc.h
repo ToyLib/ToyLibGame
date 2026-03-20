@@ -10,7 +10,8 @@ enum class ParticleMode
 {
     Spark = 0,
     Water = 1,
-    Smoke = 2
+    Smoke = 2,
+    SnowField = 3
 };
 
 struct ParticleDesc
@@ -33,6 +34,19 @@ struct ParticleDesc
     bool  warmStart       { true };
 
     Vector3 emitterOffset { Vector3::Zero };
+
+    // ---------------------------------------------------------
+    // SnowField 用
+    // ---------------------------------------------------------
+    Vector3 fieldExtent   { 20.0f, 12.0f, 20.0f };
+    Vector3 wind          { 0.0f, 0.0f, 0.0f };
+
+    bool  followCamera    { false };
+    bool  respawnTop      { true };
+
+    // 明示的な高さ指定
+    float spawnTopY       { 8.0f };
+    float killBottomY     { -2.0f };
 };
 
 } // namespace toy
