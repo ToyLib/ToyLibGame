@@ -69,7 +69,8 @@ vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
 
     if (topOnly)
     {
-        p.y = center.y + halfExt.y;
+        float topBand = halfExt.y * 0.35;
+        p.y = center.y + halfExt.y - topBand * r.y;
     }
     else
     {
