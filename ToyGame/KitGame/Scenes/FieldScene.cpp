@@ -89,7 +89,7 @@ void FieldScene::InitScene()
         desc.componentLife = 0.0f;   // 常時稼働
         desc.particleLife  = 10.0f;
 
-        desc.size = 0.08f;
+        desc.size = 0.18f;
 
         desc.spawnRatePerSec = 0.0f; // SnowField では未使用
         desc.spawnRampSec    = 0.0f;
@@ -239,8 +239,8 @@ void FieldScene::DeploySky()
     
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
-    mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
+    //mWeather->SetWeatherOverlay(overlay);
+    mWeather->ChangeWeather(toy::WeatherType::SNOW);
     //overlay->SetVisible(false);
 }
 
