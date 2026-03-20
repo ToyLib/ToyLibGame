@@ -182,7 +182,7 @@ float rainPattern(vec2 uv)
     float shape = smoothstep(0.0, 0.01, y) * (1.0 - y);
     return shape;
 }
-
+/*
 //==================================================
 // 雪エフェクト
 //==================================================
@@ -208,7 +208,7 @@ float snowPattern(vec2 uv)
 
     return brightness;
 }
-
+*/
 //==================================================
 // 前景フォグエフェクト
 //==================================================
@@ -362,12 +362,12 @@ void main()
     {
         alpha += rainPattern(uv) * uRainAmount * 0.25;
     }
-
+/*
     if (uSnowAmount > 0.01)
     {
         alpha += snowPattern(uv) * uSnowAmount * 1.2;
     }
-
+*/
     if (uFogAmount > 0.01)
     {
         alpha += fogPattern(uv) * uFogAmount * 0.9;

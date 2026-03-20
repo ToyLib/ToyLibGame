@@ -84,7 +84,7 @@ void FieldScene::InitScene()
         // ---------------------------------------------------------
         // 基本
         // ---------------------------------------------------------
-        desc.maxParticles = 512;
+        desc.maxParticles = 256;
 
         desc.componentLife = 0.0f;   // 常時稼働
         desc.particleLife  = 10.0f;
@@ -106,7 +106,7 @@ void FieldScene::InitScene()
         // ---------------------------------------------------------
         // SnowField 専用
         // ---------------------------------------------------------
-        desc.fieldExtent  = Vector3(24.0f, 14.0f, 24.0f);
+        desc.fieldExtent = Vector3(40.0f, 18.0f, 40.0f);
         desc.wind         = Vector3(0.12f, 0.0f, 0.05f);
 
         desc.followCamera = true;
@@ -239,7 +239,7 @@ void FieldScene::DeploySky()
     
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
-    //mWeather->SetWeatherOverlay(overlay);
+    mWeather->SetWeatherOverlay(overlay);
     mWeather->ChangeWeather(toy::WeatherType::SNOW);
     //overlay->SetVisible(false);
 }

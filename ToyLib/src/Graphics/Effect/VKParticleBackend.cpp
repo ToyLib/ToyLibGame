@@ -12,6 +12,7 @@
 #include "Render/RenderItem.h"
 #include "Render/RenderItemPayloads.h"
 #include "Render/RenderBackendState.h"
+#include "Render/VK/VKPushConstants.h"
 
 #include "Asset/Material/Texture.h"
 #include "Utils/JsonHelper.h"
@@ -24,18 +25,7 @@
 namespace toy
 {
 
-struct VKParticleUpdatePC
-{
-    float deltaTime;
-    float time;
-    float lifeMax;
-    int   mode;
-    
-    float emitterPos[4];
-    float misc0[4]; // gravity, lift, spread, spawnRate
-    float misc1[4]; // spawnRampSec, maxParticles, reserved, reserved
-};
-static_assert(sizeof(VKParticleUpdatePC) == 64, "VKParticleUpdatePC must be 64 bytes");
+
 
 
 namespace
@@ -1013,6 +1003,18 @@ void VKParticleBackend::UpdateParticlesCompute(VkCommandBuffer cmd, float deltaT
         emitterPos += GetOwner()->GetPosition();
     }
 
+    Vector3 fieldCenter = emitterPos;
+    if (mDesc.mode == ParticleMode::SnowField && mDesc.followCamera)
+    {
+        if (auto* app = GetOwner() ? GetOwner()->GetApp() : nullptr)
+        {
+            if (auto* renderer = app->GetRenderer())
+            {
+                fieldCenter = renderer->GetInvViewMatrix().GetTranslation();
+            }
+        }
+    }
+
     VKParticleUpdatePC pc{};
     pc.deltaTime = deltaTime;
     pc.time      = mTimeAcc;
@@ -1031,8 +1033,23 @@ void VKParticleBackend::UpdateParticlesCompute(VkCommandBuffer cmd, float deltaT
 
     pc.misc1[0] = mDesc.spawnRampSec;
     pc.misc1[1] = static_cast<float>(mDesc.maxParticles);
-    pc.misc1[2] = 0.0f;
+    pc.misc1[2] = mDesc.respawnTop ? 1.0f : 0.0f;
     pc.misc1[3] = 0.0f;
+
+    pc.fieldCenter[0] = fieldCenter.x;
+    pc.fieldCenter[1] = fieldCenter.y;
+    pc.fieldCenter[2] = fieldCenter.z;
+    pc.fieldCenter[3] = 0.0f;
+
+    pc.fieldExtent[0] = mDesc.fieldExtent.x;
+    pc.fieldExtent[1] = mDesc.fieldExtent.y;
+    pc.fieldExtent[2] = mDesc.fieldExtent.z;
+    pc.fieldExtent[3] = 0.0f;
+
+    pc.wind[0] = mDesc.wind.x;
+    pc.wind[1] = mDesc.wind.y;
+    pc.wind[2] = mDesc.wind.z;
+    pc.wind[3] = 0.0f;
 
     mUpdatePipeline->Bind(cmd);
 

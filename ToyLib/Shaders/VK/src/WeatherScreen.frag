@@ -89,7 +89,7 @@ float rainPattern(vec2 uv)
 
     return smoothstep(0.0, 0.01, y) * (1.0 - y);
 }
-
+/*
 float snowPattern(vec2 uv)
 {
     float brightness = 0.0;
@@ -112,7 +112,7 @@ float snowPattern(vec2 uv)
 
     return brightness;
 }
-
+*/
 float fogPattern(vec2 uv)
 {
     vec2 centeredUV = (uv * uResolution - 0.5 * uResolution) / uResolution.y;
@@ -260,12 +260,12 @@ void main()
     {
         alpha += rainPattern(uv) * uRainAmount * 0.25;
     }
-
+/*
     if (uSnowAmount > 0.01)
     {
         alpha += snowPattern(uv) * uSnowAmount * 1.2;
     }
-
+*/
     if (uFogAmount > 0.01)
     {
         alpha += fogPattern(uv) * uFogAmount * 0.9;

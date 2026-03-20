@@ -1,4 +1,5 @@
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
+#include "Render/VK/VKPushConstants.h"
 
 namespace toy
 {
@@ -582,7 +583,7 @@ VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base)
     //==========================================================
     // Push Constants
     //
-    // C++ 側で合わせる前提:
+    // C++ 側:
     // struct VKParticleUpdatePC
     // {
     //     float deltaTime;
@@ -591,16 +592,20 @@ VKComputePipelineDesc MakeParticleUpdateCompute(const std::string& base)
     //     int   mode;
     //
     //     float emitterPos[4];
-    //     float misc0[4]; // gravity, lift, spread, spawnRate
-    //     float misc1[4]; // spawnRampSec, maxParticles, ...
+    //     float misc0[4];
+    //     float misc1[4];
+    //
+    //     float fieldCenter[4];
+    //     float fieldExtent[4];
+    //     float wind[4];
     // };
     //
-    // 合計 16 * 4 = 64 bytes
+    // 16 + 16 + 16 + 16 + 16 + 16 + 16 = 112 bytes
     //==========================================================
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_COMPUTE_BIT;
     pc.offset = 0;
-    pc.size   = 64;
+    pc.size   = sizeof(VKParticleUpdatePC); // = 112
     d.pushConstants.push_back(pc);
 
     return d;

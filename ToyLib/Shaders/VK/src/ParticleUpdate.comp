@@ -27,7 +27,11 @@ layout(push_constant) uniform UpdatePC
 
     vec4 emitterPos;
     vec4 misc0; // x=gravity y=lift z=spread w=spawnRate
-    vec4 misc1; // x=spawnRampSec y=maxParticles
+    vec4 misc1; // x=spawnRampSec y=maxParticles z=respawnTop w=reserved
+
+    vec4 fieldCenter; // xyz=field center
+    vec4 fieldExtent; // xyz=field extent
+    vec4 wind;        // xyz=wind
 } pc;
 
 float hash11(float n)
@@ -52,6 +56,29 @@ vec3 randomDir(int id, float t)
     return r * inversesqrt(len2);
 }
 
+vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
+{
+    float n = float(id) * 17.13 + floor(t * 60.0) * 0.37;
+
+    vec3 r = hash31(n);
+    vec3 halfExt = extent * 0.5;
+
+    vec3 p;
+    p.x = center.x + mix(-halfExt.x, halfExt.x, r.x);
+    p.z = center.z + mix(-halfExt.z, halfExt.z, r.z);
+
+    if (topOnly)
+    {
+        p.y = center.y + halfExt.y;
+    }
+    else
+    {
+        p.y = center.y + mix(-halfExt.y, halfExt.y, r.y);
+    }
+
+    return p;
+}
+
 bool spawnGate(int id)
 {
     float ramp = (pc.misc1.x <= 0.0) ? 1.0 : clamp(pc.time / pc.misc1.x, 0.0, 1.0);
@@ -72,15 +99,31 @@ void main()
     ParticleGPU s = srcParticles[id];
     ParticleGPU d = s;
 
-    vec3 pos = s.posLife.xyz;
+    vec3  pos  = s.posLife.xyz;
     float life = s.posLife.w;
-    vec3 vel = s.velPad.xyz;
+    vec3  vel  = s.velPad.xyz;
 
     bool dead = (life >= pc.lifeMax);
 
     if (dead)
     {
-        if (pc.misc0.w > 0.0 && spawnGate(int(id)))
+        if (pc.mode == 3)
+        {
+            bool topOnly = (pc.misc1.z != 0.0);
+
+            pos = randomFieldPos(int(id), pc.time,
+                                 pc.fieldCenter.xyz,
+                                 pc.fieldExtent.xyz,
+                                 topOnly);
+
+            vec3 dir = randomDir(int(id), pc.time);
+            vel.x = pc.wind.x + dir.x * 0.15;
+            vel.y = -(0.6 + abs(dir.y) * 0.4);
+            vel.z = pc.wind.z + dir.z * 0.15;
+
+            life = 0.0;
+        }
+        else if (pc.misc0.w > 0.0 && spawnGate(int(id)))
         {
             life = 0.0;
             pos  = pc.emitterPos.xyz;
@@ -114,18 +157,51 @@ void main()
         {
             vel.y += pc.misc0.y * pc.deltaTime;
         }
+        else if (pc.mode == 3)
+        {
+            vel.x = mix(vel.x, pc.wind.x, 0.02);
+            vel.z = mix(vel.z, pc.wind.z, 0.02);
+            vel.y -= pc.misc0.x * pc.deltaTime;
+        }
 
         pos  += vel * pc.deltaTime;
         life += pc.deltaTime;
 
-        if (life >= pc.lifeMax)
+        if (pc.mode == 3)
         {
-            life = pc.lifeMax + 1.0;
+            vec3 halfExt = pc.fieldExtent.xyz * 0.5;
+
+            bool outX = abs(pos.x - pc.fieldCenter.x) > halfExt.x;
+            bool outZ = abs(pos.z - pc.fieldCenter.z) > halfExt.z;
+            bool outY = (pos.y < (pc.fieldCenter.y - halfExt.y));
+
+            if (outX || outZ || outY)
+            {
+                bool topOnly = (pc.misc1.z != 0.0);
+
+                pos = randomFieldPos(int(id), pc.time,
+                                     pc.fieldCenter.xyz,
+                                     pc.fieldExtent.xyz,
+                                     topOnly);
+
+                vec3 dir = randomDir(int(id), pc.time);
+                vel.x = pc.wind.x + dir.x * 0.15;
+                vel.y = -(0.6 + abs(dir.y) * 0.4);
+                vel.z = pc.wind.z + dir.z * 0.15;
+
+                life = 0.0;
+            }
+        }
+        else
+        {
+            if (life >= pc.lifeMax)
+            {
+                life = pc.lifeMax + 1.0;
+            }
         }
     }
 
     d.posLife = vec4(pos, life);
     d.velPad  = vec4(vel, 0.0);
-
     dstParticles[id] = d;
 }

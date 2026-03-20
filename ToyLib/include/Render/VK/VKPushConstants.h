@@ -69,4 +69,21 @@ struct VKParticlePC
     float params[4]; // x=size, y=lifeMax
 };
 
+struct VKParticleUpdatePC
+{
+    float deltaTime;
+    float time;
+    float lifeMax;
+    int   mode;
+
+    float emitterPos[4];
+    float misc0[4];      // x=gravity, y=lift, z=spread, w=spawnRate
+    float misc1[4];      // x=spawnRampSec, y=maxParticles, z=respawnTop, w=reserved
+
+    float fieldCenter[4]; // xyz=field center
+    float fieldExtent[4]; // xyz=field extent
+    float wind[4];        // xyz=wind
+};
+static_assert(sizeof(VKParticleUpdatePC) == 112, "VKParticleUpdatePC must be 112 bytes");
+
 } // namespcae toy
