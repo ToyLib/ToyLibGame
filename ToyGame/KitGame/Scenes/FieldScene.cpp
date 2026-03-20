@@ -4,7 +4,7 @@
 #include "../Actors/RPGCharacter.h"
 #include "../Actors/EnemyActor.h"
 
-#include "Environment/SnowFieldComponent.h"
+
 
 FieldScene::FieldScene()
 {
@@ -106,7 +106,7 @@ void FieldScene::InitScene()
         // ---------------------------------------------------------
         // SnowField 専用
         // ---------------------------------------------------------
-        desc.fieldExtent = Vector3(60.0f, 20.0f, 60.0f);
+        desc.fieldExtent = Vector3(60.0f, 16.0f, 60.0f);
         desc.wind         = Vector3(0.12f, 0.0f, 0.05f);
 
         desc.followCamera = true;
