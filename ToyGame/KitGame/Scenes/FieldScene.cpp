@@ -89,7 +89,7 @@ void FieldScene::InitScene()
         desc.componentLife = 0.0f;   // 常時稼働
         desc.particleLife  = 10.0f;
 
-        desc.size = 0.18f;
+        desc.size = 0.22f;
 
         desc.spawnRatePerSec = 0.0f; // SnowField では未使用
         desc.spawnRampSec    = 0.0f;
@@ -250,13 +250,13 @@ void FieldScene::DeployGround()
     // 地面
     auto actor = CreateActor<toy::Actor>();
     auto meshComp = actor->CreateComponent<toy::MeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/ground2.x"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/ground.x"));
     actor->SetPosition(Vector3(0,0,0));
     actor->SetScale(1);
     meshComp->SetToonRender(false);
     meshComp->SetEnableShadow(false);
     
-    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field/ground2.x");
+    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field/ground.x");
     auto va = groundMesh->GetVertexArray();
     auto vaList = groundMesh->GetVertexArray();
     for (auto& va : vaList)
