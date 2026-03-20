@@ -1,11 +1,26 @@
 #version 450
 
+//======================================================================
+// ParticleUpdate.comp
+// ---------------------------------------------------------------------
+// Vulkan compute shader for GPU particle update
+//
+// mode:
+//   0 = Spark
+//   1 = Water
+//   2 = Smoke
+//   3 = SnowField
+//======================================================================
+
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+//----------------------------------------------------------------------
+// Particle buffers
+//----------------------------------------------------------------------
 struct ParticleGPU
 {
-    vec4 posLife; // xyz=pos, w=life
-    vec4 velPad;  // xyz=vel, w=pad
+    vec4 posLife; // xyz = position, w = life
+    vec4 velPad;  // xyz = velocity, w = unused
 };
 
 layout(set = 0, binding = 0, std430) readonly buffer SrcParticles
@@ -18,6 +33,9 @@ layout(set = 0, binding = 1, std430) writeonly buffer DstParticles
     ParticleGPU dstParticles[];
 };
 
+//----------------------------------------------------------------------
+// Push constants
+//----------------------------------------------------------------------
 layout(push_constant) uniform UpdatePC
 {
     float deltaTime;
@@ -26,14 +44,17 @@ layout(push_constant) uniform UpdatePC
     int   mode;
 
     vec4 emitterPos;
-    vec4 misc0; // x=gravity y=lift z=spread w=spawnRate
-    vec4 misc1; // x=spawnRampSec y=maxParticles z=respawnTop w=reserved
+    vec4 misc0; // x=gravity, y=lift, z=spread, w=spawnRate
+    vec4 misc1; // x=spawnRampSec, y=maxParticles, z=respawnTop, w=reserved
 
-    vec4 fieldCenter; // xyz=field center
-    vec4 fieldExtent; // xyz=field extent
-    vec4 wind;        // xyz=wind
+    vec4 fieldCenter; // xyz = SnowField center
+    vec4 fieldExtent; // xyz = SnowField extent
+    vec4 wind;        // xyz = SnowField wind
 } pc;
 
+//----------------------------------------------------------------------
+// Hash helpers
+//----------------------------------------------------------------------
 float hash11(float n)
 {
     return fract(sin(n) * 43758.5453123);
@@ -48,14 +69,23 @@ vec3 hash31(float n)
     );
 }
 
+//----------------------------------------------------------------------
+// Random direction from particle id and time
+//----------------------------------------------------------------------
 vec3 randomDir(int id, float t)
 {
     float n = float(id) * 12.9898 + t * 78.233;
     vec3 r = hash31(n) * 2.0 - 1.0;
+
     float len2 = max(dot(r, r), 1e-6);
     return r * inversesqrt(len2);
 }
 
+//----------------------------------------------------------------------
+// SnowField spawn position
+//  - XZ : full field range
+//  - Y  : topOnly のときは上側帯域から再配置
+//----------------------------------------------------------------------
 vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
 {
     float n = float(id) * 17.13 + floor(t * 60.0) * 0.37;
@@ -80,11 +110,16 @@ vec3 randomFieldPos(int id, float t, vec3 center, vec3 extent, bool topOnly)
     return p;
 }
 
+//----------------------------------------------------------------------
+// Respawn gate for Spark / Water / Smoke
+//----------------------------------------------------------------------
 bool spawnGate(int id)
 {
     float ramp = (pc.misc1.x <= 0.0) ? 1.0 : clamp(pc.time / pc.misc1.x, 0.0, 1.0);
+
     float p = 1.0 - exp(-max(pc.misc0.w, 0.0) * pc.deltaTime);
     p *= ramp;
+
     float r = hash11(float(id) * 3.17 + floor(pc.time * 60.0) * 0.77);
     return (r < p);
 }
@@ -106,10 +141,15 @@ void main()
 
     bool dead = (life >= pc.lifeMax);
 
+    //------------------------------------------------------------------
+    // Dead particle handling
+    //------------------------------------------------------------------
     if (dead)
     {
         if (pc.mode == 3)
         {
+            // SnowField:
+            // field 内へ再配置して、風＋落下速度を与える
             bool topOnly = (pc.misc1.z != 0.0);
 
             pos = randomFieldPos(int(id), pc.time,
@@ -118,14 +158,16 @@ void main()
                                  topOnly);
 
             vec3 dir = randomDir(int(id), pc.time);
-            vel.x = pc.wind.x + dir.x * 0.15;
-            vel.y = -(0.6 + abs(dir.y) * 0.4);
-            vel.z = pc.wind.z + dir.z * 0.15;
+            vel.x = pc.wind.x + dir.x * 0.12;
+            vel.y = -(0.35 + abs(dir.y) * 0.55);
+            vel.z = pc.wind.z + dir.z * 0.12;
 
             life = 0.0;
         }
         else if (pc.misc0.w > 0.0 && spawnGate(int(id)))
         {
+            // Spark / Water / Smoke:
+            // emitter 位置から respawn
             life = 0.0;
             pos  = pc.emitterPos.xyz;
 
@@ -133,10 +175,12 @@ void main()
 
             if (pc.mode == 1)
             {
+                // Water
                 dir.y = -abs(dir.y) * 0.6 - 0.4;
             }
             else if (pc.mode == 2)
             {
+                // Smoke
                 dir.y = abs(dir.y) * 0.6 + 0.4;
             }
 
@@ -144,22 +188,29 @@ void main()
         }
         else
         {
+            // dead のまま維持
             life = pc.lifeMax + 1.0;
             vel  = vec3(0.0);
         }
     }
+    //------------------------------------------------------------------
+    // Alive particle update
+    //------------------------------------------------------------------
     else
     {
         if (pc.mode == 1)
         {
+            // Water
             vel.y -= pc.misc0.x * pc.deltaTime;
         }
         else if (pc.mode == 2)
         {
+            // Smoke
             vel.y += pc.misc0.y * pc.deltaTime;
         }
         else if (pc.mode == 3)
         {
+            // SnowField
             vel.x = mix(vel.x, pc.wind.x, 0.02);
             vel.z = mix(vel.z, pc.wind.z, 0.02);
             vel.y -= pc.misc0.x * pc.deltaTime;
@@ -189,6 +240,7 @@ void main()
                 vel.x = pc.wind.x + dir.x * 0.12;
                 vel.y = -(0.35 + abs(dir.y) * 0.55);
                 vel.z = pc.wind.z + dir.z * 0.12;
+
                 life = 0.0;
             }
         }
@@ -201,6 +253,9 @@ void main()
         }
     }
 
+    //------------------------------------------------------------------
+    // Write back
+    //------------------------------------------------------------------
     d.posLife = vec4(pos, life);
     d.velPad  = vec4(vel, 0.0);
     dstParticles[id] = d;
