@@ -40,6 +40,15 @@ void SnowScene::InitScene()
     mPlayerActor = CreateActor<PlayerActor>();
    
     
+    // エネミー
+    for (int i = 0; i < 10; ++i)
+    {
+        auto enemy = CreateActor<EnemyActor>();
+        enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
+    }
+ 
+    
+    
     // フォント
     auto fnt = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
     // テキスト用 Actor を作成
