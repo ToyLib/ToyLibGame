@@ -16,7 +16,7 @@ void SnowScene::InitScene()
 
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
@@ -210,5 +210,51 @@ void SnowScene::DeployBrick(Vector3 pos)
 void SnowScene::DeployFire(Vector3 pos)
 {
 
+    
+    {
+        auto a = CreateActor<toy::Actor>();
+        a->SetPosition(Vector3(8, 4, -30));
+        a->SetScale(0.2f);
+        auto p = a->CreateComponent<toy::ParticleComponent>();
+        p->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/parts.jpg"));
+        auto l = a->CreateComponent<toy::PointLightComponent>();
+        l->SetColor(Vector3(0.5f, 0.5f, 1.0f));
+        
+        
+        //==============================
+        // Desc で全設定
+        //==============================
+        toy::ParticleDesc desc;
+        
+        // --- 基本 ---
+        desc.maxParticles   = 60;        // 旧 num
+        desc.particleLife   = 1.5f;       // 旧 partLife
+        desc.size           = 2.0f;       // 旧 size
+        desc.mode           = toy::ParticleMode::Water;
+        
+        // --- エミッタ ---
+        desc.emitterOffset  = Vector3(0.0f, -1.0f, 0.0f); // Actor ローカル
+        desc.spawnRatePerSec = 5.0f;     // 1秒あたりの発生数
+        desc.spawnRampSec    = 1.6f;      // 立ち上がり時間
+        
+        // --- 見た目 ---
+        desc.additiveBlend  = true;       // SetAddBlend(true) 相当
+        
+        // --- 物理 ---
+        desc.gravity = 6.0f;              // Smoke
+        desc.lift    = 0.0f;              // 上昇力
+        desc.spread  = 1.0f;              // 拡散速度
+        
+        // --- コンポーネント寿命 ---
+        // 0 = 無限（焚き火用）
+        desc.componentLife = 0.0f;
+        
+        // --- 初期分散（塊回避） ---
+        desc.warmStart = true;
+        
+        
+        p->Init(desc);
+        p->Start();
+    }
 
 }
