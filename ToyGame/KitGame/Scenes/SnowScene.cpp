@@ -176,13 +176,13 @@ void SnowScene::DeployGround()
     // 地面
     auto actor = CreateActor<toy::Actor>();
     auto meshComp = actor->CreateComponent<toy::MeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field_snow/snow_field.x"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field_snow/snow_ground.x"));
     actor->SetPosition(Vector3(0,0,0));
     actor->SetScale(1);
     meshComp->SetToonRender(false);
     meshComp->SetEnableShadow(false);
     
-    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field_snow/snow_field.x");
+    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field_snow/snow_ground.x");
     auto va = groundMesh->GetVertexArray();
     auto vaList = groundMesh->GetVertexArray();
     for (auto& va : vaList)
