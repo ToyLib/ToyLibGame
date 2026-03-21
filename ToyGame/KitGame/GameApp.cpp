@@ -4,6 +4,7 @@
 #include "Scenes/FieldScene.h"
 #include "Scenes/TitleScene.h"
 #include "Scenes/StageScene.h"
+#include "Scenes/SnowScene.h"
 
 
 GameApp::GameApp()
@@ -19,7 +20,8 @@ void GameApp::InitGame()
     mGameFlow->Init();
     //mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
     //mGameFlow->SetInitialScene(std::make_unique<StageScene>());
-    mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
+    //mGameFlow->SetInitialScene(std::make_unique<FieldScene>());
+    mGameFlow->SetInitialScene(std::make_unique<SnowScene>());
 }
 
 void GameApp::ProcessInput(const toy::InputState& input)

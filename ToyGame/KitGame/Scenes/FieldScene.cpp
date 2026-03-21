@@ -1,4 +1,5 @@
 #include "FieldScene.h"
+#include "SnowScene.h"
 #include "ToyLib.h"
 #include "../Actors/PlayerActor.h"
 #include "../Actors/RPGCharacter.h"
@@ -59,20 +60,21 @@ void FieldScene::InitScene()
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
     
+    /*
     { // テスト用スプライト
         auto a = CreateActor<toy::Actor>();
         auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
         sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
         a->SetPosition(Vector3(100.0f, 100.0f,0));
     }
-    
+    */
     /*{ // テスト用雪
         auto a = CreateActor<toy::Actor>();
         auto sn = a->CreateComponent<toy::SnowFieldComponent>();
         sn->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
         sn->SetBaseScale(0.005f);
     }*/
-    {
+    /*{
         auto a = CreateActor<toy::Actor>();
         auto snow = a->CreateComponent<toy::ParticleComponent>();
         snow->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
@@ -115,17 +117,19 @@ void FieldScene::InitScene()
         
         snow->Init(desc);
         snow->Start();
-    }
+    }*/
     
     
 }
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
 {
-    
+    if (input.IsButtonPressed(toy::GameButton::Start))
+    {
+        RequestChange(std::make_unique<SnowScene>());
+    }
 }
 
-int prevHour = 0;
 
 void FieldScene::Update(float deltaTime)
 {
@@ -138,12 +142,8 @@ void FieldScene::Update(float deltaTime)
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
     (void)m;
         
-
-	//if (h != prevHour)
-    {
-        mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
-    }
-
+    mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
+    
     toy::DebugDraw::Clear();
     toy::DebugDraw::Ray(Vector3(0,0,-100), Vector3::UnitZ, 200.0f);
     toy::DebugDraw::Ray(Vector3(0,5,-100), Vector3::UnitZ, 200.0f);
@@ -240,7 +240,7 @@ void FieldScene::DeploySky()
     mWeather = std::make_unique<toy::WeatherManager>();
     mWeather->SetWeatherDome(dome);
     mWeather->SetWeatherOverlay(overlay);
-    mWeather->ChangeWeather(toy::WeatherType::SNOW);
+    mWeather->ChangeWeather(toy::WeatherType::CLEAR);
     //overlay->SetVisible(false);
 }
 
