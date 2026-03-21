@@ -392,10 +392,11 @@ void VKParticleBackend::InitIfNeeded()
 
 void VKParticleBackend::ReleaseVK()
 {
-    auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
-    VkDevice device = backend->GetVKDevice();
+    auto renderer = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
+    renderer->DequeueParticleCompute(this);
+
+    VkDevice device = renderer->GetVKDevice();
     
-    backend->DequeueParticleCompute(this);
     
     mUpdatePipeline.reset();
     mUpdateSetLayout = VK_NULL_HANDLE;
