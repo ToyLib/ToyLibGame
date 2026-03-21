@@ -581,6 +581,7 @@ private:
 
 public:
     void EnqueueParticleCompute(VKParticleBackend* backend, float deltaTime);
+    void DequeueParticleCompute(VKParticleBackend* backend);
     void RecordQueuedParticleComputes(VkCommandBuffer cmd);
 
 private:

@@ -395,6 +395,8 @@ void VKParticleBackend::ReleaseVK()
     auto backend = static_cast<VKRenderer*>(GetOwner()->GetApp()->GetRenderer());
     VkDevice device = backend->GetVKDevice();
     
+    backend->DequeueParticleCompute(this);
+    
     mUpdatePipeline.reset();
     mUpdateSetLayout = VK_NULL_HANDLE;
     mUpdateSetAtoB = VK_NULL_HANDLE;

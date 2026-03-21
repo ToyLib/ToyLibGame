@@ -176,7 +176,7 @@ bool VKRenderer::BeginFrame()
     // UpdateFrame() で Actor が削除される可能性があるため、
     // フレームを跨いだポインタ参照を防ぐ
     //---------------------------------------------------------
-    mParticleComputeJobs.clear();
+    //mParticleComputeJobs.clear();
 
     //---------------------------------------------------------
     // update world UBO
