@@ -5,12 +5,11 @@
 
 namespace toy {
 
-unsigned int GLVertexArrayBackend::sCurrentVAO = 0;
-
 static inline void FillZero(std::array<unsigned int, 5>& a)
 {
     a.fill(0u);
 }
+
 
 void GLVertexArrayBackend::ResetIds()
 {
@@ -299,10 +298,6 @@ void GLVertexArrayBackend::Unload()
 
     FillZero(mVBO);
 
-    if (sCurrentVAO == mVAO)
-    {
-        sCurrentVAO = 0;
-    }
 }
 
 //==============================================================
@@ -310,12 +305,7 @@ void GLVertexArrayBackend::Unload()
 //==============================================================
 void GLVertexArrayBackend::Bind()
 {
-    if (sCurrentVAO == mVAO)
-    {
-        return;
-    }
     glBindVertexArray(mVAO);
-    sCurrentVAO = mVAO;
 }
 
 } // namespace toy

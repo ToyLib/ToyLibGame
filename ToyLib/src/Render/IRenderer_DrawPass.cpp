@@ -91,7 +91,6 @@ void IRenderer::DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int casca
 //==============================================================================
 void IRenderer::Draw()
 {
-
     ResetDebugCounter();
 
     if (!BeginFrame())
@@ -99,7 +98,6 @@ void IRenderer::Draw()
         return;
     }
 
-    // SceneCapture RTT
     for (const auto& req : mSceneCaptureQueue)
     {
         DrawToRenderTarget(req);
@@ -108,7 +106,10 @@ void IRenderer::Draw()
 
     BuildFrameQueues();
 
-    DrawShadowPass();
+    if (mEnableShadow)
+    {
+        DrawShadowPass();
+    }
     RestoreAfterShadowPass();
 
     DrawSkyPass();
@@ -123,7 +124,6 @@ void IRenderer::Draw()
     DrawUIPass();
     DrawFadePass();
     EndFrame();
-    
 }
 
 //==============================================================================

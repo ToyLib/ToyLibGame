@@ -24,6 +24,7 @@
     "color": [0.4, 0.4, 0.4]
   },
   "shadow": {
+    "enable": true,
     "near": 10.0,
     "far": 500.0,
     "bias": 0.001,

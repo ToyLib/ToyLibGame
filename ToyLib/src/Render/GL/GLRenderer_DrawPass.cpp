@@ -4,6 +4,7 @@
 #include "Render/LightingManager.h"
 #include "Render/GL/GLShader.h"
 #include "Asset/Geometry/VertexArray.h"
+
 #include "Asset/Material/Texture.h"
 #include "Render/GL/UniformNamesGL.h"
 
@@ -240,6 +241,7 @@ bool GLRenderer::BeginFrame()
     glDepthMask(GL_TRUE);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     
     return true;
 }

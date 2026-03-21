@@ -150,6 +150,7 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     //---------------------------------------------------------
     if (data.contains("shadow"))
     {
+        JsonHelper::GetBool (data["shadow"], "enable",          mEnableShadow);
         JsonHelper::GetFloat(data["shadow"], "near",            mShadowNear);
         JsonHelper::GetFloat(data["shadow"], "far",             mShadowFar);
         JsonHelper::GetFloat(data["shadow"], "bias",            mShadowBias);

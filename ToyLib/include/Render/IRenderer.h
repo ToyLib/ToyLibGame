@@ -259,6 +259,9 @@ public:
     
     float GetShadowBias() const { return mShadowBias; }
     void SetShadowBias(float f) { mShadowBias = f; }
+    
+    float GetEnableShadow() const { return mEnableShadow; }
+    void SetEnableShadow(const bool b) { mEnableShadow = b; }
 
     //--------------------------------------------------------------------------
     // Common geometry
@@ -430,6 +433,8 @@ protected:
 
     float mCascadeSplit0 { 25.0f };
     float mCascadeBlend  { 6.0f };
+    
+    bool mEnableShadow { true };
 
     //--------------------------------------------------------------------------
     // Post effect

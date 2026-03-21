@@ -49,7 +49,7 @@ public:
 
     void Bind() override;
     void Unload() override;
-
+    
 private:
     void ResetIds();
 
@@ -61,7 +61,6 @@ private:
     std::array<unsigned int, 5> mVBO { {0,0,0,0,0} };
     unsigned int mNumVBO { 0 };
 
-    static unsigned int sCurrentVAO;
 };
 
 } // namespace toy
