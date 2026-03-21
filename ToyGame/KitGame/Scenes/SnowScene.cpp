@@ -24,7 +24,7 @@ void SnowScene::InitScene()
     
     // 時間の設定
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
-    GetApp()->GetTimeOfDaySystem()->SetTime(11.0f, 0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(22.0f, 0.0f);
 
    
     
@@ -38,7 +38,6 @@ void SnowScene::InitScene()
 
 
     mPlayerActor = CreateActor<PlayerActor>();
-   
     
     // エネミー
     for (int i = 0; i < 10; ++i)
@@ -99,7 +98,7 @@ void SnowScene::InitScene()
         desc.spawnRampSec    = 0.0f;
 
         desc.spread  = 0.0f;         // SnowField では未使用
-        desc.gravity = 0.35f;
+        desc.gravity = 0.45f;
         desc.lift    = 0.0f;
 
         desc.additiveBlend = false;
