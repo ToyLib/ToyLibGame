@@ -265,6 +265,13 @@ public:
     
     size_t GetColliderCount() const { return mColliders.size(); }
     
+
+    //=============================================================
+    // Collider validation (dangling pointer prevention)
+    //=============================================================
+    bool HasCollider(const ColliderComponent* c) const;
+
+
 private:
     //-------------------------------------------------------------------------
     // Terrain helpers
@@ -343,10 +350,10 @@ private:
                              uint32_t groundMask,
                              const ColliderComponent* ignore,
                              GroundHit& outHit) const;
-    
+
     void BuildFootSamplePoints(const ColliderComponent* foot,
                                std::vector<Vector3>& outPoints) const;
-    
+
     bool TryGetColliderTopHitAtXZ(const ColliderComponent* c,
                                   float x,
                                   float z,
@@ -354,7 +361,7 @@ private:
                                   float endY,
                                   float cosMaxSlope,
                                   GroundHit& outHit) const;
-    
+
 private:
     std::vector<Polygon> mTerrainPolygons;
     TerrainGrid          mTerrainGrid{};

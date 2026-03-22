@@ -89,21 +89,30 @@ void GravityComponent::StepGravityOnce(float deltaTime, ColliderComponent* foot)
     //==========================================================================
     // Pre) 動く床への追従（前フレームの接地床で“予測”追従）
     //==========================================================================
-    if (mIsGrounded && mGroundCollider && mGroundCollider->GetEnabled())
+    if (mIsGrounded && mGroundCollider)
     {
-        if (Actor* groundOwner = mGroundCollider->GetOwner())
+        // ★修正: mGroundCollider が PhysWorld に登録されているかを確認
+        if (!phys->HasCollider(mGroundCollider))
         {
-            const Vector3 groundPos = groundOwner->GetPosition();
-            const Vector3 deltaG    = groundPos - mPrevGroundPos;
-
-            if (deltaG.LengthSq() > 1e-12f)
+            // 床が削除された場合はクリア
+            mGroundCollider = nullptr;
+        }
+        else if (mGroundCollider->GetEnabled())
+        {
+            if (Actor* groundOwner = mGroundCollider->GetOwner())
             {
-                Vector3 pos = owner->GetPosition();
-                pos += deltaG;
-                SetOwnerPosAndSync(owner, pos);
-            }
+                const Vector3 groundPos = groundOwner->GetPosition();
+                const Vector3 deltaG    = groundPos - mPrevGroundPos;
 
-            mPrevGroundPos = groundPos;
+                if (deltaG.LengthSq() > 1e-12f)
+                {
+                    Vector3 pos = owner->GetPosition();
+                    pos += deltaG;
+                    SetOwnerPosAndSync(owner, pos);
+                }
+
+                mPrevGroundPos = groundPos;
+            }
         }
     }
 

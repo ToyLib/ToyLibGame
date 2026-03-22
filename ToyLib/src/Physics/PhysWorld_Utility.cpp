@@ -328,4 +328,20 @@ void PhysWorld::QueryView(const ViewQueryDesc& desc,
     }
 }
 
+//-----------------------------------------------------------------------------
+// HasCollider
+// ・mColliders に指定されたコライダーが存在するかを確認
+// ・削除済みコライダーへのアクセスを防ぐために使用
+//-----------------------------------------------------------------------------
+bool PhysWorld::HasCollider(const ColliderComponent* c) const
+{
+    if (!c)
+    {
+        return false;
+    }
+
+    auto it = std::find(mColliders.begin(), mColliders.end(), c);
+    return it != mColliders.end();
+}
+
 } // namespace toy
