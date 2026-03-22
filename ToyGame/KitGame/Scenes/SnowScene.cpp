@@ -61,6 +61,26 @@ void SnowScene::InitScene()
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
     
+
+    {
+        // 鏡を出す
+        auto mirrorActor = CreateActor<toy::Actor>();
+        mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
+        mirrorActor->SetScale(1.0f);
+        Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
+        mirrorActor->SetRotation(q);
+        auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
+        capture->Init({ .width = 512, .height = 512 });
+        capture->SetCaptureMode(toy::CaptureMode::Mirror);
+
+        auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
+        mirrorComp->SetTexture(capture->GetColorTexture());
+        mirrorComp->SetScale(10.0f, 10.0f);
+        capture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+        mirrorComp->SetFlip(true, true);
+        mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
+    }
+
     /*
     { // テスト用スプライト
         auto a = CreateActor<toy::Actor>();
