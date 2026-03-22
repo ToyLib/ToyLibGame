@@ -203,9 +203,23 @@ bool VKRenderer::PickPhysicalDevice()
 
 bool VKRenderer::CreateDeviceAndQueues()
 {
+    if (mPhysicalDevice == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateDeviceAndQueues failed: physical device is null\n";
+        return false;
+    }
+
+    if (mQueueFamilyGraphics == UINT32_MAX || mQueueFamilyPresent == UINT32_MAX)
+    {
+        std::cerr << "[VKRenderer] CreateDeviceAndQueues failed: invalid queue family "
+                  << "(graphics=" << mQueueFamilyGraphics
+                  << ", present=" << mQueueFamilyPresent << ")\n";
+        return false;
+    }
+
     std::set<uint32_t> uniqueFamilies = { mQueueFamilyGraphics, mQueueFamilyPresent };
 
-    float prio = 1.0f;
+    const float prio = 1.0f;
     std::vector<VkDeviceQueueCreateInfo> qcis;
     qcis.reserve(uniqueFamilies.size());
 
@@ -226,9 +240,9 @@ bool VKRenderer::CreateDeviceAndQueues()
 
     VkDeviceCreateInfo dci{};
     dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dci.queueCreateInfoCount    = (uint32_t)qcis.size();
+    dci.queueCreateInfoCount    = static_cast<uint32_t>(qcis.size());
     dci.pQueueCreateInfos       = qcis.data();
-    dci.enabledExtensionCount   = (uint32_t)devExts.size();
+    dci.enabledExtensionCount   = static_cast<uint32_t>(devExts.size());
     dci.ppEnabledExtensionNames = devExts.data();
     dci.pEnabledFeatures        = &features;
 
@@ -237,8 +251,13 @@ bool VKRenderer::CreateDeviceAndQueues()
     if (mEnableValidation)
     {
         layers.push_back(kValidationLayers[0]);
-        dci.enabledLayerCount   = (uint32_t)layers.size();
+        dci.enabledLayerCount   = static_cast<uint32_t>(layers.size());
         dci.ppEnabledLayerNames = layers.data();
+    }
+    else
+    {
+        dci.enabledLayerCount   = 0;
+        dci.ppEnabledLayerNames = nullptr;
     }
 #endif
 
@@ -246,20 +265,48 @@ bool VKRenderer::CreateDeviceAndQueues()
     if (vr != VK_SUCCESS || mDevice == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateDevice failed: " << vr << "\n";
+        mDevice = VK_NULL_HANDLE;
         return false;
     }
 
     vkGetDeviceQueue(mDevice, mQueueFamilyGraphics, 0, &mQueueGraphics);
     vkGetDeviceQueue(mDevice, mQueueFamilyPresent,  0, &mQueuePresent);
 
-    return (mQueueGraphics != VK_NULL_HANDLE && mQueuePresent != VK_NULL_HANDLE);
+    if (mQueueGraphics == VK_NULL_HANDLE || mQueuePresent == VK_NULL_HANDLE)
+    {
+        std::cerr << "[VKRenderer] CreateDeviceAndQueues failed: device queues are null\n";
+
+        vkDestroyDevice(mDevice, nullptr);
+        mDevice        = VK_NULL_HANDLE;
+        mQueueGraphics = VK_NULL_HANDLE;
+        mQueuePresent  = VK_NULL_HANDLE;
+        return false;
+    }
+
+    return true;
 }
 
 bool VKRenderer::CreateSwapchainAndViews()
 {
+    if (mDevice == VK_NULL_HANDLE ||
+        mPhysicalDevice == VK_NULL_HANDLE ||
+        mSurface == VK_NULL_HANDLE ||
+        !mWindow)
+    {
+        std::cerr << "[VKRenderer] CreateSwapchainAndViews failed: invalid state\n";
+        return false;
+    }
+
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
+
+    if (pixelW <= 0 || pixelH <= 0)
+    {
+        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid window size "
+                  << pixelW << "x" << pixelH << "\n";
+        return false;
+    }
 
     const auto sc = toy::vkutil::QuerySwapchainSupport(mPhysicalDevice, mSurface);
     if (sc.formats.empty() || sc.presentModes.empty())
@@ -271,6 +318,23 @@ bool VKRenderer::CreateSwapchainAndViews()
     mSwapchainFormat = toy::vkutil::ChooseSurfaceFormat(sc.formats);
     const VkPresentModeKHR pm = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ true);
     mSwapchainExtent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
+
+    if (mSwapchainExtent.width == 0 || mSwapchainExtent.height == 0)
+    {
+        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid extent "
+                  << mSwapchainExtent.width << "x" << mSwapchainExtent.height
+                  << " (window=" << pixelW << "x" << pixelH << ")\n";
+        return false;
+    }
+
+    // Renderer 側のスクリーンサイズも extent に揃える
+    mScreenWidth  = static_cast<float>(mSwapchainExtent.width);
+    mScreenHeight = static_cast<float>(mSwapchainExtent.height);
+
+    std::cerr << "[VKRenderer] CreateSwapchainAndViews: window="
+              << pixelW << "x" << pixelH
+              << " extent=" << mSwapchainExtent.width << "x" << mSwapchainExtent.height
+              << "\n";
 
     uint32_t imageCount = sc.caps.minImageCount + 1;
     if (sc.caps.maxImageCount > 0 && imageCount > sc.caps.maxImageCount)
@@ -288,7 +352,7 @@ bool VKRenderer::CreateSwapchainAndViews()
     sci.imageArrayLayers = 1;
     sci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    uint32_t qIdx[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
+    const uint32_t qIdx[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
     if (mQueueFamilyGraphics != mQueueFamilyPresent)
     {
         sci.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
@@ -298,6 +362,8 @@ bool VKRenderer::CreateSwapchainAndViews()
     else
     {
         sci.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+        sci.queueFamilyIndexCount = 0;
+        sci.pQueueFamilyIndices   = nullptr;
     }
 
     sci.preTransform   = sc.caps.currentTransform;
@@ -310,6 +376,7 @@ bool VKRenderer::CreateSwapchainAndViews()
     if (vr != VK_SUCCESS || mSwapchain == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] vkCreateSwapchainKHR failed: " << vr << "\n";
+        mSwapchain = VK_NULL_HANDLE;
         return false;
     }
 
@@ -318,21 +385,25 @@ bool VKRenderer::CreateSwapchainAndViews()
     if (vr != VK_SUCCESS || scImgCount == 0)
     {
         std::cerr << "[VKRenderer] vkGetSwapchainImagesKHR(count) failed: " << vr << "\n";
+        vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+        mSwapchain = VK_NULL_HANDLE;
         return false;
     }
 
-    mSwapchainImages.resize(scImgCount, VK_NULL_HANDLE);
+    mSwapchainImages.assign(scImgCount, VK_NULL_HANDLE);
     vr = vkGetSwapchainImagesKHR(mDevice, mSwapchain, &scImgCount, mSwapchainImages.data());
     if (vr != VK_SUCCESS)
     {
         std::cerr << "[VKRenderer] vkGetSwapchainImagesKHR(list) failed: " << vr << "\n";
+        mSwapchainImages.clear();
+        vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+        mSwapchain = VK_NULL_HANDLE;
         return false;
     }
 
-    // ★追加
     mImagesInFlight.assign(scImgCount, VK_NULL_HANDLE);
-    
-    mSwapchainImageViews.resize(scImgCount, VK_NULL_HANDLE);
+
+    mSwapchainImageViews.assign(scImgCount, VK_NULL_HANDLE);
     for (uint32_t i = 0; i < scImgCount; ++i)
     {
         VkImageViewCreateInfo iv{};
@@ -347,9 +418,25 @@ bool VKRenderer::CreateSwapchainAndViews()
         iv.subresourceRange.layerCount     = 1;
 
         vr = vkCreateImageView(mDevice, &iv, nullptr, &mSwapchainImageViews[i]);
-        if (vr != VK_SUCCESS)
+        if (vr != VK_SUCCESS || mSwapchainImageViews[i] == VK_NULL_HANDLE)
         {
-            std::cerr << "[VKRenderer] vkCreateImageView failed: " << vr << "\n";
+            std::cerr << "[VKRenderer] vkCreateImageView failed: " << vr
+                      << " (index=" << i << ")\n";
+
+            for (VkImageView& view : mSwapchainImageViews)
+            {
+                if (view != VK_NULL_HANDLE)
+                {
+                    vkDestroyImageView(mDevice, view, nullptr);
+                    view = VK_NULL_HANDLE;
+                }
+            }
+            mSwapchainImageViews.clear();
+            mSwapchainImages.clear();
+            mImagesInFlight.clear();
+
+            vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+            mSwapchain = VK_NULL_HANDLE;
             return false;
         }
     }

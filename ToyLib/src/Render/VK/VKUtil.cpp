@@ -237,17 +237,41 @@ VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes, b
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, int pixelW, int pixelH)
+VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& caps, int width, int height)
 {
-    if (caps.currentExtent.width != 0xFFFFFFFF)
+    // Surface が currentExtent を固定で要求する環境ではそれを優先
+    if (caps.currentExtent.width != UINT32_MAX)
     {
         return caps.currentExtent;
     }
-    
-    VkExtent2D e{};
-    e.width  = (uint32_t)std::clamp(pixelW, (int)caps.minImageExtent.width,  (int)caps.maxImageExtent.width);
-    e.height = (uint32_t)std::clamp(pixelH, (int)caps.minImageExtent.height, (int)caps.maxImageExtent.height);
-    return e;
+
+    // 無効サイズは呼び出し側でスキップさせる
+    if (width <= 0 || height <= 0)
+    {
+        return { 0, 0 };
+    }
+
+    VkExtent2D extent{};
+    extent.width  = static_cast<uint32_t>(width);
+    extent.height = static_cast<uint32_t>(height);
+
+    extent.width = std::clamp(
+        extent.width,
+        caps.minImageExtent.width,
+        caps.maxImageExtent.width);
+
+    extent.height = std::clamp(
+        extent.height,
+        caps.minImageExtent.height,
+        caps.maxImageExtent.height);
+
+    // 念のため最終防御
+    if (extent.width == 0 || extent.height == 0)
+    {
+        return { 0, 0 };
+    }
+
+    return extent;
 }
 
 //--------------------------------------------------------------
