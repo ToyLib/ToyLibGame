@@ -1049,6 +1049,8 @@ public:
     }
 
     static const Quaternion Identity;
+    
+    static Quaternion CreateFromMatrix(const Matrix4& m);
 };
 
 //======================================

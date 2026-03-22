@@ -80,6 +80,18 @@ void SnowScene::InitScene()
         mirrorComp->SetFlip(true, true);
         mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
     }
+    {
+        mBackCamera = CreateActor<toy::Actor>();
+        mBackCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+        auto capture = mBackCamera->CreateComponent<toy::SceneCaptureComponent>();
+        capture->Init({ .width = 320, .height = 240 });
+        capture->SetCaptureMode(toy::CaptureMode::Fixed);
+        
+        auto b = CreateActor<toy::Actor>();
+        b->SetPosition(Vector3(700, 400, 0));
+        auto sp = b->CreateComponent<toy::SpriteComponent>();
+        sp->SetTexture(capture->GetColorTexture());
+    }
 
     /*
     { // テスト用スプライト
@@ -174,7 +186,13 @@ void SnowScene::Update(float deltaTime)
     Vector3 pos = mPlayerActor->GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
-}
+    
+    
+    mBackCamera->SetPosition(mPlayerActor->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    auto mat = mPlayerActor->GetWorldTransform();
+    mBackCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
+    
+   }
 
 void SnowScene::InitField()
 {

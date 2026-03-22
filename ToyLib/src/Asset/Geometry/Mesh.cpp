@@ -713,12 +713,12 @@ void Mesh::LoadMeshData()
         {
             CreateMeshBone(m);
             hasSkinnedMesh = true;
-            std::cerr << "[Mesh] Boned Mesh Loaded : " << i << std::endl;
+            //std::cerr << "[Mesh] Boned Mesh Loaded : " << i << std::endl;
         }
         else
         {
             CreateMesh(m);
-            std::cerr << "[Mesh] NoBone Mesh Loaded : " << i << std::endl;
+            //std::cerr << "[Mesh] NoBone Mesh Loaded : " << i << std::endl;
         }
     }
 
@@ -819,11 +819,11 @@ void Mesh::LoadAnimations()
 
     if (!mScene || mScene->mNumAnimations == 0)
     {
-        std::cerr << "[Mesh] No animations found in scene." << std::endl;
+        //std::cerr << "[Mesh] No animations found in scene." << std::endl;
         return;
     }
 
-    std::cerr << "[Mesh] Found " << mScene->mNumAnimations << " animation(s)." << std::endl;
+    //std::cerr << "[Mesh] Found " << mScene->mNumAnimations << " animation(s)." << std::endl;
 
     for (unsigned int i = 0; i < mScene->mNumAnimations; ++i)
     {

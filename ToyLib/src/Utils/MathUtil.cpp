@@ -248,3 +248,63 @@ Matrix4 Matrix4::CreateFromQuaternion(const Quaternion& q)
 
     return Matrix4(m);
 }
+
+Quaternion Quaternion::CreateFromMatrix(const Matrix4& m)
+{
+    // スケール除去 + 正規化済みの基底を使う
+    Vector3 xAxis = m.GetXAxis();
+    Vector3 yAxis = m.GetYAxis();
+    Vector3 zAxis = m.GetZAxis();
+
+    // row-vector / row-major 前提
+    const float m00 = xAxis.x;
+    const float m01 = xAxis.y;
+    const float m02 = xAxis.z;
+
+    const float m10 = yAxis.x;
+    const float m11 = yAxis.y;
+    const float m12 = yAxis.z;
+
+    const float m20 = zAxis.x;
+    const float m21 = zAxis.y;
+    const float m22 = zAxis.z;
+
+    Quaternion q;
+    const float trace = m00 + m11 + m22;
+
+    if (trace > 0.0f)
+    {
+        const float s = Math::Sqrt(trace + 1.0f) * 2.0f;
+        q.w = 0.25f * s;
+        q.x = (m12 - m21) / s;
+        q.y = (m20 - m02) / s;
+        q.z = (m01 - m10) / s;
+    }
+    else if (m00 > m11 && m00 > m22)
+    {
+        const float s = Math::Sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+        q.w = (m12 - m21) / s;
+        q.x = 0.25f * s;
+        q.y = (m10 + m01) / s;
+        q.z = (m20 + m02) / s;
+    }
+    else if (m11 > m22)
+    {
+        const float s = Math::Sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+        q.w = (m20 - m02) / s;
+        q.x = (m10 + m01) / s;
+        q.y = 0.25f * s;
+        q.z = (m21 + m12) / s;
+    }
+    else
+    {
+        const float s = Math::Sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+        q.w = (m01 - m10) / s;
+        q.x = (m20 + m02) / s;
+        q.y = (m21 + m12) / s;
+        q.z = 0.25f * s;
+    }
+
+    q.Normalize();
+    return q;
+}
