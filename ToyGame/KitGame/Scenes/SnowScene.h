@@ -23,5 +23,5 @@ private:
     class toy::TextSpriteComponent* mTextComp;
     
     toy::Actor* mPlayerActor;
-    toy::Actor* mBackCamera;
+    toy::Actor* mPlyCamera;
 };

@@ -313,21 +313,18 @@ std::shared_ptr<IRenderTarget> VKRenderer::CreateRenderTarget()
 //--------------------------------------------------------------
 // OnWindowResized
 //--------------------------------------------------------------
-void VKRenderer::OnWindowResized(int pixelW, int pixelH)
+void VKRenderer::OnWindowResized(int width, int height)
 {
-    if (pixelW <= 0 || pixelH <= 0)
+    if (width <= 0 || height <= 0)
     {
+        std::cerr << "[VKRenderer] OnWindowResized ignored: "
+                  << width << "x" << height << "\n";
         return;
     }
 
-    mScreenWidth  = (float)pixelW;
-    mScreenHeight = (float)pixelH;
-
+    mScreenWidth = static_cast<float>(width);
+    mScreenHeight = static_cast<float>(height);
     mNeedRecreateSwapchain = true;
 }
-
-//--------------------------------------------------------------
-// BeginFrame / EndFrame
-//--------------------------------------------------------------
 
 } // namespace toy

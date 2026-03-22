@@ -80,15 +80,16 @@ void SnowScene::InitScene()
         mirrorComp->SetFlip(true, true);
         mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
     }
-    {
-        mBackCamera = CreateActor<toy::Actor>();
-        mBackCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
-        auto capture = mBackCamera->CreateComponent<toy::SceneCaptureComponent>();
+    {// 主人公視点
+        mPlyCamera = CreateActor<toy::Actor>();
+        mPlyCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+        auto capture = mPlyCamera->CreateComponent<toy::SceneCaptureComponent>();
         capture->Init({ .width = 320, .height = 240 });
         capture->SetCaptureMode(toy::CaptureMode::Fixed);
+        capture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
         
         auto b = CreateActor<toy::Actor>();
-        b->SetPosition(Vector3(700, 400, 0));
+        b->SetPosition(Vector3(800, 400, 0));
         auto sp = b->CreateComponent<toy::SpriteComponent>();
         sp->SetTexture(capture->GetColorTexture());
     }
@@ -188,9 +189,10 @@ void SnowScene::Update(float deltaTime)
     //toy::DebugDraw::Box(min, max);
     
     
-    mBackCamera->SetPosition(mPlayerActor->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    mPlyCamera->SetPosition(mPlayerActor->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
     auto mat = mPlayerActor->GetWorldTransform();
-    mBackCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
+    mat *= Matrix4::CreateRotationY(Math::ToRadians(180.0f));
+    mPlyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
     
    }
 

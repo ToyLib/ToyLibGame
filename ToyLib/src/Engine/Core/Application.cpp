@@ -594,16 +594,33 @@ void Application::InitAssetManager(const std::string& path)
 //=============================================================
 // スクリーン操作関連
 //=============================================================
-
 void Application::HandleWindowResized()
 {
     if (!mWindow)
     {
         return;
     }
+
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
+
+    if (pixelW <= 0 || pixelH <= 0)
+    {
+        std::cerr << "[Application] Window Resized ignored: invalid size = "
+                  << pixelW << "x" << pixelH << std::endl;
+        return;
+    }
+
+    if (mScreenWidth == pixelW && mScreenHeight == pixelH)
+    {
+        return;
+    }
+
+    std::cerr << "[Application] Window Resized : old = "
+              << mScreenWidth << "x" << mScreenHeight
+              << " new = " << pixelW << "x" << pixelH
+              << std::endl;
 
     mScreenWidth  = pixelW;
     mScreenHeight = pixelH;
@@ -612,8 +629,6 @@ void Application::HandleWindowResized()
     {
         mRenderer->OnWindowResized(pixelW, pixelH);
     }
-    std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
-    
 }
 
 void Application::SetFullscreen(bool enable)
