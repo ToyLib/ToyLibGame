@@ -6,6 +6,24 @@
 
 namespace toy::kit {
 
+namespace {
+void WaitRendererIdleSafe(toy::Application* app)
+{
+    if (!app)
+    {
+        return;
+    }
+
+    auto* renderer = app->GetRenderer();
+    if (!renderer)
+    {
+        return;
+    }
+
+    renderer->WaitIdle();
+}
+} // namespace
+
 GameFlow::GameFlow(toy::Application* app)
     : mApp(app)
     , mFadeAlpha(0.0f)
@@ -29,6 +47,7 @@ void GameFlow::SetInitialScene(std::unique_ptr<IScene> scene)
     // 念のため既存シーンを破棄（基本は無い想定）
     if (mCurrentScene)
     {
+        WaitRendererIdleSafe(mApp);
         mCurrentScene->Unload();
     }
 
@@ -99,6 +118,7 @@ void GameFlow::ApplyPendingScene()
     }
     if (mCurrentScene)
     {
+        WaitRendererIdleSafe(mApp);
         mCurrentScene->Unload();
     }
 
