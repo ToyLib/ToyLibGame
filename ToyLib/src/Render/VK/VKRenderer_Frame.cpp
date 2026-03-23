@@ -398,45 +398,42 @@ bool VKRenderer::CreateSyncObjects()
 //--------------------------------------------------------------
 bool VKRenderer::RecreateSwapchain()
 {
-    if (mDevice == VK_NULL_HANDLE)
-    {
-        return false;
-    }
-
-    int pixelW = 0;
-    int pixelH = 0;
-    SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
-
-    if (pixelW <= 0 || pixelH <= 0)
-    {
-        std::cerr << "[VKRenderer] RecreateSwapchain skipped: invalid size "
-                  << pixelW << "x" << pixelH << "\n";
-        return false;
-    }
-
-    mScreenWidth  = static_cast<float>(pixelW);
-    mScreenHeight = static_cast<float>(pixelH);
+    if (mDevice == VK_NULL_HANDLE) return false;
 
     vkDeviceWaitIdle(mDevice);
 
+    // swapchain dependent resources
     CleanupSwapchain();
 
     if (!CreateSwapchainAndViews())
         return false;
+
+    // ★重要：depth は swapchain に依存するので必ず作り直す
     if (!CreateDepthForSwapchain())
         return false;
+
     if (!CreateRenderPass())
         return false;
+
     if (!CreateFramebuffers())
         return false;
+
+    // pipeline は renderpass/extent に依存
     if (!BuildDefaultPipelines())
         return false;
-    if (!CreatePostEffectDescriptorSets())
-        return false;
 
+    // ★ PostEffect の descriptor は pipeline layout に依存するので作り直す
+    if (!CreatePostEffectDescriptorSets())
+    {
+        std::cerr << "[VKRenderer] RecreateSwapchain: CreatePostEffectDescriptorSets failed\n";
+        return false;
+    }
+
+    // shadow resources は extent に依存
     DestroyShadowResources();
     if (!CreateShadowResources())
         return false;
+    
 
     return true;
 }
