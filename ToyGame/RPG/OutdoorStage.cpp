@@ -73,7 +73,7 @@ void OutdoorStage::InitStage()
     mirrorComp->SetTexture(capture->GetColorTexture());
     mirrorComp->SetScale(10.0f, 10.0f);
     capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
-    mirrorComp->SetFlip(true, true);
+    mirrorComp->SetFlip(true, false);
     mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
     
  
