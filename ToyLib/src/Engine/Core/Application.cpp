@@ -46,7 +46,7 @@ Application::Application()
 Application::~Application()
 {
     // 実処理は Shutdown() 側で行う前提
-	//Shutdown();
+    //Shutdown();
 }
 
 
@@ -218,11 +218,11 @@ void Application::Shutdown()
     }
     
     ShutdownGame();
-	UnloadData();
+    UnloadData();
 
     mInputSys->Shutdown();
     mRenderer->Shutdown();
-	mRenderer.reset();
+    mRenderer.reset();
 
     // GL Context 破棄
     if (mGLContext)
@@ -418,12 +418,12 @@ void Application::UnloadData()
     if (mAssetManager)
     {
         mAssetManager->UnloadData();
-		mAssetManager.reset();
+        mAssetManager.reset();
     }
     if (mSystemAssetManager)
     {
         mSystemAssetManager->UnloadData();
-		mSystemAssetManager.reset();
+        mSystemAssetManager.reset();
     }
     mActors.clear();
     if (mRenderer)
@@ -594,33 +594,16 @@ void Application::InitAssetManager(const std::string& path)
 //=============================================================
 // スクリーン操作関連
 //=============================================================
+
 void Application::HandleWindowResized()
 {
     if (!mWindow)
     {
         return;
     }
-
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
-
-    if (pixelW <= 0 || pixelH <= 0)
-    {
-        std::cerr << "[Application] Window Resized ignored: invalid size = "
-                  << pixelW << "x" << pixelH << std::endl;
-        return;
-    }
-
-    if (mScreenWidth == pixelW && mScreenHeight == pixelH)
-    {
-        return;
-    }
-
-    std::cerr << "[Application] Window Resized : old = "
-              << mScreenWidth << "x" << mScreenHeight
-              << " new = " << pixelW << "x" << pixelH
-              << std::endl;
 
     mScreenWidth  = pixelW;
     mScreenHeight = pixelH;
@@ -629,6 +612,8 @@ void Application::HandleWindowResized()
     {
         mRenderer->OnWindowResized(pixelW, pixelH);
     }
+    std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
+    
 }
 
 void Application::SetFullscreen(bool enable)
