@@ -1019,7 +1019,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
         // params0: flipX, flipY, mode, scanlineStrength
         pc.params0[0] = sp.flipX ? 1.0f : 0.0f;
-        pc.params0[1] = sp.flipY ? 0.0f : 1.0f;
+        pc.params0[1] = sp.flipY ? 1.0f : 0.0f;
         pc.params0[2] = static_cast<float>(sp.mode);
         pc.params0[3] = sp.scanlineStrength;
 

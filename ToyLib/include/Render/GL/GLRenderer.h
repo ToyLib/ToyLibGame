@@ -53,6 +53,7 @@ protected:
 
 private:
     SDL_GLContext mGLContext          { nullptr };
+    bool mIsDrawingCapture { false };
     
     std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();

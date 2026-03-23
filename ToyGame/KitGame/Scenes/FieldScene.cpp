@@ -204,7 +204,7 @@ void FieldScene::InitField()
         mirrorComp->SetTexture(capture->GetColorTexture());
         mirrorComp->SetScale(10.0f, 10.0f);
         capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
-        mirrorComp->SetFlip(true, true);
+        mirrorComp->SetFlip(true, false);
         mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
     }
     {
@@ -222,7 +222,7 @@ void FieldScene::InitField()
         waterComp->SetTexture(waterCapture->GetColorTexture());
         waterComp->SetScale(40.0f, 40.0f);
         waterCapture->SetSurfaceInfo({ .scWidth = 20.f, .scHeight = 20.0f });
-        waterComp->SetFlip(true, true);
+        waterComp->SetFlip(true, false);
         waterComp->SetSurfaceMode(toy::SurfaceMode::Water);
         waterComp->SetOpacity(0.7f);
     }

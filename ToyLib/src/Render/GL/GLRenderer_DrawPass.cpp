@@ -17,16 +17,27 @@ namespace toy {
 // GL state apply
 //  - RenderItem が要求する描画状態を OpenGL に反映
 //==============================================================================
-
 void GLRenderer::ApplyState(const RenderItem& it)
 {
     // depth test
-    if (it.depthTest) glEnable(GL_DEPTH_TEST);
-    else             glDisable(GL_DEPTH_TEST);
+    if (it.depthTest)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+    else
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
 
     // depth func
-    if (it.type == RenderItemType::SkyDome) glDepthFunc(GL_LEQUAL);
-    else                                   glDepthFunc(GL_LESS);
+    if (it.type == RenderItemType::SkyDome)
+    {
+        glDepthFunc(GL_LEQUAL);
+    }
+    else
+    {
+        glDepthFunc(GL_LESS);
+    }
 
     // depth write
     glDepthMask(it.depthWrite ? GL_TRUE : GL_FALSE);
@@ -62,7 +73,13 @@ void GLRenderer::ApplyState(const RenderItem& it)
     }
 
     // front face
-    glFrontFace(it.frontFace == FrontFace::CCW ? GL_CCW : GL_CW);
+    FrontFace ff = it.frontFace;
+    if (mIsDrawingCapture)
+    {
+        ff = (ff == FrontFace::CCW) ? FrontFace::CW : FrontFace::CCW;
+    }
+
+    glFrontFace(ff == FrontFace::CCW ? GL_CCW : GL_CW);
 
     // color mask (default)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -652,6 +669,15 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     glGetIntegerv(GL_VIEWPORT, prevVP);
 
     //==========================================================================
+    // Save rasterizer state
+    //==========================================================================
+    GLboolean wasCull = glIsEnabled(GL_CULL_FACE);
+    GLint prevFrontFace = GL_CCW;
+    GLint prevCullFace = GL_BACK;
+    glGetIntegerv(GL_FRONT_FACE, &prevFrontFace);
+    glGetIntegerv(GL_CULL_FACE_MODE, &prevCullFace);
+
+    //==========================================================================
     // Bind render target
     //==========================================================================
     req.rt->Bind();
@@ -661,7 +687,6 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     //==========================================================================
     // Reset GL state for SceneCapture
-    //  - Windows/OpenGL では前パスの state 汚染を受けやすいため明示する
     //==========================================================================
     glDisable(GL_SCISSOR_TEST);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -670,7 +695,6 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     //==========================================================================
     // Clear target
-    //  - Sky only の場合は色を残して depth だけ消す
     //==========================================================================
     if (req.drawWorld || req.drawOverlay || req.drawUI)
     {
@@ -689,26 +713,19 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mInvView = req.view;
     mInvView.Invert();
 
-    /*
     //==========================================================================
-    // Optional shadow pass
+    // GL SceneCapture only:
+    //   make RTT output orientation match Vulkan side
+    //   row-vector: final clip = v * View * Proj * FlipY
     //==========================================================================
-    if (req.drawWorld)
-    {
-        DrawShadowPass();
+    Matrix4 clipFlipY = Matrix4::Identity;
+    clipFlipY.mat[1][1] = -1.0f;   // Matrix4 の実メンバ名に合わせて必要なら修正
+    mProjectionMatrix = mProjectionMatrix * clipFlipY;
 
-        // Shadow pass 後に画面側へ戻る実装なら RT を再バインド
-        RestoreAfterShadowPass();
-        req.rt->Bind();
-        glViewport(0, 0,
-                   static_cast<GLsizei>(req.rt->GetWidth()),
-                   static_cast<GLsizei>(req.rt->GetHeight()));
-    }
-    else
-    {
-        glDisable(GL_STENCIL_TEST);
-    }
-    */
+    //==========================================================================
+    // SceneCapture flag
+    //==========================================================================
+    mIsDrawingCapture = true;
 
     //==========================================================================
     // Build render queues
@@ -718,24 +735,24 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     const auto& items = mRenderQueue.Items();
 
     auto drawBucket = [&](const std::vector<uint32_t>& bucket)
+    {
+        for (uint32_t idx : bucket)
         {
-            for (uint32_t idx : bucket)
+            if (idx >= items.size())
             {
-                if (idx >= items.size())
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                const RenderItem& it = items[idx];
+            const RenderItem& it = items[idx];
 
-                // UI は SceneCapture に混ぜない
-                if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
-                {
-                    continue;
-                }
+            // UI は SceneCapture に混ぜない
+            if (it.pass == RenderPass::UI || it.layer == VisualLayer::UI)
+            {
+                continue;
+            }
 
-                switch (it.type)
-                {
+            switch (it.type)
+            {
                 case RenderItemType::SkyDome:
                 case RenderItemType::Mesh:
                 case RenderItemType::SkinnedMesh:
@@ -744,16 +761,16 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
                     DrawItem(it, RenderPass::World, -1);
                     break;
 
-                    // SceneCapture では除外
+                // SceneCapture では除外
                 case RenderItemType::Surface:
                 case RenderItemType::Overlay:
                 case RenderItemType::Sprite:
                 case RenderItemType::Debug:
                 default:
                     break;
-                }
             }
-        };
+        }
+    };
 
     //==========================================================================
     // Draw capture contents
@@ -770,6 +787,25 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         drawBucket(mBuckets.worldTransparent);
         drawBucket(mBuckets.effectOverlay);
     }
+
+    //==========================================================================
+    // Restore capture flag
+    //==========================================================================
+    mIsDrawingCapture = false;
+
+    //==========================================================================
+    // Restore rasterizer state
+    //==========================================================================
+    if (wasCull)
+    {
+        glEnable(GL_CULL_FACE);
+        glCullFace(prevCullFace);
+    }
+    else
+    {
+        glDisable(GL_CULL_FACE);
+    }
+    glFrontFace(prevFrontFace);
 
     //==========================================================================
     // Restore camera
