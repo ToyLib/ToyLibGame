@@ -23,7 +23,7 @@ void SnowScene::InitScene()
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(3000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(22.0f, 0.0f);
 
    
