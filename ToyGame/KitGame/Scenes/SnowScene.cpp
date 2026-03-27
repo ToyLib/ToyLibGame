@@ -94,20 +94,7 @@ void SnowScene::InitScene()
         sp->SetTexture(capture->GetColorTexture());
     }
 
-    /*
-    { // テスト用スプライト
-        auto a = CreateActor<toy::Actor>();
-        auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
-        sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
-        a->SetPosition(Vector3(100.0f, 100.0f,0));
-    }
-    */
-    /*{ // テスト用雪
-        auto a = CreateActor<toy::Actor>();
-        auto sn = a->CreateComponent<toy::SnowFieldComponent>();
-        sn->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
-        sn->SetBaseScale(0.005f);
-    }*/
+
     {
         auto a = CreateActor<toy::Actor>();
         auto snow = a->CreateComponent<toy::ParticleComponent>();
