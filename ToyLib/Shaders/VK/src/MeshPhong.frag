@@ -209,7 +209,7 @@ float ComputeShadow(float camDist)
     float t = smoothstep(split0 - blend, split0 + blend, camDist);
     float shadowFactor = mix(s0, s1, t);
 
-    // strengthで混ぜ（1=影なし、0.5..1 が shadowFactor）
+    // strength = 0 で影なし、1 で shadowFactor をそのまま使う
     return mix(1.0, shadowFactor, strength);
 }
 
