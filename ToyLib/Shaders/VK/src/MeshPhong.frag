@@ -45,6 +45,7 @@ layout(set=0, binding=0, std140) uniform SceneUBO
     mat4 shadowVP0;
     mat4 shadowVP1;
     vec4 shadowParams;  // x=split0 y=blend z=strength w=bias
+    ivec4 shadowFlags;   // x = enableShadow
 } uScene;
 
 layout(set=1, binding=0) uniform sampler2D uBaseMap;
@@ -242,9 +243,12 @@ void main()
         lighting += ComputePointLight(uScene.pointLights[i], N, V, vWorldPos, specPower, toon);
     }
 
-    // shadow (CSM blend + strength)
-    float shadowFactor = ComputeShadow(camDist);
-
+    
+    float shadowFactor = 1.0;
+    if (uScene.shadowFlags.x != 0)
+    {
+        shadowFactor = ComputeShadow(camDist);
+    }
     // base color (texture or constant)
     vec4 baseColor;
     if (pc.baseColor_useTex.a > 0.5)

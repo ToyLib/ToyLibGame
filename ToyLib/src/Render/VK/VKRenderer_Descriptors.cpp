@@ -417,6 +417,11 @@ void VKRenderer::UpdateSceneUBO_World()
     }
 
 
+    ubo.shadowFlags[0] = static_cast<int>(mEnableShadow);
+    ubo.shadowFlags[1] = 0;
+    ubo.shadowFlags[2] = 0;
+    ubo.shadowFlags[3] = 0;
+
     UploadToBuffer(mSceneUBOMem[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
 }
 

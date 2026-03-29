@@ -21,10 +21,10 @@ struct VKSceneUBO
     float dirDir[4];
     float dirDiffuse[4];
     float dirSpecular[4];
-
+    
     float fogColor[4];   // xyz
     float fogParams[4];  // x=minDist, y=maxDist
-
+    
     // --------------------------
     // PointLights (GL互換: max 8)
     // std140 を強く意識して 16byte に揃える
@@ -33,13 +33,14 @@ struct VKSceneUBO
     int   _plPad0;
     int   _plPad1;
     int   _plPad2;
-
+    
     VKPointLight pointLights[8];
-
+    
     // shadow (Step3)
     float shadowVP0[16];
     float shadowVP1[16];
     float shadowParams[4];
+    int   shadowFlags[4];   // [0] = enableShadow
 };
 
 // SkyDome
