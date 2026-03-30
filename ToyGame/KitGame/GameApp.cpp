@@ -30,6 +30,12 @@ void GameApp::ProcessInput(const toy::InputState& input)
     {
         mGameFlow->ProcessInput(input);
     }
+    
+    if (input.Keyboard.GetKeyState(SDL_SCANCODE_F6) == toy::EPressed)
+    {
+        bool enableShadow = GetRenderer()->GetEnableShadow();
+        GetRenderer()->SetEnableShadow(!enableShadow);
+    }
 }
 
 void GameApp::UpdateGame(float deltaTime)
