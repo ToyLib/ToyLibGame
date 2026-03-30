@@ -102,8 +102,8 @@ bool GLRenderer::LoadShaders()
     }
 
     // UnlitWire
-    vShaderName = mShaderPath + "BasicMesh.vert";
-    fShaderName = mShaderPath + "SolidColor.frag";
+    vShaderName = mShaderPath + "UnlitWire.vert";
+    fShaderName = mShaderPath + "UnlitWire.frag";
     mShaders["UnlitWire"] = std::make_shared<GLShader>();
     if (!mShaders["UnlitWire"]->Load(vShaderName.c_str(), fShaderName.c_str()))
         return false;
