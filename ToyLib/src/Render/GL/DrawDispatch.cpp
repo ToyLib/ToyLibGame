@@ -123,6 +123,7 @@ static bool DispatchMesh(IRenderer& r,
     sh->SetFloatUniform(toy::glsl::Scene::CascadeSplit0, r.GetCascadeSplit0());
     sh->SetFloatUniform(toy::glsl::Scene::CascadeBlend,  r.GetCascadeBlend());
     sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    r.GetShadowBias());
+    sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
 
     // Toon
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
@@ -220,6 +221,8 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
         sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
         sh->SetFloatUniform(Scene::ShadowBias,    r.GetShadowBias());
+        sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
+
     }
 
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);

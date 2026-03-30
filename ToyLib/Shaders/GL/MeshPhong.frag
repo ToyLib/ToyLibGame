@@ -55,6 +55,7 @@ struct SceneData
     float cascadeSplit0;
     float cascadeBlend;
     float shadowBias;
+    int   shadowEnable;
 };
 
 struct ObjectData
@@ -334,30 +335,34 @@ void main()
     //----------------------------------------------------------
     // Shadow
     //----------------------------------------------------------
-
-    float s0 = ShadowPCF(
-        uScene.shadowMap0,
-        uScene.lightViewProj0,
-        fragWorldPos,
-        N,
-        L
-    );
-
-    float s1 = ShadowPCF(
-        uScene.shadowMap1,
-        uScene.lightViewProj1,
-        fragWorldPos,
-        N,
-        L
-    );
-
-    float t = smoothstep(
-        uScene.cascadeSplit0 - uScene.cascadeBlend,
-        uScene.cascadeSplit0 + uScene.cascadeBlend,
-        dist
-    );
-
-    float shadowFactor = mix(s0, s1, t);
+    float shadowFactor = 1.0;
+    
+    if (uScene.shadowEnable == 1)
+    {
+        float s0 = ShadowPCF(
+                             uScene.shadowMap0,
+                             uScene.lightViewProj0,
+                             fragWorldPos,
+                             N,
+                             L
+                             );
+        
+        float s1 = ShadowPCF(
+                             uScene.shadowMap1,
+                             uScene.lightViewProj1,
+                             fragWorldPos,
+                             N,
+                             L
+                             );
+        
+        float t = smoothstep(
+                             uScene.cascadeSplit0 - uScene.cascadeBlend,
+                             uScene.cascadeSplit0 + uScene.cascadeBlend,
+                             dist
+                             );
+        
+        shadowFactor = mix(s0, s1, t);
+    }
 
     //----------------------------------------------------------
     // Base color

@@ -28,6 +28,7 @@ inline constexpr const char* LightVP1       = "uScene.lightViewProj1";
 inline constexpr const char* CascadeSplit0  = "uScene.cascadeSplit0";
 inline constexpr const char* CascadeBlend   = "uScene.cascadeBlend";
 inline constexpr const char* ShadowBias     = "uScene.shadowBias";
+inline constexpr const char* ShadowEnable   = "uScene.shadowEnable";
 }
 
 namespace Object

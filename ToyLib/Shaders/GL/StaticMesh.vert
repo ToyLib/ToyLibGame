@@ -56,6 +56,7 @@ struct SceneData
     float cascadeSplit0;
     float cascadeBlend;
     float shadowBias;
+    int   shadowEnable;
 };
 
 struct ObjectData
