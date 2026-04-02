@@ -32,14 +32,7 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
     mBgSprite->SetColor(Vector3(0.2f, 0.2f, 0.2f));
     mBgSprite->SetAlpha(0.6f);
 
-    if (RenderBackendState::Get().IsVK())
-    {
-        mBackendName = "Vulkan";
-    }
-    else
-    {
-        mBackendName = "OpenGL";
-    }
+    mBackendName = RenderBackendState::Get().IsVK() ? "Vulkan" : "OpenGL";
 
     SetEnabled(false);
 }
