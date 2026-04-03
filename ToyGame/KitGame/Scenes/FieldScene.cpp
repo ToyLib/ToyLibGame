@@ -15,14 +15,14 @@ FieldScene::FieldScene()
 void FieldScene::InitScene()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::None;
+    effectDesc.type = toy::PostEffectType::Watercolor;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
     
     
     // 時間の設定
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(3000.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(10.0f, 0.0f);
 
    

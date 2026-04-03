@@ -696,14 +696,7 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     //==========================================================================
     // Clear target
     //==========================================================================
-    if (req.drawWorld || req.drawOverlay || req.drawUI)
-    {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
-    else
-    {
-        glClear(GL_DEPTH_BUFFER_BIT);
-    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     //==========================================================================
     // Override camera

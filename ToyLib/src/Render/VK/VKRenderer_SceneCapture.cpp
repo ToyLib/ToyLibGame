@@ -327,9 +327,9 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     UpdateSceneUBO_Capture(viewProj);
 
     VkClearValue clears[2]{};
-    clears[0].color.float32[0] = 0.0f;
-    clears[0].color.float32[1] = 0.0f;
-    clears[0].color.float32[2] = 0.0f;
+    clears[0].color.float32[0] = mClearColor.x;
+    clears[0].color.float32[1] = mClearColor.y;
+    clears[0].color.float32[2] = mClearColor.z;
     clears[0].color.float32[3] = 1.0f;
     clears[1].depthStencil.depth   = 1.0f;
     clears[1].depthStencil.stencil = 0;

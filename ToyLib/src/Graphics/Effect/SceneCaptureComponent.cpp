@@ -41,8 +41,7 @@ void SceneCaptureComponent::Init(const Desc& desc)
     mDesc.width  = (mDesc.width  > 0) ? mDesc.width  : 1;
     mDesc.height = (mDesc.height > 0) ? mDesc.height : 1;
 
-    // RenderTarget 作成
-    //mRT = std::make_shared<GLRenderTarget>();
+    // RenderTarget 取得
     mRT = GetOwner()->GetApp()->GetRenderer()->CreateRenderTarget();
 
     mRT->Create(mDesc.width, mDesc.height);
