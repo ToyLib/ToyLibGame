@@ -47,17 +47,17 @@ struct ScreenProjectResult
 //==============================================================================
 struct UIScaleInfo
 {
-    float screenW  = 0.0f;
-    float screenH  = 0.0f;
+    float screenW  { 0.0f };
+    float screenH  { 0.0f };
 
-    float virtualW = 0.0f;
-    float virtualH = 0.0f;
+    float virtualW { 0.0f };
+    float virtualH { 0.0f };
 
-    float scaleX   = 1.0f;
-    float scaleY   = 1.0f;
-    float scale    = 1.0f;
-    float offsetX  = 0.0f;
-    float offsetY  = 0.0f;
+    float scaleX   { 1.0f };
+    float scaleY   { 1.0f };
+    float scale    { 1.0f };
+    float offsetX  { 0.0f };
+    float offsetY  { 0.0f };
 };
 
 //==============================================================================
