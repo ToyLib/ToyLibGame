@@ -13,7 +13,6 @@ FieldScene::FieldScene()
 }
 
 void FieldScene::InitScene()
-
 {
     toy::PostEffectDesc effectDesc;
     effectDesc.type = toy::PostEffectType::None;
