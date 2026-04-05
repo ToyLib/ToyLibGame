@@ -22,7 +22,6 @@ public:
     
     void OnWindowResized(int pixelW, int pixelH) override;
 
-    
     std::shared_ptr<class GLShader> GetShader(const std::string& name);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
@@ -30,6 +29,7 @@ public:
     void SetClearColor(const Vector3& color) override;
     
     std::shared_ptr<class IRenderTarget> CreateRenderTarget() override;
+    
 protected:
     void ApplyState(const RenderItem& it) override;
     void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
