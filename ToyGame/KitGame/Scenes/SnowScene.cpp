@@ -32,7 +32,7 @@ void SnowScene::InitScene()
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.mp3");
     GetApp()->GetSoundMixer()->PlayBGM();
     GetApp()->GetSoundMixer()->SetBgmVolume(0.1f);
-    GetApp()->GetSoundMixer()->SetMasterVolume(0.0f);
+    GetApp()->GetSoundMixer()->SetMasterVolume(0.5f);
 
     InitField();
 

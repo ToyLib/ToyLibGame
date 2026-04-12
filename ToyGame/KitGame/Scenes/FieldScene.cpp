@@ -15,7 +15,7 @@ FieldScene::FieldScene()
 void FieldScene::InitScene()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Watercolor;
+    effectDesc.type = toy::PostEffectType::None;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
