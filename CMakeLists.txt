@@ -231,7 +231,7 @@ if(WIN32)
         "${VCPKG_BIN_DIR}/SDL3_image.dll"
         "${VCPKG_BIN_DIR}/jpeg62.dll"
         "${VCPKG_BIN_DIR}/libpng16.dll"
-        "${VCPKG_BIN_DIR}/zlib1.dll"
+        "${VCPKG_BIN_DIR}/z.dll"
         "${VCPKG_BIN_DIR}/SDL3_ttf.dll"
         "${VCPKG_BIN_DIR}/assimp-vc145-mt.dll"
         "${VCPKG_BIN_DIR}/fmt.dll"
