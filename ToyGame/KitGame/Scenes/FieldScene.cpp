@@ -284,7 +284,6 @@ void FieldScene::DeployBrick(Vector3 pos)
     coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.x")->GetVertexArray());
     
     coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
-
 }
 
 void FieldScene::DeployFire(Vector3 pos)
