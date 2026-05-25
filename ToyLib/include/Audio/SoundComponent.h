@@ -7,7 +7,6 @@
 #include <AL/alc.h>
 
 namespace toy {
-
 //----------------------------------------------
 // SoundComponent
 //  - Actor に取り付けて使用する 3D/2D サウンド再生コンポーネント
