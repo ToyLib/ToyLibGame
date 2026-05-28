@@ -10,11 +10,11 @@
   <a href="./LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
   </a>
-  <a href="https://github.com/WFworks/ToyLibGame/issues">
-    <img src="https://img.shields.io/github/issues/WFworks/ToyLibGame" alt="Issues">
+  <a href="https://github.com/ToyLib/ToyLibGame/issues">
+    <img src="https://img.shields.io/github/issues/ToyLib/ToyLibGame" alt="Issues">
   </a>
-  <a href="https://github.com/WFworks/ToyLibGame/stargazers">
-    <img src="https://img.shields.io/github/stars/WFworks/ToyLibGame?style=social" alt="Stars">
+  <a href="https://github.com/ToyLib/ToyLibGame/stargazers">
+    <img src="https://img.shields.io/github/stars/ToyLib/ToyLibGame?style=social" alt="Stars">
   </a>
 </p>
 
