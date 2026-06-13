@@ -176,7 +176,7 @@ if(WIN32)
     # （vcpkg toolchain を使っている前提）
 
     # vcpkg
-    set(VCPKG_ROOT "C:/Repos/vcpkg")
+    set(VCPKG_ROOT "C:/tools/vcpkg")
     set(VCPKG_TRIPLET "x64-windows")
 
     set(VCPKG_INC_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include")
