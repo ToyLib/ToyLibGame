@@ -114,4 +114,4 @@ They may not be used to represent other projects without explicit permission.
 
 Questions, ideas, and suggestions are welcome.  
 Please open an issue on the  
-[GitHub Issues page](https://github.com/WFworks/ToyLibGame/issues).
+[GitHub Issues page](https://github.com/ToyLib/ToyLibGame/issues).
