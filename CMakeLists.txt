@@ -34,10 +34,16 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/${GAME_PATH}/*.cpp
 )
 
+# External のソース（glad, stb_image, json.hpp など）
+file(GLOB_RECURSE TOYLIB_EXTERNAL_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/*.c
+)
+
 set(SOURCES
     ${TOYLIB_SOURCES}
     ${TOYKIT_SOURCES}
     ${GAME_SOURCES}
+    ${TOYLIB_EXTERNAL_SOURCES}
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -184,23 +190,23 @@ if(WIN32)
     set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
 
     # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        HINTS ${VCPKG_INC_DIR}
-    )
+    #find_path(MPG123_INCLUDE_DIR
+    #    NAMES mpg123.h
+    #    HINTS ${VCPKG_INC_DIR}
+    #)
 
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        HINTS ${VCPKG_LIB_DIR}
-    )
+    #find_library(MPG123_LIBRARY
+    #    NAMES mpg123
+    #    HINTS ${VCPKG_LIB_DIR}
+    #)
 
-    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Run: vcpkg install mpg123:x64-windows")
-    endif()
+    #if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
+    #    message(FATAL_ERROR "mpg123 not found. Run: vcpkg install mpg123:x64-windows")
+    #endif()
 
     target_include_directories(${PROJECT_NAME} PRIVATE
         ${VCPKG_INC_DIR}
-        ${MPG123_INCLUDE_DIR}
+    #    ${MPG123_INCLUDE_DIR}
     )
 
     target_link_libraries(${PROJECT_NAME}
@@ -212,7 +218,7 @@ if(WIN32)
         assimp::assimp
         OpenAL::OpenAL
         glad
-        ${MPG123_LIBRARY}
+    #    ${MPG123_LIBRARY}
     )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -238,7 +244,7 @@ if(WIN32)
         "${VCPKG_BIN_DIR}/freetype.dll"
         "${VCPKG_BIN_DIR}/bz2.dll"
         "${VCPKG_BIN_DIR}/openal32.dll"
-        "${VCPKG_BIN_DIR}/mpg123.dll"
+        #"${VCPKG_BIN_DIR}/mpg123.dll"
     )
 
     foreach(dll ${DLL_FILES})
