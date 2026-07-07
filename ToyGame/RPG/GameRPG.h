@@ -13,6 +13,7 @@ protected:
     void InitGame() override;
     void LoadData();
     void UpdateGame(float deltaTime) override;
+    void ProcessInput(const toy::InputState& input) override;
     void ShutdownGame() override;
 private:
     class toy::TextSpriteComponent* mTextComp;

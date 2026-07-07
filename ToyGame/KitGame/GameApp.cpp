@@ -36,6 +36,7 @@ void GameApp::ProcessInput(const toy::InputState& input)
         bool enableShadow = GetRenderer()->GetEnableShadow();
         GetRenderer()->SetEnableShadow(!enableShadow);
     }
+    
 }
 
 void GameApp::UpdateGame(float deltaTime)

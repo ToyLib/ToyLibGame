@@ -117,3 +117,13 @@ void GameRPG::ShutdownGame()
     GetSoundMixer()->StopBGM();
     
 }
+
+void GameRPG::ProcessInput(const toy::InputState &input)
+{
+    if (input.Keyboard.GetKeyState(SDL_SCANCODE_F6) == toy::EPressed)
+    {
+        bool enableShadow = GetRenderer()->GetEnableShadow();
+        GetRenderer()->SetEnableShadow(!enableShadow);
+    }
+    
+}
