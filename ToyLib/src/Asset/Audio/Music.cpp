@@ -28,7 +28,7 @@ void Music::InitLib()
 
 void Music::ShutdownLib()
 {
-    ++sRefCount;
+    --sRefCount;
     if (sRefCount <= 0)
     {
         sRefCount = 0;
