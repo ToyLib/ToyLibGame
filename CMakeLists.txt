@@ -34,10 +34,16 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/${GAME_PATH}/*.cpp
 )
 
+# External のソース（glad, stb_image, json.hpp など）
+file(GLOB_RECURSE TOYLIB_EXTERNAL_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/*.c
+)
+
 set(SOURCES
     ${TOYLIB_SOURCES}
     ${TOYKIT_SOURCES}
     ${GAME_SOURCES}
+    ${TOYLIB_EXTERNAL_SOURCES}
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -184,23 +190,23 @@ if(WIN32)
     set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
 
     # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        HINTS ${VCPKG_INC_DIR}
-    )
+    #find_path(MPG123_INCLUDE_DIR
+    #    NAMES mpg123.h
+    #    HINTS ${VCPKG_INC_DIR}
+    #)
 
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        HINTS ${VCPKG_LIB_DIR}
-    )
+    #find_library(MPG123_LIBRARY
+    #    NAMES mpg123
+    #    HINTS ${VCPKG_LIB_DIR}
+    #)
 
-    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Run: vcpkg install mpg123:x64-windows")
-    endif()
+    #if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
+    #    message(FATAL_ERROR "mpg123 not found. Run: vcpkg install mpg123:x64-windows")
+    #endif()
 
     target_include_directories(${PROJECT_NAME} PRIVATE
         ${VCPKG_INC_DIR}
-        ${MPG123_INCLUDE_DIR}
+    #    ${MPG123_INCLUDE_DIR}
     )
 
     target_link_libraries(${PROJECT_NAME}
@@ -212,7 +218,7 @@ if(WIN32)
         assimp::assimp
         OpenAL::OpenAL
         glad
-        ${MPG123_LIBRARY}
+    #    ${MPG123_LIBRARY}
     )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -238,7 +244,7 @@ if(WIN32)
         "${VCPKG_BIN_DIR}/freetype.dll"
         "${VCPKG_BIN_DIR}/bz2.dll"
         "${VCPKG_BIN_DIR}/openal32.dll"
-        "${VCPKG_BIN_DIR}/mpg123.dll"
+        #"${VCPKG_BIN_DIR}/mpg123.dll"
     )
 
     foreach(dll ${DLL_FILES})
@@ -265,45 +271,45 @@ elseif(UNIX AND NOT APPLE)
     find_package(fmt REQUIRED)
 
     # mpg123
-    find_package(PkgConfig QUIET)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(MPG123 QUIET IMPORTED_TARGET mpg123)
-    endif()
+    #find_package(PkgConfig QUIET)
+    #if(PKG_CONFIG_FOUND)
+    #    pkg_check_modules(MPG123 QUIET IMPORTED_TARGET mpg123)
+    #endif()
 
-    if(TARGET PkgConfig::MPG123)
-        set(MPG123_TARGET PkgConfig::MPG123)
-    else()
-        find_path(MPG123_INCLUDE_DIR
-            NAMES mpg123.h
-            PATHS
-                /usr/include
-                /usr/local/include
-                /usr/include/mpg123
-                /usr/local/include/mpg123
-        )
+    #if(TARGET PkgConfig::MPG123)
+    #    set(MPG123_TARGET PkgConfig::MPG123)
+    #else()
+    #    find_path(MPG123_INCLUDE_DIR
+    #        NAMES mpg123.h
+    #        PATHS
+    #            /usr/include
+    #            /usr/local/include
+    #            /usr/include/mpg123
+    #            /usr/local/include/mpg123
+    #    )
 
-        find_library(MPG123_LIBRARY
-            NAMES mpg123
-            PATHS
-                /usr/lib
-                /usr/local/lib
-                /usr/lib/x86_64-linux-gnu
-                /usr/lib64
-        )
+    #    find_library(MPG123_LIBRARY
+    #        NAMES mpg123
+    #        PATHS
+    #            /usr/lib
+    #            /usr/local/lib
+    #            /usr/lib/x86_64-linux-gnu
+    #            /usr/lib64
+    #    )
 
-        if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-            message(FATAL_ERROR
-                "mpg123 not found. Install: sudo apt install libmpg123-dev"
-            )
-        endif()
+    #    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
+    #        message(FATAL_ERROR
+    #            "mpg123 not found. Install: sudo apt install libmpg123-dev"
+    #        )
+    #    endif()
 
-        add_library(mpg123::mpg123 UNKNOWN IMPORTED)
-        set_target_properties(mpg123::mpg123 PROPERTIES
-            IMPORTED_LOCATION "${MPG123_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${MPG123_INCLUDE_DIR}"
-        )
-        set(MPG123_TARGET mpg123::mpg123)
-    endif()
+    #    add_library(mpg123::mpg123 UNKNOWN IMPORTED)
+    #    set_target_properties(mpg123::mpg123 PROPERTIES
+    #        IMPORTED_LOCATION "${MPG123_LIBRARY}"
+    #        INTERFACE_INCLUDE_DIRECTORIES "${MPG123_INCLUDE_DIR}"
+    #    )
+    #    set(MPG123_TARGET mpg123::mpg123)
+    #endif()
 
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
@@ -316,7 +322,7 @@ elseif(UNIX AND NOT APPLE)
             OpenAL::OpenAL
             fmt::fmt
             glad
-            ${MPG123_TARGET}
+            #${MPG123_TARGET}
     )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -336,25 +342,25 @@ elseif(APPLE)
     find_package(OpenAL REQUIRED HINTS /opt/homebrew/opt/openal-soft)
 
     # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        HINTS
-            /opt/homebrew/opt/mpg123/include
-            /opt/homebrew/include
-            /usr/local/include
-    )
+    #find_path(MPG123_INCLUDE_DIR
+    #    NAMES mpg123.h
+    #    HINTS
+    #        /opt/homebrew/opt/mpg123/include
+    #        /opt/homebrew/include
+    #        /usr/local/include
+    #)
 
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        HINTS
-            /opt/homebrew/opt/mpg123/lib
-            /opt/homebrew/lib
-            /usr/local/lib
-    )
+    #find_library(MPG123_LIBRARY
+    #    NAMES mpg123
+    #    HINTS
+    #        /opt/homebrew/opt/mpg123/lib
+    #        /opt/homebrew/lib
+    #        /usr/local/lib
+    #)
 
-    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Please install with 'brew install mpg123'.")
-    endif()
+    #if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
+    #    message(FATAL_ERROR "mpg123 not found. Please install with 'brew install mpg123'.")
+    #endif()
 
     target_include_directories(${PROJECT_NAME} PRIVATE
         /opt/homebrew/include
@@ -372,7 +378,7 @@ elseif(APPLE)
         assimp::assimp
         glad
         ${OPENAL_LIBRARY}
-        ${MPG123_LIBRARY}
+        #${MPG123_LIBRARY}
     )
 
     set_target_properties(${PROJECT_NAME} PROPERTIES

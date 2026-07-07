@@ -371,7 +371,6 @@
 					"-lSDL3_ttf",
 					"-lassimp",
 					"-lopenal",
-					"-lmpg123",
 					"-lvulkan",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -406,7 +405,6 @@
 					"-lSDL3_ttf",
 					"-lassimp",
 					"-lopenal",
-					"-lmpg123",
 					"-lvulkan",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";

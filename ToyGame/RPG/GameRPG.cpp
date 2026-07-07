@@ -83,7 +83,7 @@ void GameRPG::LoadData()
 
 
     // BGM
-    GetSoundMixer()->LoadBGM("MusMus-BGM-112.mp3");
+    GetSoundMixer()->LoadBGM("MusMus-BGM-112.ogg");
     GetSoundMixer()->PlayBGM();
     GetSoundMixer()->SetBgmVolume(0.1);
     
