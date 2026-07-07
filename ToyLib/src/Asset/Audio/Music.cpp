@@ -1,9 +1,11 @@
 #include "Asset/Audio/Music.h"
 #include "Asset/AssetManager.h"
 
-namespace toy {
+// stb_vorbis.c を単体でビルドしない場合はこちらを使う
+#define STB_VORBIS_IMPLEMENTATION
+#include "stb_vorbis.c"
 
-int Music::sRefCount = 0;
+namespace toy {
 
 Music::Music()
 {
@@ -14,114 +16,90 @@ Music::~Music()
     Unload();
 }
 
-//----------------------------------------------------
-// mpg123 のグローバル初期化（参照カウンタ方式）
-//----------------------------------------------------
-void Music::InitLib()
-{
-    if (sRefCount == 0)
-    {
-        mpg123_init();     // 最初の1回だけ
-    }
-    ++sRefCount;
-}
-
-void Music::ShutdownLib()
-{
-    --sRefCount;
-    if (sRefCount <= 0)
-    {
-        sRefCount = 0;
-        mpg123_exit();     // 最後の1回で終了
-    }
-}
-
-//----------------------------------------------------
-// MP3 読み込み
-//----------------------------------------------------
 bool Music::Load(const std::string& fileName, AssetManager* manager)
 {
-    // アセットパスの解決
+    Unload();
+
     mFilePath = manager->GetAssetsPath() + fileName;
 
-    // mpg123 ライブラリ初期化
-    InitLib();
+    int error = 0;
+    mHandle = stb_vorbis_open_filename(
+        mFilePath.c_str(),
+        &error,
+        nullptr
+    );
 
-    int err = 0;
-    mHandle = mpg123_new(nullptr, &err);
     if (!mHandle)
     {
-        ShutdownLib();
+        mRate = 0;
+        mChannels = 0;
         return false;
     }
 
-    // ファイルを開く
-    if (mpg123_open(mHandle, mFilePath.c_str()) != MPG123_OK)
-    {
-        mpg123_delete(mHandle);
-        mHandle = nullptr;
-        ShutdownLib();
-        return false;
-    }
+    stb_vorbis_info info = stb_vorbis_get_info(mHandle);
 
-    // OpenAL が扱いやすいように出力フォーマットを固定
-    mpg123_format_none(mHandle);
-    mpg123_format(mHandle, 44100, MPG123_STEREO, MPG123_ENC_SIGNED_16);
-
-    // 実際に確定したフォーマットを取得
-    mpg123_getformat(mHandle, &mRate, &mChannels, &mEncoding);
+    mRate = static_cast<long>(info.sample_rate);
+    mChannels = info.channels;
 
     return true;
 }
 
-//----------------------------------------------------
-// リソース解放
-//----------------------------------------------------
 void Music::Unload()
 {
     if (mHandle)
     {
-        mpg123_close(mHandle);
-        mpg123_delete(mHandle);
+        stb_vorbis_close(mHandle);
         mHandle = nullptr;
-
-        // ↓ インスタンス単位の破棄なのでライブラリ参照カウントも減らす
-        ShutdownLib();
     }
+
+    mRate = 0;
+    mChannels = 0;
+    mFilePath.clear();
 }
-//----------------------------------------------------
-// 再生位置のリセット
-//----------------------------------------------------
+
 void Music::Rewind()
 {
     if (mHandle)
     {
-        mpg123_seek(mHandle, 0, SEEK_SET);
+        stb_vorbis_seek_start(mHandle);
     }
 }
 
-//----------------------------------------------------
-// デコード済み PCM チャンクを読み出す
-//----------------------------------------------------
 size_t Music::ReadChunk(unsigned char* out, size_t chunkSize)
 {
-    if (!mHandle)
+    if (!mHandle || !out || chunkSize == 0)
     {
         return 0;
     }
 
-    size_t done = 0;
-    int res = mpg123_read(mHandle, out, chunkSize, &done);
+    // 16bit signed PCM として読み出す
+    const int bytesPerSample = static_cast<int>(sizeof(short));
 
-    if (res == MPG123_DONE)
+    // stb_vorbis_get_samples_short_interleaved の第4引数は
+    // 「short要素数」であり、バイト数ではない
+    int maxShorts = static_cast<int>(chunkSize / bytesPerSample);
+
+    if (maxShorts <= 0)
     {
-        return 0;  // 終端
+        return 0;
     }
-    if (res != MPG123_OK)
+
+    int framesRead = stb_vorbis_get_samples_short_interleaved(
+        mHandle,
+        mChannels,
+        reinterpret_cast<short*>(out),
+        maxShorts
+    );
+
+    if (framesRead <= 0)
     {
-        return 0;  // エラー
+        return 0;
     }
-    return done;
+
+    // framesRead は「チャンネル単位ではないサンプルフレーム数」
+    return static_cast<size_t>(framesRead)
+         * static_cast<size_t>(mChannels)
+         * sizeof(short);
 }
 
 } // namespace toy
