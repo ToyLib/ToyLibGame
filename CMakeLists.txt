@@ -246,7 +246,7 @@ elseif(UNIX AND NOT APPLE)
     # Assimp / OpenAL / fmt
     find_package(assimp REQUIRED)
     find_package(OpenAL REQUIRED)
-    find_package(fmt REQUIRED)
+    #find_package(fmt REQUIRED)
 
 
     target_link_libraries(${PROJECT_NAME}
@@ -258,7 +258,6 @@ elseif(UNIX AND NOT APPLE)
             SDL3_ttf::SDL3_ttf
             assimp::assimp
             OpenAL::OpenAL
-            fmt::fmt
             glad
     )
 
@@ -295,7 +294,6 @@ elseif(APPLE)
         assimp::assimp
         glad
         ${OPENAL_LIBRARY}
-        #${MPG123_LIBRARY}
     )
 
     set_target_properties(${PROJECT_NAME} PROPERTIES
