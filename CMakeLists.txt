@@ -320,7 +320,7 @@ elseif(UNIX AND NOT APPLE)
             SDL3_ttf::SDL3_ttf
             assimp::assimp
             OpenAL::OpenAL
-            fmt::fmt
+            #fmt::fmt
             glad
             #${MPG123_TARGET}
     )
