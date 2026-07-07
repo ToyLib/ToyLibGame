@@ -1,9 +1,7 @@
 #include "Asset/Audio/Music.h"
 #include "Asset/AssetManager.h"
 
-// stb_vorbis.c を単体でビルドしない場合はこちらを使う
-#define STB_VORBIS_IMPLEMENTATION
-#include "stb_vorbis.c"
+#include "stb_vorbis.h"
 
 namespace toy {
 
