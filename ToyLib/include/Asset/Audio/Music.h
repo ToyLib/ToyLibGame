@@ -1,5 +1,7 @@
 #pragma once
 
+#include "stb_vorbis.h"
+
 #include <string>
 #include <cstddef>
 

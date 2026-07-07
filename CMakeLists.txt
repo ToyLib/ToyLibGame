@@ -34,16 +34,16 @@ file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/${GAME_PATH}/*.cpp
 )
 
-# External のソース（glad, stb_image, json.hpp など）
-file(GLOB_RECURSE TOYLIB_EXTERNAL_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/*.c
-)
+# External のソース（stb_vorbis.c）
+#file(GLOB_RECURSE TOYLIB_EXTERNAL_SOURCES CONFIGURE_DEPENDS
+#    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/stb_vorbis.c
+#)
 
 set(SOURCES
     ${TOYLIB_SOURCES}
     ${TOYKIT_SOURCES}
     ${GAME_SOURCES}
-    ${TOYLIB_EXTERNAL_SOURCES}
+    #${TOYLIB_EXTERNAL_SOURCES}
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -53,6 +53,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # ========================
 add_library(glad STATIC
     ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/src/glad.c
+    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/stb_vorbis.c
 )
 
 target_include_directories(glad PUBLIC

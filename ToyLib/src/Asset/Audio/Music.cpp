@@ -1,7 +1,6 @@
 #include "Asset/Audio/Music.h"
 #include "Asset/AssetManager.h"
 
-#include "stb_vorbis.h"
 
 namespace toy {
 
