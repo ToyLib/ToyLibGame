@@ -48,6 +48,11 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # ========================
 add_library(glad STATIC
     ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/src/glad.c
+)
+# ========================
+# STB_VORBIS（組み込み）
+# ========================
+add_library(stb_vorbis STATIC
     ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/stb_vorbis.c
 )
 
@@ -198,6 +203,7 @@ if(WIN32)
         assimp::assimp
         OpenAL::OpenAL
         glad
+        stb_vorbis
     )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -259,6 +265,7 @@ elseif(UNIX AND NOT APPLE)
             assimp::assimp
             OpenAL::OpenAL
             glad
+            stb_vorbis
     )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
@@ -293,6 +300,7 @@ elseif(APPLE)
         SDL3_ttf::SDL3_ttf
         assimp::assimp
         glad
+        stb_vorbis
         ${OPENAL_LIBRARY}
     )
 
