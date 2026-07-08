@@ -222,7 +222,7 @@ void SoundMixer::PlayBGM()
         alSourceQueueBuffers(mBgmSource, 1, &mBgmBuffers[i]);
     }
 
-    alSourcef(mBgmSource, AL_GAIN, mBgmVolume);
+    alSourcef(mBgmSource, AL_GAIN, mBgmVolume * mMasterVolume);
     alSourcePlay(mBgmSource);
     mBgmPlaying = true;
 }

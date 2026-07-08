@@ -30,8 +30,8 @@ void FieldScene::InitScene()
     // BGM
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.ogg");
     GetApp()->GetSoundMixer()->PlayBGM();
-    GetApp()->GetSoundMixer()->SetBgmVolume(0.1f);
-    GetApp()->GetSoundMixer()->SetMasterVolume(0.0f);
+    GetApp()->GetSoundMixer()->SetBgmVolume(0.5f);
+    GetApp()->GetSoundMixer()->SetMasterVolume(0.8f);
 
     InitField();
 
