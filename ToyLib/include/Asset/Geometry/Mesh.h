@@ -62,7 +62,9 @@ public:
 
     // アニメーションが1つ以上存在するか
     bool HasAnimation() const { return !mAnimationClips.empty(); }
-
+    
+    // ルートノードの移動をキャンセルするか
+    void SetCancelRootTranslation(bool enabled) { mCancelRootTranslation = enabled; }
 private:
     // 先に前方宣言しておく
     struct EvalNode;
@@ -150,6 +152,8 @@ private:
     float mSpecPower { 1.0f };
 
     float mMinBoneWeightThreshold { 0.01f };
+    
+    bool mCancelRootTranslation { false };
 };
 
 } // namespace toy

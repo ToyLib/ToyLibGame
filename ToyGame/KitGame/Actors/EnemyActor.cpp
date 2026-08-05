@@ -11,15 +11,21 @@ EnemyActor::EnemyActor(toy::Application* a)
     };
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
-    meshComp->SetYawOffset(Math::ToRadians(180.0f));
+    //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/noriko2.glb"));
+    GetApp()->GetAssetManager()->GetMesh("Field/noriko2.glb")->SetCancelRootTranslation(true);
+    meshComp->SetYawOffset(Math::ToRadians(0.0f));
     meshComp->SetToonRender(true);
     meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
+    // Noriko用
+    meshComp->SetLocalScale(5.0f);
+    meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.5f));
     
 
     
     mCollider = CreateComponent<toy::ColliderComponent>();
     mCollider->GetBoundingVolume()->ComputeFromMeshComponent(meshComp);
+    mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 2.5, -2), Vector3(1,1,1));
     mCollider->SetEnabled(true);
     mCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);
     CreateComponent<toy::GravityComponent>();
@@ -49,7 +55,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     
     
-    mEnemyName = "Ninja";
+    mEnemyName = "Noriko";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
     auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 40);
@@ -102,8 +108,9 @@ void EnemyActor::UpdateActor(float deltaTime)
 void EnemyActor::ActionIDLE(float deltaTime)
 {
     auto anim = meshComp->GetAnimPlayer();
-    anim->Play(3);
-    
+    //anim->Play(3);
+    anim->Play(0);
+
     if (mLifeTime > 5)
     {
         EnemyAction = [this](float dt)
@@ -117,8 +124,9 @@ void EnemyActor::ActionIDLE(float deltaTime)
 void EnemyActor::ActionWALK(float deltaTime)
 {
     auto anim = meshComp->GetAnimPlayer();
-    anim->Play(10);
-    
+    //anim->Play(10);
+    anim->Play(1);
+
     if (mLifeTime > 5)
     {
         EnemyAction = [this](float dt)
@@ -131,7 +139,8 @@ void EnemyActor::ActionWALK(float deltaTime)
 void EnemyActor::ActionRUN(float deltaTime)
 {
     auto anim = meshComp->GetAnimPlayer();
-    anim->Play(9);
+    //anim->Play(9);
+    anim->Play(2);
     if (mLifeTime > 5)
     {
         EnemyAction = [this](float dt)
