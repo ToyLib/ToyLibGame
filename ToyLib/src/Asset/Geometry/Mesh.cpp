@@ -202,7 +202,8 @@ void Mesh::ComputeBoneHierarchyCached(float animationTime,
         Vector3 translation(0.0f, 0.0f, 0.0f);
         CalcInterpolatedPosition(translation, animationTime, pNodeAnim);
         // シーン階層のルートノードだけ移動を固定
-        if ( mCancelRootTranslation && evalNodeIndex == mRootEvalNodeIndex)
+        if ( mCancelRootTranslation && //evalNodeIndex == mRootEvalNodeIndex)
+            node.name == mCanselNodeName)
         {
             Vector3 initialTranslation;
             CalcInterpolatedPosition(initialTranslation, 0.0f, pNodeAnim);

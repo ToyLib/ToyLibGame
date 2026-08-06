@@ -65,6 +65,7 @@ public:
     
     // ルートノードの移動をキャンセルするか
     void SetCancelRootTranslation(bool enabled) { mCancelRootTranslation = enabled; }
+    void SetCancelNodeName(std::string name) { mCanselNodeName = name; }
 private:
     // 先に前方宣言しておく
     struct EvalNode;
@@ -154,6 +155,7 @@ private:
     float mMinBoneWeightThreshold { 0.01f };
     
     bool mCancelRootTranslation { false };
+    std::string mCanselNodeName { "Root" };
 };
 
 } // namespace toy

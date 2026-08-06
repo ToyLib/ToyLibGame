@@ -12,11 +12,12 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/noriko2.glb"));
-    GetApp()->GetAssetManager()->GetMesh("Field/noriko2.glb")->SetCancelRootTranslation(true);
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/noriko.glb"));
+    GetApp()->GetAssetManager()->GetMesh("Field/noriko.glb")->SetCancelRootTranslation(true);
+    GetApp()->GetAssetManager()->GetMesh("Field/noriko.glb")->SetCancelNodeName("Hip");
     meshComp->SetYawOffset(Math::ToRadians(0.0f));
-    meshComp->SetToonRender(true);
-    meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
+    //meshComp->SetToonRender(true);
+    //meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
     // Noriko用
     meshComp->SetLocalScale(5.0f);
     meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.5f));
