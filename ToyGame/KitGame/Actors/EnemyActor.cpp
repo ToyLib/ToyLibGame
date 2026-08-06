@@ -19,14 +19,14 @@ EnemyActor::EnemyActor(toy::Application* a)
     //meshComp->SetToonRender(true);
     //meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
     // Noriko用
-    meshComp->SetLocalScale(5.0f);
+    meshComp->SetLocalScale(2.0f);
     meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.5f));
     
 
     
     mCollider = CreateComponent<toy::ColliderComponent>();
     mCollider->GetBoundingVolume()->ComputeFromMeshComponent(meshComp);
-    mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 2.5, -2), Vector3(1,1,1));
+    mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 1, -1), Vector3(0.5, 1, 0.3));
     mCollider->SetEnabled(true);
     mCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);
     CreateComponent<toy::GravityComponent>();
