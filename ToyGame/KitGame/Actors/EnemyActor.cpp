@@ -12,21 +12,23 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/Noriko.glb"));
-    GetApp()->GetAssetManager()->GetMesh("Field/Noriko.glb")->SetCancelRootTranslation(true);
-    GetApp()->GetAssetManager()->GetMesh("Field/Noriko.glb")->SetCancelNodeName("Hip");
+    auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/shiro.glb");
+    meshComp->SetMesh(mesh);
+    mesh->SetCancelRootTranslation(true);
+    mesh->SetCancelNodeName("Hip");
     meshComp->SetYawOffset(Math::ToRadians(0.0f));
-    //meshComp->SetToonRender(true);
-    //meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
+    meshComp->SetToonRender(true);
+    meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
     // Noriko用
-    meshComp->SetLocalScale(2.0f);
-    meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.5f));
-    
+    meshComp->SetLocalScale(3.0f);
+    meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.8f));
+
 
     
     mCollider = CreateComponent<toy::ColliderComponent>();
     mCollider->GetBoundingVolume()->ComputeFromMeshComponent(meshComp);
-    mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 1, -1), Vector3(0.5, 1, 0.3));
+    //mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 1.5, -3), Vector3(0.5, 1, 0.3));
+    mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 0, -0), Vector3(0.5, 1, 0.3));
     mCollider->SetEnabled(true);
     mCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);
     CreateComponent<toy::GravityComponent>();
@@ -56,7 +58,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     
     
-    mEnemyName = "Noriko";
+    mEnemyName = "SHIRO";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
     auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 40);
