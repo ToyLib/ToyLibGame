@@ -14,7 +14,7 @@ SoundEffect::SoundEffect()
 
 SoundEffect::~SoundEffect()
 {
-    Unload();
+    //Unload();
 }
 
 bool SoundEffect::Load(const std::string& fileName, AssetManager* manager)

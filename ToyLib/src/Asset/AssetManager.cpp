@@ -24,9 +24,8 @@ void AssetManager::UnloadData()
 
     mMeshes.clear();
 
-    mSoundEffects.clear();
-
     mMusics.clear();
+    mSoundEffects.clear();
 
     mTextFonts.clear();
 }
