@@ -877,7 +877,6 @@ void Mesh::LoadAnimations()
 
 void Mesh::Unload()
 {
-    mImporter.FreeScene();
     mScene = nullptr;
 
     for (auto& v : mVertexArray)
