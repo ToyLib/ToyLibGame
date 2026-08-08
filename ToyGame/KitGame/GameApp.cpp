@@ -49,5 +49,10 @@ void GameApp::UpdateGame(float deltaTime)
 
 void GameApp::ShutdownGame()
 {
-    
+    if (mGameFlow)
+    {
+        mGameFlow->RequestChange(nullptr);
+        mGameFlow.reset();
+    }
+    GetSoundMixer()->StopBGM();   
 }
