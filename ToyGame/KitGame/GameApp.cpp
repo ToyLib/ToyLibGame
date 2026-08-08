@@ -46,3 +46,8 @@ void GameApp::UpdateGame(float deltaTime)
         mGameFlow->Update(deltaTime);
     }
 }
+
+void GameApp::ShutdownGame()
+{
+    
+}
