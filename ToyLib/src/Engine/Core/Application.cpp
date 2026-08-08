@@ -174,6 +174,9 @@ bool Application::Initialize()
     mTicksCount = SDL_GetTicksNS(); // ★ NS で統一
     
     
+    // OpenAL 初期化（デバイス + コンテキスト）
+    mSoundMixer->InitOpenAL();
+    
     if (mEnableDebug)
     {
         CreateActor<toy::DebugOverlayActor>();
@@ -221,6 +224,7 @@ void Application::Shutdown()
     UnloadData();
 
     mInputSys->Shutdown();
+    mSoundMixer->ShutdownOpenAL();
     mRenderer->Shutdown();
     mRenderer.reset();
 

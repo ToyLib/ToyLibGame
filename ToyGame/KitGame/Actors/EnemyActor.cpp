@@ -11,11 +11,13 @@ EnemyActor::EnemyActor(toy::Application* a)
     };
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
-    //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
+    /*
     auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/shiro.glb");
     meshComp->SetMesh(mesh);
     mesh->SetCancelRootTranslation(true);
     mesh->SetCancelNodeName("Hip");
+     */
     meshComp->SetYawOffset(Math::ToRadians(0.0f));
     meshComp->SetToonRender(true);
     meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));

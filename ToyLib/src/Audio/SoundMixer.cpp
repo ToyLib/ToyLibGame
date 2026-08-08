@@ -13,8 +13,6 @@ namespace toy {
 SoundMixer::SoundMixer(AssetManager* assetManager)
     : mAssetManager(assetManager)
 {
-    // OpenAL 初期化（デバイス + コンテキスト）
-    InitOpenAL();
     
     // BGM デコード用一時バッファ
     mBgmDecodeBuffer.resize(BGM_CHUNK_SIZE);
@@ -22,6 +20,7 @@ SoundMixer::SoundMixer(AssetManager* assetManager)
 
 SoundMixer::~SoundMixer()
 {
+    /*
     // BGM ソース・バッファ片付け
     ShutdownBGMSource();
 
@@ -35,6 +34,7 @@ SoundMixer::~SoundMixer()
 
     // OpenAL デバイス/コンテキスト破棄
     ShutdownOpenAL();
+     */
 }
 
 //--------------------------------------
@@ -74,6 +74,19 @@ void SoundMixer::InitOpenAL()
 
 void SoundMixer::ShutdownOpenAL()
 {
+    
+    // BGM ソース・バッファ片付け
+    ShutdownBGMSource();
+
+    // SE 用ワンショットソースの片付け
+    for (ALuint src : mOneShotSources)
+    {
+        alSourceStop(src);
+        alDeleteSources(1, &src);
+    }
+    mOneShotSources.clear();
+
+    
     if (mContext)
     {
         alcMakeContextCurrent(nullptr);

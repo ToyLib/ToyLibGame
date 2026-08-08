@@ -48,10 +48,11 @@ public:
     
     float GetMasterVolume() const { return mMasterVolume; }
     
-private:
     // OpenAL 初期化/終了
     void InitOpenAL();
     void ShutdownOpenAL();
+
+private:
     
     // BGM 用ソース/バッファの初期化/破棄
     void InitBGMSource();
