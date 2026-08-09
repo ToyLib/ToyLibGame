@@ -249,13 +249,13 @@ void FieldScene::DeployGround()
     // 地面
     auto actor = CreateActor<toy::Actor>();
     auto meshComp = actor->CreateComponent<toy::MeshComponent>();
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/ground.x"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/ground.glb"));
     actor->SetPosition(Vector3(0,0,0));
     actor->SetScale(1);
     meshComp->SetToonRender(false);
     meshComp->SetEnableShadow(false);
     
-    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field/ground.x");
+    auto groundMesh = GetApp()->GetAssetManager()->GetMesh("Field/ground.glb");
     auto va = groundMesh->GetVertexArray();
     auto vaList = groundMesh->GetVertexArray();
     for (auto& va : vaList)
@@ -277,11 +277,11 @@ void FieldScene::DeployBrick(Vector3 pos)
     actor->SetRotation(q);
     
     auto mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.x"));
+    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.glb"));
     mesh->SetToonRender(false);
 
     auto coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.x")->GetVertexArray());
+    coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.glb")->GetVertexArray());
     
     coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
 }
@@ -291,12 +291,12 @@ void FieldScene::DeployFire(Vector3 pos)
     // 焚き火
     auto fireActor = CreateActor<toy::Actor>();
     auto fireMesh = fireActor->CreateComponent<toy::MeshComponent>();
-    fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x"));
+    fireMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/campfire.glb"));
     
     fireActor->SetPosition(Vector3(-8, 0, -30));
     fireActor->SetScale(0.02f);
     auto fireCollider = fireActor->CreateComponent<toy::ColliderComponent>();
-    fireCollider->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/campfile.x")->GetVertexArray());
+    fireCollider->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/campfire.glb")->GetVertexArray());
     fireCollider->SetEnabled(true);
     fireCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT);
     fireActor->CreateComponent<toy::GravityComponent>();

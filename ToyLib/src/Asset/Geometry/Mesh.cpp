@@ -778,7 +778,7 @@ void Mesh::LoadMaterials(AssetManager* assetManager, const std::string& meshFile
                 if (index >= 0 && index < static_cast<int>(mScene->mNumTextures))
                 {
                     aiTexture* aiTex = mScene->mTextures[index];
-                    const std::string key = "_EMBED_" + std::to_string(index);
+                    const std::string key = meshFilename +  "_EMBED_" + std::to_string(index);
 
                     const uint8_t* imageData =
                         reinterpret_cast<const uint8_t*>(aiTex->pcData);
