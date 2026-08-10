@@ -71,27 +71,39 @@ static bool IsShadowPipelineName(const char* pipelineName)
 //==============================================================
 bool VKRenderer::CreateDescriptorPool()
 {
-    if (!mDevice) return false;
+    if (!mDevice)
+        return false;
 
-    // UBO系（Scene + Skinned）を枯らさないために十分大きく
-    constexpr uint32_t kMaxSetsTotal = 8192;   // UBO set の総数上限
-    constexpr uint32_t kUBOCount     = 8192;   // UNIFORM_BUFFER の総数上限
+    constexpr uint32_t kMaxSetsTotal = 8192;
+    constexpr uint32_t kUBOCount     = 8192;
 
-    VkDescriptorPoolSize sizes[1]{};
+    // PostEffect等のtexture descriptor用
+    constexpr uint32_t kSamplerCount = 1024;
+
+    VkDescriptorPoolSize sizes[2]{};
+
     sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     sizes[0].descriptorCount = kUBOCount;
+
+    sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sizes[1].descriptorCount = kSamplerCount;
 
     VkDescriptorPoolCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     ci.maxSets       = kMaxSetsTotal;
-    ci.poolSizeCount = 1;
+    ci.poolSizeCount = 2;
     ci.pPoolSizes    = sizes;
 
-    const VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);
+    const VkResult vr =
+        vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);
+
     if (vr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkCreateDescriptorPool failed: " << vr << "\n";
+        std::cerr
+            << "[VKRenderer] vkCreateDescriptorPool failed: "
+            << vr << "\n";
+
         mDescPool = VK_NULL_HANDLE;
         return false;
     }
