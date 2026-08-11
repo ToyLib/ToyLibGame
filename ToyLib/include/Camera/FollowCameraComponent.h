@@ -21,26 +21,31 @@ struct SpringSettings
 //  ・position を target に向けてスプリング追従させる
 //  ・DampingRatio=1.0 のとき、臨界減衰（原理上オーバーシュートしにくい）
 //======================================================================
-inline void UpdateSpring(Vector3& position,
-                         Vector3& velocity,
-                         const Vector3& target,
-                         const SpringSettings& settings,
-                         float deltaTime)
+inline void UpdateSpring(
+    Vector3& position,
+    Vector3& velocity,
+    const Vector3& target,
+    const SpringSettings& settings,
+    float deltaTime)
 {
-    const float k = settings.Stiffness;
-    const float z = settings.DampingRatio;
+    constexpr float maxStep = 1.0f / 120.0f;
 
-    // 減衰係数 c = 2 ζ √k
-    const float c = 2.0f * z * Math::Sqrt(k);
+    while (deltaTime > 0.0f)
+    {
+        const float dt = Math::Min(deltaTime, maxStep);
 
-    // x = current - target
-    Vector3 diff = position - target;
+        const float k = settings.Stiffness;
+        const float z = settings.DampingRatio;
+        const float c = 2.0f * z * Math::Sqrt(k);
 
-    // a = -k x - c v
-    Vector3 accel = -k * diff - c * velocity;
+        Vector3 diff  = position - target;
+        Vector3 accel = -k * diff - c * velocity;
 
-    velocity += accel * deltaTime;
-    position += velocity * deltaTime;
+        velocity += accel * dt;
+        position += velocity * dt;
+
+        deltaTime -= dt;
+    }
 }
 
 //======================================================================
