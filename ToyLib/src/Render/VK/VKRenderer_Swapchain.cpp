@@ -316,7 +316,7 @@ bool VKRenderer::CreateSwapchainAndViews()
     }
 
     mSwapchainFormat = toy::vkutil::ChooseSurfaceFormat(sc.formats);
-    const VkPresentModeKHR pm = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ true);
+    const VkPresentModeKHR pm = toy::vkutil::ChoosePresentMode(sc.presentModes, /*vsync*/ mVSync);
     mSwapchainExtent = toy::vkutil::ChooseExtent(sc.caps, pixelW, pixelH);
 
     if (mSwapchainExtent.width == 0 || mSwapchainExtent.height == 0)

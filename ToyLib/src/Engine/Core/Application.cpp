@@ -370,7 +370,7 @@ void Application::ProcessInput()
         mIsActive = false;
     }
     
-    if (state.Keyboard.GetKeyState(SDL_SCANCODE_SPACE) == EHeld)
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_P) == EHeld)
     {
         mIsPause = true;
     }
@@ -448,23 +448,39 @@ void Application::LoadData()
 //=============================================================
 void Application::UpdateFrame()
 {
-    // 固定フレームレート (60fps 相当)
-    const Uint64 frameDurationNS = 16'000'000;  // 16ms
+
     Uint64 now = SDL_GetTicksNS();
 
-    while ((now - mTicksCount) < frameDurationNS)
+    //==========================================================
+    // FPS Limit
+    //  mTargetFPS == 0 : Unlimited
+    //==========================================================
+    if (mTargetFPS > 0)
     {
-        SDL_Delay(1);
-        now = SDL_GetTicksNS();
+        const Uint64 frameDurationNS =
+            1'000'000'000ULL / static_cast<Uint64>(mTargetFPS);
+
+        const Uint64 elapsedNS = now - mTicksCount;
+
+        if (elapsedNS < frameDurationNS)
+        {
+            SDL_DelayPrecise(frameDurationNS - elapsedNS);
+            now = SDL_GetTicksNS();
+        }
     }
 
-    float deltaTime = (now - mTicksCount) / 1'000'000'000.0f;
+    float deltaTime =
+        static_cast<float>(now - mTicksCount) / 1'000'000'000.0f;
+
+    // 極端なフレーム落ちによる暴走防止
     if (deltaTime > 0.025f)
     {
         deltaTime = 0.025f;
     }
-    mTicksCount = now;
 
+    mTicksCount = now;
+    
+    
     if (mIsPause)
     {
         return;

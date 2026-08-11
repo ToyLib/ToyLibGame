@@ -160,6 +160,12 @@ public:
     void AddDrawCall() { ++mDebugActiveScreen->drawCallCount; }
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
+    
+    //--------------------------------------------------------------------------
+    // Vsync
+    //--------------------------------------------------------------------------
+    void SetVSync(bool enable);
+    bool IsVSyncEnavle() const { return mVSync; }
 
     //--------------------------------------------------------------------------
     // Camera / View
@@ -387,6 +393,8 @@ protected:
     Matrix4 mInvView          {};
     Matrix4 mProjectionMatrix {};
     Matrix4 mViewProjMatrix   {};
+    
+    bool mVSync         { true };
 
     //--------------------------------------------------------------------------
     // Debug / Colors

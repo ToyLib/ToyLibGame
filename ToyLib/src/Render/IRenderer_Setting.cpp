@@ -56,6 +56,13 @@ bool IRenderer::LoadSettings(const std::string& filePath)
         JsonHelper::GetFloat(data["screen"], "virtual_with",    mVirtualWidth);
         JsonHelper::GetFloat(data["screen"], "virtual_height",  mVirtualHeight);
     }
+
+    //---------------------------------------------------------
+    // VSync on/off（ture/false）
+    //   "vsync": true
+    //---------------------------------------------------------
+    JsonHelper::GetBool(data, "vsync", mVSync);
+
     
     //---------------------------------------------------------
     // 視野角（Perspective FOV, 単位は度）

@@ -51,10 +51,9 @@ bool GLRenderer::Initialize(const Application* app)
         return false;
     }
 
-    
-    
+
     // VSync
-    SDL_GL_SetSwapInterval(1);
+    SDL_GL_SetSwapInterval(mVSync ? 1 : 0);
 
     // 実ピクセルサイズ（HiDPI）
     int pixelW = 0;
