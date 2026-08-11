@@ -46,40 +46,39 @@ void FollowMoveComponent::Update(float deltaTime)
     toTarget.Normalize();
     
     //============================================================
-    // 2) 向き調整（Yaw のみ、最大 mRotationSpeed）
+    // 2) 向き調整（Yaw のみ）
     //============================================================
-    const Vector3 forward = GetOwner()->GetForward();
-    
-    float dot = Vector3::Dot(forward, toTarget);
-    dot = Math::Clamp(dot, -1.0f, 1.0f);
-    
-    float angle = Math::Acos(dot); // 0〜π
-    
-    // 1度未満ならほぼ合っているので回転しない
-    if (angle > Math::ToRadians(1.0f))
+    Vector3 forward = GetOwner()->GetForward();
+    forward.y = 0.0f;
+
+    Vector3 targetDir = toTarget;
+    targetDir.y = 0.0f;
+
+    if (forward.LengthSq() > Math::NearZeroEpsilon &&
+        targetDir.LengthSq() > Math::NearZeroEpsilon)
     {
-        // このフレームで回せる最大角度（ラジアン）
-        const float maxRot = Math::ToRadians(mRotationSpeed) * deltaTime;
-        angle = Math::Min(angle, maxRot);
-        
-        // XZ 平面上で符号付き角度を取得
-        Vector3 f2D(forward.x, 0.0f, forward.z);
-        Vector3 t2D(toTarget.x, 0.0f, toTarget.z);
-        f2D.Normalize();
-        t2D.Normalize();
-        
+        forward.Normalize();
+        targetDir.Normalize();
+
         const float signedAngle = Math::Atan2(
-                                              Vector3::Cross(f2D, t2D).y,
-                                              Vector3::Dot(f2D, t2D)
-                                              );
-        
-        // 実際に回す角度を [-angle, +angle] に制限
-        const float yaw = Math::Clamp(signedAngle, -angle, angle);
-        
-        Quaternion rot = GetOwner()->GetRotation();
-        const Quaternion inc(Vector3::UnitY, yaw);
-        rot = Quaternion::Concatenate(rot, inc);
-        GetOwner()->SetRotation(rot);
+            Vector3::Cross(forward, targetDir).y,
+            Vector3::Dot(forward, targetDir)
+        );
+
+        if (Math::Abs(signedAngle) > Math::ToRadians(1.0f))
+        {
+            const float maxRot =
+                Math::ToRadians(mRotationSpeed) * deltaTime;
+
+            const float yaw =
+                Math::Clamp(signedAngle, -maxRot, maxRot);
+
+            Quaternion rot = GetOwner()->GetRotation();
+            const Quaternion inc(Vector3::UnitY, yaw);
+
+            rot = Quaternion::Concatenate(rot, inc);
+            GetOwner()->SetRotation(rot);
+        }
     }
     
     //============================================================

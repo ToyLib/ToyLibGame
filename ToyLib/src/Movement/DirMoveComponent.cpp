@@ -50,7 +50,7 @@ void DirMoveComponent::Update(float deltaTime)
     // ★入力で移動したフレームだけ向きを変える
     if (mDidMoveByInput)
     {
-        AdjustDir();
+        AdjustDir(moveDir, deltaTime);
     }
 
     mPrevPosition = GetOwner()->GetPosition();
@@ -95,24 +95,34 @@ void DirMoveComponent::ProcessInput(const struct InputState& state)
 // ・前フレーム位置との差分から移動方向を算出
 // ・その方向へ滑らかに回転（Slerp）
 //------------------------------------------------------------------------------
-void DirMoveComponent::AdjustDir()
+void DirMoveComponent::AdjustDir(
+    const Vector3& moveDir,
+    float deltaTime)
 {
-    Vector3 moveVal = GetOwner()->GetPosition() - mPrevPosition;
-    moveVal.y = 0.0f;  // 水平面のみで回転を判断
+    Vector3 dir = moveDir;
+    dir.y = 0.0f;
 
-    // 一定以上動いていれば回転する
-    if (moveVal.LengthSq() > 0.01f)
-    {
-        float rot = Math::Atan2(moveVal.x, moveVal.z);
+    if (dir.LengthSq() <= Math::NearZeroEpsilon)
+        return;
 
-        Quaternion targetRot  = Quaternion(Vector3::UnitY, rot);
-        Quaternion currentRot = GetOwner()->GetRotation();
+    dir.Normalize();
 
-        // 徐々に向きを寄せる（0.1 = 回転追従スピード）
-        Quaternion smoothRot = Quaternion::Slerp(currentRot, targetRot, 0.1f);
+    const float rot = Math::Atan2(dir.x, dir.z);
 
-        GetOwner()->SetRotation(smoothRot);
-    }
+    Quaternion targetRot(Vector3::UnitY, rot);
+    Quaternion currentRot = GetOwner()->GetRotation();
+
+    constexpr float baseLerp = 0.1f;
+
+    const float t =
+        1.0f - std::pow(
+            1.0f - baseLerp,
+            deltaTime * 60.0f
+        );
+
+    GetOwner()->SetRotation(
+        Quaternion::Slerp(currentRot, targetRot, t)
+    );
 }
 
 } // namespace toy

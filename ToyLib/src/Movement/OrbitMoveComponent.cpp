@@ -180,12 +180,23 @@ void OrbitMoveComponent::Update(float deltaTime)
     if (toCenter.LengthSq() > 0.0001f)
     {
         toCenter.Normalize();
+
         float yaw = Math::Atan2(toCenter.x, toCenter.z);
 
         Quaternion targetRot  = Quaternion(Vector3::UnitY, yaw);
         Quaternion currentRot = GetOwner()->GetRotation();
 
-        Quaternion smoothRot = Quaternion::Slerp(currentRot, targetRot, 0.2f);
+        constexpr float baseLerp = 0.2f;
+
+        float t =
+            1.0f - std::pow(
+                1.0f - baseLerp,
+                deltaTime * 60.0f
+            );
+
+        Quaternion smoothRot =
+            Quaternion::Slerp(currentRot, targetRot, t);
+
         GetOwner()->SetRotation(smoothRot);
     }
 

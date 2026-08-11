@@ -29,7 +29,7 @@ private:
     Vector3 mPrevPosition { Vector3::Zero };
 
     // 実際に動いた方向へ Actor を向ける
-    void AdjustDir();
+    void AdjustDir(const Vector3& moveDir, float deltaTime);
     
     // ユーザーインプットによる自発的な動きか
     bool mDidMoveByInput { false };
