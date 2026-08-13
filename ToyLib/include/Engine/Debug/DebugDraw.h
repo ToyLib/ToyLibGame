@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Utils/MathUtil.h"
+#include <memory>
 
 namespace toy
 {
@@ -34,7 +35,7 @@ public:
     static class DebugDrawSystem* GetSystem();
 
 private:
-    static class DebugDrawSystem* sSystem;
+    static std::unique_ptr<class DebugDrawSystem> sSystem;
 };
 
 } // namespace toy

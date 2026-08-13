@@ -4,20 +4,18 @@
 namespace toy
 {
 
-DebugDrawSystem* DebugDraw::sSystem = nullptr;
+std::unique_ptr<DebugDrawSystem> DebugDraw::sSystem = nullptr;
 
 void DebugDraw::Initialize()
 {
     if (!sSystem)
     {
-        sSystem = new DebugDrawSystem();
+        sSystem = std::make_unique<DebugDrawSystem>();
     }
 }
 
 void DebugDraw::Shutdown()
 {
-    delete sSystem;
-    sSystem = nullptr;
 }
 
 void DebugDraw::Clear()
@@ -78,7 +76,7 @@ void DebugDraw::Arrow(const Vector3& origin,
 
 DebugDrawSystem* DebugDraw::GetSystem()
 {
-    return sSystem;
+    return sSystem.get();
 }
 
 } // namespace toy
