@@ -728,6 +728,13 @@ void VKRenderer::RestoreAfterShadowPass()
 
     for (int i = 0; i < (int)mShadowCascades.size(); ++i)
     {
+        // DrawShadowPass() が既に SHADER_READ_ONLY_OPTIMAL へ遷移済みの場合は
+        // 二重バリアを避ける（VUID-VkImageMemoryBarrier-oldLayout-01197 対策）
+        if (mShadowIsSampledLayout[i])
+        {
+            continue;
+        }
+
         auto& c = mShadowCascades[i];
 
         toy::vkutil::CmdTransitionImageLayout(
