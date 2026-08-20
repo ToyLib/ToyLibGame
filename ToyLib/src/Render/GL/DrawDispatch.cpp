@@ -242,23 +242,27 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         ApplyLightDataToShader(sh, lm->BuildLightData(r.GetViewMatrix()));
     }
 
-    if (!overrideColor)
+    // シャドウマップは overrideColor に関わらず常にバインドする
+    // （スキップするとスロット 6/7 に前フレームの残骸が残り、影が壊れる）
+    if (auto sm0 = r.GetShadowMapTexture(0))
     {
-        if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
-        if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
-
-        sh->SetTextureUniform(Scene::ShadowMap0, 6);
-        sh->SetTextureUniform(Scene::ShadowMap1, 7);
-
-        sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
-        sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
-
-        sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
-        sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
-        sh->SetFloatUniform(Scene::ShadowBias,    r.GetShadowBias());
-        sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
-
+        sm0->SetActive(6);
     }
+    if (auto sm1 = r.GetShadowMapTexture(1))
+    {
+        sm1->SetActive(7);
+    }
+
+    sh->SetTextureUniform(Scene::ShadowMap0, 6);
+    sh->SetTextureUniform(Scene::ShadowMap1, 7);
+
+    sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
+    sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
+
+    sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
+    sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
+    sh->SetFloatUniform(Scene::ShadowBias,    r.GetShadowBias());
+    sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
 
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
 

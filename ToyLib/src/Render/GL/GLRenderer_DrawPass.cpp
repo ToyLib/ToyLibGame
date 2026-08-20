@@ -537,6 +537,10 @@ void GLRenderer::DrawFadePass()
     sh->SetVectorUniform("uColor", mFadeColor);
     sh->SetFloatUniform("uAlpha", mFadeAlpha);
 
+    if (!mFullScreenQuad)
+    {
+        return;
+    }
     mFullScreenQuad->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
@@ -642,6 +646,10 @@ void GLRenderer::DrawPostEffectPass()
         }
     }
 
+    if (!mFullScreenQuad)
+    {
+        return;
+    }
     mFullScreenQuad->SetActive();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
@@ -724,9 +732,15 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mProjectionMatrix = mProjectionMatrix * clipFlipY;
 
     //==========================================================================
-    // SceneCapture flag
+    // SceneCapture flag（RAII で確実にリセット）
     //==========================================================================
     mIsDrawingCapture = true;
+    struct CaptureGuard
+    {
+        bool& flag;
+        CaptureGuard(bool& f) : flag(f) {}
+        ~CaptureGuard() { flag = false; }
+    } captureGuard(mIsDrawingCapture);
 
     //==========================================================================
     // Build render queues
@@ -788,11 +802,6 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
         drawBucket(mBuckets.worldTransparent);
         drawBucket(mBuckets.effectOverlay);
     }
-
-    //==========================================================================
-    // Restore capture flag
-    //==========================================================================
-    mIsDrawingCapture = false;
 
     //==========================================================================
     // Restore rasterizer state
