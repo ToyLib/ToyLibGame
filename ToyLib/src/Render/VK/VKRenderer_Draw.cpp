@@ -1307,7 +1307,6 @@ VkDescriptorSet VKRenderer::GetOrCreateEmptySet(const char* pipelineName, uint32
     }
 
     EmptySetKey key{};
-    key.frame = mFrameIndex;
     key.setIndex = setIndex;
     key.pipelineName = pipelineName;
 
@@ -1338,6 +1337,22 @@ VkDescriptorSet VKRenderer::GetOrCreateEmptySet(const char* pipelineName, uint32
 
 void VKRenderer::ClearEmptySetCache()
 {
+    if (mDevice && mDescPool && !mEmptySetCache.empty())
+    {
+        std::vector<VkDescriptorSet> sets;
+        sets.reserve(mEmptySetCache.size());
+        for (auto& kv : mEmptySetCache)
+        {
+            if (kv.second != VK_NULL_HANDLE)
+            {
+                sets.push_back(kv.second);
+            }
+        }
+        if (!sets.empty())
+        {
+            vkFreeDescriptorSets(mDevice, mDescPool, static_cast<uint32_t>(sets.size()), sets.data());
+        }
+    }
     mEmptySetCache.clear();
 }
 

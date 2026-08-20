@@ -507,13 +507,13 @@ private:
     //==========================================================
     struct EmptySetKey
     {
-        uint32_t frame = 0;
+        // frame は含めない — 空セットはバインディングなしで全フレーム共用可能
         std::string pipelineName;
         uint32_t setIndex = 0;
 
         bool operator==(const EmptySetKey& o) const
         {
-            return frame == o.frame && setIndex == o.setIndex && pipelineName == o.pipelineName;
+            return setIndex == o.setIndex && pipelineName == o.pipelineName;
         }
     };
 
@@ -528,7 +528,6 @@ private:
                 h *= 1099511628211ull;
             };
 
-            mix(std::hash<uint32_t>{}(k.frame));
             mix(std::hash<std::string>{}(k.pipelineName));
             mix(std::hash<uint32_t>{}(k.setIndex));
             return h;

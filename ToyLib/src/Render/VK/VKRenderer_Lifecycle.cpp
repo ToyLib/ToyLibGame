@@ -238,6 +238,7 @@ void VKRenderer::Shutdown()
     DestroySkinnedSlots();
     DestroySceneUBO_Capture();
     DestroySceneUBO();
+    ClearEmptySetCache();   // pool 破棄前に空セットを解放
     DestroyDescriptorPool();
 
     // IRenderer resources
