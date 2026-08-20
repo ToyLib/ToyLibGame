@@ -15,17 +15,17 @@
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
+#include "Render/VK/VKSceneRenderTarget.h"
+#include "Render/VK/VKUtil.h"
 
-#include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
 
-#include <iostream>
-#include <vector>
-#include <set>
 #include <algorithm>
+#include <iostream>
+#include <set>
+#include <vector>
 
 namespace toy
 {
@@ -46,7 +46,7 @@ bool VKRenderer::BuildDefaultPipelines()
     // pipeline を作り直したら setLayout が変わる可能性がある
     ClearBaseMapSetCache();
 
-    
+
 
     //==========================================================
     // 1) Swapchain(RenderPass/Extent) 用パイプライン
@@ -155,13 +155,13 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
-    
+
+
     // PostEffect
     {
         mPostEffectSets.clear();
         mPostEffectSetLayout = VK_NULL_HANDLE;
-        
+
         VKPipelineDesc post = toy::VKPipelinePresets::MakePostEffect(base);
         if (!mPipelines.CreatePipeline("PostEffect", mDevice, mRenderPass, mSwapchainExtent, post))
         {
@@ -181,7 +181,7 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
     // SkinnedMesh + SkinnedMesh_CW
     {
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
@@ -202,7 +202,7 @@ bool VKRenderer::BuildDefaultPipelines()
             return false;
         }
     }
-    
+
     // Particle
     {
         VKPipelineDesc particle = toy::VKPipelinePresets::MakeParticle(base);
@@ -318,7 +318,7 @@ bool VKRenderer::BuildDefaultPipelines()
         VKPipelineDesc mesh = toy::VKPipelinePresets::MakeMesh(base);
 
         mesh.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        mesh.cullMode  = VK_CULL_MODE_BACK_BIT;
+        mesh.cullMode = VK_CULL_MODE_BACK_BIT;
 
         if (!mPipelines.CreatePipeline("Mesh", mDevice, mRenderPass, mSwapchainExtent, mesh))
         {
@@ -341,7 +341,7 @@ bool VKRenderer::BuildDefaultPipelines()
         VKPipelineDesc surf = toy::VKPipelinePresets::MakeRenderSurface(base);
 
         surf.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        surf.cullMode  = VK_CULL_MODE_BACK_BIT;
+        surf.cullMode = VK_CULL_MODE_BACK_BIT;
 
         if (!mPipelines.CreatePipeline("RenderSurface", mDevice, mRenderPass, mSwapchainExtent, surf))
         {
@@ -430,7 +430,7 @@ bool VKRenderer::BuildDefaultPipelines()
         VKPipelineDesc sk = toy::VKPipelinePresets::MakeSkinnedMesh(base);
 
         sk.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        sk.cullMode  = VK_CULL_MODE_BACK_BIT;
+        sk.cullMode = VK_CULL_MODE_BACK_BIT;
 
         if (!mPipelines.CreatePipeline("SkinnedMesh", mDevice, mRenderPass, mSwapchainExtent, sk))
         {
@@ -462,21 +462,18 @@ bool VKRenderer::BuildDefaultPipelines()
             std::cerr << "[VKRenderer] Failed pipeline: Particle_Alpha\n";
             return false;
         }
-
     }
-
 
     //==========================================================
     // 2) Shadow(RenderPass/Extent) 用パイプライン
     //==========================================================
-    if (mShadowRenderPass != VK_NULL_HANDLE &&
-        mShadowExtent.width > 0 && mShadowExtent.height > 0)
+    if (mShadowRenderPass != VK_NULL_HANDLE && mShadowExtent.width > 0 && mShadowExtent.height > 0)
     {
         // ShadowMesh + ShadowMesh_CW
         {
             VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowMesh(base);
 
-            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.cullMode = VK_CULL_MODE_BACK_BIT;
             sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
             if (!mPipelines.CreatePipeline("ShadowMesh", mDevice, mShadowRenderPass, mShadowExtent, sd))
@@ -499,7 +496,7 @@ bool VKRenderer::BuildDefaultPipelines()
         {
             VKPipelineDesc sd = toy::VKPipelinePresets::MakeShadowSkinnedMesh(base);
 
-            sd.cullMode  = VK_CULL_MODE_BACK_BIT;
+            sd.cullMode = VK_CULL_MODE_BACK_BIT;
             sd.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
             if (!mPipelines.CreatePipeline("ShadowSkinned", mDevice, mShadowRenderPass, mShadowExtent, sd))
@@ -525,8 +522,7 @@ bool VKRenderer::BuildDefaultPipelines()
 bool VKRenderer::BuildShadowPipelinesOnly()
 {
     // .h に mEnableShadow が無いので、存在チェックだけで判定する
-    if (mShadowRenderPass == VK_NULL_HANDLE ||
-        mShadowExtent.width == 0 || mShadowExtent.height == 0)
+    if (mShadowRenderPass == VK_NULL_HANDLE || mShadowExtent.width == 0 || mShadowExtent.height == 0)
     {
         return true; // 影がまだ無い/無効ならスキップ
     }
@@ -535,21 +531,17 @@ bool VKRenderer::BuildShadowPipelinesOnly()
 
     // PipelineLibrary の API はあなたの実装に合わせる：
     // ここは Core.cpp 上の CreatePipeline 呼びに揃える
-    if (!mPipelines.CreatePipeline(
-            "ShadowMesh",
-            mDevice,
-            mShadowRenderPass,
-            mShadowExtent,
-            VKPipelinePresets::MakeShadowMesh(base)))
+    if (!mPipelines.CreatePipeline("ShadowMesh", mDevice, mShadowRenderPass, mShadowExtent,
+                                   VKPipelinePresets::MakeShadowMesh(base)))
+    {
         return false;
+    }
 
-    if (!mPipelines.CreatePipeline(
-            "ShadowSkinned",
-            mDevice,
-            mShadowRenderPass,
-            mShadowExtent,
-            VKPipelinePresets::MakeShadowSkinnedMesh(base)))
+    if (!mPipelines.CreatePipeline("ShadowSkinned", mDevice, mShadowRenderPass, mShadowExtent,
+                                   VKPipelinePresets::MakeShadowSkinnedMesh(base)))
+    {
         return false;
+    }
 
     return true;
 }

@@ -15,15 +15,15 @@
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/Pipeline/VKPipeline.h"
-#include "Render/VK/VKTextureGPU.h"
 #include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
+#include "Render/VK/Pipeline/VKPipeline.h"
+#include "Render/VK/VKTextureGPU.h"
+#include "Render/VK/VKUtil.h"
 
-#include <iostream>
 #include <cstring>
+#include <iostream>
 #include <unordered_map>
 
 namespace toy
@@ -32,9 +32,7 @@ namespace toy
 //--------------------------------------------------------------
 // “基準Pipeline” から setLayout を取る
 //--------------------------------------------------------------
-static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
-                                                  const char* pipelineName,
-                                                  uint32_t setIndex)
+static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib, const char* pipelineName, uint32_t setIndex)
 {
     auto* p = lib.Get(pipelineName);
     if (!p)
@@ -46,7 +44,10 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
 
 static const char* NormalizePipelineNameForSet2(const char* pipelineName)
 {
-    if (!pipelineName) return nullptr;
+    if (!pipelineName)
+    {
+        return nullptr;
+    }
 
     // ShadowSkinnedMesh は set=2 が SkinnedMesh と同じでOK（運用を安定化）
     if (std::strcmp(pipelineName, "ShadowSkinned") == 0)
@@ -63,9 +64,7 @@ static const char* NormalizePipelineNameForSet2(const char* pipelineName)
 //==============================================================
 // DescriptorPool (UBO用: Scene + Skinned)
 //==============================================================
-VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
-                                              uint32_t paletteCount,
-                                              const char* pipelineName)
+VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette, uint32_t paletteCount, const char* pipelineName)
 {
     if (!mDevice || !mDescPool || !pipelineName)
     {
@@ -102,10 +101,7 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
     {
         SkinnedPaletteSlot slot{};
 
-        if (!CreateBufferHostVisible(kSkinnedUBOSize,
-                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     slot.ubo,
-                                     slot.mem))
+        if (!CreateBufferHostVisible(kSkinnedUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, slot.ubo, slot.mem))
         {
             return VK_NULL_HANDLE;
         }
@@ -121,21 +117,20 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
 
         if (set2 == VK_NULL_HANDLE)
         {
-            std::cerr << "[VK] AcquireSkinnedSet: set2 layout null pipe="
-                      << pipelineName << " (normalized=" << (set2PipeName ? set2PipeName : "null") << ")\n";
+            std::cerr << "[VK] AcquireSkinnedSet: set2 layout null pipe=" << pipelineName
+                      << " (normalized=" << (set2PipeName ? set2PipeName : "null") << ")\n";
             vkDestroyBuffer(mDevice, slot.ubo, nullptr);
             vkFreeMemory(mDevice, slot.mem, nullptr);
             return VK_NULL_HANDLE;
         }
 
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = mDescPool;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set2;
+        ai.pSetLayouts = &set2;
 
-        if (vkAllocateDescriptorSets(mDevice, &ai, &slot.set) != VK_SUCCESS ||
-            slot.set == VK_NULL_HANDLE)
+        if (vkAllocateDescriptorSets(mDevice, &ai, &slot.set) != VK_SUCCESS || slot.set == VK_NULL_HANDLE)
         {
             vkDestroyBuffer(mDevice, slot.ubo, nullptr);
             vkFreeMemory(mDevice, slot.mem, nullptr);
@@ -145,15 +140,15 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette,
         VkDescriptorBufferInfo bi{};
         bi.buffer = slot.ubo;
         bi.offset = 0;
-        bi.range  = kSkinnedUBOSize;
+        bi.range = kSkinnedUBOSize;
 
         VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = slot.set;
-        w.dstBinding      = 0;
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = slot.set;
+        w.dstBinding = 0;
         w.descriptorCount = 1;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo     = &bi;
+        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo = &bi;
 
         vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 

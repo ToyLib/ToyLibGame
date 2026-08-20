@@ -16,23 +16,22 @@
 //    -> DrawWorldPass() で Begin するが End しない
 //    -> EndSwapchainRenderPassIfNeeded() を EndFrame() 前に呼ぶ
 //======================================================================
-#include "Render/VK/VKRenderer.h"
 #include "Render/VK/VKPushConstants.h"
+#include "Render/VK/VKRenderer.h"
 
-#include "Render/VK/VKSceneRenderTarget.h"
-#include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/RenderItemPayloads.h"
+#include "Render/VK/Pipeline/VKPipeline.h"
+#include "Render/VK/VKSceneRenderTarget.h"
 
-#include "Asset/Geometry/VertexArray.h"
 #include "Asset/Geometry/VK/VKVertexArrayBackend.h"
+#include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Material.h"
 
-#include <iostream>
 #include <cstring>
+#include <iostream>
 
 namespace toy
 {
-
 
 static void StoreMat4(float out16[16], const Matrix4& m)
 {
@@ -44,16 +43,28 @@ static void StoreMat4(float out16[16], const Matrix4& m)
 //--------------------------------------------------------------
 static bool BindVertexArrayVK(VkCommandBuffer cmd, const GeometryHandle& gh)
 {
-    if (!cmd) return false;
+    if (!cmd)
+    {
+        return false;
+    }
 
     const VertexArray* va = gh.ptr;
-    if (!va) return false;
+    if (!va)
+    {
+        return false;
+    }
 
     auto* backend = (VKVertexArrayBackend*)va->GetBackend();
-    if (!backend) return false;
+    if (!backend)
+    {
+        return false;
+    }
 
     VkBuffer vb = (VkBuffer)backend->GetVKVertexBuffer();
-    if (vb == VK_NULL_HANDLE) return false;
+    if (vb == VK_NULL_HANDLE)
+    {
+        return false;
+    }
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &offset);
@@ -77,11 +88,20 @@ static inline bool IsValidExtent(const VkExtent2D& e)
 
 void VKRenderer::BeginSwapchainRenderPassIfNeeded()
 {
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
-    if (mIsInRenderPass) return;
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+    if (mIsInRenderPass)
+    {
+        return;
+    }
 
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (cmd == VK_NULL_HANDLE) return;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
@@ -90,22 +110,37 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     if (mRenderToSceneRTThisFrame)
     {
         auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(mSceneRT.get());
-        if (!vkrt) return;
+        if (!vkrt)
+        {
+            return;
+        }
 
-        renderPass  = vkrt->GetRenderPass();
+        renderPass = vkrt->GetRenderPass();
         framebuffer = vkrt->GetFramebuffer();
-        extent      = vkrt->GetExtent();
+        extent = vkrt->GetExtent();
     }
     else
     {
-        if (!IsValidExtent(mSwapchainExtent)) return;
-        if (mRenderPass == VK_NULL_HANDLE) return;
-        if (mImageIndex >= mFramebuffers.size()) return;
-        if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE) return;
+        if (!IsValidExtent(mSwapchainExtent))
+        {
+            return;
+        }
+        if (mRenderPass == VK_NULL_HANDLE)
+        {
+            return;
+        }
+        if (mImageIndex >= mFramebuffers.size())
+        {
+            return;
+        }
+        if (mFramebuffers[mImageIndex] == VK_NULL_HANDLE)
+        {
+            return;
+        }
 
-        renderPass  = mRenderPass;
+        renderPass = mRenderPass;
         framebuffer = mFramebuffers[mImageIndex];
-        extent      = mSwapchainExtent;
+        extent = mSwapchainExtent;
     }
 
     VkClearValue clears[2]{};
@@ -113,14 +148,14 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     clears[0].color.float32[1] = mClearColor.y;
     clears[0].color.float32[2] = mClearColor.z;
     clears[0].color.float32[3] = 1.0f;
-    clears[1].depthStencil.depth   = 1.0f;
+    clears[1].depthStencil.depth = 1.0f;
     clears[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass = renderPass;
     rp.framebuffer = framebuffer;
-    rp.renderArea.offset = { 0, 0 };
+    rp.renderArea.offset = {0, 0};
     rp.renderArea.extent = extent;
     rp.clearValueCount = 2;
     rp.pClearValues = clears;
@@ -131,30 +166,38 @@ void VKRenderer::BeginSwapchainRenderPassIfNeeded()
     VkViewport vp{};
     vp.x = 0.0f;
     vp.y = (float)extent.height;
-    vp.width  = (float)extent.width;
+    vp.width = (float)extent.width;
     vp.height = -(float)extent.height;
     vp.minDepth = 0.0f;
     vp.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vp);
 
     VkRect2D sc{};
-    sc.offset = { 0, 0 };
+    sc.offset = {0, 0};
     sc.extent = extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 }
 
 void VKRenderer::EndSwapchainRenderPassIfNeeded()
 {
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
-    if (!mIsInRenderPass) return;
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
+    if (!mIsInRenderPass)
+    {
+        return;
+    }
 
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (cmd == VK_NULL_HANDLE) return;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
     vkCmdEndRenderPass(cmd);
     mIsInRenderPass = false;
 }
-
 
 //======================================================================
 // Passes
@@ -182,7 +225,10 @@ void VKRenderer::DrawSkyPass()
 
 void VKRenderer::DrawWorldPass()
 {
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
 
     BeginSwapchainRenderPassIfNeeded();
 
@@ -269,19 +315,12 @@ void VKRenderer::DrawFadePass()
     pc.colorAlpha[2] = mFadeColor.z;
     pc.colorAlpha[3] = mFadeAlpha;
 
-    vkCmdPushConstants(
-        cmd,
-        pipe->GetPipelineLayout(),
-        VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(VKFadePC),
-        &pc);
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(VKFadePC), &pc);
 
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
     AddDrawCall();
 }
-
 
 void VKRenderer::DrawUIPass()
 {
@@ -298,7 +337,7 @@ void VKRenderer::DrawUIPass()
     }
 
     DrawBucket_UI(mBuckets.ui);
-    
+
     // 念のため World 用 UBO に戻す
     UpdateSceneUBO_World();
 }
@@ -310,49 +349,75 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 {
     (void)cascadeIndex;
 
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
 
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (cmd == VK_NULL_HANDLE) return;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
-    
     if (it.type != RenderItemType::Particle)
     {
         BindVertexArrayVK(cmd, it.geometry);
     }
-    
+
     //----------------------------------------------------------
     // SceneSet 選択（World / UI / Shadow）
     //----------------------------------------------------------
-    const bool isUI     = (pass == RenderPass::UI);
+    const bool isUI = (pass == RenderPass::UI);
     const bool isShadow = (pass == RenderPass::Shadow);
 
     VkDescriptorSet sceneSet = VK_NULL_HANDLE;
 
     if (isShadow)
     {
-        if (cascadeIndex < 0 || cascadeIndex >= kShadowCascadeCount) return;
-        if (mFrameIndex >= mShadowSceneSet[cascadeIndex].size()) return;
+        if (cascadeIndex < 0 || cascadeIndex >= kShadowCascadeCount)
+        {
+            return;
+        }
+        if (mFrameIndex >= mShadowSceneSet[cascadeIndex].size())
+        {
+            return;
+        }
         sceneSet = mShadowSceneSet[cascadeIndex][mFrameIndex];
     }
     else if (isUI)
     {
-        if (mFrameIndex >= mSceneSet_UI.size()) return;
+        if (mFrameIndex >= mSceneSet_UI.size())
+        {
+            return;
+        }
         sceneSet = mSceneSet_UI[mFrameIndex];
     }
     else
     {
         if (mIsDrawingCapture)
         {
-            if (mFrameIndex >= mSceneSet_Capture.size()) return;
-            if (mActiveCaptureSlot < 0) return;
-            if ((size_t)mActiveCaptureSlot >= mSceneSet_Capture[mFrameIndex].size()) return;
+            if (mFrameIndex >= mSceneSet_Capture.size())
+            {
+                return;
+            }
+            if (mActiveCaptureSlot < 0)
+            {
+                return;
+            }
+            if ((size_t)mActiveCaptureSlot >= mSceneSet_Capture[mFrameIndex].size())
+            {
+                return;
+            }
 
             sceneSet = mSceneSet_Capture[mFrameIndex][mActiveCaptureSlot];
         }
         else
         {
-            if (mFrameIndex >= mSceneSet.size()) return;
+            if (mFrameIndex >= mSceneSet.size())
+            {
+                return;
+            }
             sceneSet = mSceneSet[mFrameIndex];
         }
     }
@@ -366,9 +431,14 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     {
         switch (it.type)
         {
-            case RenderItemType::Mesh:        pipelineName = "ShadowMesh";    break;
-            case RenderItemType::SkinnedMesh: pipelineName = "ShadowSkinned"; break;
-            default: return;
+            case RenderItemType::Mesh:
+                pipelineName = "ShadowMesh";
+                break;
+            case RenderItemType::SkinnedMesh:
+                pipelineName = "ShadowSkinned";
+                break;
+            default:
+                return;
         }
     }
     else
@@ -391,9 +461,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 pipelineName = "SkyDome";
                 break;
             case RenderItemType::Overlay:
-                pipelineName = (it.blend == BlendMode::Additive)
-                    ? "WeatherOverlayAdd"
-                    : "WeatherOverlay";
+                pipelineName = (it.blend == BlendMode::Additive) ? "WeatherOverlayAdd" : "WeatherOverlay";
                 break;
             case RenderItemType::Surface:
                 pipelineName = "RenderSurface";
@@ -402,460 +470,126 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
                 pipelineName = "UnlitWire";
                 break;
             case RenderItemType::Particle:
-                pipelineName = (it.blend == BlendMode::Additive)
-                    ? "Particle"
-                    : "Particle_Alpha";
-                    break;
+                pipelineName = (it.blend == BlendMode::Additive) ? "Particle" : "Particle_Alpha";
+                break;
             default:
                 return;
         }
     }
 
-    //----------------------------------------------------------
-    // Shadow pass
-    //----------------------------------------------------------
+    // タイプ別 private ヘルパーへ委譲
     if (isShadow)
     {
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid()) return;
-
-        pipe->Bind(cmd);
-
-        if (it.type == RenderItemType::Mesh)
-        {
-            vkCmdBindDescriptorSets(
-                cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipe->GetPipelineLayout(),
-                0, 1, &sceneSet,
-                0, nullptr);
-
-            VKShadowPC pc{};
-            StoreMat4(pc.world, it.world);
-
-            vkCmdPushConstants(
-                cmd, pipe->GetPipelineLayout(),
-                VK_SHADER_STAGE_VERTEX_BIT,
-                0, sizeof(VKShadowPC), &pc);
-
-            if (it.indexCount > 0)
-                vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-            else if (it.vertexCount > 0)
-                vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-            AddDrawCall();
-            return;
-        }
-
-        if (it.type == RenderItemType::SkinnedMesh)
-        {
-            VkDescriptorSet skinnedSet =
-                AcquireSkinnedSet(it.matrixPalette,
-                                  (uint32_t)it.paletteCount,
-                                  pipelineName);
-            if (skinnedSet == VK_NULL_HANDLE) return;
-
-            VkDescriptorSet emptySet1 = GetOrCreateEmptySet(pipelineName, 1);
-            if (emptySet1 == VK_NULL_HANDLE) return;
-
-            VkDescriptorSet sets[3] = { sceneSet, emptySet1, skinnedSet };
-
-            vkCmdBindDescriptorSets(
-                cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipe->GetPipelineLayout(),
-                0, 3, sets,
-                0, nullptr);
-
-            VKShadowPC pc{};
-            StoreMat4(pc.world, it.world);
-
-            vkCmdPushConstants(
-                cmd, pipe->GetPipelineLayout(),
-                VK_SHADER_STAGE_VERTEX_BIT,
-                0, sizeof(VKShadowPC), &pc);
-
-            if (it.indexCount > 0)
-                vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-            else if (it.vertexCount > 0)
-                vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-            AddDrawCall();
-            return;
-        }
-
+        DrawItem_Shadow(cmd, it, sceneSet, cascadeIndex);
         return;
     }
 
-    //----------------------------------------------------------
-    // Sprite
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::Sprite)
+    switch (it.type)
     {
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE) return;
+        case RenderItemType::Sprite:
+            DrawItem_Sprite(cmd, it, sceneSet);
+            break;
+        case RenderItemType::Mesh:
+            DrawItem_Mesh(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::SkinnedMesh:
+            DrawItem_Skinned(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::UnlitQuad:
+            DrawItem_UnlitQuad(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::SkyDome:
+            DrawItem_SkyDome(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::Overlay:
+            DrawItem_Overlay(cmd, it, pipelineName);
+            break;
+        case RenderItemType::Debug:
+            DrawItem_Debug(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::Surface:
+            DrawItem_Surface(cmd, it, sceneSet, pipelineName);
+            break;
+        case RenderItemType::Particle:
+            DrawItem_Particle(cmd, it, sceneSet, pipelineName);
+            break;
+        default:
+            break;
+    }
+}
 
-        VKPipeline* pipe = mPipelines.Get("Sprite");
-        if (!pipe || !pipe->IsValid()) return;
+//==============================================================
+// DrawItem_Shadow
+//==============================================================
+void VKRenderer::DrawItem_Shadow(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet, int cascadeIndex)
+{
+    const char* pipelineName = nullptr;
+    switch (it.type)
+    {
+        case RenderItemType::Mesh:
+            pipelineName = "ShadowMesh";
+            break;
+        case RenderItemType::SkinnedMesh:
+            pipelineName = "ShadowSkinned";
+            break;
+        default:
+            return;
+    }
 
-        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
-
-        pipe->Bind(cmd);
-        vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 2, sets,
-            0, nullptr);
-
-        Vector3 color(1,1,1);
-        float alpha = 1.0f;
-
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            const SpritePayload& sp = GetSpritePayload(it.payloadIndex);
-            color = sp.color;
-            alpha = sp.alpha;
-        }
-
-        VKSpritePC pc{};
-        StoreMat4(pc.world, it.world);
-        pc.colorAlpha[0] = color.x;
-        pc.colorAlpha[1] = color.y;
-        pc.colorAlpha[2] = color.z;
-        pc.colorAlpha[3] = alpha;
-
-        vkCmdPushConstants(
-            cmd, pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(VKSpritePC), &pc);
-
-        if (it.indexCount > 0)
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        else if (it.vertexCount > 0)
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-        AddDrawCall();
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
         return;
     }
 
-    //----------------------------------------------------------
-    // Mesh
-    //----------------------------------------------------------
+    pipe->Bind(cmd);
+
     if (it.type == RenderItemType::Mesh)
     {
-        VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
-        if (shadowSet == VK_NULL_HANDLE) return;
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 1, &sceneSet, 0,
+                                nullptr);
 
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid()) return;
-
-        Material* mat = it.material.ptr;
-        const Texture* diffuseTex =
-            (mat) ? mat->GetDiffuseMap().get() : nullptr;
-
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(diffuseTex, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE) return;
-
-        VkDescriptorSet emptySet2 =
-            GetOrCreateEmptySet(pipelineName, 2);
-        if (emptySet2 == VK_NULL_HANDLE) return;
-
-        VkDescriptorSet sets[4] =
-        {
-            sceneSet,
-            baseMapSet,
-            emptySet2,
-            shadowSet
-        };
-
-        pipe->Bind(cmd);
-        vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 4, sets,
-            0, nullptr);
-
-        Vector3 baseColor(1,1,1);
-        float specPower = 64.0f;
-        float alpha = 1.0f;
-
-        float toon = 0.0f;
-        float overrideEnabled = 0.0f;
-        Vector3 overrideColor(0,0,0);
-
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            const MeshPayload& mp = GetMeshPayload(it.payloadIndex);
-            toon = mp.toon ? 1.0f : 0.0f;
-            overrideEnabled = mp.overrideColor ? 1.0f : 0.0f;
-            overrideColor = mp.overrideColorValue;
-        }
-
-        float useTex = 0.0f;
-
-        if (mat)
-        {
-            baseColor = mat->GetDiffuseColor();
-            specPower = mat->GetSpecPower();
-
-            if (mat->WantsUseTexture() && diffuseTex)
-                useTex = 1.0f;
-        }
-
-        VKMeshPC pc{};
+        VKShadowPC pc{};
         StoreMat4(pc.world, it.world);
 
-        pc.baseColor_useTex[0] = baseColor.x;
-        pc.baseColor_useTex[1] = baseColor.y;
-        pc.baseColor_useTex[2] = baseColor.z;
-        pc.baseColor_useTex[3] = useTex;
-
-        pc.misc[0] = specPower;
-        pc.misc[1] = toon;
-        pc.misc[2] = overrideEnabled;
-        pc.misc[3] = alpha;
-
-        pc.overrideColor[0] = overrideColor.x;
-        pc.overrideColor[1] = overrideColor.y;
-        pc.overrideColor[2] = overrideColor.z;
-        pc.overrideColor[3] = 1.0f;
-
-        vkCmdPushConstants(
-            cmd, pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(VKMeshPC), &pc);
+        vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VKShadowPC), &pc);
 
         if (it.indexCount > 0)
+        {
             vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+        }
         else if (it.vertexCount > 0)
+        {
             vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+        }
 
         AddDrawCall();
         return;
     }
 
-    //----------------------------------------------------------
-    // SkinnedMesh
-    //----------------------------------------------------------
     if (it.type == RenderItemType::SkinnedMesh)
     {
-        VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
-        if (shadowSet == VK_NULL_HANDLE) return;
-
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid())
-        {
-            pipe = mPipelines.Get("SkinnedMesh");
-            if (!pipe || !pipe->IsValid()) return;
-            pipelineName = "SkinnedMesh";
-        }
-
-        VkDescriptorSet skinnedSet =
-            AcquireSkinnedSet(it.matrixPalette,
-                              (uint32_t)it.paletteCount,
-                              pipelineName);
-        if (skinnedSet == VK_NULL_HANDLE) return;
-
-        Material* mat = it.material.ptr;
-        const Texture* diffuseTex =
-            (mat) ? mat->GetDiffuseMap().get() : nullptr;
-
-        Vector3 baseColor(1.0f, 1.0f, 1.0f);
-        float   specPower = 64.0f;
-        float   alpha     = 1.0f;
-
-        float toon            = 0.0f;
-        float overrideEnabled = 0.0f;
-        Vector3 overrideColor(0.0f, 0.0f, 0.0f);
-
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            const SkinnedMeshPayload& sp = GetSkinnedMeshPayload(it.payloadIndex);
-            toon            = sp.toon ? 1.0f : 0.0f;
-            overrideEnabled = sp.overrideColor ? 1.0f : 0.0f;
-            overrideColor   = sp.overrideColorValue;
-        }
-
-        float useTex = 0.0f;
-
-        if (mat)
-        {
-            baseColor = mat->GetDiffuseColor();
-            specPower = mat->GetSpecPower();
-
-            if (mat->WantsUseTexture() && diffuseTex)
-                useTex = 1.0f;
-        }
-
-        if (overrideEnabled > 0.5f)
-        {
-            useTex     = 0.0f;
-            baseColor  = overrideColor;
-            diffuseTex = nullptr;
-        }
-
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(diffuseTex, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE) return;
-
-        VkDescriptorSet sets[4] =
-        {
-            sceneSet,
-            baseMapSet,
-            skinnedSet,
-            shadowSet
-        };
-
-        pipe->Bind(cmd);
-
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 4, sets,
-            0, nullptr);
-
-        VKMeshPC pc{};
-        StoreMat4(pc.world, it.world);
-
-        pc.baseColor_useTex[0] = baseColor.x;
-        pc.baseColor_useTex[1] = baseColor.y;
-        pc.baseColor_useTex[2] = baseColor.z;
-        pc.baseColor_useTex[3] = useTex;
-
-        pc.misc[0] = specPower;
-        pc.misc[1] = toon;
-        pc.misc[2] = overrideEnabled;
-        pc.misc[3] = alpha;
-
-        pc.overrideColor[0] = overrideColor.x;
-        pc.overrideColor[1] = overrideColor.y;
-        pc.overrideColor[2] = overrideColor.z;
-        pc.overrideColor[3] = 1.0f;
-
-        vkCmdPushConstants(
-            cmd,
-            pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(VKMeshPC),
-            &pc);
-
-        if (it.indexCount > 0)
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        else if (it.vertexCount > 0)
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-        AddDrawCall();
-        return;
-    }
-
-    //----------------------------------------------------------
-    // UnlitQuad
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::UnlitQuad)
-    {
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE) return;
-
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid()) return;
-
-        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
-
-        pipe->Bind(cmd);
-        vkCmdBindDescriptorSets(
-            cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 2, sets,
-            0, nullptr);
-
-        Vector3 tint(1.0f, 1.0f, 1.0f);
-        float   alpha = 1.0f;
-
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            const UnlitQuadPayload& up = GetUnlitQuadPayload(it.payloadIndex);
-            tint  = up.tint;
-            alpha = up.alpha;
-        }
-
-        VKUnlitQuadPC pc{};
-        StoreMat4(pc.world, it.world);
-        pc.tintAlpha[0] = tint.x;
-        pc.tintAlpha[1] = tint.y;
-        pc.tintAlpha[2] = tint.z;
-        pc.tintAlpha[3] = alpha;
-
-        vkCmdPushConstants(
-            cmd, pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, sizeof(VKUnlitQuadPC), &pc);
-
-        if (it.indexCount > 0)
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        else if (it.vertexCount > 0)
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-        AddDrawCall();
-        return;
-    }
-
-    //----------------------------------------------------------
-    // SkyDome
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::SkyDome)
-    {
-        if (mFrameIndex >= mSkySet.size())
+        VkDescriptorSet skinnedSet = AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
+        if (skinnedSet == VK_NULL_HANDLE)
         {
             return;
         }
 
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid())
+        VkDescriptorSet emptySet1 = GetOrCreateEmptySet(pipelineName, 1);
+        if (emptySet1 == VK_NULL_HANDLE)
         {
             return;
         }
 
-        VkDescriptorSet skySet = mSkySet[mFrameIndex];
-        if (skySet == VK_NULL_HANDLE)
-        {
-            return;
-        }
+        VkDescriptorSet sets[3] = {sceneSet, emptySet1, skinnedSet};
 
-        SkyDomePayload sky {};
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            sky = GetSkyDomePayload(it.payloadIndex);
-        }
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 3, sets, 0,
+                                nullptr);
 
-        UpdateSkyUBO(sky);
-
-        pipe->Bind(cmd);
-
-        VkDescriptorSet sets[2] =
-        {
-            sceneSet,
-            skySet
-        };
-
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 2, sets,
-            0, nullptr);
-
-        VKSkyPC pc {};
+        VKShadowPC pc{};
         StoreMat4(pc.world, it.world);
 
-        vkCmdPushConstants(
-            cmd,
-            pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT,
-            0,
-            sizeof(VKSkyPC),
-            &pc);
+        vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VKShadowPC), &pc);
 
         if (it.indexCount > 0)
         {
@@ -867,314 +601,594 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         }
 
         AddDrawCall();
+    }
+}
+
+//==============================================================
+// DrawItem_Sprite
+//==============================================================
+void VKRenderer::DrawItem_Sprite(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet)
+{
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, "Sprite");
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
         return;
     }
 
-    //----------------------------------------------------------
-    // OverlayScreen / WeatherOverlay
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::Overlay)
+    VKPipeline* pipe = mPipelines.Get("Sprite");
+    if (!pipe || !pipe->IsValid())
     {
-        if (mFrameIndex >= mOverlaySet.size())
-        {
-            return;
-        }
+        return;
+    }
 
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
+    VkDescriptorSet sets[2] = {sceneSet, baseMapSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 2, sets, 0, nullptr);
+
+    Vector3 color(1, 1, 1);
+    float alpha = 1.0f;
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const SpritePayload& sp = GetSpritePayload(it.payloadIndex);
+        color = sp.color;
+        alpha = sp.alpha;
+    }
+
+    VKSpritePC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.colorAlpha[0] = color.x;
+    pc.colorAlpha[1] = color.y;
+    pc.colorAlpha[2] = color.z;
+    pc.colorAlpha[3] = alpha;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKSpritePC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Mesh
+//==============================================================
+void VKRenderer::DrawItem_Mesh(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                               const char* pipelineName)
+{
+    VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
+    if (shadowSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    Material* mat = it.material.ptr;
+    const Texture* diffuseTex = mat ? mat->GetDiffuseMap().get() : nullptr;
+
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(diffuseTex, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkDescriptorSet emptySet2 = GetOrCreateEmptySet(pipelineName, 2);
+    if (emptySet2 == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkDescriptorSet sets[4] = {sceneSet, baseMapSet, emptySet2, shadowSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 4, sets, 0, nullptr);
+
+    Vector3 baseColor(1, 1, 1);
+    float specPower = 64.0f, alpha = 1.0f;
+    float toon = 0.0f, overrideEnabled = 0.0f;
+    Vector3 overrideColor(0, 0, 0);
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const MeshPayload& mp = GetMeshPayload(it.payloadIndex);
+        toon = mp.toon ? 1.0f : 0.0f;
+        overrideEnabled = mp.overrideColor ? 1.0f : 0.0f;
+        overrideColor = mp.overrideColorValue;
+    }
+
+    float useTex = 0.0f;
+    if (mat)
+    {
+        baseColor = mat->GetDiffuseColor();
+        specPower = mat->GetSpecPower();
+        if (mat->WantsUseTexture() && diffuseTex)
+        {
+            useTex = 1.0f;
+        }
+    }
+
+    VKMeshPC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.baseColor_useTex[0] = baseColor.x;
+    pc.baseColor_useTex[1] = baseColor.y;
+    pc.baseColor_useTex[2] = baseColor.z;
+    pc.baseColor_useTex[3] = useTex;
+    pc.misc[0] = specPower;
+    pc.misc[1] = toon;
+    pc.misc[2] = overrideEnabled;
+    pc.misc[3] = alpha;
+    pc.overrideColor[0] = overrideColor.x;
+    pc.overrideColor[1] = overrideColor.y;
+    pc.overrideColor[2] = overrideColor.z;
+    pc.overrideColor[3] = 1.0f;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKMeshPC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Skinned
+//==============================================================
+void VKRenderer::DrawItem_Skinned(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                  const char* pipelineName)
+{
+    VkDescriptorSet shadowSet = GetShadowMapSetForCurrentFrame();
+    if (shadowSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        pipe = mPipelines.Get("SkinnedMesh");
         if (!pipe || !pipe->IsValid())
         {
             return;
         }
-
-        VkDescriptorSet overlaySet = mOverlaySet[mFrameIndex];
-        if (overlaySet == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        OverlayPayload op {};
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            op = GetOverlayPayload(it.payloadIndex);
-        }
-
-        UpdateOverlayUBO(op);
-
-        pipe->Bind(cmd);
-
-        // Preset 側が set=1 のみ使用する設計
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            1, 1, &overlaySet,
-            0, nullptr);
-
-        if (it.indexCount > 0)
-        {
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        }
-        else if (it.vertexCount > 0)
-        {
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-        }
-
-        AddDrawCall();
-        return;
+        pipelineName = "SkinnedMesh";
     }
 
-    //----------------------------------------------------------
-    // Debug / UnlitWire
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::Debug)
+    VkDescriptorSet skinnedSet = AcquireSkinnedSet(it.matrixPalette, (uint32_t)it.paletteCount, pipelineName);
+    if (skinnedSet == VK_NULL_HANDLE)
     {
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid()) return;
-
-        pipe->Bind(cmd);
-
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 1, &sceneSet,
-            0, nullptr);
-
-        Vector3 color(1.0f, 1.0f, 1.0f);
-        float   alpha    = 1.0f;
-        float   useLight = 0.0f;
-
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            const DebugPayload& dp = GetDebugPayload(it.payloadIndex);
-            color = dp.color;
-            alpha = dp.alpha;
-        }
-
-        VKDebugPC pc{};
-        StoreMat4(pc.world, it.world);
-
-        pc.color[0] = color.x;
-        pc.color[1] = color.y;
-        pc.color[2] = color.z;
-        pc.color[3] = alpha;
-
-        pc.params[0] = useLight;
-        pc.params[1] = 0.0f;
-        pc.params[2] = 0.0f;
-        pc.params[3] = 0.0f;
-
-        vkCmdPushConstants(
-            cmd,
-            pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            sizeof(VKDebugPC),
-            &pc);
-
-        if (it.indexCount > 0)
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        else if (it.vertexCount > 0)
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-        AddDrawCall();
         return;
     }
-    //----------------------------------------------------------
-    // Surface
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::Surface)
+
+    Material* mat = it.material.ptr;
+    const Texture* diffuseTex = mat ? mat->GetDiffuseMap().get() : nullptr;
+
+    Vector3 baseColor(1, 1, 1);
+    float specPower = 64.0f, alpha = 1.0f;
+    float toon = 0.0f, overrideEnabled = 0.0f;
+    Vector3 overrideColor(0, 0, 0);
+
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE) return;
-
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid()) return;
-
-        VkDescriptorSet sets[2] = { sceneSet, baseMapSet };
-
-        pipe->Bind(cmd);
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 2, sets,
-            0, nullptr);
-
-        SurfacePayload sp{};
-        if (it.payloadIndex != RenderItem::kInvalidPayload)
-        {
-            sp = GetSurfacePayload(it.payloadIndex);
-        }
-
-        VKSurfacePC pc{};
-        StoreMat4(pc.world, it.world);
-
-        // tint / opacity
-        pc.tintOpacity[0] = sp.tint.x;
-        pc.tintOpacity[1] = sp.tint.y;
-        pc.tintOpacity[2] = sp.tint.z;
-        pc.tintOpacity[3] = sp.opacity;
-
-        // params0: flipX, flipY, mode, scanlineStrength
-        pc.params0[0] = sp.flipX ? 1.0f : 0.0f;
-        pc.params0[1] = sp.flipY ? 1.0f : 0.0f;
-        pc.params0[2] = static_cast<float>(sp.mode);
-        pc.params0[3] = sp.scanlineStrength;
-
-        // params1: time, distortStrength, fresnel, fresnelPow
-        pc.params1[0] = sp.time;
-        pc.params1[1] = 0.02f; // distortStrength
-        pc.params1[2] = 0.35f; // fresnel
-        pc.params1[3] = 2.0f;  // fresnelPow
-
-        // params2: waveSpeed, swayStrength, sparkleStrength, reserved
-        pc.params2[0] = 1.0f;  // waveSpeed
-        pc.params2[1] = 0.0f;  // swayStrength
-        pc.params2[2] = 0.0f;  // sparkleStrength
-
-        vkCmdPushConstants(
-            cmd,
-            pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            sizeof(VKSurfacePC),
-            &pc);
-
-        if (it.indexCount > 0)
-            vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
-        else if (it.vertexCount > 0)
-            vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
-
-        AddDrawCall();
-        return;
+        const SkinnedMeshPayload& sp = GetSkinnedMeshPayload(it.payloadIndex);
+        toon = sp.toon ? 1.0f : 0.0f;
+        overrideEnabled = sp.overrideColor ? 1.0f : 0.0f;
+        overrideColor = sp.overrideColorValue;
     }
-    
-    //----------------------------------------------------------
-    // Particle
-    //----------------------------------------------------------
-    if (it.type == RenderItemType::Particle)
+
+    float useTex = 0.0f;
+    if (mat)
     {
-        if (sceneSet == VK_NULL_HANDLE)
+        baseColor = mat->GetDiffuseColor();
+        specPower = mat->GetSpecPower();
+        if (mat->WantsUseTexture() && diffuseTex)
         {
-            return;
+            useTex = 1.0f;
         }
+    }
 
-        VkDescriptorSet baseMapSet =
-            GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
-        if (baseMapSet == VK_NULL_HANDLE)
-        {
-            return;
-        }
+    if (overrideEnabled > 0.5f)
+    {
+        useTex = 0.0f;
+        baseColor = overrideColor;
+        diffuseTex = nullptr;
+    }
 
-        VKPipeline* pipe = mPipelines.Get(pipelineName);
-        if (!pipe || !pipe->IsValid())
-        {
-            return;
-        }
-
-        if (it.payloadIndex == RenderItem::kInvalidPayload)
-        {
-            return;
-        }
-
-        if (it.gpuInstanceVB == 0)
-        {
-            return;
-        }
-
-        // ★ Particle だけは generic bind を使わず、ここで binding0/1 を両方 bind する
-        const VertexArray* va = it.geometry.ptr;
-        if (!va)
-        {
-            return;
-        }
-
-        auto* backend = (VKVertexArrayBackend*)va->GetBackend();
-        if (!backend)
-        {
-            return;
-        }
-
-        VkBuffer quadVB = (VkBuffer)backend->GetVKVertexBuffer();
-        VkBuffer quadIB = (VkBuffer)backend->GetVKIndexBuffer();
-        if (quadVB == VK_NULL_HANDLE || quadIB == VK_NULL_HANDLE)
-        {
-            return;
-        }
-
-        const ParticlePayload& pp = GetParticlePayload(it.payloadIndex);
-
-        VkDescriptorSet sets[2] =
-        {
-            sceneSet,
-            baseMapSet
-        };
-
-        pipe->Bind(cmd);
-
-        vkCmdBindDescriptorSets(
-            cmd,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipe->GetPipelineLayout(),
-            0, 2, sets,
-            0, nullptr);
-
-        struct VKParticlePC
-        {
-            float cameraRight[4];
-            float cameraUp[4];
-            float params[4]; // x=size, y=lifeMax
-        };
-
-        VKParticlePC pc{};
-        pc.cameraRight[0] = pp.cameraRight.x;
-        pc.cameraRight[1] = pp.cameraRight.y;
-        pc.cameraRight[2] = pp.cameraRight.z;
-        pc.cameraRight[3] = 0.0f;
-
-        pc.cameraUp[0] = pp.cameraUp.x;
-        pc.cameraUp[1] = pp.cameraUp.y;
-        pc.cameraUp[2] = pp.cameraUp.z;
-        pc.cameraUp[3] = 0.0f;
-
-        pc.params[0] = pp.particleSize;
-        pc.params[1] = pp.particleLifeMax;
-        pc.params[2] = 0.0f;
-        pc.params[3] = 0.0f;
-
-        vkCmdPushConstants(
-            cmd,
-            pipe->GetPipelineLayout(),
-            VK_SHADER_STAGE_VERTEX_BIT,
-            0,
-            sizeof(VKParticlePC),
-            &pc);
-
-        // gpuInstanceVB は uint64_t で保持 → VkBuffer にキャストして使う
-        VkBuffer instanceVB = reinterpret_cast<VkBuffer>(it.gpuInstanceVB);
-        VkBuffer bufs[2] =
-        {
-            quadVB,
-            instanceVB
-        };
-        VkDeviceSize offs[2] = { 0, 0 };
-
-        vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offs);
-        vkCmdBindIndexBuffer(cmd, quadIB, 0, (VkIndexType)backend->GetVKIndexType());
-
-        vkCmdDrawIndexed(
-            cmd,
-            it.indexCount,
-            static_cast<uint32_t>(it.instanceCount),
-            0,
-            0,
-            0);
-
-        AddDrawCall();
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(diffuseTex, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
         return;
     }
+
+    VkDescriptorSet sets[4] = {sceneSet, baseMapSet, skinnedSet, shadowSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 4, sets, 0, nullptr);
+
+    VKMeshPC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.baseColor_useTex[0] = baseColor.x;
+    pc.baseColor_useTex[1] = baseColor.y;
+    pc.baseColor_useTex[2] = baseColor.z;
+    pc.baseColor_useTex[3] = useTex;
+    pc.misc[0] = specPower;
+    pc.misc[1] = toon;
+    pc.misc[2] = overrideEnabled;
+    pc.misc[3] = alpha;
+    pc.overrideColor[0] = overrideColor.x;
+    pc.overrideColor[1] = overrideColor.y;
+    pc.overrideColor[2] = overrideColor.z;
+    pc.overrideColor[3] = 1.0f;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKMeshPC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_UnlitQuad
+//==============================================================
+void VKRenderer::DrawItem_UnlitQuad(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                    const char* pipelineName)
+{
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    VkDescriptorSet sets[2] = {sceneSet, baseMapSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 2, sets, 0, nullptr);
+
+    Vector3 tint(1, 1, 1);
+    float alpha = 1.0f;
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const UnlitQuadPayload& up = GetUnlitQuadPayload(it.payloadIndex);
+        tint = up.tint;
+        alpha = up.alpha;
+    }
+
+    VKUnlitQuadPC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.tintAlpha[0] = tint.x;
+    pc.tintAlpha[1] = tint.y;
+    pc.tintAlpha[2] = tint.z;
+    pc.tintAlpha[3] = alpha;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKUnlitQuadPC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_SkyDome
+//==============================================================
+void VKRenderer::DrawItem_SkyDome(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                  const char* pipelineName)
+{
+    if (mFrameIndex >= mSkySet.size())
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    VkDescriptorSet skySet = mSkySet[mFrameIndex];
+    if (skySet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    SkyDomePayload sky{};
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        sky = GetSkyDomePayload(it.payloadIndex);
+    }
+
+    UpdateSkyUBO(sky);
+
+    pipe->Bind(cmd);
+    VkDescriptorSet sets[2] = {sceneSet, skySet};
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 2, sets, 0, nullptr);
+
+    VKSkyPC pc{};
+    StoreMat4(pc.world, it.world);
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VKSkyPC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Overlay
+//==============================================================
+void VKRenderer::DrawItem_Overlay(VkCommandBuffer cmd, const RenderItem& it, const char* pipelineName)
+{
+    if (mFrameIndex >= mOverlaySet.size())
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    VkDescriptorSet overlaySet = mOverlaySet[mFrameIndex];
+    if (overlaySet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    OverlayPayload op{};
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        op = GetOverlayPayload(it.payloadIndex);
+    }
+
+    UpdateOverlayUBO(op);
+
+    pipe->Bind(cmd);
+    // set=1 のみ使用する設計
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 1, 1, &overlaySet, 0,
+                            nullptr);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Debug
+//==============================================================
+void VKRenderer::DrawItem_Debug(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                const char* pipelineName)
+{
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 1, &sceneSet, 0,
+                            nullptr);
+
+    Vector3 color(1, 1, 1);
+    float alpha = 1.0f, useLight = 0.0f;
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        const DebugPayload& dp = GetDebugPayload(it.payloadIndex);
+        color = dp.color;
+        alpha = dp.alpha;
+    }
+
+    VKDebugPC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.color[0] = color.x;
+    pc.color[1] = color.y;
+    pc.color[2] = color.z;
+    pc.color[3] = alpha;
+    pc.params[0] = useLight;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKDebugPC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Surface
+//==============================================================
+void VKRenderer::DrawItem_Surface(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                  const char* pipelineName)
+{
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    VkDescriptorSet sets[2] = {sceneSet, baseMapSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 2, sets, 0, nullptr);
+
+    SurfacePayload sp{};
+    if (it.payloadIndex != RenderItem::kInvalidPayload)
+    {
+        sp = GetSurfacePayload(it.payloadIndex);
+    }
+
+    VKSurfacePC pc{};
+    StoreMat4(pc.world, it.world);
+    pc.tintOpacity[0] = sp.tint.x;
+    pc.tintOpacity[1] = sp.tint.y;
+    pc.tintOpacity[2] = sp.tint.z;
+    pc.tintOpacity[3] = sp.opacity;
+    pc.params0[0] = sp.flipX ? 1.0f : 0.0f;
+    pc.params0[1] = sp.flipY ? 1.0f : 0.0f;
+    pc.params0[2] = static_cast<float>(sp.mode);
+    pc.params0[3] = sp.scanlineStrength;
+    pc.params1[0] = sp.time;
+    pc.params1[1] = 0.02f;
+    pc.params1[2] = 0.35f;
+    pc.params1[3] = 2.0f;
+    pc.params2[0] = 1.0f;
+    pc.params2[1] = 0.0f;
+    pc.params2[2] = 0.0f;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                       sizeof(VKSurfacePC), &pc);
+
+    if (it.indexCount > 0)
+    {
+        vkCmdDrawIndexed(cmd, it.indexCount, 1, 0, 0, 0);
+    }
+    else if (it.vertexCount > 0)
+    {
+        vkCmdDraw(cmd, it.vertexCount, 1, 0, 0);
+    }
+    AddDrawCall();
+}
+
+//==============================================================
+// DrawItem_Particle
+//==============================================================
+void VKRenderer::DrawItem_Particle(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
+                                   const char* pipelineName)
+{
+    if (sceneSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+    if (it.payloadIndex == RenderItem::kInvalidPayload)
+    {
+        return;
+    }
+    if (it.gpuInstanceVB == 0)
+    {
+        return;
+    }
+
+    VkDescriptorSet baseMapSet = GetOrCreateBaseMapSet(it.texture.ptr, pipelineName);
+    if (baseMapSet == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VKPipeline* pipe = mPipelines.Get(pipelineName);
+    if (!pipe || !pipe->IsValid())
+    {
+        return;
+    }
+
+    // Particle だけは generic bind を使わず、binding0/1 を両方 bind する
+    const VertexArray* va = it.geometry.ptr;
+    if (!va)
+    {
+        return;
+    }
+
+    auto* backend = (VKVertexArrayBackend*)va->GetBackend();
+    if (!backend)
+    {
+        return;
+    }
+
+    VkBuffer quadVB = (VkBuffer)backend->GetVKVertexBuffer();
+    VkBuffer quadIB = (VkBuffer)backend->GetVKIndexBuffer();
+    if (quadVB == VK_NULL_HANDLE || quadIB == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    const ParticlePayload& pp = GetParticlePayload(it.payloadIndex);
+
+    VkDescriptorSet sets[2] = {sceneSet, baseMapSet};
+    pipe->Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->GetPipelineLayout(), 0, 2, sets, 0, nullptr);
+
+    struct VKParticlePC
+    {
+        float cameraRight[4];
+        float cameraUp[4];
+        float params[4]; // x=size, y=lifeMax
+    };
+
+    VKParticlePC pc{};
+    pc.cameraRight[0] = pp.cameraRight.x;
+    pc.cameraRight[1] = pp.cameraRight.y;
+    pc.cameraRight[2] = pp.cameraRight.z;
+    pc.cameraRight[3] = 0.0f;
+    pc.cameraUp[0] = pp.cameraUp.x;
+    pc.cameraUp[1] = pp.cameraUp.y;
+    pc.cameraUp[2] = pp.cameraUp.z;
+    pc.cameraUp[3] = 0.0f;
+    pc.params[0] = pp.particleSize;
+    pc.params[1] = pp.particleLifeMax;
+
+    vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VKParticlePC), &pc);
+
+    VkBuffer instanceVB = reinterpret_cast<VkBuffer>(it.gpuInstanceVB);
+    VkBuffer bufs[2] = {quadVB, instanceVB};
+    VkDeviceSize offs[2] = {0, 0};
+
+    vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offs);
+    vkCmdBindIndexBuffer(cmd, quadIB, 0, (VkIndexType)backend->GetVKIndexType());
+
+    vkCmdDrawIndexed(cmd, it.indexCount, static_cast<uint32_t>(it.instanceCount), 0, 0, 0);
+    AddDrawCall();
 }
 
 PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
@@ -1198,7 +1212,10 @@ void VKRenderer::DrawBucket_UI(const std::vector<uint32_t>& bucket)
 
     for (uint32_t idx : bucket)
     {
-        if (idx >= items.size()) continue;
+        if (idx >= items.size())
+        {
+            continue;
+        }
 
         const RenderItem& it = items[idx];
 
@@ -1264,15 +1281,30 @@ void VKRenderer::DrawBucket_OverlayScreen(const std::vector<uint32_t>& bucket)
 
 VkDescriptorSet VKRenderer::GetOrCreateEmptySet(const char* pipelineName, uint32_t setIndex)
 {
-    if (!pipelineName) return VK_NULL_HANDLE;
-    if (mDevice == VK_NULL_HANDLE) return VK_NULL_HANDLE;
-    if (mDescPool == VK_NULL_HANDLE) return VK_NULL_HANDLE;
+    if (!pipelineName)
+    {
+        return VK_NULL_HANDLE;
+    }
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        return VK_NULL_HANDLE;
+    }
+    if (mDescPool == VK_NULL_HANDLE)
+    {
+        return VK_NULL_HANDLE;
+    }
 
     VKPipeline* pipe = mPipelines.Get(pipelineName);
-    if (!pipe || !pipe->IsValid()) return VK_NULL_HANDLE;
+    if (!pipe || !pipe->IsValid())
+    {
+        return VK_NULL_HANDLE;
+    }
 
     VkDescriptorSetLayout layout = pipe->GetSetLayout(setIndex);
-    if (layout == VK_NULL_HANDLE) return VK_NULL_HANDLE;
+    if (layout == VK_NULL_HANDLE)
+    {
+        return VK_NULL_HANDLE;
+    }
 
     EmptySetKey key{};
     key.frame = mFrameIndex;
@@ -1286,17 +1318,17 @@ VkDescriptorSet VKRenderer::GetOrCreateEmptySet(const char* pipelineName, uint32
     }
 
     VkDescriptorSetAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ai.descriptorPool     = mDescPool;
+    ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    ai.descriptorPool = mDescPool;
     ai.descriptorSetCount = 1;
-    ai.pSetLayouts        = &layout;
+    ai.pSetLayouts = &layout;
 
     VkDescriptorSet out = VK_NULL_HANDLE;
     VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &out);
     if (vr != VK_SUCCESS || out == VK_NULL_HANDLE)
     {
-        std::cerr << "[VKRenderer] GetOrCreateEmptySet: vkAllocateDescriptorSets failed: "
-                  << vr << " pipe=" << pipelineName << " set=" << setIndex << "\n";
+        std::cerr << "[VKRenderer] GetOrCreateEmptySet: vkAllocateDescriptorSets failed: " << vr
+                  << " pipe=" << pipelineName << " set=" << setIndex << "\n";
         return VK_NULL_HANDLE;
     }
 

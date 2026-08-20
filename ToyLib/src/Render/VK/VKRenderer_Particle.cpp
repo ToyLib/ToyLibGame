@@ -1,9 +1,10 @@
-#include "Render/VK/VKRenderer.h"
 #include "Graphics/Effect/VKParticleBackend.h"
+#include "Render/VK/VKRenderer.h"
 
 #include <algorithm>
 
-namespace toy {
+namespace toy
+{
 
 //--------------------------------------------------------------
 // EnqueueParticleCompute
@@ -16,7 +17,7 @@ void VKRenderer::EnqueueParticleCompute(VKParticleBackend* backend, float deltaT
     }
 
     ParticleComputeJob job{};
-    job.backend   = backend;
+    job.backend = backend;
     job.deltaTime = deltaTime;
 
     mParticleComputeJobs.push_back(job);
@@ -32,15 +33,10 @@ void VKRenderer::DequeueParticleCompute(VKParticleBackend* backend)
         return;
     }
 
-    mParticleComputeJobs.erase(
-        std::remove_if(
-            mParticleComputeJobs.begin(),
-            mParticleComputeJobs.end(),
-            [backend](const ParticleComputeJob& job)
-            {
-                return job.backend == backend;
-            }),
-        mParticleComputeJobs.end());
+    mParticleComputeJobs.erase(std::remove_if(mParticleComputeJobs.begin(), mParticleComputeJobs.end(),
+                                              [backend](const ParticleComputeJob& job)
+                                              { return job.backend == backend; }),
+                               mParticleComputeJobs.end());
 }
 
 //--------------------------------------------------------------

@@ -15,18 +15,18 @@
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/Pipeline/VKPipeline.h"
-#include "Render/VK/VKShaderTypes.h"
-#include "Render/VK/VKTextureGPU.h"
 #include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
+#include "Render/VK/Pipeline/VKPipeline.h"
+#include "Render/VK/VKShaderTypes.h"
+#include "Render/VK/VKTextureGPU.h"
+#include "Render/VK/VKUtil.h"
 
-#include <iostream>
-#include <cstring>
-#include <unordered_map>
 #include <algorithm>
+#include <cstring>
+#include <iostream>
+#include <unordered_map>
 
 namespace toy
 {
@@ -36,13 +36,10 @@ static void StoreMat4(float out16[16], const Matrix4& m)
     std::memcpy(out16, &m, sizeof(float) * 16);
 }
 
-
 //--------------------------------------------------------------
 // “基準Pipeline” から setLayout を取る
 //--------------------------------------------------------------
-static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib,
-                                                  const char* pipelineName,
-                                                  uint32_t setIndex)
+static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib, const char* pipelineName, uint32_t setIndex)
 {
     auto* p = lib.Get(pipelineName);
     if (!p)
@@ -57,11 +54,12 @@ static std::string NormalizePipelineName(const char* name)
     return name ? std::string(name) : std::string();
 }
 
-
-
 static bool IsShadowPipelineName(const char* pipelineName)
 {
-    if (!pipelineName) return false;
+    if (!pipelineName)
+    {
+        return false;
+    }
     return (std::strncmp(pipelineName, "Shadow", 6) == 0);
 }
 
@@ -71,37 +69,36 @@ static bool IsShadowPipelineName(const char* pipelineName)
 bool VKRenderer::CreateDescriptorPool()
 {
     if (!mDevice)
+    {
         return false;
+    }
 
     constexpr uint32_t kMaxSetsTotal = 8192;
-    constexpr uint32_t kUBOCount     = 8192;
+    constexpr uint32_t kUBOCount = 8192;
 
     // PostEffect等のtexture descriptor用
     constexpr uint32_t kSamplerCount = 1024;
 
     VkDescriptorPoolSize sizes[2]{};
 
-    sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     sizes[0].descriptorCount = kUBOCount;
 
-    sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     sizes[1].descriptorCount = kSamplerCount;
 
     VkDescriptorPoolCreateInfo ci{};
-    ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    ci.maxSets       = kMaxSetsTotal;
+    ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    ci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    ci.maxSets = kMaxSetsTotal;
     ci.poolSizeCount = 2;
-    ci.pPoolSizes    = sizes;
+    ci.pPoolSizes = sizes;
 
-    const VkResult vr =
-        vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);
+    const VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);
 
     if (vr != VK_SUCCESS)
     {
-        std::cerr
-            << "[VKRenderer] vkCreateDescriptorPool failed: "
-            << vr << "\n";
+        std::cerr << "[VKRenderer] vkCreateDescriptorPool failed: " << vr << "\n";
 
         mDescPool = VK_NULL_HANDLE;
         return false;
@@ -190,7 +187,6 @@ void VKRenderer::DestroyDescriptorPool()
     DestroyFallbackWhiteTexture();
 }
 
-
 //==============================================================
 // Scene UBO (World + UI)
 //==============================================================
@@ -222,22 +218,16 @@ bool VKRenderer::CreateSceneUBO()
 
     for (size_t i = 0; i < frameCount; ++i)
     {
-        if (!CreateBufferHostVisible(
-                (VkDeviceSize)mSceneUBOSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                mSceneUBO[i],
-                mSceneUBOMem[i]))
+        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO[i],
+                                     mSceneUBOMem[i]))
         {
             std::cerr << "[VKRenderer] CreateSceneUBO(World) failed frame " << i << "\n";
             DestroySceneUBO();
             return false;
         }
 
-        if (!CreateBufferHostVisible(
-                (VkDeviceSize)mSceneUBOSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                mSceneUBO_UI[i],
-                mSceneUBOMem_UI[i]))
+        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO_UI[i],
+                                     mSceneUBOMem_UI[i]))
         {
             std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed frame " << i << "\n";
             DestroySceneUBO();
@@ -255,8 +245,7 @@ void VKRenderer::DestroySceneUBO()
         return;
     }
 
-    auto destroyVec = [&](std::vector<VkBuffer>& bufs,
-                          std::vector<VkDeviceMemory>& mems)
+    auto destroyVec = [&](std::vector<VkBuffer>& bufs, std::vector<VkDeviceMemory>& mems)
     {
         for (size_t i = 0; i < bufs.size(); ++i)
         {
@@ -286,8 +275,14 @@ void VKRenderer::DestroySceneUBO()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_World()
 {
-    if (mSceneUBOMem.empty()) return;
-    if (mFrameIndex >= mSceneUBOMem.size()) return;
+    if (mSceneUBOMem.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mSceneUBOMem.size())
+    {
+        return;
+    }
 
     VKSceneUBO ubo{};
 
@@ -361,8 +356,6 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.fogParams[1] = ld.fogMaxDist;
     ubo.fogParams[2] = 0.0f;
     ubo.fogParams[3] = 0.0f;
-    
-    
 
     //========================
     // Shadow (Step3)
@@ -373,10 +366,10 @@ void VKRenderer::UpdateSceneUBO_World()
         StoreMat4(ubo.shadowVP0, mShadowCascades[0].lightVP);
         StoreMat4(ubo.shadowVP1, mShadowCascades[1].lightVP);
 
-        ubo.shadowParams[0] = GetCascadeSplit0();  // split0
-        ubo.shadowParams[1] = GetCascadeBlend();   // blend
-        ubo.shadowParams[2] = 1.0f;                // strength: 影を普通に効かせるならまず 1
-        ubo.shadowParams[3] = GetShadowBias();             // bias: まずは 0.001〜0.01 で調整（PCF 3x3前提）
+        ubo.shadowParams[0] = GetCascadeSplit0(); // split0
+        ubo.shadowParams[1] = GetCascadeBlend();  // blend
+        ubo.shadowParams[2] = 1.0f;               // strength: 影を普通に効かせるならまず 1
+        ubo.shadowParams[3] = GetShadowBias();    // bias: まずは 0.001〜0.01 で調整（PCF 3x3前提）
     }
     else
     {
@@ -387,7 +380,6 @@ void VKRenderer::UpdateSceneUBO_World()
         ubo.shadowParams[2] = 0.0f;
         ubo.shadowParams[3] = 0.0f;
     }
-
 
     ubo.shadowFlags[0] = static_cast<int>(mEnableShadow);
     ubo.shadowFlags[1] = 0;
@@ -402,8 +394,14 @@ void VKRenderer::UpdateSceneUBO_World()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
 {
-    if (mSceneUBOMem_UI.empty()) return;
-    if (mFrameIndex >= mSceneUBOMem_UI.size()) return;
+    if (mSceneUBOMem_UI.empty())
+    {
+        return;
+    }
+    if (mFrameIndex >= mSceneUBOMem_UI.size())
+    {
+        return;
+    }
 
     VKSceneUBO ubo{};
     std::memcpy(ubo.viewProj, &uiViewProj, sizeof(float) * 16);
@@ -414,7 +412,7 @@ void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
     ubo.ambient[1] = 1.0f;
     ubo.ambient[2] = 1.0f;
     ubo.ambient[3] = 1.0f;
-    
+
     // Fog: “影響なし” の値
     ubo.fogColor[0] = 0.0f;
     ubo.fogColor[1] = 0.0f;
@@ -485,10 +483,10 @@ bool VKRenderer::CreateSceneDescriptorSet()
     for (size_t i = 0; i < frameCount; ++i)
     {
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = mDescPool;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set0;
+        ai.pSetLayouts = &set0;
 
         if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet[i]) != VK_SUCCESS)
         {
@@ -506,15 +504,15 @@ bool VKRenderer::CreateSceneDescriptorSet()
         VkDescriptorBufferInfo biW{};
         biW.buffer = mSceneUBO[i];
         biW.offset = 0;
-        biW.range  = mSceneUBOSize;
+        biW.range = mSceneUBOSize;
 
         VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = mSceneSet[i];
-        w.dstBinding      = 0;
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = mSceneSet[i];
+        w.dstBinding = 0;
         w.descriptorCount = 1;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo     = &biW;
+        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo = &biW;
 
         vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
@@ -522,9 +520,9 @@ bool VKRenderer::CreateSceneDescriptorSet()
         VkDescriptorBufferInfo biUI{};
         biUI.buffer = mSceneUBO_UI[i];
         biUI.offset = 0;
-        biUI.range  = mSceneUBOSize;
+        biUI.range = mSceneUBOSize;
 
-        w.dstSet      = mSceneSet_UI[i];
+        w.dstSet = mSceneSet_UI[i];
         w.pBufferInfo = &biUI;
 
         vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
@@ -539,12 +537,30 @@ bool VKRenderer::CreateSceneDescriptorSet()
     }
 
     // BaseMap 側は pool chain を使う（枯れ対策）
-    if (!CreateFallbackBaseMapSet("Sprite"))         return false;
-    if (!CreateFallbackBaseMapSet("Mesh"))           return false;
-    if (!CreateFallbackBaseMapSet("Mesh_CW"))        return false;
-    if (!CreateFallbackBaseMapSet("SkinnedMesh"))    return false;
-    if (!CreateFallbackBaseMapSet("SkinnedMesh_CW")) return false;
-    if (!CreateFallbackBaseMapSet("UnlitQuad"))      return false;
+    if (!CreateFallbackBaseMapSet("Sprite"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("Mesh"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("Mesh_CW"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("SkinnedMesh"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("SkinnedMesh_CW"))
+    {
+        return false;
+    }
+    if (!CreateFallbackBaseMapSet("UnlitQuad"))
+    {
+        return false;
+    }
 
     return true;
 }
@@ -560,15 +576,15 @@ VkDescriptorPool VKRenderer::CreateBaseMapPool(uint32_t maxSets, uint32_t sample
     }
 
     VkDescriptorPoolSize sizes[1]{};
-    sizes[0].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     sizes[0].descriptorCount = samplerCount;
 
     VkDescriptorPoolCreateInfo ci{};
-    ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ci.flags         = 0; // ★個別freeしない運用（poolごと破棄）
-    ci.maxSets       = maxSets;
+    ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    ci.flags = 0; // ★個別freeしない運用（poolごと破棄）
+    ci.maxSets = maxSets;
     ci.poolSizeCount = 1;
-    ci.pPoolSizes    = sizes;
+    ci.pPoolSizes = sizes;
 
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &pool);
@@ -584,8 +600,11 @@ VkDescriptorPool VKRenderer::GetActiveBaseMapPool()
 {
     if (mBaseMapPools.empty())
     {
-        VkDescriptorPool p = CreateBaseMapPool(/*maxSets*/8192, /*samplerCount*/8192);
-        if (p) mBaseMapPools.push_back(p);
+        VkDescriptorPool p = CreateBaseMapPool(/*maxSets*/ 8192, /*samplerCount*/ 8192);
+        if (p)
+        {
+            mBaseMapPools.push_back(p);
+        }
         mBaseMapPoolCursor = 0;
     }
     return mBaseMapPools.empty() ? VK_NULL_HANDLE : mBaseMapPools[mBaseMapPoolCursor];
@@ -594,8 +613,8 @@ VkDescriptorPool VKRenderer::GetActiveBaseMapPool()
 VkDescriptorPool VKRenderer::GrowBaseMapPoolAndGet()
 {
     const uint32_t n = (uint32_t)mBaseMapPools.size();
-    const uint32_t maxSets   = 8192u + 4096u * n;
-    const uint32_t samplers  = 8192u + 4096u * n;
+    const uint32_t maxSets = 8192u + 4096u * n;
+    const uint32_t samplers = 8192u + 4096u * n;
 
     VkDescriptorPool p = CreateBaseMapPool(maxSets, samplers);
     if (!p)
@@ -650,11 +669,10 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     // ここに来たら呼び出し側の設計ミスなので弾く。
     if (IsShadowPipelineName(pipelineName))
     {
-        std::cerr << "[VK] BaseMapSet: Shadow pipeline requested set=1 (BUG) name="
-                  << pipelineName << "\n";
+        std::cerr << "[VK] BaseMapSet: Shadow pipeline requested set=1 (BUG) name=" << pipelineName << "\n";
         return VK_NULL_HANDLE;
     }
-    
+
     //----------------------------------------------------------
     // fallback
     //----------------------------------------------------------
@@ -720,7 +738,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     }
 
     const VkSampler sampler = vkgpu->GetSampler();
-    const VkImageView view  = vkgpu->GetImageView();
+    const VkImageView view = vkgpu->GetImageView();
     if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE)
     {
         std::cerr << "[VK] BaseMapSet: sampler/view NULL (" << pipelineName << ")\n";
@@ -740,10 +758,10 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     auto allocOnce = [&](VkDescriptorPool p, VkDescriptorSet& outSet) -> VkResult
     {
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = p;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = p;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set1;
+        ai.pSetLayouts = &set1;
 
         return vkAllocateDescriptorSets(mDevice, &ai, &outSet);
     };
@@ -767,8 +785,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
 
     if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
     {
-        std::cerr << "[VK] BaseMapSet: alloc failed vr=" << vr
-                  << " (" << pipelineName << ")\n";
+        std::cerr << "[VK] BaseMapSet: alloc failed vr=" << vr << " (" << pipelineName << ")\n";
         return VK_NULL_HANDLE;
     }
 
@@ -776,17 +793,17 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     // write
     //----------------------------------------------------------
     VkDescriptorImageInfo ii{};
-    ii.sampler     = sampler;
-    ii.imageView   = view;
+    ii.sampler = sampler;
+    ii.imageView = view;
     ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet w{};
-    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet          = ds;
-    w.dstBinding      = 0;
+    w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet = ds;
+    w.dstBinding = 0;
     w.descriptorCount = 1;
-    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    w.pImageInfo      = &ii;
+    w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.pImageInfo = &ii;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
@@ -795,7 +812,7 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     //----------------------------------------------------------
     CachedDescriptorSet cds{};
     cds.pool = pool;
-    cds.set  = ds;
+    cds.set = ds;
     mBaseMapSetCache[key] = cds;
 
     return ds;
@@ -810,8 +827,7 @@ bool VKRenderer::CreateFallbackWhiteTexture()
     {
         return false;
     }
-    if (mFallbackWhiteImg != VK_NULL_HANDLE &&
-        mFallbackWhiteView != VK_NULL_HANDLE &&
+    if (mFallbackWhiteImg != VK_NULL_HANDLE && mFallbackWhiteView != VK_NULL_HANDLE &&
         mFallbackWhiteSampler != VK_NULL_HANDLE)
     {
         return true;
@@ -826,13 +842,8 @@ bool VKRenderer::CreateFallbackWhiteTexture()
     VkBuffer staging = VK_NULL_HANDLE;
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
 
-    if (!toy::vkutil::CreateBuffer_HostVisible(
-            mPhysicalDevice,
-            mDevice,
-            sizeof(uint32_t),
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            staging,
-            stagingMem))
+    if (!toy::vkutil::CreateBuffer_HostVisible(mPhysicalDevice, mDevice, sizeof(uint32_t),
+                                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT, staging, stagingMem))
     {
         std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: staging buffer create failed\n";
         return false;
@@ -848,18 +859,10 @@ bool VKRenderer::CreateFallbackWhiteTexture()
     std::memcpy(mapped, &pixel, sizeof(uint32_t));
     vkUnmapMemory(mDevice, stagingMem);
 
-    if (!toy::vkutil::CreateImage2D(
-            mPhysicalDevice,
-            mDevice,
-            w,
-            h,
-            VK_FORMAT_R8G8B8A8_UNORM,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            mFallbackWhiteImg,
-            mFallbackWhiteMem,
-            VK_IMAGE_LAYOUT_UNDEFINED))
+    if (!toy::vkutil::CreateImage2D(mPhysicalDevice, mDevice, w, h, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mFallbackWhiteImg, mFallbackWhiteMem,
+                                    VK_IMAGE_LAYOUT_UNDEFINED))
     {
         vkDestroyBuffer(mDevice, staging, nullptr);
         vkFreeMemory(mDevice, stagingMem, nullptr);
@@ -876,16 +879,9 @@ bool VKRenderer::CreateFallbackWhiteTexture()
         return false;
     }
 
-    toy::vkutil::CmdTransitionImageLayout(
-        cmd,
-        mFallbackWhiteImg,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        VK_ACCESS_TRANSFER_WRITE_BIT);
+    toy::vkutil::CmdTransitionImageLayout(cmd, mFallbackWhiteImg, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT);
 
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
@@ -895,38 +891,23 @@ bool VKRenderer::CreateFallbackWhiteTexture()
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
-    region.imageOffset = { 0, 0, 0 };
-    region.imageExtent = { w, h, 1 };
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {w, h, 1};
 
-    vkCmdCopyBufferToImage(
-        cmd,
-        staging,
-        mFallbackWhiteImg,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &region);
+    vkCmdCopyBufferToImage(cmd, staging, mFallbackWhiteImg, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     toy::vkutil::CmdTransitionImageLayout(
-        cmd,
-        mFallbackWhiteImg,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_TRANSFER_WRITE_BIT,
-        VK_ACCESS_SHADER_READ_BIT);
+        cmd, mFallbackWhiteImg, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
     EndOneTimeCommands(cmd);
 
     vkDestroyBuffer(mDevice, staging, nullptr);
     vkFreeMemory(mDevice, stagingMem, nullptr);
 
-    mFallbackWhiteView = toy::vkutil::CreateImageView2D(
-        mDevice,
-        mFallbackWhiteImg,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_ASPECT_COLOR_BIT);
+    mFallbackWhiteView =
+        toy::vkutil::CreateImageView2D(mDevice, mFallbackWhiteImg, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 
     if (mFallbackWhiteView == VK_NULL_HANDLE)
     {
@@ -1027,10 +1008,10 @@ bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
     auto allocOnce = [&](VkDescriptorPool p, VkDescriptorSet& outSet) -> VkResult
     {
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = p;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = p;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set1;
+        ai.pSetLayouts = &set1;
         return vkAllocateDescriptorSets(mDevice, &ai, &outSet);
     };
 
@@ -1050,29 +1031,28 @@ bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
 
     if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
     {
-        std::cerr << "[VK] FallbackBaseMapSet: alloc failed vr=" << vr
-                  << " (" << pipelineName << ")\n";
+        std::cerr << "[VK] FallbackBaseMapSet: alloc failed vr=" << vr << " (" << pipelineName << ")\n";
         return false;
     }
 
     VkDescriptorImageInfo ii{};
-    ii.sampler     = mFallbackWhiteSampler;
-    ii.imageView   = mFallbackWhiteView;
+    ii.sampler = mFallbackWhiteSampler;
+    ii.imageView = mFallbackWhiteView;
     ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet w{};
-    w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet          = ds;
-    w.dstBinding      = 0;
+    w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    w.dstSet = ds;
+    w.dstBinding = 0;
     w.descriptorCount = 1;
-    w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    w.pImageInfo      = &ii;
+    w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    w.pImageInfo = &ii;
 
     vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
 
     CachedDescriptorSet cds{};
     cds.pool = pool;
-    cds.set  = ds;
+    cds.set = ds;
 
     mFallbackBaseMapSetByPipe[pipeName] = cds;
 
@@ -1096,9 +1076,7 @@ void VKRenderer::DestroyFallbackBaseMapSet()
 //==============================================================
 // Host-visible buffer helpers（既存）
 //==============================================================
-bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
-                                         VkBufferUsageFlags usage,
-                                         VkBuffer& outBuf,
+bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& outBuf,
                                          VkDeviceMemory& outMem)
 {
     outBuf = VK_NULL_HANDLE;
@@ -1110,9 +1088,9 @@ bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
     }
 
     VkBufferCreateInfo bci{};
-    bci.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.size        = size;
-    bci.usage       = usage;
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size = size;
+    bci.usage = usage;
     bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     if (vkCreateBuffer(mDevice, &bci, nullptr, &outBuf) != VK_SUCCESS)
@@ -1124,8 +1102,7 @@ bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
     vkGetBufferMemoryRequirements(mDevice, outBuf, &req);
 
     const uint32_t typeIndex =
-        toy::vkutil::FindMemoryType(mPhysicalDevice,
-                                    req.memoryTypeBits,
+        toy::vkutil::FindMemoryType(mPhysicalDevice, req.memoryTypeBits,
                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     if (typeIndex == UINT32_MAX)
@@ -1136,8 +1113,8 @@ bool VKRenderer::CreateBufferHostVisible(VkDeviceSize size,
     }
 
     VkMemoryAllocateInfo mai{};
-    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize  = req.size;
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize = req.size;
     mai.memoryTypeIndex = typeIndex;
 
     if (vkAllocateMemory(mDevice, &mai, nullptr, &outMem) != VK_SUCCESS)
@@ -1245,11 +1222,8 @@ bool VKRenderer::CreateSkyUBO()
 
     for (size_t i = 0; i < frameCount; ++i)
     {
-        if (!CreateBufferHostVisible(
-                (VkDeviceSize)mSkyUBOSize,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                mSkyUBO[i],
-                mSkyUBOMem[i]))
+        if (!CreateBufferHostVisible((VkDeviceSize)mSkyUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSkyUBO[i],
+                                     mSkyUBOMem[i]))
         {
             std::cerr << "[VKRenderer] CreateSkyUBO failed frame " << i << "\n";
             DestroySkyUBO();
@@ -1351,10 +1325,7 @@ void VKRenderer::UpdateSkyUBO(const SkyDomePayload& sky)
     ubo.rawCloudColor[2] = sky.skyRawCloudColor.z;
     ubo.rawCloudColor[3] = 0.0f;
 
-    UploadToBuffer(
-        mSkyUBOMem[mFrameIndex],
-        &ubo,
-        static_cast<VkDeviceSize>(mSkyUBOSize));
+    UploadToBuffer(mSkyUBOMem[mFrameIndex], &ubo, static_cast<VkDeviceSize>(mSkyUBOSize));
 }
 
 //==============================================================
@@ -1401,10 +1372,10 @@ bool VKRenderer::CreateSkyDescriptorSet()
     for (size_t i = 0; i < frameCount; ++i)
     {
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = mDescPool;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set1;
+        ai.pSetLayouts = &set1;
 
         if (vkAllocateDescriptorSets(mDevice, &ai, &mSkySet[i]) != VK_SUCCESS)
         {
@@ -1415,15 +1386,15 @@ bool VKRenderer::CreateSkyDescriptorSet()
         VkDescriptorBufferInfo bi{};
         bi.buffer = mSkyUBO[i];
         bi.offset = 0;
-        bi.range  = mSkyUBOSize;
+        bi.range = mSkyUBOSize;
 
         VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = mSkySet[i];
-        w.dstBinding      = 0;
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = mSkySet[i];
+        w.dstBinding = 0;
         w.descriptorCount = 1;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo     = &bi;
+        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo = &bi;
 
         vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }
@@ -1459,11 +1430,8 @@ bool VKRenderer::CreateOverlayUBO()
 
     for (size_t i = 0; i < frameCount; ++i)
     {
-        if (!CreateBufferHostVisible(
-                static_cast<VkDeviceSize>(mOverlayUBOSize),
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                mOverlayUBO[i],
-                mOverlayUBOMem[i]))
+        if (!CreateBufferHostVisible(static_cast<VkDeviceSize>(mOverlayUBOSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     mOverlayUBO[i], mOverlayUBOMem[i]))
         {
             std::cerr << "[VKRenderer] CreateOverlayUBO failed frame " << i << "\n";
             DestroyOverlayUBO();
@@ -1552,10 +1520,7 @@ void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
     ubo.flareColor[2] = overlay.flareColor.z;
     ubo.flareColor[3] = 0.0f;
 
-    UploadToBuffer(
-        mOverlayUBOMem[mFrameIndex],
-        &ubo,
-        static_cast<VkDeviceSize>(mOverlayUBOSize));
+    UploadToBuffer(mOverlayUBOMem[mFrameIndex], &ubo, static_cast<VkDeviceSize>(mOverlayUBOSize));
 }
 
 //==============================================================
@@ -1603,10 +1568,10 @@ bool VKRenderer::CreateOverlayDescriptorSet()
     for (size_t i = 0; i < frameCount; ++i)
     {
         VkDescriptorSetAllocateInfo ai{};
-        ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool     = mDescPool;
+        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        ai.descriptorPool = mDescPool;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts        = &set1;
+        ai.pSetLayouts = &set1;
 
         if (vkAllocateDescriptorSets(mDevice, &ai, &mOverlaySet[i]) != VK_SUCCESS)
         {
@@ -1617,15 +1582,15 @@ bool VKRenderer::CreateOverlayDescriptorSet()
         VkDescriptorBufferInfo bi{};
         bi.buffer = mOverlayUBO[i];
         bi.offset = 0;
-        bi.range  = mOverlayUBOSize;
+        bi.range = mOverlayUBOSize;
 
         VkWriteDescriptorSet w{};
-        w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet          = mOverlaySet[i];
-        w.dstBinding      = 0;
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = mOverlaySet[i];
+        w.dstBinding = 0;
         w.descriptorCount = 1;
-        w.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo     = &bi;
+        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        w.pBufferInfo = &bi;
 
         vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }

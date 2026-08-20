@@ -5,16 +5,16 @@
 //  - capture ごとの SceneUBO / SceneSet slot を使う
 //======================================================================
 
+#include "Graphics/Light/PointLightComponent.h"
+#include "Render/LightingManager.h"
+#include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/VK/VKRenderer.h"
 #include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/VKShaderTypes.h"
-#include "Render/VK/Pipeline/VKPipeline.h"
-#include "Graphics/Light/PointLightComponent.h"
-#include "Render/LightingManager.h"
 
-#include <iostream>
-#include <cstring>
 #include <algorithm>
+#include <cstring>
+#include <iostream>
 
 namespace toy
 {
@@ -24,7 +24,6 @@ static void StoreMat4(float out16[16], const Matrix4& m)
     std::memcpy(out16, &m, sizeof(float) * 16);
 }
 
-
 //==============================================================
 // CreateSceneUBO_Capture
 //==============================================================
@@ -32,9 +31,18 @@ bool VKRenderer::CreateSceneUBO_Capture()
 {
     DestroySceneUBO_Capture();
 
-    if (mDevice == VK_NULL_HANDLE) return false;
-    if (mDescPool == VK_NULL_HANDLE) return false;
-    if (mFrames.empty()) return false;
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    if (mDescPool == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    if (mFrames.empty())
+    {
+        return false;
+    }
 
     VKPipeline* meshPipe = mPipelines.Get("Mesh");
     if (!meshPipe || !meshPipe->IsValid())
@@ -62,14 +70,11 @@ bool VKRenderer::CreateSceneUBO_Capture()
 
         for (uint32_t si = 0; si < kMaxSceneCaptureSlots; ++si)
         {
-            if (!CreateBufferHostVisible(
-                    (VkDeviceSize)mSceneUBOSize,
-                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                    mSceneUBO_Capture[fi][si],
-                    mSceneUBOMem_Capture[fi][si]))
+            if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                         mSceneUBO_Capture[fi][si], mSceneUBOMem_Capture[fi][si]))
             {
-                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: buffer failed. frame="
-                          << fi << " slot=" << si << "\n";
+                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: buffer failed. frame=" << fi << " slot=" << si
+                          << "\n";
                 DestroySceneUBO_Capture();
                 return false;
             }
@@ -83,8 +88,8 @@ bool VKRenderer::CreateSceneUBO_Capture()
             VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet_Capture[fi][si]);
             if (vr != VK_SUCCESS || mSceneSet_Capture[fi][si] == VK_NULL_HANDLE)
             {
-                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: alloc failed. frame="
-                          << fi << " slot=" << si << " vr=" << vr << "\n";
+                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: alloc failed. frame=" << fi << " slot=" << si
+                          << " vr=" << vr << "\n";
                 DestroySceneUBO_Capture();
                 return false;
             }
@@ -92,7 +97,7 @@ bool VKRenderer::CreateSceneUBO_Capture()
             VkDescriptorBufferInfo bi{};
             bi.buffer = mSceneUBO_Capture[fi][si];
             bi.offset = 0;
-            bi.range  = (VkDeviceSize)mSceneUBOSize;
+            bi.range = (VkDeviceSize)mSceneUBOSize;
 
             VkWriteDescriptorSet w{};
             w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -148,9 +153,18 @@ void VKRenderer::DestroySceneUBO_Capture()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
 {
-    if (mActiveCaptureSlot < 0) return;
-    if (mFrameIndex >= mSceneUBOMem_Capture.size()) return;
-    if ((size_t)mActiveCaptureSlot >= mSceneUBOMem_Capture[mFrameIndex].size()) return;
+    if (mActiveCaptureSlot < 0)
+    {
+        return;
+    }
+    if (mFrameIndex >= mSceneUBOMem_Capture.size())
+    {
+        return;
+    }
+    if ((size_t)mActiveCaptureSlot >= mSceneUBOMem_Capture[mFrameIndex].size())
+    {
+        return;
+    }
 
     VKSceneUBO ubo{};
 
@@ -167,7 +181,7 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
 
     if (auto lm = GetLightingManager())
     {
-        ambient  = lm->GetAmbientColor();
+        ambient = lm->GetAmbientColor();
         dirLight = lm->GetDirectionalLight();
     }
 
@@ -206,15 +220,18 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
         for (int i = 0; i < count; ++i)
         {
             const auto* pl = pls[i];
-            if (!pl) continue;
+            if (!pl)
+            {
+                continue;
+            }
 
-            const Vector3 pos   = pl->GetPosition();
+            const Vector3 pos = pl->GetPosition();
             const Vector3 color = pl->GetColor();
-            const float   inten = pl->GetIntensity();
-            const float   c     = pl->GetConstant();
-            const float   l     = pl->GetLinear();
-            const float   q     = pl->GetQuadratic();
-            const float   r     = pl->GetRadius();
+            const float inten = pl->GetIntensity();
+            const float c = pl->GetConstant();
+            const float l = pl->GetLinear();
+            const float q = pl->GetQuadratic();
+            const float r = pl->GetRadius();
 
             ubo.pointLights[i].position_radius[0] = pos.x;
             ubo.pointLights[i].position_radius[1] = pos.y;
@@ -240,8 +257,8 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
     if (auto lm = GetLightingManager())
     {
         fogColor = lm->GetFogColor();
-        fogMin   = lm->GetFogMinDist();
-        fogMax   = lm->GetFogMaxDist();
+        fogMin = lm->GetFogMinDist();
+        fogMax = lm->GetFogMaxDist();
     }
 
     ubo.fogColor[0] = fogColor.x;
@@ -274,10 +291,7 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
         ubo.shadowParams[3] = 0.0f;
     }
 
-    UploadToBuffer(
-        mSceneUBOMem_Capture[mFrameIndex][mActiveCaptureSlot],
-        &ubo,
-        (VkDeviceSize)mSceneUBOSize);
+    UploadToBuffer(mSceneUBOMem_Capture[mFrameIndex][mActiveCaptureSlot], &ubo, (VkDeviceSize)mSceneUBOSize);
 }
 
 //==============================================================
@@ -285,22 +299,33 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
 //==============================================================
 void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 {
-    if (!req.rt) return;
+    if (!req.rt)
+    {
+        return;
+    }
 
     ChangeDebugRTT();
 
     auto* vkrt = dynamic_cast<VKSceneRenderTarget*>(req.rt.get());
-    if (!vkrt) return;
+    if (!vkrt)
+    {
+        return;
+    }
 
-    if (mDevice == VK_NULL_HANDLE || mFrames.empty()) return;
+    if (mDevice == VK_NULL_HANDLE || mFrames.empty())
+    {
+        return;
+    }
 
     VkCommandBuffer cmd = mFrames[mFrameIndex].cmd;
-    if (cmd == VK_NULL_HANDLE) return;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
     if (mCaptureSlotCursor >= kMaxSceneCaptureSlots)
     {
-        std::cerr << "[VKRenderer] SceneCapture slot exhausted. max="
-                  << kMaxSceneCaptureSlots << "\n";
+        std::cerr << "[VKRenderer] SceneCapture slot exhausted. max=" << kMaxSceneCaptureSlots << "\n";
         return;
     }
 
@@ -311,12 +336,12 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     const Matrix4 prevProj = mProjectionMatrix;
     const Matrix4 prevInvV = mInvView;
 
-    auto savedQueue   = mRenderQueue;
+    auto savedQueue = mRenderQueue;
     auto savedBuckets = mBuckets;
 
-    mViewMatrix       = req.view;
+    mViewMatrix = req.view;
     mProjectionMatrix = req.proj;
-    mInvView          = req.view;
+    mInvView = req.view;
     mInvView.Invert();
 
     BuildFrameQueues();
@@ -331,14 +356,14 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     clears[0].color.float32[1] = mClearColor.y;
     clears[0].color.float32[2] = mClearColor.z;
     clears[0].color.float32[3] = 1.0f;
-    clears[1].depthStencil.depth   = 1.0f;
+    clears[1].depthStencil.depth = 1.0f;
     clears[1].depthStencil.stencil = 0;
 
     VkRenderPassBeginInfo rp{};
     rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp.renderPass = vkrt->GetRenderPass();
     rp.framebuffer = vkrt->GetFramebuffer();
-    rp.renderArea.offset = { 0, 0 };
+    rp.renderArea.offset = {0, 0};
     rp.renderArea.extent = vkrt->GetExtent();
     rp.clearValueCount = 2;
     rp.pClearValues = clears;
@@ -348,14 +373,14 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     VkViewport vpstate{};
     vpstate.x = 0.0f;
     vpstate.y = (float)rp.renderArea.extent.height;
-    vpstate.width  = (float)rp.renderArea.extent.width;
+    vpstate.width = (float)rp.renderArea.extent.width;
     vpstate.height = -(float)rp.renderArea.extent.height;
     vpstate.minDepth = 0.0f;
     vpstate.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &vpstate);
 
     VkRect2D sc{};
-    sc.offset = { 0, 0 };
+    sc.offset = {0, 0};
     sc.extent = rp.renderArea.extent;
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
@@ -365,7 +390,10 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     {
         for (uint32_t idx : bucket)
         {
-            if (idx >= items.size()) continue;
+            if (idx >= items.size())
+            {
+                continue;
+            }
 
             const RenderItem& it = items[idx];
 
@@ -416,12 +444,12 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mIsDrawingCapture = false;
     mActiveCaptureSlot = -1;
 
-    mViewMatrix       = prevView;
+    mViewMatrix = prevView;
     mProjectionMatrix = prevProj;
-    mInvView          = prevInvV;
+    mInvView = prevInvV;
 
     mRenderQueue = std::move(savedQueue);
-    mBuckets     = std::move(savedBuckets);
+    mBuckets = std::move(savedBuckets);
 
     UpdateSceneUBO_World();
 

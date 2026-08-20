@@ -15,25 +15,22 @@
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
+#include "Render/VK/VKSceneRenderTarget.h"
+#include "Render/VK/VKUtil.h"
 
-#include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
 
-#include <iostream>
-#include <vector>
-#include <set>
 #include <algorithm>
+#include <iostream>
+#include <set>
+#include <vector>
 
 namespace toy
 {
 
-static const char* kValidationLayers[] =
-{
-    "VK_LAYER_KHRONOS_validation"
-};
+static const char* kValidationLayers[] = {"VK_LAYER_KHRONOS_validation"};
 
 //--------------------------------------------------------------
 // ctor/dtor
@@ -55,13 +52,11 @@ bool VKRenderer::CreateInstance()
         exts.push_back(sdlExts[i]);
     }
 
-    const auto availExts   = toy::vkutil::GetInstanceExts();
+    const auto availExts = toy::vkutil::GetInstanceExts();
     const auto availLayers = toy::vkutil::GetInstanceLayers();
 
 #if !defined(NDEBUG)
-    mEnableValidation =
-        mEnableValidation &&
-        toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
+    mEnableValidation = mEnableValidation && toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
 
     if (mEnableValidation)
     {
@@ -74,25 +69,24 @@ bool VKRenderer::CreateInstance()
     mEnableValidation = false;
 #endif
 
-    const bool hasPortEnum =
-        toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
+    const bool hasPortEnum = toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);
     if (hasPortEnum)
     {
         exts.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     }
 
     VkApplicationInfo appInfo{};
-    appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName   = "ToyLibGame";
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.pApplicationName = "ToyLibGame";
     appInfo.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-    appInfo.pEngineName        = "ToyLib";
-    appInfo.engineVersion      = VK_MAKE_VERSION(0, 1, 0);
-    appInfo.apiVersion         = VK_API_VERSION_1_2;
+    appInfo.pEngineName = "ToyLib";
+    appInfo.engineVersion = VK_MAKE_VERSION(0, 1, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_2;
 
     VkInstanceCreateInfo ici{};
-    ici.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    ici.pApplicationInfo        = &appInfo;
-    ici.enabledExtensionCount   = (uint32_t)exts.size();
+    ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    ici.pApplicationInfo = &appInfo;
+    ici.enabledExtensionCount = (uint32_t)exts.size();
     ici.ppEnabledExtensionNames = exts.data();
 
     if (hasPortEnum)
@@ -106,17 +100,15 @@ bool VKRenderer::CreateInstance()
     if (mEnableValidation)
     {
         layers.push_back(kValidationLayers[0]);
-        ici.enabledLayerCount   = (uint32_t)layers.size();
+        ici.enabledLayerCount = (uint32_t)layers.size();
         ici.ppEnabledLayerNames = layers.data();
 
         dbgCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         dbgCI.messageSeverity =
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        dbgCI.messageType =
-            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        dbgCI.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         dbgCI.pfnUserCallback = toy::vkutil::DebugCallback;
 
         ici.pNext = &dbgCI;
@@ -171,7 +163,10 @@ bool VKRenderer::PickPhysicalDevice()
     for (auto dev : devs)
     {
         const auto q = toy::vkutil::FindQueueFamilies(dev, mSurface);
-        if (!q.IsComplete()) continue;
+        if (!q.IsComplete())
+        {
+            continue;
+        }
 
         const auto de = toy::vkutil::GetDeviceExts(dev);
         if (!toy::vkutil::HasDeviceExt(VK_KHR_SWAPCHAIN_EXTENSION_NAME, de))
@@ -187,13 +182,13 @@ bool VKRenderer::PickPhysicalDevice()
 
         mPhysicalDevice = dev;
         mQueueFamilyGraphics = q.graphics.value();
-        mQueueFamilyPresent  = q.present.value();
+        mQueueFamilyPresent = q.present.value();
 
         VkPhysicalDeviceProperties props{};
         vkGetPhysicalDeviceProperties(mPhysicalDevice, &props);
         std::cerr << "[VKRenderer] GPU: " << props.deviceName << "\n";
         mDeviceName = props.deviceName;
-        
+
         return true;
     }
 
@@ -212,12 +207,11 @@ bool VKRenderer::CreateDeviceAndQueues()
     if (mQueueFamilyGraphics == UINT32_MAX || mQueueFamilyPresent == UINT32_MAX)
     {
         std::cerr << "[VKRenderer] CreateDeviceAndQueues failed: invalid queue family "
-                  << "(graphics=" << mQueueFamilyGraphics
-                  << ", present=" << mQueueFamilyPresent << ")\n";
+                  << "(graphics=" << mQueueFamilyGraphics << ", present=" << mQueueFamilyPresent << ")\n";
         return false;
     }
 
-    std::set<uint32_t> uniqueFamilies = { mQueueFamilyGraphics, mQueueFamilyPresent };
+    std::set<uint32_t> uniqueFamilies = {mQueueFamilyGraphics, mQueueFamilyPresent};
 
     const float prio = 1.0f;
     std::vector<VkDeviceQueueCreateInfo> qcis;
@@ -226,9 +220,9 @@ bool VKRenderer::CreateDeviceAndQueues()
     for (uint32_t fam : uniqueFamilies)
     {
         VkDeviceQueueCreateInfo qci{};
-        qci.sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         qci.queueFamilyIndex = fam;
-        qci.queueCount       = 1;
+        qci.queueCount = 1;
         qci.pQueuePriorities = &prio;
         qcis.push_back(qci);
     }
@@ -239,24 +233,24 @@ bool VKRenderer::CreateDeviceAndQueues()
     VkPhysicalDeviceFeatures features{};
 
     VkDeviceCreateInfo dci{};
-    dci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dci.queueCreateInfoCount    = static_cast<uint32_t>(qcis.size());
-    dci.pQueueCreateInfos       = qcis.data();
-    dci.enabledExtensionCount   = static_cast<uint32_t>(devExts.size());
+    dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    dci.queueCreateInfoCount = static_cast<uint32_t>(qcis.size());
+    dci.pQueueCreateInfos = qcis.data();
+    dci.enabledExtensionCount = static_cast<uint32_t>(devExts.size());
     dci.ppEnabledExtensionNames = devExts.data();
-    dci.pEnabledFeatures        = &features;
+    dci.pEnabledFeatures = &features;
 
 #if !defined(NDEBUG)
     std::vector<const char*> layers;
     if (mEnableValidation)
     {
         layers.push_back(kValidationLayers[0]);
-        dci.enabledLayerCount   = static_cast<uint32_t>(layers.size());
+        dci.enabledLayerCount = static_cast<uint32_t>(layers.size());
         dci.ppEnabledLayerNames = layers.data();
     }
     else
     {
-        dci.enabledLayerCount   = 0;
+        dci.enabledLayerCount = 0;
         dci.ppEnabledLayerNames = nullptr;
     }
 #endif
@@ -270,16 +264,16 @@ bool VKRenderer::CreateDeviceAndQueues()
     }
 
     vkGetDeviceQueue(mDevice, mQueueFamilyGraphics, 0, &mQueueGraphics);
-    vkGetDeviceQueue(mDevice, mQueueFamilyPresent,  0, &mQueuePresent);
+    vkGetDeviceQueue(mDevice, mQueueFamilyPresent, 0, &mQueuePresent);
 
     if (mQueueGraphics == VK_NULL_HANDLE || mQueuePresent == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] CreateDeviceAndQueues failed: device queues are null\n";
 
         vkDestroyDevice(mDevice, nullptr);
-        mDevice        = VK_NULL_HANDLE;
+        mDevice = VK_NULL_HANDLE;
         mQueueGraphics = VK_NULL_HANDLE;
-        mQueuePresent  = VK_NULL_HANDLE;
+        mQueuePresent = VK_NULL_HANDLE;
         return false;
     }
 
@@ -288,10 +282,7 @@ bool VKRenderer::CreateDeviceAndQueues()
 
 bool VKRenderer::CreateSwapchainAndViews()
 {
-    if (mDevice == VK_NULL_HANDLE ||
-        mPhysicalDevice == VK_NULL_HANDLE ||
-        mSurface == VK_NULL_HANDLE ||
-        !mWindow)
+    if (mDevice == VK_NULL_HANDLE || mPhysicalDevice == VK_NULL_HANDLE || mSurface == VK_NULL_HANDLE || !mWindow)
     {
         std::cerr << "[VKRenderer] CreateSwapchainAndViews failed: invalid state\n";
         return false;
@@ -303,8 +294,7 @@ bool VKRenderer::CreateSwapchainAndViews()
 
     if (pixelW <= 0 || pixelH <= 0)
     {
-        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid window size "
-                  << pixelW << "x" << pixelH << "\n";
+        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid window size " << pixelW << "x" << pixelH << "\n";
         return false;
     }
 
@@ -321,20 +311,17 @@ bool VKRenderer::CreateSwapchainAndViews()
 
     if (mSwapchainExtent.width == 0 || mSwapchainExtent.height == 0)
     {
-        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid extent "
-                  << mSwapchainExtent.width << "x" << mSwapchainExtent.height
-                  << " (window=" << pixelW << "x" << pixelH << ")\n";
+        std::cerr << "[VKRenderer] CreateSwapchainAndViews: invalid extent " << mSwapchainExtent.width << "x"
+                  << mSwapchainExtent.height << " (window=" << pixelW << "x" << pixelH << ")\n";
         return false;
     }
 
     // Renderer 側のスクリーンサイズも extent に揃える
-    mScreenWidth  = static_cast<float>(mSwapchainExtent.width);
+    mScreenWidth = static_cast<float>(mSwapchainExtent.width);
     mScreenHeight = static_cast<float>(mSwapchainExtent.height);
 
-    std::cerr << "[VKRenderer] CreateSwapchainAndViews: window="
-              << pixelW << "x" << pixelH
-              << " extent=" << mSwapchainExtent.width << "x" << mSwapchainExtent.height
-              << "\n";
+    std::cerr << "[VKRenderer] CreateSwapchainAndViews: window=" << pixelW << "x" << pixelH
+              << " extent=" << mSwapchainExtent.width << "x" << mSwapchainExtent.height << "\n";
 
     uint32_t imageCount = sc.caps.minImageCount + 1;
     if (sc.caps.maxImageCount > 0 && imageCount > sc.caps.maxImageCount)
@@ -343,34 +330,34 @@ bool VKRenderer::CreateSwapchainAndViews()
     }
 
     VkSwapchainCreateInfoKHR sci{};
-    sci.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    sci.surface          = mSurface;
-    sci.minImageCount    = imageCount;
-    sci.imageFormat      = mSwapchainFormat.format;
-    sci.imageColorSpace  = mSwapchainFormat.colorSpace;
-    sci.imageExtent      = mSwapchainExtent;
+    sci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    sci.surface = mSurface;
+    sci.minImageCount = imageCount;
+    sci.imageFormat = mSwapchainFormat.format;
+    sci.imageColorSpace = mSwapchainFormat.colorSpace;
+    sci.imageExtent = mSwapchainExtent;
     sci.imageArrayLayers = 1;
-    sci.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    const uint32_t qIdx[] = { mQueueFamilyGraphics, mQueueFamilyPresent };
+    const uint32_t qIdx[] = {mQueueFamilyGraphics, mQueueFamilyPresent};
     if (mQueueFamilyGraphics != mQueueFamilyPresent)
     {
-        sci.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
+        sci.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         sci.queueFamilyIndexCount = 2;
-        sci.pQueueFamilyIndices   = qIdx;
+        sci.pQueueFamilyIndices = qIdx;
     }
     else
     {
-        sci.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+        sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         sci.queueFamilyIndexCount = 0;
-        sci.pQueueFamilyIndices   = nullptr;
+        sci.pQueueFamilyIndices = nullptr;
     }
 
-    sci.preTransform   = sc.caps.currentTransform;
+    sci.preTransform = sc.caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    sci.presentMode    = pm;
-    sci.clipped        = VK_TRUE;
-    sci.oldSwapchain   = VK_NULL_HANDLE;
+    sci.presentMode = pm;
+    sci.clipped = VK_TRUE;
+    sci.oldSwapchain = VK_NULL_HANDLE;
 
     VkResult vr = vkCreateSwapchainKHR(mDevice, &sci, nullptr, &mSwapchain);
     if (vr != VK_SUCCESS || mSwapchain == VK_NULL_HANDLE)
@@ -407,21 +394,20 @@ bool VKRenderer::CreateSwapchainAndViews()
     for (uint32_t i = 0; i < scImgCount; ++i)
     {
         VkImageViewCreateInfo iv{};
-        iv.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        iv.image    = mSwapchainImages[i];
+        iv.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        iv.image = mSwapchainImages[i];
         iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        iv.format   = mSwapchainFormat.format;
-        iv.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        iv.subresourceRange.baseMipLevel   = 0;
-        iv.subresourceRange.levelCount     = 1;
+        iv.format = mSwapchainFormat.format;
+        iv.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        iv.subresourceRange.baseMipLevel = 0;
+        iv.subresourceRange.levelCount = 1;
         iv.subresourceRange.baseArrayLayer = 0;
-        iv.subresourceRange.layerCount     = 1;
+        iv.subresourceRange.layerCount = 1;
 
         vr = vkCreateImageView(mDevice, &iv, nullptr, &mSwapchainImageViews[i]);
         if (vr != VK_SUCCESS || mSwapchainImageViews[i] == VK_NULL_HANDLE)
         {
-            std::cerr << "[VKRenderer] vkCreateImageView failed: " << vr
-                      << " (index=" << i << ")\n";
+            std::cerr << "[VKRenderer] vkCreateImageView failed: " << vr << " (index=" << i << ")\n";
 
             for (VkImageView& view : mSwapchainImageViews)
             {
@@ -463,18 +449,10 @@ bool VKRenderer::CreateDepthForSwapchain()
 
     DestroyDepthForSwapchain();
 
-    if (!toy::vkutil::CreateImage2D(
-            mPhysicalDevice,
-            mDevice,
-            mSwapchainExtent.width,
-            mSwapchainExtent.height,
-            mDepthFormat,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            mDepthImage,
-            mDepthMemory,
-            VK_IMAGE_LAYOUT_UNDEFINED))
+    if (!toy::vkutil::CreateImage2D(mPhysicalDevice, mDevice, mSwapchainExtent.width, mSwapchainExtent.height,
+                                    mDepthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mDepthImage, mDepthMemory,
+                                    VK_IMAGE_LAYOUT_UNDEFINED))
     {
         std::cerr << "[VKRenderer] CreateImage2D(depth) failed\n";
         return false;
@@ -498,7 +476,10 @@ bool VKRenderer::CreateDepthForSwapchain()
 
 void VKRenderer::DestroyDepthForSwapchain()
 {
-    if (!mDevice) return;
+    if (!mDevice)
+    {
+        return;
+    }
 
     if (mDepthImageView)
     {
@@ -538,56 +519,56 @@ bool VKRenderer::CreateRenderPass()
     }
 
     VkAttachmentDescription color{};
-    color.format         = mSwapchainFormat.format;
-    color.samples        = VK_SAMPLE_COUNT_1_BIT;
-    color.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    color.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color.format = mSwapchainFormat.format;
+    color.samples = VK_SAMPLE_COUNT_1_BIT;
+    color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    color.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentDescription depth{};
-    depth.format         = mDepthFormat;
-    depth.samples        = VK_SAMPLE_COUNT_1_BIT;
-    depth.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth.format = mDepthFormat;
+    depth.samples = VK_SAMPLE_COUNT_1_BIT;
+    depth.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depth.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorRef{};
     colorRef.attachment = 0;
-    colorRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthRef{};
     depthRef.attachment = 1;
-    depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount    = 1;
-    subpass.pColorAttachments       = &colorRef;
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
     VkSubpassDependency dep{};
-    dep.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dep.dstSubpass    = 0;
-    dep.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dep.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass = 0;
+    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    VkAttachmentDescription atts[2] = { color, depth };
+    VkAttachmentDescription atts[2] = {color, depth};
 
     VkRenderPassCreateInfo rpci{};
-    rpci.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    rpci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     rpci.attachmentCount = 2;
-    rpci.pAttachments    = atts;
-    rpci.subpassCount    = 1;
-    rpci.pSubpasses      = &subpass;
+    rpci.pAttachments = atts;
+    rpci.subpassCount = 1;
+    rpci.pSubpasses = &subpass;
     rpci.dependencyCount = 1;
-    rpci.pDependencies   = &dep;
+    rpci.pDependencies = &dep;
 
     VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
     if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)
@@ -624,7 +605,10 @@ bool VKRenderer::CreateFramebuffers()
 
     for (auto fb : mFramebuffers)
     {
-        if (fb) vkDestroyFramebuffer(mDevice, fb, nullptr);
+        if (fb)
+        {
+            vkDestroyFramebuffer(mDevice, fb, nullptr);
+        }
     }
     mFramebuffers.clear();
 
@@ -632,26 +616,21 @@ bool VKRenderer::CreateFramebuffers()
 
     for (size_t i = 0; i < mSwapchainImageViews.size(); ++i)
     {
-        VkImageView attachments[] =
-        {
-            mSwapchainImageViews[i],
-            mDepthImageView
-        };
+        VkImageView attachments[] = {mSwapchainImageViews[i], mDepthImageView};
 
         VkFramebufferCreateInfo fci{};
-        fci.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        fci.renderPass      = mRenderPass;
+        fci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fci.renderPass = mRenderPass;
         fci.attachmentCount = 2;
-        fci.pAttachments    = attachments;
-        fci.width           = mSwapchainExtent.width;
-        fci.height          = mSwapchainExtent.height;
-        fci.layers          = 1;
+        fci.pAttachments = attachments;
+        fci.width = mSwapchainExtent.width;
+        fci.height = mSwapchainExtent.height;
+        fci.layers = 1;
 
         VkResult vr = vkCreateFramebuffer(mDevice, &fci, nullptr, &mFramebuffers[i]);
         if (vr != VK_SUCCESS || mFramebuffers[i] == VK_NULL_HANDLE)
         {
-            std::cerr << "[VKRenderer] vkCreateFramebuffer failed: " << vr
-                      << " (i=" << i << ")\n";
+            std::cerr << "[VKRenderer] vkCreateFramebuffer failed: " << vr << " (i=" << i << ")\n";
             return false;
         }
     }

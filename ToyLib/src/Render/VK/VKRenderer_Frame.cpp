@@ -15,17 +15,17 @@
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
+#include "Render/VK/VKSceneRenderTarget.h"
+#include "Render/VK/VKUtil.h"
 
-#include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
 
-#include <iostream>
-#include <vector>
-#include <set>
 #include <algorithm>
+#include <iostream>
+#include <set>
+#include <vector>
 
 namespace toy
 {
@@ -35,9 +35,7 @@ namespace toy
 //--------------------------------------------------------------
 bool VKRenderer::BeginFrame()
 {
-    if (mDevice == VK_NULL_HANDLE ||
-        mSwapchain == VK_NULL_HANDLE ||
-        mFrames.empty())
+    if (mDevice == VK_NULL_HANDLE || mSwapchain == VK_NULL_HANDLE || mFrames.empty())
     {
         return false;
     }
@@ -59,12 +57,7 @@ bool VKRenderer::BeginFrame()
     //---------------------------------------------------------
     // wait previous frame
     //---------------------------------------------------------
-    VkResult wr = vkWaitForFences(
-        mDevice,
-        1,
-        &frame.inFlight,
-        VK_TRUE,
-        UINT64_MAX);
+    VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
 
     if (wr != VK_SUCCESS)
     {
@@ -75,13 +68,9 @@ bool VKRenderer::BeginFrame()
     //---------------------------------------------------------
     // acquire swapchain image
     //---------------------------------------------------------
-    VkResult ar = vkAcquireNextImageKHR(
-        mDevice,
-        mSwapchain,
-        1000000000, // ★1秒 timeout
-        frame.imageAvailable,
-        VK_NULL_HANDLE,
-        &mImageIndex);
+    VkResult ar = vkAcquireNextImageKHR(mDevice, mSwapchain,
+                                        1000000000, // ★1秒 timeout
+                                        frame.imageAvailable, VK_NULL_HANDLE, &mImageIndex);
 
     if (ar == VK_ERROR_OUT_OF_DATE_KHR)
     {
@@ -98,15 +87,9 @@ bool VKRenderer::BeginFrame()
     //---------------------------------------------------------
     // image in flight check
     //---------------------------------------------------------
-    if (mImageIndex < mImagesInFlight.size() &&
-        mImagesInFlight[mImageIndex] != VK_NULL_HANDLE)
+    if (mImageIndex < mImagesInFlight.size() && mImagesInFlight[mImageIndex] != VK_NULL_HANDLE)
     {
-        VkResult iwr = vkWaitForFences(
-            mDevice,
-            1,
-            &mImagesInFlight[mImageIndex],
-            VK_TRUE,
-            UINT64_MAX);
+        VkResult iwr = vkWaitForFences(mDevice, 1, &mImagesInFlight[mImageIndex], VK_TRUE, UINT64_MAX);
 
         if (iwr != VK_SUCCESS)
         {
@@ -187,19 +170,11 @@ bool VKRenderer::BeginFrame()
     VkMemoryBarrier mb{};
     mb.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
     mb.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    mb.dstAccessMask =
-        VK_ACCESS_SHADER_READ_BIT |
-        VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    mb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
 
-    vkCmdPipelineBarrier(
-        frame.cmd,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        1, &mb,
-        0, nullptr,
-        0, nullptr);
+    vkCmdPipelineBarrier(frame.cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &mb, 0,
+                         nullptr, 0, nullptr);
 
     //---------------------------------------------------------
     // SceneRT check
@@ -219,12 +194,9 @@ bool VKRenderer::BeginFrame()
             return false;
         }
 
-        if (mSceneRT->GetWidth() != (int)mScreenWidth ||
-            mSceneRT->GetHeight() != (int)mScreenHeight)
+        if (mSceneRT->GetWidth() != (int)mScreenWidth || mSceneRT->GetHeight() != (int)mScreenHeight)
         {
-            if (!mSceneRT->Create(
-                    (int)mScreenWidth,
-                    (int)mScreenHeight))
+            if (!mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight))
             {
                 std::cerr << "[VKRenderer] SceneRT resize failed\n";
                 return false;
@@ -237,9 +209,7 @@ bool VKRenderer::BeginFrame()
 
 void VKRenderer::EndFrame()
 {
-    if (mDevice == VK_NULL_HANDLE ||
-        mSwapchain == VK_NULL_HANDLE ||
-        mFrames.empty())
+    if (mDevice == VK_NULL_HANDLE || mSwapchain == VK_NULL_HANDLE || mFrames.empty())
     {
         return;
     }
@@ -264,8 +234,7 @@ void VKRenderer::EndFrame()
     //---------------------------------------------------------
     // submit
     //---------------------------------------------------------
-    VkPipelineStageFlags waitStage =
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -280,11 +249,7 @@ void VKRenderer::EndFrame()
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = &frame.renderFinished;
 
-    VkResult sr = vkQueueSubmit(
-        mQueueGraphics,
-        1,
-        &si,
-        frame.inFlight);
+    VkResult sr = vkQueueSubmit(mQueueGraphics, 1, &si, frame.inFlight);
 
     if (sr != VK_SUCCESS)
     {
@@ -305,12 +270,9 @@ void VKRenderer::EndFrame()
     pi.pSwapchains = &mSwapchain;
     pi.pImageIndices = &mImageIndex;
 
-    VkResult pr = vkQueuePresentKHR(
-        mQueuePresent,
-        &pi);
+    VkResult pr = vkQueuePresentKHR(mQueuePresent, &pi);
 
-    if (pr == VK_ERROR_OUT_OF_DATE_KHR ||
-        pr == VK_SUBOPTIMAL_KHR)
+    if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR)
     {
         mNeedRecreateSwapchain = true;
     }
@@ -322,9 +284,7 @@ void VKRenderer::EndFrame()
     //---------------------------------------------------------
     // next frame
     //---------------------------------------------------------
-    mFrameIndex =
-        (mFrameIndex + 1) %
-        static_cast<uint32_t>(mFrames.size());
+    mFrameIndex = (mFrameIndex + 1) % static_cast<uint32_t>(mFrames.size());
 }
 
 //======================================================================
@@ -333,9 +293,9 @@ void VKRenderer::EndFrame()
 bool VKRenderer::CreateCommandPoolAndBuffers()
 {
     VkCommandPoolCreateInfo pci{};
-    pci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pci.queueFamilyIndex = mQueueFamilyGraphics;
-    pci.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
     VkResult vr = vkCreateCommandPool(mDevice, &pci, nullptr, &mCommandPool);
     if (vr != VK_SUCCESS)
@@ -350,9 +310,9 @@ bool VKRenderer::CreateCommandPoolAndBuffers()
     std::vector<VkCommandBuffer> cmds(kFrames, VK_NULL_HANDLE);
 
     VkCommandBufferAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool        = mCommandPool;
-    ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool = mCommandPool;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = kFrames;
 
     vr = vkAllocateCommandBuffers(mDevice, &ai, cmds.data());
@@ -398,7 +358,10 @@ bool VKRenderer::CreateSyncObjects()
 //--------------------------------------------------------------
 bool VKRenderer::RecreateSwapchain()
 {
-    if (mDevice == VK_NULL_HANDLE) return false;
+    if (mDevice == VK_NULL_HANDLE)
+    {
+        return false;
+    }
 
     vkDeviceWaitIdle(mDevice);
 
@@ -406,21 +369,31 @@ bool VKRenderer::RecreateSwapchain()
     CleanupSwapchain();
 
     if (!CreateSwapchainAndViews())
+    {
         return false;
+    }
 
     // ★重要：depth は swapchain に依存するので必ず作り直す
     if (!CreateDepthForSwapchain())
+    {
         return false;
+    }
 
     if (!CreateRenderPass())
+    {
         return false;
+    }
 
     if (!CreateFramebuffers())
+    {
         return false;
+    }
 
     // pipeline は renderpass/extent に依存
     if (!BuildDefaultPipelines())
+    {
         return false;
+    }
 
     // ★ PostEffect の descriptor は pipeline layout に依存するので作り直す
     if (!CreatePostEffectDescriptorSets())
@@ -432,8 +405,9 @@ bool VKRenderer::RecreateSwapchain()
     // shadow resources は extent に依存
     DestroyShadowResources();
     if (!CreateShadowResources())
+    {
         return false;
-    
+    }
 
     return true;
 }
@@ -447,7 +421,10 @@ void VKRenderer::CleanupSwapchain()
 
     for (auto fb : mFramebuffers)
     {
-        if (fb) vkDestroyFramebuffer(mDevice, fb, nullptr);
+        if (fb)
+        {
+            vkDestroyFramebuffer(mDevice, fb, nullptr);
+        }
     }
     mFramebuffers.clear();
 
@@ -461,7 +438,10 @@ void VKRenderer::CleanupSwapchain()
 
     for (auto v : mSwapchainImageViews)
     {
-        if (v) vkDestroyImageView(mDevice, v, nullptr);
+        if (v)
+        {
+            vkDestroyImageView(mDevice, v, nullptr);
+        }
     }
     mSwapchainImageViews.clear();
     mSwapchainImages.clear();
@@ -484,9 +464,9 @@ VkCommandBuffer VKRenderer::BeginOneTimeCommands()
     }
 
     VkCommandBufferAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    ai.commandPool        = mCommandPool;
-    ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool = mCommandPool;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = 1;
 
     VkCommandBuffer cmd = VK_NULL_HANDLE;
@@ -505,7 +485,10 @@ VkCommandBuffer VKRenderer::BeginOneTimeCommands()
 
 void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 {
-    if (!cmd) return;
+    if (!cmd)
+    {
+        return;
+    }
 
     vkEndCommandBuffer(cmd);
 
@@ -515,15 +498,18 @@ void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
     vkCreateFence(mDevice, &fci, nullptr, &fence);
 
     VkSubmitInfo si{};
-    si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
-    si.pCommandBuffers    = &cmd;
+    si.pCommandBuffers = &cmd;
 
     vkQueueSubmit(mQueueGraphics, 1, &si, fence);
 
     vkWaitForFences(mDevice, 1, &fence, VK_TRUE, UINT64_MAX);
 
-    if (fence) vkDestroyFence(mDevice, fence, nullptr);
+    if (fence)
+    {
+        vkDestroyFence(mDevice, fence, nullptr);
+    }
 
     vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
 }

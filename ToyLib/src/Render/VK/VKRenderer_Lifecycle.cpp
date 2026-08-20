@@ -15,27 +15,25 @@
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
-#include "Render/VK/VKUtil.h"
-#include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
+#include "Render/VK/VKSceneRenderTarget.h"
+#include "Render/VK/VKUtil.h"
 
-#include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan.h>
 
-#include <iostream>
-#include <vector>
-#include <set>
 #include <algorithm>
+#include <iostream>
+#include <set>
+#include <vector>
 
 namespace toy
 {
 
-
 //--------------------------------------------------------------
 // ctor/dtor
 //--------------------------------------------------------------
-VKRenderer::VKRenderer()
-    : IRenderer()
+VKRenderer::VKRenderer() : IRenderer()
 {
 }
 
@@ -65,31 +63,74 @@ bool VKRenderer::Initialize(const Application* app)
     int pixelW = 0;
     int pixelH = 0;
     SDL_GetWindowSizeInPixels(mWindow, &pixelW, &pixelH);
-    mScreenWidth  = static_cast<float>(pixelW);
+    mScreenWidth = static_cast<float>(pixelW);
     mScreenHeight = static_cast<float>(pixelH);
 
     mWindowDisplayScale = SDL_GetWindowDisplayScale(mWindow);
-    if (mWindowDisplayScale <= 0.0f) mWindowDisplayScale = 1.0f;
+    if (mWindowDisplayScale <= 0.0f)
+    {
+        mWindowDisplayScale = 1.0f;
+    }
 
-    if (!CreateInstance()) { Shutdown(); return false; }
-    if (!CreateSurface())  { Shutdown(); return false; }
-    if (!PickPhysicalDevice()) { Shutdown(); return false; }
-    if (!CreateDeviceAndQueues()) { Shutdown(); return false; }
+    if (!CreateInstance())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateSurface())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!PickPhysicalDevice())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateDeviceAndQueues())
+    {
+        Shutdown();
+        return false;
+    }
 
     // RenderBackendState は VKリソース生成の前にセット
     RenderBackendState::Get().SetVKPhysicalDevice(mPhysicalDevice);
     RenderBackendState::Get().SetVKDevice(mDevice);
     RenderBackendState::Get().SetVKGraphicsQueue(mQueueGraphics);
 
-    if (!CreateSwapchainAndViews()) { Shutdown(); return false; }
-    if (!CreateDepthForSwapchain()) { Shutdown(); return false; }
-    if (!CreateRenderPass())        { Shutdown(); return false; }
-    if (!CreateFramebuffers())      { Shutdown(); return false; }
-    if (!CreateCommandPoolAndBuffers()) { Shutdown(); return false; }
+    if (!CreateSwapchainAndViews())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateDepthForSwapchain())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateRenderPass())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateFramebuffers())
+    {
+        Shutdown();
+        return false;
+    }
+    if (!CreateCommandPoolAndBuffers())
+    {
+        Shutdown();
+        return false;
+    }
 
     RenderBackendState::Get().SetVKCommandPool(mCommandPool);
 
-    if (!CreateSyncObjects()) { Shutdown(); return false; }
+    if (!CreateSyncObjects())
+    {
+        Shutdown();
+        return false;
+    }
 
     // common geometry (既存経路)
     CreateSpriteVerts();
@@ -106,20 +147,10 @@ bool VKRenderer::Initialize(const Application* app)
     }
 
     // Default view/proj
-    mViewMatrix = Matrix4::CreateLookAt(
-        Vector3(0, 0.5f, -3),
-        Vector3(0, 0, 10),
-        Vector3::UnitY
-    );
-    mProjectionMatrix = Matrix4::CreatePerspectiveFOV(
-        Math::ToRadians(mPerspectiveFOV),
-        mScreenWidth,
-        mScreenHeight,
-        1.0f,
-        2000.0f
-    );
-    
-    
+    mViewMatrix = Matrix4::CreateLookAt(Vector3(0, 0.5f, -3), Vector3(0, 0, 10), Vector3::UnitY);
+    mProjectionMatrix =
+        Matrix4::CreatePerspectiveFOV(Math::ToRadians(mPerspectiveFOV), mScreenWidth, mScreenHeight, 1.0f, 2000.0f);
+
     //==========================================================
     // Descriptors
     //  - set=0 : Scene UBO (World/UI)
@@ -175,11 +206,8 @@ bool VKRenderer::Initialize(const Application* app)
     // Shadow
     CreateShadowResources();
 
-    std::cerr << "[VKRenderer] Init OK. Swapchain("
-              << mSwapchainExtent.width << "x" << mSwapchainExtent.height
-              << ") Scale=" << mWindowDisplayScale
-              << " Images=" << (int)mSwapchainImages.size()
-              << "\n";
+    std::cerr << "[VKRenderer] Init OK. Swapchain(" << mSwapchainExtent.width << "x" << mSwapchainExtent.height
+              << ") Scale=" << mWindowDisplayScale << " Images=" << (int)mSwapchainImages.size() << "\n";
 
     return true;
 }
@@ -193,7 +221,7 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
-    
+
     mPost.paperTex.reset();
     DestroyShadowResources();
     if (mSceneRT)
@@ -201,8 +229,7 @@ void VKRenderer::Shutdown()
         mSceneRT->Unload();
         mSceneRT.reset();
     }
-    
-    
+
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
     //==========================================================
@@ -225,14 +252,23 @@ void VKRenderer::Shutdown()
     {
         if (mDevice)
         {
-            if (f.imageAvailable) vkDestroySemaphore(mDevice, f.imageAvailable, nullptr);
-            if (f.renderFinished) vkDestroySemaphore(mDevice, f.renderFinished, nullptr);
-            if (f.inFlight)       vkDestroyFence(mDevice, f.inFlight, nullptr);
+            if (f.imageAvailable)
+            {
+                vkDestroySemaphore(mDevice, f.imageAvailable, nullptr);
+            }
+            if (f.renderFinished)
+            {
+                vkDestroySemaphore(mDevice, f.renderFinished, nullptr);
+            }
+            if (f.inFlight)
+            {
+                vkDestroyFence(mDevice, f.inFlight, nullptr);
+            }
         }
         f.imageAvailable = VK_NULL_HANDLE;
         f.renderFinished = VK_NULL_HANDLE;
-        f.inFlight       = VK_NULL_HANDLE;
-        f.cmd            = VK_NULL_HANDLE;
+        f.inFlight = VK_NULL_HANDLE;
+        f.cmd = VK_NULL_HANDLE;
     }
     mFrames.clear();
 
@@ -276,10 +312,10 @@ void VKRenderer::Shutdown()
     RenderBackendState::Get().SetVKCommandPool(VK_NULL_HANDLE);
 
     mPhysicalDevice = VK_NULL_HANDLE;
-    mQueueGraphics  = VK_NULL_HANDLE;
-    mQueuePresent   = VK_NULL_HANDLE;
+    mQueueGraphics = VK_NULL_HANDLE;
+    mQueuePresent = VK_NULL_HANDLE;
     mQueueFamilyGraphics = UINT32_MAX;
-    mQueueFamilyPresent  = UINT32_MAX;
+    mQueueFamilyPresent = UINT32_MAX;
 
     mNeedRecreateSwapchain = false;
     mFrameIndex = 0;
@@ -317,8 +353,7 @@ void VKRenderer::OnWindowResized(int width, int height)
 {
     if (width <= 0 || height <= 0)
     {
-        std::cerr << "[VKRenderer] OnWindowResized ignored: "
-                  << width << "x" << height << "\n";
+        std::cerr << "[VKRenderer] OnWindowResized ignored: " << width << "x" << height << "\n";
         return;
     }
 
