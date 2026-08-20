@@ -288,6 +288,29 @@ bool VKRenderer::CreateShadowResources()
 
     mShadowIsSampledLayout = {false, false};
 
+    // Descriptor に記録するレイアウトと実際の画像レイアウトを一致させるため、
+    // UpdateShadowSampleSet() の前に SHADER_READ_ONLY_OPTIMAL へ遷移する。
+    // DrawShadowPass() は mShadowIsSampledLayout == true を見て、
+    // 描画前に DEPTH_STENCIL_ATTACHMENT_OPTIMAL へ戻す。
+    for (int i = 0; i < kShadowCascadeCount; ++i)
+    {
+        auto& c = mShadowCascades[i];
+        VkCommandBuffer cmd2 = BeginOneTimeCommands();
+        if (cmd2)
+        {
+            toy::vkutil::CmdTransitionImageLayout(
+                cmd2, c.depthImg, DepthAspect(mShadowDepthFormat),
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT);
+            EndOneTimeCommands(cmd2);
+        }
+        mShadowIsSampledLayout[i] = true;
+    }
+
     //----------------------------------------------------------
     // Shadow sampled descriptor (set=3)  （★Mesh pipeline の set=3 layout を使用）
     //----------------------------------------------------------
@@ -296,7 +319,7 @@ bool VKRenderer::CreateShadowResources()
         DestroyShadowResources();
         return false;
     }
-    UpdateShadowSampleSet();
+    UpdateShadowSampleSet(); // 画像が SHADER_READ_ONLY_OPTIMAL の状態で記録するので正しい
 
     mShadowDescPoolUsed = mDescPool;
 
