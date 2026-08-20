@@ -1,34 +1,29 @@
 #pragma once
 
-#include "ToyLib.h"
-#include <memory>
+#include "ToyKit.h"
 
-class WolfActor : public toy::Actor
+//=============================================================================
+// WolfActor
+//  KitCharacterActor を継承したシンプルな敵 NPC。
+//  セットアップはヘルパーに任せ、WolfActor 固有の処理だけを記述する。
+//=============================================================================
+
+enum class WolfState { Idle, Walk, Run };
+
+class WolfActor : public toy::kit::KitCharacterActor
 {
-    enum ActionType
-    {
-        IDLE,
-        WALK,
-        RUN
-    };
-    
 public:
     WolfActor(toy::Application* a);
-    ~WolfActor();
-    
-    virtual void UpdateActor(float deltaTime) override;
-    
+    ~WolfActor() override = default;
+
+protected:
+    void UpdateCharacter(float deltaTime) override;
+
 private:
-    ActionType mAction;
-    toy::SkeletalMeshComponent* meshComp;
-    toy::GroundConformSpriteComponent* mTarget;
-    toy::Actor* mTargetActor;
-    toy::ColliderComponent* mColleder;
-    
-    float mLifeTime;
-    
-    void ActionIDLE(float deltaTime);
-    void ActionWALK(float deltaTime);
-    void ActionRUN(float deltaTime);
-    
+    // アニメーション番号（wolf.gltf のクリップ順）
+    static constexpr int ANIM_WALK = 1;
+    static constexpr int ANIM_IDLE = 2;
+    static constexpr int ANIM_RUN  = 3;
+
+    toy::kit::KitStateMachine<WolfState> mFSM;
 };

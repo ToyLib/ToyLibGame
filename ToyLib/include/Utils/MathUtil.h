@@ -403,6 +403,7 @@ public:
     static Vector3 Transform(const Vector3& v, const class Quaternion& q);
 
     static const Vector3 Zero;
+    static const Vector3 One;
     static const Vector3 UnitX;
     static const Vector3 UnitY;
     static const Vector3 UnitZ;
