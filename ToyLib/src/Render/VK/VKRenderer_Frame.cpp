@@ -495,7 +495,19 @@ void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
     VkFence fence = VK_NULL_HANDLE;
     VkFenceCreateInfo fci{};
     fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    vkCreateFence(mDevice, &fci, nullptr, &fence);
+    if (vkCreateFence(mDevice, &fci, nullptr, &fence) != VK_SUCCESS)
+    {
+        // フェンス生成失敗時は GPU 完了を vkQueueWaitIdle で保証してから解放
+        std::cerr << "[VK] EndOneTimeCommands: vkCreateFence failed, falling back to vkQueueWaitIdle\n";
+        VkSubmitInfo si{};
+        si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        si.commandBufferCount = 1;
+        si.pCommandBuffers = &cmd;
+        vkQueueSubmit(mQueueGraphics, 1, &si, VK_NULL_HANDLE);
+        vkQueueWaitIdle(mQueueGraphics);
+        vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
+        return;
+    }
 
     VkSubmitInfo si{};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -506,10 +518,7 @@ void VKRenderer::EndOneTimeCommands(VkCommandBuffer cmd)
 
     vkWaitForFences(mDevice, 1, &fence, VK_TRUE, UINT64_MAX);
 
-    if (fence)
-    {
-        vkDestroyFence(mDevice, fence, nullptr);
-    }
+    vkDestroyFence(mDevice, fence, nullptr);
 
     vkFreeCommandBuffers(mDevice, mCommandPool, 1, &cmd);
 }

@@ -95,7 +95,7 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette, uint32_t p
     }
 
     const uint32_t idx = mSkinnedSlotCursor[mFrameIndex];
-    mSkinnedSlotCursor[mFrameIndex]++;
+    // ★ カーソルは確保成功後にインクリメント（失敗時の early return でずれないように）
 
     if (idx >= mSkinnedSlots[mFrameIndex].size())
     {
@@ -154,6 +154,9 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette, uint32_t p
 
         mSkinnedSlots[mFrameIndex].push_back(slot);
     }
+
+    // 確保成功（既存スロット再利用 or 新規 push_back 済み）後にインクリメント
+    mSkinnedSlotCursor[mFrameIndex]++;
 
     Matrix4 tmp[kMaxPalette];
     for (uint32_t i = 0; i < kMaxPalette; ++i)
