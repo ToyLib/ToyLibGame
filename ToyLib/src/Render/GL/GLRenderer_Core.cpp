@@ -22,8 +22,7 @@ GLRenderer::~GLRenderer()
 
 bool GLRenderer::Initialize(const Application* app)
 {
-    mWindow    = app->GetSDLWindow();      // 非所有
-    mGLContext = app->GetGLContext();   // 非所有
+    mWindow = app->GetSDLWindow();      // 非所有
 
     //---------------------------------------------------------
     // OpenGL コンテキスト属性設定
@@ -136,6 +135,13 @@ void GLRenderer::Shutdown()
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
     mSurfaceQuad.reset();
+
+    // GL コンテキストは Initialize() 内で SDL_GL_CreateContext() により生成・所有している
+    if (mGLContext)
+    {
+        SDL_GL_DestroyContext(mGLContext);
+        mGLContext = nullptr;
+    }
 }
 
 //=============================================================
