@@ -698,10 +698,9 @@ VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char
     }
 
     //----------------------------------------------------------
-    // frame-aware cache
+    // cache (frame をまたいで再利用 — テクスチャは破棄まで安定)
     //----------------------------------------------------------
     BaseMapKey key{};
-    key.frame = mFrameIndex;
     key.tex = tex;
     key.pipelineName = pipeName;
 

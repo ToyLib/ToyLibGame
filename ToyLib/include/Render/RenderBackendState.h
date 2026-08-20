@@ -1,8 +1,11 @@
 // RenderBackendState.h
 #pragma once
 #include <cstdint>
+#include <functional>
 
 namespace toy {
+
+class Texture; // forward decl（循環 include 回避）
 
 enum class RenderBackendType : uint8_t
 {
@@ -55,6 +58,22 @@ public:
     void SetVKCommandPool(void* pool) { mVKCommandPool = pool; }
     void* GetVKCommandPool() const { return mVKCommandPool; }
 
+    //==============================================================
+    // Texture アンロード通知（VKRenderer が登録）
+    //==============================================================
+    using TextureUnloadCallback = std::function<void(const Texture*)>;
+
+    void SetTextureUnloadCallback(TextureUnloadCallback cb) { mTextureUnloadCallback = std::move(cb); }
+    void ClearTextureUnloadCallback()                       { mTextureUnloadCallback = nullptr; }
+
+    void NotifyTextureUnloaded(const Texture* tex)
+    {
+        if (mTextureUnloadCallback)
+        {
+            mTextureUnloadCallback(tex);
+        }
+    }
+
 private:
     RenderBackendType mType { RenderBackendType::Unknown };
 
@@ -63,6 +82,8 @@ private:
     void* mVKDevice         { nullptr }; // VkDevice
     void* mVKGraphicsQueue  { nullptr }; // VkQueue
     void* mVKCommandPool    { nullptr }; // VkCommandPool
+
+    TextureUnloadCallback mTextureUnloadCallback;
 };
 
 } // namespace toy

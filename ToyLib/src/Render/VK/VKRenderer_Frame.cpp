@@ -150,7 +150,8 @@ bool VKRenderer::BeginFrame()
     mCaptureSlotCursor = 0;
     mActiveCaptureSlot = -1;
 
-    mBaseMapSetCache.clear();
+    // mBaseMapSetCache はフレーム間で再利用する（毎フレームの clear は不要）
+    // テクスチャ破棄時は ClearBaseMapSetCache() で一括解放すること
 
     mIsInRenderPass = false;
 

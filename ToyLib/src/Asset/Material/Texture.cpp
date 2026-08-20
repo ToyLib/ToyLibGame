@@ -415,6 +415,9 @@ void Texture::Unload()
 
     mWidth  = 0;
     mHeight = 0;
+
+    // VKRenderer の BaseMapSetCache からこのテクスチャのエントリを削除させる
+    RenderBackendState::Get().NotifyTextureUnloaded(this);
 }
 
 } // namespace toy

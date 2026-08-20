@@ -64,6 +64,9 @@ public:
 
     void OnWindowResized(int pixelW, int pixelH) override;
 
+    // Texture アンロード時にキャッシュから該当エントリを除去
+    void OnTextureUnloaded(const class Texture* tex);
+
     bool BeginFrame() override;
     void EndFrame() override;
 
@@ -334,13 +337,14 @@ private:
     //==========================================================
     struct BaseMapKey
     {
-        uint32_t frame = 0;
+        // frame は含めない — テクスチャセットは全フレーム共用可能
+        // テクスチャ破棄時は ClearBaseMapSetCache() で一括解放すること
         const Texture* tex = nullptr;
         std::string pipelineName;
 
         bool operator==(const BaseMapKey& o) const
         {
-            return frame == o.frame && tex == o.tex && pipelineName == o.pipelineName;
+            return tex == o.tex && pipelineName == o.pipelineName;
         }
     };
 
@@ -355,7 +359,6 @@ private:
                 h *= 1099511628211ull;
             };
 
-            mix(std::hash<uint32_t>{}(k.frame));
             mix(std::hash<const void*>{}(k.tex));
             mix(std::hash<std::string>{}(k.pipelineName));
             return h;

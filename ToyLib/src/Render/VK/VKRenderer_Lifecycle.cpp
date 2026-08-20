@@ -206,6 +206,13 @@ bool VKRenderer::Initialize(const Application* app)
     // Shadow
     CreateShadowResources();
 
+    // テクスチャアンロード通知を登録（BaseMapSetCache のダングリングポインタ対策）
+    RenderBackendState::Get().SetTextureUnloadCallback(
+        [this](const Texture* tex)
+        {
+            OnTextureUnloaded(tex);
+        });
+
     std::cerr << "[VKRenderer] Init OK. Swapchain(" << mSwapchainExtent.width << "x" << mSwapchainExtent.height
               << ") Scale=" << mWindowDisplayScale << " Images=" << (int)mSwapchainImages.size() << "\n";
 
@@ -221,6 +228,9 @@ void VKRenderer::Shutdown()
     {
         vkDeviceWaitIdle(mDevice);
     }
+
+    // コールバック解除（Texture デストラクタが Shutdown 後に走っても安全）
+    RenderBackendState::Get().ClearTextureUnloadCallback();
 
     mPost.paperTex.reset();
     DestroyShadowResources();
@@ -361,6 +371,31 @@ void VKRenderer::OnWindowResized(int width, int height)
     mScreenWidth = static_cast<float>(width);
     mScreenHeight = static_cast<float>(height);
     mNeedRecreateSwapchain = true;
+}
+
+//--------------------------------------------------------------
+// OnTextureUnloaded
+//  Texture::Unload() → RenderBackendState 経由で呼ばれる
+//  BaseMapSetCache からそのテクスチャのエントリを除去する
+//--------------------------------------------------------------
+void VKRenderer::OnTextureUnloaded(const Texture* tex)
+{
+    if (!tex)
+    {
+        return;
+    }
+
+    for (auto it = mBaseMapSetCache.begin(); it != mBaseMapSetCache.end();)
+    {
+        if (it->first.tex == tex)
+        {
+            it = mBaseMapSetCache.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 } // namespace toy
