@@ -236,7 +236,7 @@ void VKRenderer::Shutdown()
     DestroyOverlayUBO();
     DestroySkyUBO();
     DestroySkinnedSlots();
-    DestroySkyUBO();
+    DestroySceneUBO_Capture();
     DestroySceneUBO();
     DestroyDescriptorPool();
 
