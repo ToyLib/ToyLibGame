@@ -104,16 +104,6 @@ bool VKRenderer::BeginFrame()
     }
 
     //---------------------------------------------------------
-    // reset fence
-    //---------------------------------------------------------
-    VkResult rr = vkResetFences(mDevice, 1, &frame.inFlight);
-    if (rr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] vkResetFences failed\n";
-        return false;
-    }
-
-    //---------------------------------------------------------
     // reset command buffer
     //---------------------------------------------------------
     VkResult cr = vkResetCommandBuffer(frame.cmd, 0);
@@ -249,6 +239,16 @@ void VKRenderer::EndFrame()
 
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = &frame.renderFinished;
+
+    //---------------------------------------------------------
+    // reset fence (直前にリセット: submit 直前が推奨パターン)
+    //---------------------------------------------------------
+    VkResult rr = vkResetFences(mDevice, 1, &frame.inFlight);
+    if (rr != VK_SUCCESS)
+    {
+        std::cerr << "[VKRenderer] vkResetFences failed\n";
+        return;
+    }
 
     VkResult sr = vkQueueSubmit(mQueueGraphics, 1, &si, frame.inFlight);
 
