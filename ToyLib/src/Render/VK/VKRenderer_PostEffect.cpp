@@ -238,11 +238,6 @@ void VKRenderer::DrawPostEffectPass()
 
     if (mFrameIndex >= mPostEffectSets.size())
     {
-        return;
-    }
-
-    if (mFrameIndex >= mPostEffectSets.size())
-    {
         std::cerr << "[PostEffect] invalid frame index\n";
         return;
     }

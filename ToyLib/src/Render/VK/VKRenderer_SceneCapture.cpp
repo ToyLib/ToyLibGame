@@ -43,6 +43,13 @@ bool VKRenderer::CreateSceneUBO_Capture()
     {
         return false;
     }
+    
+    if (mSceneUBOSize == 0)
+    {
+        std::cerr << "[VKRenderer] CreateSceneUBO_Capture: mSceneUBOSize == 0."
+                     " CreateSceneUBO() が先に呼ばれていません。\n";
+        return false;
+    }
 
     VKPipeline* meshPipe = mPipelines.Get("Mesh");
     if (!meshPipe || !meshPipe->IsValid())
