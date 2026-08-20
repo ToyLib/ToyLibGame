@@ -362,7 +362,10 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
     if (it.type != RenderItemType::Particle)
     {
-        BindVertexArrayVK(cmd, it.geometry);
+        if (!BindVertexArrayVK(cmd, it.geometry))
+        {
+            return; // バインド失敗 — stale/null バッファで DrawCall を発行しない
+        }
     }
 
     //----------------------------------------------------------
