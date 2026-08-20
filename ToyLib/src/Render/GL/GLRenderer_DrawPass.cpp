@@ -241,8 +241,16 @@ bool GLRenderer::BeginFrame()
             mSceneRT->GetWidth()  != (int)mScreenWidth ||
             mSceneRT->GetHeight() != (int)mScreenHeight)
         {
+            if (mSceneRT)
+            {
+                mSceneRT->Unload();
+            }
             mSceneRT = std::make_shared<GLRenderTarget>();
-            mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight);
+            if (!mSceneRT->Create((int)mScreenWidth, (int)mScreenHeight))
+            {
+                std::cerr << "[GLRenderer] BeginFrame: SceneRT create failed\n";
+                mSceneRT.reset();
+            }
         }
 
         mSceneRT->Bind();

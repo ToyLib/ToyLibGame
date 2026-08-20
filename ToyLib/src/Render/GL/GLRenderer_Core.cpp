@@ -131,6 +131,9 @@ void GLRenderer::Shutdown()
         mLightSpaceMatrix[i] = Matrix4::Identity;
     }
 
+    // Shaders（GLプログラムオブジェクトを解放。コンテキスト破棄より前に行う）
+    mShaders.clear();
+
     // Shared geometry
     mFullScreenQuad.reset();
     mSpriteQuad.reset();
@@ -176,6 +179,7 @@ void GLRenderer::OnWindowResized(int pixelW, int pixelH)
     else
     {
         // 今は作り直し（理想は RenderTarget 側で resize）
+        mSceneRT->Unload();
         mSceneRT = std::make_shared<GLRenderTarget>();
     }
 
