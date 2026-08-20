@@ -336,19 +336,15 @@ void IRenderer::SortBucket_Shadow(std::vector<uint32_t>& bucket)
                 return aShadow;
             }
             
-            // 1) shader でまとめる（SetActive 削減）
-            const bool aGL = A.pipeline.IsValidGL();
-            const bool bGL = B.pipeline.IsValidGL();
-            if (aGL != bGL)
+            // 1) pipeline/shader でまとめる（SetActive / bind 削減）
+            //    バックエンド非依存: GetPipelineSortKey() を各 Renderer がオーバーライド
+            //      GL → ptrGLShader アドレス（SetActive 削減）
+            //      VK → ptrVKPipeline アドレス（bind 削減）
+            const uint64_t aKey = GetPipelineSortKey(A.pipeline);
+            const uint64_t bKey = GetPipelineSortKey(B.pipeline);
+            if (aKey != bKey)
             {
-                return aGL; // GL 有効を前へ
-            }
-            if (aGL) // (= 両方GL)
-            {
-                if (A.pipeline.ptrGLShader != B.pipeline.ptrGLShader)
-                {
-                    return A.pipeline.ptrGLShader < B.pipeline.ptrGLShader;
-                }
+                return aKey < bKey;
             }
             
             // 2) geometry でまとめる（VAO bind 削減）

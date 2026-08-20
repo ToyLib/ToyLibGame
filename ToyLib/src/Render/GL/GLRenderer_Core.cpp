@@ -237,6 +237,18 @@ bool GLRenderer::InitializeShadowMapping()
 }
 
 
+Matrix4 GLRenderer::GetLightSpaceMatrix(int cascadeIndex) const
+{
+    if (cascadeIndex < 0 || cascadeIndex >= kShadowCascadeCount) return Matrix4::Identity;
+    return mLightSpaceMatrix[cascadeIndex];
+}
+
+std::shared_ptr<Texture> GLRenderer::GetShadowMapTexture(int cascadeIndex) const
+{
+    if (cascadeIndex < 0 || cascadeIndex >= kShadowCascadeCount) return nullptr;
+    return mShadowMapTexture[cascadeIndex];
+}
+
 PipelineHandle GLRenderer::GetPipelineHandle(const std::string& name)
 {
     PipelineHandle h{};
@@ -244,6 +256,13 @@ PipelineHandle GLRenderer::GetPipelineHandle(const std::string& name)
     h.ptrGLShader = sp.get();
     h.backend = PipelineBackend::GL;
     return h;
+}
+
+// SortBucket_Shadow でシェーダー単位にまとめるためのソートキー
+// ptrGLShader が同一 → SetActive 呼び出しを削減できる
+uint64_t GLRenderer::GetPipelineSortKey(const PipelineHandle& h) const
+{
+    return reinterpret_cast<uint64_t>(h.ptrGLShader);
 }
 
 void GLRenderer::SetClearColor(const Vector3& color)

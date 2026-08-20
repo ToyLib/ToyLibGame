@@ -12,6 +12,43 @@
 namespace toy {
 
 //============================================================
+// GL ライティングヘルパー（LightingManager の GL 依存を DrawDispatch 側に集約）
+//  BuildLightData() で収集した SceneLightData を GLShader uniform に転送する。
+//============================================================
+static void ApplyLightDataToShader(GLShader* sh, const SceneLightData& d)
+{
+    using namespace toy::glsl;
+
+    sh->SetVectorUniform(Scene::CameraPos,    d.cameraPos);
+    sh->SetVectorUniform(Scene::AmbientLight, d.ambientColor);
+    sh->SetFloatUniform (Scene::SunIntensity, d.sunIntensity);
+
+    sh->SetVectorUniform(Scene::Dir_Direction, d.dirDirection);
+    sh->SetVectorUniform(Scene::Dir_Diffuse,   d.dirDiffuse);
+    sh->SetVectorUniform(Scene::Dir_Specular,  d.dirSpecular);
+
+    for (int i = 0; i < d.numPointLights; ++i)
+    {
+        const PointLightData& pl  = d.pointLights[i];
+        const std::string     base =
+            std::string(Scene::PointPrefix) + std::to_string(i) + "].";
+
+        sh->SetVectorUniform((base + "position").c_str(),  pl.position);
+        sh->SetVectorUniform((base + "color").c_str(),     pl.color);
+        sh->SetFloatUniform ((base + "intensity").c_str(), pl.intensity);
+        sh->SetFloatUniform ((base + "constant").c_str(),  pl.constant);
+        sh->SetFloatUniform ((base + "linear").c_str(),    pl.linear);
+        sh->SetFloatUniform ((base + "quadratic").c_str(), pl.quadratic);
+        sh->SetFloatUniform ((base + "radius").c_str(),    pl.radius);
+    }
+    sh->SetIntUniform(Scene::NumPointLights, d.numPointLights);
+
+    sh->SetFloatUniform (Scene::Fog_MaxDist, d.fogMaxDist);
+    sh->SetFloatUniform (Scene::Fog_MinDist, d.fogMinDist);
+    sh->SetVectorUniform(Scene::Fog_Color,   d.fogColor);
+}
+
+//============================================================
 // Sprite
 //============================================================
 static bool DispatchSprite(IRenderer& r,
@@ -104,10 +141,9 @@ static bool DispatchMesh(IRenderer& r,
     }
 
     // ライティング
-    if (r.GetLightingManager())
+    if (auto lm = r.GetLightingManager())
     {
-        const Matrix4 view = r.GetViewMatrix();
-        r.GetLightingManager()->ApplyToShader(sh, view);
+        ApplyLightDataToShader(sh, lm->BuildLightData(r.GetViewMatrix()));
     }
 
     // Shadow maps bind
@@ -201,10 +237,9 @@ static bool DispatchSkinnedMesh(IRenderer& r,
     sh->SetMatrixUniform(Object::World, it.world);
     sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
 
-    if (r.GetLightingManager())
+    if (auto lm = r.GetLightingManager())
     {
-        const Matrix4 view = r.GetViewMatrix();
-        r.GetLightingManager()->ApplyToShader(sh, view);
+        ApplyLightDataToShader(sh, lm->BuildLightData(r.GetViewMatrix()));
     }
 
     if (!overrideColor)

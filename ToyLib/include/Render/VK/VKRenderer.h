@@ -92,6 +92,7 @@ public:
     void DrawBucket_OverlayScreen(const std::vector<uint32_t>& bucket);
     
     PipelineHandle GetPipelineHandle(const std::string& name) override;
+    uint64_t       GetPipelineSortKey(const PipelineHandle& h) const override;
     
     const VkDevice GetVKDevice() const { return mDevice; }
     const VkPhysicalDevice GetVKPhysicalDevice() const { return mPhysicalDevice; }

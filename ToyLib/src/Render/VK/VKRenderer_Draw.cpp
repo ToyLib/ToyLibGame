@@ -1079,7 +1079,7 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             return;
         }
 
-        if (it.gpuInstanceVB == VK_NULL_HANDLE)
+        if (it.gpuInstanceVB == 0)
         {
             return;
         }
@@ -1152,10 +1152,12 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
             sizeof(VKParticlePC),
             &pc);
 
+        // gpuInstanceVB は uint64_t で保持 → VkBuffer にキャストして使う
+        VkBuffer instanceVB = reinterpret_cast<VkBuffer>(it.gpuInstanceVB);
         VkBuffer bufs[2] =
         {
             quadVB,
-            it.gpuInstanceVB
+            instanceVB
         };
         VkDeviceSize offs[2] = { 0, 0 };
 
@@ -1180,6 +1182,11 @@ PipelineHandle VKRenderer::GetPipelineHandle(const std::string& name)
     PipelineHandle h{};
     h.ptrVKPipeline = mPipelines.Get(name.c_str());
     return h;
+}
+
+uint64_t VKRenderer::GetPipelineSortKey(const PipelineHandle& h) const
+{
+    return reinterpret_cast<uint64_t>(h.ptrVKPipeline);
 }
 
 //------------------------------------------------------------------------------

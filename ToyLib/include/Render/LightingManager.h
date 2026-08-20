@@ -6,6 +6,48 @@
 namespace toy {
 
 //-------------------------------------------------------------
+// PointLightData
+// ・ポイントライト1灯分の CPU-side POD（GL/VK 両方で使える）
+//-------------------------------------------------------------
+struct PointLightData
+{
+    Vector3 position  { Vector3::Zero };
+    Vector3 color     { Vector3::Zero };
+    float   intensity { 0.0f };
+    float   constant  { 1.0f };
+    float   linear    { 0.0f };
+    float   quadratic { 0.0f };
+    float   radius    { 100.0f };
+};
+
+static constexpr int kMaxScenePointLights = 8;
+
+//-------------------------------------------------------------
+// SceneLightData
+// ・LightingManager::BuildLightData() が返すバックエンド非依存の POD
+// ・GL  → DrawDispatch が ApplyLightDataToShader() で uniform に転送
+// ・VK  → UpdateSceneUBO_World() が UBO レイアウトにマッピング
+//-------------------------------------------------------------
+struct SceneLightData
+{
+    Vector3 cameraPos    { Vector3::Zero };
+
+    Vector3 ambientColor { Vector3(0.8f, 0.8f, 0.8f) };
+    float   sunIntensity { 1.0f };
+
+    Vector3 dirDirection { Vector3::Zero };
+    Vector3 dirDiffuse   { Vector3(0.5f, 0.5f, 0.5f) };
+    Vector3 dirSpecular  { Vector3(0.5f, 0.5f, 0.5f) };
+
+    float   fogMaxDist   { 100.0f };
+    float   fogMinDist   { 0.00001f };
+    Vector3 fogColor     { Vector3(0.5f, 0.5f, 0.5f) };
+
+    int  numPointLights  { 0 };
+    PointLightData pointLights[kMaxScenePointLights] {};
+};
+
+//-------------------------------------------------------------
 // DirectionalLight
 // ・太陽光（平行光源）を表す構造体
 // ・Position → 光の発生点（見かけの位置）
@@ -121,16 +163,13 @@ public:
     
     
     //---------------------------------------------------------
-    // Shader へ適用
-    // ・Directional Light / Ambient Light / Fog などを一括反映
-    // ・viewMatrixから LightDir を view space に変換して渡す
+    // バックエンド非依存データ取得
+    // ・GL / VK どちらからでも呼べる純粋なデータ収集メソッド
+    // ・VK は UpdateSceneUBO_World() からこれを使う
     //---------------------------------------------------------
-    
-    void ApplyToShader(std::shared_ptr<class GLShader> shader,
-                       const Matrix4& viewMatrix);
-    
-    void ApplyToShader(class GLShader* shader, const Matrix4& viewMatrix);
-    
+
+    SceneLightData BuildLightData(const Matrix4& viewMatrix) const;
+
     //---------------------------------------------------------
     // Point Light 管理
     //---------------------------------------------------------

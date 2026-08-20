@@ -22,7 +22,6 @@
 #include "Asset/Material/ITextureGPU.h"
 #include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
-#include "Graphics/Light/PointLightComponent.h"
 
 #include <iostream>
 #include <cstring>
@@ -296,109 +295,70 @@ void VKRenderer::UpdateSceneUBO_World()
     const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     std::memcpy(ubo.viewProj, &viewProj, sizeof(float) * 16);
 
-    Vector3 cameraPos = GetCameraPosition();
-    ubo.cameraPos[0] = cameraPos.x;
-    ubo.cameraPos[1] = cameraPos.y;
-    ubo.cameraPos[2] = cameraPos.z;
+    // ライトデータ収集（LightingManager に一本化）
+    SceneLightData ld{};
+    if (auto lm = GetLightingManager())
+    {
+        ld = lm->BuildLightData(mViewMatrix);
+    }
+
+    // Camera pos
+    ubo.cameraPos[0] = ld.cameraPos.x;
+    ubo.cameraPos[1] = ld.cameraPos.y;
+    ubo.cameraPos[2] = ld.cameraPos.z;
     ubo.cameraPos[3] = 1.0f;
 
-    Vector3 ambient(0.2f, 0.2f, 0.2f);
-    DirectionalLight dirLight{};
-
-    if (auto lm = GetLightingManager())
-    {
-        ambient  = lm->GetAmbientColor();
-        dirLight = lm->GetDirectionalLight();
-    }
-
-    ubo.ambient[0] = ambient.x;
-    ubo.ambient[1] = ambient.y;
-    ubo.ambient[2] = ambient.z;
+    // Ambient
+    ubo.ambient[0] = ld.ambientColor.x;
+    ubo.ambient[1] = ld.ambientColor.y;
+    ubo.ambient[2] = ld.ambientColor.z;
     ubo.ambient[3] = 1.0f;
 
-    ubo.dirDir[0] = dirLight.GetDirection().x;
-    ubo.dirDir[1] = dirLight.GetDirection().y;
-    ubo.dirDir[2] = dirLight.GetDirection().z;
+    // Directional light
+    ubo.dirDir[0] = ld.dirDirection.x;
+    ubo.dirDir[1] = ld.dirDirection.y;
+    ubo.dirDir[2] = ld.dirDirection.z;
     ubo.dirDir[3] = 0.0f;
 
-    const Vector3 dd = dirLight.GetDiffuseColor();
-    const Vector3 ds = dirLight.GetSpecularColor();
-
-    ubo.dirDiffuse[0] = dd.x;
-    ubo.dirDiffuse[1] = dd.y;
-    ubo.dirDiffuse[2] = dd.z;
+    ubo.dirDiffuse[0] = ld.dirDiffuse.x;
+    ubo.dirDiffuse[1] = ld.dirDiffuse.y;
+    ubo.dirDiffuse[2] = ld.dirDiffuse.z;
     ubo.dirDiffuse[3] = 1.0f;
 
-    ubo.dirSpecular[0] = ds.x;
-    ubo.dirSpecular[1] = ds.y;
-    ubo.dirSpecular[2] = ds.z;
+    ubo.dirSpecular[0] = ld.dirSpecular.x;
+    ubo.dirSpecular[1] = ld.dirSpecular.y;
+    ubo.dirSpecular[2] = ld.dirSpecular.z;
     ubo.dirSpecular[3] = 1.0f;
-    
-    // --------------------------
-    // PointLights（GLと同じ: 最大8）
-    // --------------------------
-    ubo.numPointLights = 0;
 
-    if (auto lm = GetLightingManager())
+    // Point lights
+    ubo.numPointLights = ld.numPointLights;
+    for (int i = 0; i < ld.numPointLights; ++i)
     {
-        const auto& pls = lm->GetPointLights();
+        const PointLightData& pl = ld.pointLights[i];
+        ubo.pointLights[i].position_radius[0] = pl.position.x;
+        ubo.pointLights[i].position_radius[1] = pl.position.y;
+        ubo.pointLights[i].position_radius[2] = pl.position.z;
+        ubo.pointLights[i].position_radius[3] = pl.radius;
 
-        const int count = (int)std::min<size_t>(pls.size(), 8);
-        ubo.numPointLights = count;
+        ubo.pointLights[i].color_intensity[0] = pl.color.x;
+        ubo.pointLights[i].color_intensity[1] = pl.color.y;
+        ubo.pointLights[i].color_intensity[2] = pl.color.z;
+        ubo.pointLights[i].color_intensity[3] = pl.intensity;
 
-        for (int i = 0; i < count; ++i)
-        {
-            const auto* pl = pls[i];
-            if (!pl) continue;
-
-            // ---- ここは PointLightComponent の実装に合わせて getter 名を調整 ----
-            const Vector3 pos   = pl->GetPosition();   // 例
-            const Vector3 color = pl->GetColor();           // 例 (0..1)
-            const float   inten = pl->GetIntensity();       // 例
-            const float   c     = pl->GetConstant();        // 例
-            const float   l     = pl->GetLinear();          // 例
-            const float   q     = pl->GetQuadratic();       // 例
-            const float   r     = pl->GetRadius();          // 例
-            // -----------------------------------------------------------------
-
-            ubo.pointLights[i].position_radius[0] = pos.x;
-            ubo.pointLights[i].position_radius[1] = pos.y;
-            ubo.pointLights[i].position_radius[2] = pos.z;
-            ubo.pointLights[i].position_radius[3] = r;
-
-            ubo.pointLights[i].color_intensity[0] = color.x;
-            ubo.pointLights[i].color_intensity[1] = color.y;
-            ubo.pointLights[i].color_intensity[2] = color.z;
-            ubo.pointLights[i].color_intensity[3] = inten;
-
-            ubo.pointLights[i].atten[0] = c;
-            ubo.pointLights[i].atten[1] = l;
-            ubo.pointLights[i].atten[2] = q;
-            ubo.pointLights[i].atten[3] = 0.0f;
-        }
-    }
-    
-    // --------------------------
-    // Fog（GLと同じ契約）
-    // --------------------------
-    Vector3 fogColor(0.5f, 0.6f, 0.7f);
-    float fogMin = 50.0f;
-    float fogMax = 200.0f;
-
-    if (auto lm = GetLightingManager())
-    {
-        fogColor = lm->GetFogColor();
-        fogMin   = lm->GetFogMinDist();
-        fogMax   = lm->GetFogMaxDist();
+        ubo.pointLights[i].atten[0] = pl.constant;
+        ubo.pointLights[i].atten[1] = pl.linear;
+        ubo.pointLights[i].atten[2] = pl.quadratic;
+        ubo.pointLights[i].atten[3] = 0.0f;
     }
 
-    ubo.fogColor[0] = fogColor.x;
-    ubo.fogColor[1] = fogColor.y;
-    ubo.fogColor[2] = fogColor.z;
+    // Fog
+    ubo.fogColor[0] = ld.fogColor.x;
+    ubo.fogColor[1] = ld.fogColor.y;
+    ubo.fogColor[2] = ld.fogColor.z;
     ubo.fogColor[3] = 1.0f;
 
-    ubo.fogParams[0] = fogMin;
-    ubo.fogParams[1] = fogMax;
+    ubo.fogParams[0] = ld.fogMinDist;
+    ubo.fogParams[1] = ld.fogMaxDist;
     ubo.fogParams[2] = 0.0f;
     ubo.fogParams[3] = 0.0f;
     

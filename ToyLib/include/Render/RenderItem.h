@@ -6,8 +6,6 @@
 #include "Render/VisualLayer.h"
 #include "Utils/MathUtil.h"
 
-#include <vulkan/vulkan.h>
-
 #include <cstddef>
 #include <cstdint>
 
@@ -89,8 +87,11 @@ struct RenderItem
     //========================
     uint32_t gpuVAO        { 0 };
     int      instanceCount { 0 };
-    
-    VkBuffer gpuInstanceVB { VK_NULL_HANDLE };
+
+    // バックエンド非依存の GPU バッファハンドル
+    //  GL  : 未使用（gpuVAO で管理）
+    //  VK  : VkBuffer を reinterpret_cast<uint64_t> で格納
+    uint64_t gpuInstanceVB { 0 };
 };
 
 RenderItem::DispatchFn GetDispatch(RenderItemType type);

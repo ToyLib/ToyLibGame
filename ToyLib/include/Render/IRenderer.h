@@ -247,14 +247,16 @@ public:
     // Shadow mapping (CSM)
     //--------------------------------------------------------------------------
 
-    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const
+    // GL 固有リソース → GLRenderer でオーバーライド。VK は Identity を返す。
+    virtual Matrix4 GetLightSpaceMatrix(int /*cascadeIndex*/) const
     {
-        return mLightSpaceMatrix[cascadeIndex];
+        return Matrix4::Identity;
     }
 
-    std::shared_ptr<class Texture> GetShadowMapTexture(int cascadeIndex) const
+    // GL 固有リソース → GLRenderer でオーバーライド。VK は nullptr を返す。
+    virtual std::shared_ptr<class Texture> GetShadowMapTexture(int /*cascadeIndex*/) const
     {
-        return mShadowMapTexture[cascadeIndex];
+        return nullptr;
     }
 
     float GetCascadeSplit0() const { return mCascadeSplit0; }
@@ -435,9 +437,7 @@ protected:
 
     static constexpr int kShadowCascadeCount = 2;
 
-    uint32_t  mShadowFBO[kShadowCascadeCount]  {};
-    Matrix4 mLightSpaceMatrix[kShadowCascadeCount] {};
-    std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount];
+    // mShadowFBO / mShadowMapTexture / mLightSpaceMatrix は GL 固有リソース → GLRenderer.h の private へ移動済み
 
     float mCascadeSplit0 { 25.0f };
     float mCascadeBlend  { 6.0f };
@@ -500,6 +500,11 @@ protected:
 
     void DrawBucket_World(const std::vector<uint32_t>& bucket);
     void DrawBucket_Shadow(const std::vector<uint32_t>& bucket, int cascadeIndex);
+
+    // SortBucket_Shadow でシェーダー/パイプラインをまとめるためのキー
+    //  GL  : ptrGLShader のアドレス（SetActive 削減）
+    //  VK  : ptrVKPipeline のアドレス（bind 削減）
+    virtual uint64_t GetPipelineSortKey(const PipelineHandle& h) const { return 0; }
 
     virtual void ApplyState(const RenderItem& it) {};
     virtual void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) {};

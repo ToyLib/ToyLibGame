@@ -1,6 +1,4 @@
 #include "Render/LightingManager.h"
-#include "Render/GL/GLShader.h"
-#include "Render/GL/UniformNamesGL.h"
 #include "Graphics/Light/PointLightComponent.h"
 
 #include <algorithm>
@@ -9,85 +7,54 @@
 namespace toy {
 
 //-------------------------------------------------------------
-// ApplyToShader()
+// BuildLightData()
+//  バックエンド非依存の POD 収集。GL / VK 両方から利用可能。
 //-------------------------------------------------------------
-void LightingManager::ApplyToShader(std::shared_ptr<GLShader> shader,
-                                    const Matrix4& viewMatrix)
+SceneLightData LightingManager::BuildLightData(const Matrix4& viewMatrix) const
 {
-    ApplyToShader(shader.get(), viewMatrix);
-}
+    SceneLightData d;
 
-void LightingManager::ApplyToShader(GLShader* shader,
-                                    const Matrix4& viewMatrix)
-{
-    if (!shader) return;
-
-    using namespace toy::glsl;
-
-    //---------------------------------------------------------
-    // Camera
-    //---------------------------------------------------------
+    // Camera position（view の逆行列から取得）
     Matrix4 invView = viewMatrix;
     invView.Invert();
+    d.cameraPos = invView.GetTranslation();
 
-    shader->SetVectorUniform(Scene::CameraPos, invView.GetTranslation());
-
-    //---------------------------------------------------------
     // Ambient / Sun
-    //---------------------------------------------------------
-    shader->SetVectorUniform(Scene::AmbientLight, mAmbientColor);
-    shader->SetFloatUniform (Scene::SunIntensity, mSunIntensity);
+    d.ambientColor = mAmbientColor;
+    d.sunIntensity = mSunIntensity;
 
-    //---------------------------------------------------------
     // Directional light
-    //---------------------------------------------------------
-    shader->SetVectorUniform(Scene::Dir_Direction, mDirLight.GetDirection());
-    shader->SetVectorUniform(Scene::Dir_Diffuse,   mDirLight.DiffuseColor);
-    shader->SetVectorUniform(Scene::Dir_Specular,  mDirLight.SpecColor);
+    d.dirDirection = mDirLight.GetDirection();
+    d.dirDiffuse   = mDirLight.DiffuseColor;
+    d.dirSpecular  = mDirLight.SpecColor;
 
-    //---------------------------------------------------------
     // Point lights
-    //---------------------------------------------------------
-    const int maxPointLights = 8;
+    const int numAll    = static_cast<int>(mPointLights.size());
+    const int maxLights = kMaxScenePointLights;
+    int       num       = 0;
 
-    int numAll = static_cast<int>(mPointLights.size());
-    if (numAll > maxPointLights)
-    {
-        numAll = maxPointLights;
-    }
-
-    int num = 0;
-
-    for (int i = 0; i < numAll; ++i)
+    for (int i = 0; i < numAll && num < maxLights; ++i)
     {
         auto* comp = mPointLights[i];
-        if (!comp || !comp->IsEnabled())
-        {
-            continue;
-        }
+        if (!comp || !comp->IsEnabled()) continue;
 
-        const int idx = num++;
-
-        const std::string base =
-            std::string(Scene::PointPrefix) + std::to_string(idx) + "].";
-
-        shader->SetVectorUniform((base + "position").c_str(),  comp->GetPosition());
-        shader->SetVectorUniform((base + "color").c_str(),     comp->GetColor());
-        shader->SetFloatUniform ((base + "intensity").c_str(), comp->GetIntensity());
-        shader->SetFloatUniform ((base + "constant").c_str(),  comp->GetConstant());
-        shader->SetFloatUniform ((base + "linear").c_str(),    comp->GetLinear());
-        shader->SetFloatUniform ((base + "quadratic").c_str(), comp->GetQuadratic());
-        shader->SetFloatUniform ((base + "radius").c_str(),    comp->GetRadius());
+        PointLightData& pl = d.pointLights[num++];
+        pl.position  = comp->GetPosition();
+        pl.color     = comp->GetColor();
+        pl.intensity = comp->GetIntensity();
+        pl.constant  = comp->GetConstant();
+        pl.linear    = comp->GetLinear();
+        pl.quadratic = comp->GetQuadratic();
+        pl.radius    = comp->GetRadius();
     }
+    d.numPointLights = num;
 
-    shader->SetIntUniform(Scene::NumPointLights, num);
-
-    //---------------------------------------------------------
     // Fog
-    //---------------------------------------------------------
-    shader->SetFloatUniform (Scene::Fog_MaxDist, mFog.MaxDist);
-    shader->SetFloatUniform (Scene::Fog_MinDist, mFog.MinDist);
-    shader->SetVectorUniform(Scene::Fog_Color,   mFog.Color);
+    d.fogMaxDist = mFog.MaxDist;
+    d.fogMinDist = mFog.MinDist;
+    d.fogColor   = mFog.Color;
+
+    return d;
 }
 
 void LightingManager::RegisterPointLight(PointLightComponent* light)

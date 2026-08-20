@@ -25,15 +25,19 @@ public:
     std::shared_ptr<class GLShader> GetShader(const std::string& name);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;
+
+    std::shared_ptr<class Texture> GetShadowMapTexture(int cascadeIndex) const override;
+    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const override;
     
     void SetClearColor(const Vector3& color) override;
     
     std::shared_ptr<class IRenderTarget> CreateRenderTarget() override;
     
 protected:
-    void ApplyState(const RenderItem& it) override;
-    void DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
-    
+    void     ApplyState(const RenderItem& it) override;
+    void     DrawItem(const RenderItem& it, RenderPass pass, int cascadeIndex) override;
+    uint64_t GetPipelineSortKey(const PipelineHandle& h) const override;
+
     bool InitializeShadowMapping() override;
     
     void DrawToRenderTarget(const struct SceneCaptureRequest& req) override;
@@ -52,9 +56,14 @@ protected:
     void DrawUIPass() override;
 
 private:
-    SDL_GLContext mGLContext          { nullptr };
-    bool mIsDrawingCapture { false };
-    
+    SDL_GLContext mGLContext        { nullptr };
+    bool          mIsDrawingCapture { false };
+
+    // Shadow mapping リソース（GL 固有 — IRenderer には置かない）
+    uint32_t mShadowFBO[kShadowCascadeCount] {};
+    std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount];
+    Matrix4  mLightSpaceMatrix[kShadowCascadeCount] {};
+
     std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();
     

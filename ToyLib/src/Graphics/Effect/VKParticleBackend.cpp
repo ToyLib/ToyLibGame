@@ -349,7 +349,7 @@ void VKParticleBackend::GatherRenderItems(RenderQueue& outQueue,
     // 既存の SpriteQuad を使う
     it.geometry = renderer->GetSpriteQuadHandle();
     
-    it.gpuInstanceVB = CurrentSrcBuffer();
+    it.gpuInstanceVB = reinterpret_cast<uint64_t>(CurrentSrcBuffer());
     
     it.instanceCount = static_cast<int>(mDesc.maxParticles);
     it.topology      = PrimitiveTopology::Triangles;
