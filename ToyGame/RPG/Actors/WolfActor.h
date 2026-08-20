@@ -4,13 +4,13 @@
 
 //=============================================================================
 // WolfActor
-//  KitCharacterActor を継承したシンプルな敵 NPC。
-//  セットアップはヘルパーに任せ、WolfActor 固有の処理だけを記述する。
+//  KitNpcActor を継承した狼型 NPC。
+//  Idle 中はターゲットを索敵し、範囲内に入ったら Chase に遷移する。
 //=============================================================================
 
-enum class WolfState { Idle, Walk, Run };
+enum class WolfState { Idle, Chase };
 
-class WolfActor : public toy::kit::KitCharacterActor
+class WolfActor : public toy::kit::KitNpcActor
 {
 public:
     WolfActor(toy::Application* a);

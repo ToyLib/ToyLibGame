@@ -1,26 +1,19 @@
 #include "WolfActor.h"
 
 WolfActor::WolfActor(toy::Application* a)
-    : toy::kit::KitCharacterActor(a)
+    : toy::kit::KitNpcActor(a)
 {
     SetScale(3.0f);
 
-    //------------------------------------------------------------------
-    // KitCharacterActor のヘルパーでキャラクター基盤を一括セットアップ
-    //------------------------------------------------------------------
     SetupMesh("Enemy/wolf.gltf", 1000);
-
     SetupCollider(mMesh,
                   toy::C_GROUND | toy::C_WALL | toy::C_FOOT |
                   toy::C_HURTBOX | toy::C_ENEMY_TEAM);
-
     SetupGravity();
-
-    // candidate 表示のみ（locked 表示は持たない）
     SetupTargetSprites("target_scope.png");
 
     //------------------------------------------------------------------
-    // Wolf 固有のコンポーネント
+    // Wolf 固有コンポーネント
     //------------------------------------------------------------------
     auto* sound = CreateComponent<toy::SoundComponent>();
     sound->SetSound("growling.wav");
@@ -37,17 +30,23 @@ WolfActor::WolfActor(toy::Application* a)
 
     //------------------------------------------------------------------
     // ステートマシン
+    //  Idle : 索敵して Chase へ
+    //  Chase: 追跡。見失ったら Idle へ（ヒステリシス x1.5）
     //------------------------------------------------------------------
     mFSM.Register(WolfState::Idle,
-        /* onUpdate */ [&](float) { if (mFSM.GetTimer() > 5.0f) mFSM.To(WolfState::Walk); },
+        /* onUpdate */ [&](float) {
+            if (HasTarget() && GetDistanceToTarget() < mDetectRange)
+                mFSM.To(WolfState::Chase);
+        },
         /* onEnter  */ [&]{ mMesh->GetAnimPlayer()->Play(ANIM_IDLE); }
     );
-    mFSM.Register(WolfState::Walk,
-        /* onUpdate */ [&](float) { if (mFSM.GetTimer() > 5.0f) mFSM.To(WolfState::Run); },
-        /* onEnter  */ [&]{ mMesh->GetAnimPlayer()->Play(ANIM_WALK); }
-    );
-    mFSM.Register(WolfState::Run,
-        /* onUpdate */ [&](float) { if (mFSM.GetTimer() > 5.0f) mFSM.To(WolfState::Idle); },
+    mFSM.Register(WolfState::Chase,
+        /* onUpdate */ [&](float dt) {
+            MoveTowardTarget(mMoveSpeed, dt);
+            LookAtTarget();
+            if (!HasTarget() || GetDistanceToTarget() > mDetectRange * 1.5f)
+                mFSM.To(WolfState::Idle);
+        },
         /* onEnter  */ [&]{ mMesh->GetAnimPlayer()->Play(ANIM_RUN); }
     );
     mFSM.Start(WolfState::Idle);
@@ -56,5 +55,4 @@ WolfActor::WolfActor(toy::Application* a)
 void WolfActor::UpdateCharacter(float deltaTime)
 {
     mFSM.Update(deltaTime);
-    // ターゲット表示は KitCharacterActor::UpdateActor が自動で処理する
 }

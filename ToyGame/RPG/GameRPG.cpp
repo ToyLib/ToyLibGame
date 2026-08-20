@@ -3,6 +3,7 @@
 #include "Engine/Core/ApplicationEntry.h"
 #include "Actors/HeroActor.h"
 #include "Actors/WolfActor.h"
+#include "Actors/ShiroActor.h"
 
 #include "Actors/MinionActor.h"
 #include "ToyLib.h"
@@ -50,7 +51,13 @@ void GameRPG::LoadData()
     {
         auto wolf = CreateActor<WolfActor>();
         wolf->SetPosition(Vector3(-20.0f + i*10, 3.0f, -20.0f));
+        wolf->SetTarget(hero);
     }
+
+    // ShiroActor（焚き火の向かい側）
+    auto shiro = CreateActor<ShiroActor>();
+    shiro->SetPosition(Vector3(0.0f, 0.0f, -25.0f));
+    shiro->SetTarget(hero);
 
     
     // stan

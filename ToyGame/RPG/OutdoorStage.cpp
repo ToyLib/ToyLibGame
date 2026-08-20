@@ -45,7 +45,7 @@ void OutdoorStage::InitStage()
     DeployHouse(Vector3(-60, 0, 15));
 
     mApp->CreateActor<IslandActor>();
-    
+
     // 木（ビルボード）
     auto treeActor = mApp->CreateActor<toy::Actor>();
     treeActor->SetPosition(Vector3(20.0f, 4.5f, 0.0f));
