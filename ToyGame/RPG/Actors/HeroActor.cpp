@@ -2,192 +2,172 @@
 #include "MagicActor.h"
 #include "HealMagicActor.h"
 #include "ToyLib.h"
-#include "Movement/DirMoveComponent.h"
-#include <iostream>
 
+#include <fstream>
 
 HeroActor::HeroActor(toy::Application* a)
-    : Actor(a)
-    , mAnimID(H_Stand)
-    , mMovable(true)
+    : toy::kit::KitPlayerActor(a)
 {
-    // --- JSON読み込み ---
+    //------------------------------------------------------------------
+    // JSON 設定読み込み
+    //------------------------------------------------------------------
     std::ifstream file("ToyGame/Settings/HeroActor.json");
     nlohmann::json json;
     file >> json;
 
-    // --- スケルタルメッシュ ---
-    mMeshComp = CreateComponent<toy::SkeletalMeshComponent>();
+    //------------------------------------------------------------------
+    // メッシュ
+    //------------------------------------------------------------------
     std::string meshPath;
-    if (json.contains("mesh") && json["mesh"].contains("file"))
-    {
-        JsonHelper::GetString(json["mesh"], "file", meshPath);
-    }
-    mMeshComp->SetMesh(a->GetAssetManager()->GetMesh(meshPath));
+    JsonHelper::GetString(json["mesh"], "file", meshPath);
+    SetupMesh(meshPath);
 
-    bool useToon = false;
-    float contour = 1.00f;
-    JsonHelper::GetBool(json["mesh"], "toon_render", useToon);
+    bool  useToon = false;
+    float contour = 1.0f;
+    JsonHelper::GetBool (json["mesh"], "toon_render",    useToon);
     JsonHelper::GetFloat(json["mesh"], "contour_factor", contour);
-    mMeshComp->SetToonRender(useToon);
-    mMeshComp->SetContourFactor(contour);
-    mMeshComp->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
+    mMesh->SetToonRender(useToon);
+    mMesh->SetContourFactor(contour);
+    mMesh->SetContourColor(Vector3(0.2f, 0.2f, 0.2f));
 
-    // --- Transform設定 ---
+    //------------------------------------------------------------------
+    // Transform
+    //------------------------------------------------------------------
     Vector3 pos;
     JsonHelper::GetVector3(json, "position", pos);
     SetPosition(pos);
+
     Quaternion q;
     JsonHelper::GetQuaternionFromEuler(json, "rotation_deg", q);
     SetRotation(q);
-    
+
     float scale = 1.0f;
     JsonHelper::GetFloat(json, "scale", scale);
-    mMeshComp->SetLocalScale(scale);
+    mMesh->SetLocalScale(scale);
 
-    // --- コライダー ---
-    mCollComp = CreateComponent<toy::ColliderComponent>();
-    mCollComp->GetBoundingVolume()->ComputeFromMeshComponent(mMeshComp);
-
-    Vector3 vOffset;
+    //------------------------------------------------------------------
+    // コライダー
+    //------------------------------------------------------------------
+    Vector3 vOffset, vScale;
     JsonHelper::GetVector3(json["collider"], "bounding_box_offset", vOffset);
-    Vector3 vScale;
-    JsonHelper::GetVector3(json["collider"], "bounding_box_scale", vScale);
-    mCollComp->GetBoundingVolume()->AdjustBoundingBox(vOffset, vScale);
-    mCollComp->SetFlags(toy::C_FOOT | toy::C_BODY | toy::C_GROUND | toy::C_WALL | toy::C_PLAYER_TEAM);
-    mCollComp->SetEnabled(true);
+    JsonHelper::GetVector3(json["collider"], "bounding_box_scale",  vScale);
+    SetupCollider(mMesh,
+                  toy::C_FOOT | toy::C_BODY | toy::C_GROUND | toy::C_WALL | toy::C_PLAYER_TEAM,
+                  vOffset, vScale);
 
-    
-    
+    //------------------------------------------------------------------
+    // 重力
+    //------------------------------------------------------------------
+    auto* grav = SetupGravity();
+    grav->SetEnableGroundPose(false);
+    grav->SetGravityAccel(-80.0f);
+    grav->SetJumpSpeed(35.0f);
 
-    // --- 移動コンポーネント ---
-    //mMoveComp = CreateComponent<toy::FPSMoveComponent>();
-    mMoveComp = CreateComponent<toy::DirMoveComponent>();
-    
-    
-    // --- カメラコンポーネント ---
-    //mCameraComp = CreateComponent<toy::FollowCameraComponent>();
-    mCameraComp = CreateComponent<toy::OrbitCameraComponent>();
-    GetApp()->GetCameraManager()->SetActiveCamera(mCameraComp);
-    
-    // --- 重力コンポーネント ---
-    mGravComp = CreateComponent<toy::GravityComponent>();
-    mGravComp->SetEnableGroundPose(false);
-    mGravComp->SetGravityAccel(-80.0f);
-    mGravComp->SetJumpSpeed(35.0f);
-    
-    // --- センサーコンポーネント ---
-    mSensor= CreateComponent<toy::SensorComponent>();
-    
+    //------------------------------------------------------------------
+    // 移動 / カメラ
+    //  ロックオンが必要な場合は SetupSensor() を追加で呼ぶ
+    //------------------------------------------------------------------
+    SetupMove();
+    SetupCamera();
+    SetupSensor();  // ロックオン有効（L1/R1 で切替、L2+ボタンで攻撃）
+
+    //------------------------------------------------------------------
+    // 足音
+    //------------------------------------------------------------------
     mSound = CreateComponent<toy::SoundComponent>();
     mSound->SetSound("Walk.wav");
     mSound->SetVolume(0.5f);
     mSound->Enable3DSound(true);
-    
-    
+
+    //------------------------------------------------------------------
+    // 魔法アクター
+    //------------------------------------------------------------------
     mMagic = GetApp()->CreateActor<MagicActor>();
-    mHeal = GetApp()->CreateActor<HealMagicActor>();
-    
-    /*
-    // ターゲットスプライト
-    mTargetActor = GetApp()-> CreateActor<toy::Actor>();
-    mTarget = mTargetActor->CreateComponent<toy::SpriteComponent>(100, toy::VisualLayer::UI);
-    mTarget->SetTexture(GetApp()->GetAssetManager()->GetTexture("target_scope.png"));
-    mTarget->SetBlendAdd(false);
-    mTarget->SetIsTopLeft(false);
-    */
-    
-    
+    mHeal  = GetApp()->CreateActor<HealMagicActor>();
 }
 
-HeroActor::~HeroActor()
+//-----------------------------------------------------------------------------
+// OnAttackInput（L2 押下中に呼ばれる）
+//-----------------------------------------------------------------------------
+void HeroActor::OnAttackInput(const toy::InputState& state)
 {
+    if (!IsMovable()) return;
 
-}
+    auto* anim = mMesh->GetAnimPlayer();
+    anim->SetPlayRate(1.5f);
 
-void HeroActor::UpdateActor(float deltaTime)
-{
-
-}
-
-void HeroActor::ActorInput(const toy::InputState& state)
-{
-    bool inputAttack = false;
-
-    auto animPlayer = mMeshComp->GetAnimPlayer();
-    animPlayer->SetPlayRate(1.5f);
-
-    // --- 移動可能状態 ---
-    if (mMovable)
+    if (state.IsButtonPressed(toy::GameButton::B))
     {
-        // 攻撃入力（入力優先度付きで判定）
-        if (state.IsButtonPressed(toy::GameButton::B))
-        {
-            animPlayer->PlayOnce(H_Slash, H_Stand);
-            inputAttack = true;
-        }
-        else if (state.IsButtonPressed(toy::GameButton::X))
-        {
-            animPlayer->PlayOnce(H_Spin, H_Stand);
-            inputAttack = true;
-            mHeal->Spawn(GetPosition());
-        }
-        else if (state.IsButtonPressed(toy::GameButton::Y))
-        {
-            animPlayer->PlayOnce(H_Stab, H_Stand);
-            inputAttack = true;
-            mMagic->Spawn(GetPosition(), GetForward());
-        }
+        anim->PlayOnce(H_Slash, H_Stand);
+        SetMovable(false);
+    }
+    else if (state.IsButtonPressed(toy::GameButton::X))
+    {
+        anim->PlayOnce(H_Spin, H_Stand);
+        SetMovable(false);
+        mHeal->Spawn(GetPosition());
+    }
+    else if (state.IsButtonPressed(toy::GameButton::Y))
+    {
+        anim->PlayOnce(H_Stab, H_Stand);
+        SetMovable(false);
+        mMagic->Spawn(GetPosition(), GetForward());
+    }
+}
 
-        if (inputAttack)
-        {
-            mMovable = false; // 攻撃中はロック
-        }
-        else
-        {
-            // ジャンプ（移動ロックしない）
-            if (state.IsButtonPressed(toy::GameButton::A))
-            {
-                mGravComp->Jump();
-                animPlayer->PlayOnce(H_Jump, H_Stand);
-            }
+//-----------------------------------------------------------------------------
+// UpdatePlayerAnim（毎フレーム）
+//-----------------------------------------------------------------------------
+void HeroActor::UpdatePlayerAnim(float /*deltaTime*/)
+{
+    auto* anim = mMesh->GetAnimPlayer();
+    anim->SetPlayRate(1.5f);
 
-            // --- 状態に応じた通常アニメ切り替え ---
-            if (mGravComp->GetVelocityY() != 0.0f)
-            {
-                animPlayer->Play(H_Jump); // ジャンプ中も移動OK
-            }
-            else if (mMoveComp->GetForwardSpeed() == 0.0f &&
-                     mMoveComp->GetAngularSpeed() == 0.0f &&
-                     mMoveComp->GetRightSpeed() == 0.0f)
-            {
-                animPlayer->Play(H_Stand);
-                mSound->Stop();
-
-            }
-            else
-            {
-                animPlayer->Play(H_Run);
-                if (!mSound->IsPlaying())
-                {
-                    mSound->Play();
-                }
-            }
-        }
-        if (mGravComp->GetVelocityY() != 0.0f)
+    if (!IsMovable())
+    {
+        // 攻撃終了（ループ or 完了）で移動解除
+        if (anim->IsLooping() || anim->IsFinished())
         {
-            mSound->Stop();
+            SetMovable(true);
         }
+        return;
+    }
+
+    auto* move = GetMoveComp();
+    const bool inAir = (mGravity && mGravity->GetVelocityY() != 0.0f);
+
+    if (inAir)
+    {
+        anim->Play(H_Jump);
+        if (mSound) mSound->Stop();
+    }
+    else if (move &&
+             move->GetForwardSpeed() == 0.0f &&
+             move->GetRightSpeed()   == 0.0f &&
+             move->GetAngularSpeed() == 0.0f)
+    {
+        anim->Play(H_Stand);
+        if (mSound) mSound->Stop();
     }
     else
     {
-        // 攻撃終了したら解除（ループアニメ中も解除）
-        if (animPlayer->IsLooping() || animPlayer->IsFinished())
-        {
-            mMovable = true;
-        }
+        // バトルモード（ロックオン中）はストレイフ用アニメ
+        const int moveMotion = IsInBattle() ? H_WalkSS : H_Run;
+        anim->Play(moveMotion);
+        if (mSound && !mSound->IsPlaying()) mSound->Play();
     }
+}
 
-    // 最後にMoveComponentへ反映
-    mMoveComp->SetIsMovable(mMovable);
+//-----------------------------------------------------------------------------
+// OnPlayerInput（ジャンプなど）
+//-----------------------------------------------------------------------------
+void HeroActor::OnPlayerInput(const toy::InputState& state)
+{
+    if (!IsMovable()) return;
+
+    if (state.IsButtonPressed(toy::GameButton::A))
+    {
+        if (mGravity) mGravity->Jump();
+        mMesh->GetAnimPlayer()->PlayOnce(H_Jump, H_Stand);
+    }
 }

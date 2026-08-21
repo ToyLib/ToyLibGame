@@ -6,3 +6,4 @@
 #include "KitCore/KitStateMachine.h"
 #include "KitActor/KitCharacterActor.h"
 #include "KitActor/KitNpcActor.h"
+#include "KitActor/KitPlayerActor.h"

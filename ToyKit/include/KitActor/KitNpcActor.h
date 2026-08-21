@@ -30,6 +30,7 @@ public:
 protected:
     float mDetectRange = 30.0f;   // 索敵範囲（XZ 距離）
     float mMoveSpeed   = 8.0f;    // 追跡速度
+    float mStopRange   = 4.0f;    // 接近停止距離（この距離以内では移動しない）
 
     // ヘルパー ─────────────────────────────────────────────────
     bool  HasTarget()                             const;

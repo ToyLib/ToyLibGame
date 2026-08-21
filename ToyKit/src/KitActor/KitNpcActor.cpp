@@ -42,7 +42,7 @@ void KitNpcActor::MoveTowardTarget(float speed, float dt)
     float dx   = target.x - self.x;
     float dz   = target.z - self.z;
     float dist = sqrtf(dx * dx + dz * dz);
-    if (dist < 0.5f) return;
+    if (dist < mStopRange) return;
 
     float step = speed * dt / dist;
     SetPosition(Vector3(self.x + dx * step,
