@@ -24,7 +24,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
     // Noriko用
     meshComp->SetLocalScale(3.0f);
-    meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.8f));
+    //meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.8f));
 
 
     
