@@ -767,13 +767,8 @@ void Mesh::LoadMaterials(AssetManager* assetManager, const std::string& meshFile
             mat->SetSpecPower(shininess);
         }
 
-        // GLTF は aiTextureType_BASE_COLOR、FBX は aiTextureType_DIFFUSE を使う。
-        // どちらでもテクスチャを取得できるよう両方を試みる。
         aiString path;
-        const bool hasDiffuse  = (pMaterial->GetTexture(aiTextureType_DIFFUSE,    0, &path) == AI_SUCCESS);
-        const bool hasBaseColor = !hasDiffuse &&
-                                  (pMaterial->GetTexture(aiTextureType_BASE_COLOR, 0, &path) == AI_SUCCESS);
-        if (hasDiffuse || hasBaseColor)
+        if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS)
         {
             const std::string texPath = path.C_Str();
 
@@ -932,6 +927,41 @@ void Mesh::ComputePoseAtTime(
 
     const Matrix4 identity = Matrix4::Identity;
     ComputeBoneHierarchyCached(animationTime, mRootEvalNodeIndex, identity, animCache);
+
+    if (outTransforms.size() != mNumBones)
+    {
+        outTransforms.resize(mNumBones);
+    }
+
+    for (unsigned int i = 0; i < mNumBones; ++i)
+    {
+        outTransforms[i] = mBoneInfo[i].FinalTransformation;
+    }
+}
+
+//-------------------------------------------------------------
+// ComputeBindPose
+//  animCache = nullptr で ComputeBoneHierarchyCached を呼ぶと
+//  各ノードが node.defaultTransform（Assimpが持つ rest-pose の
+//  ローカル変換）を使うため、アニメーションとは独立した
+//  バインドポーズ（T-ポーズ等）が得られる。
+//
+//  GLB/FBX の場合「アニメ t=0 ≠ バインドポーズ」になることが
+//  あるため（Blender rigify DEF-only エクスポート等）、
+//  アニメ未再生時はこちらで初期姿勢を出力する。
+//-------------------------------------------------------------
+void Mesh::ComputeBindPose(std::vector<Matrix4>& outTransforms)
+{
+    if (!mScene || mRootEvalNodeIndex < 0)
+    {
+        outTransforms.clear();
+        return;
+    }
+
+    // animCache = nullptr → pNodeAnim は常に nullptr
+    // → ComputeBoneHierarchyCached は node.defaultTransform を使用
+    const Matrix4 identity = Matrix4::Identity;
+    ComputeBoneHierarchyCached(0.0f, mRootEvalNodeIndex, identity, nullptr);
 
     if (outTransforms.size() != mNumBones)
     {

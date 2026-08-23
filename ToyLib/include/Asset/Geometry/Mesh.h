@@ -54,6 +54,12 @@ public:
                            const aiAnimation* pAnimation,
                            std::vector<Matrix4>& outTransforms);
 
+    // アニメなしでバインドポーズ（defaultTransform）を計算してパレットを返す
+    // ・animCache=nullptr で ComputeBoneHierarchyCached を呼ぶことで
+    //   各ノードの node.defaultTransform をそのまま使用する（＝ rest pose）
+    // ・アニメ未再生時の初期姿勢として AnimationPlayer から呼ぶ
+    void ComputeBindPose(std::vector<Matrix4>& outTransforms);
+
     // 読み込まれているアニメーションクリップ一覧
     const std::vector<class AnimationClip>& GetAnimationClips() const
     {

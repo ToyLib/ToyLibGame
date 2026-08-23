@@ -92,10 +92,6 @@ void AnimationPlayer::Play(int animID, bool loop)
 
     // ブレンドも停止
     mBlend.Reset();
-
-    // SetMesh 直後など初回 Update() の前でも描画できるよう初期ポーズを即計算する
-    const auto& clips = mMesh->GetAnimationClips();
-    mMesh->ComputePoseAtTime(0.0f, clips[animID].mAnimation, mFinalMatrices);
 }
 
 //-------------------------------------------------------------
@@ -168,19 +164,68 @@ void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
 
 //-------------------------------------------------------------
 // Update
-//  - ブレンド中なら UpdateBlend()、通常再生なら UpdateNormal() に委譲する
 //-------------------------------------------------------------
+static float SafeTPS(float tps)
+{
+    // Assimpで0のことがあるので保険
+    return (tps > 1e-4f) ? tps : 30.0f;
+}
+
 void AnimationPlayer::Update(float deltaTime)
 {
     if (!mMesh || mIsPaused) return;
 
-    if (mBlend.isBlending)
+    const auto& clips = mMesh->GetAnimationClips();
+    if (mAnimID < 0 || mAnimID >= (int)clips.size())
     {
-        UpdateBlend(deltaTime);
+        // アニメ未設定のときはバインドポーズ（rest pose）を出力する。
+        // GLB/FBX で「アニメ t=0 ≠ バインドポーズ」になる場合でも
+        // 正しい初期姿勢が表示される。
+        mMesh->ComputeBindPose(mFinalMatrices);
         return;
     }
 
-    UpdateNormal(deltaTime);
+    const aiAnimation* anim = clips[mAnimID].mAnimation;
+    const float tps = SafeTPS(clips[mAnimID].mTicksPerSecond);
+
+    const float durationTicks = (float)anim->mDuration;
+    const float durationSec   = (durationTicks > 0.0f) ? (durationTicks / tps) : 0.0f;
+
+    //===========================
+    // ★非ループ(PlayOnce) 終了判定：秒で判定
+    //===========================
+    if (!mIsLooping && durationSec > 0.0f)
+    {
+        const float nextSec = (mPlayTime + deltaTime) * mPlayRate;
+
+
+        if (nextSec >= durationSec)
+        {
+
+            mIsFinished = true;
+
+            if (mNextAnimID >= 0)
+            {
+                Play(mNextAnimID, true);      // Play()の中で mIsFinished=false にするのはOK
+            }
+            else
+            {
+                // nextが無いなら停止状態にしておくのもアリ
+                // mIsPaused = true;
+            }
+            return;
+        }
+    }
+
+    //===========================
+    // 通常のポーズ計算
+    //===========================
+    const float timeInTicks = (mPlayTime * mPlayRate) * tps;
+    const float animTime    = (durationTicks > 0.0f) ? std::fmod(timeInTicks, durationTicks) : 0.0f;
+
+    mMesh->ComputePoseAtTime(animTime, anim, mFinalMatrices);
+
+    mPlayTime += deltaTime;
 }
 
 //-------------------------------------------------------------
@@ -258,6 +303,11 @@ void AnimationPlayer::UpdateNormal(float deltaTime)
 {
     if (!IsValidAnimID(mAnimID))
     {
+        // アニメ未設定ならバインドポーズにフォールバック
+        if (mMesh)
+        {
+            mMesh->ComputeBindPose(mFinalMatrices);
+        }
         return;
     }
 
