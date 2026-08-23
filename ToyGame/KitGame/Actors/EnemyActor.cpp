@@ -12,10 +12,10 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/Shiro.glb"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/norikotest.glb"));
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/Shiro.gltf"));
 
-    auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/Shiro.glb");
+    auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/norikotest.glb");
     mesh->SetCancelRootTranslation(true);
     mesh->SetCancelNodeName("Hip");
     

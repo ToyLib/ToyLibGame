@@ -767,8 +767,13 @@ void Mesh::LoadMaterials(AssetManager* assetManager, const std::string& meshFile
             mat->SetSpecPower(shininess);
         }
 
+        // GLTF は aiTextureType_BASE_COLOR、FBX は aiTextureType_DIFFUSE を使う。
+        // どちらでもテクスチャを取得できるよう両方を試みる。
         aiString path;
-        if (pMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS)
+        const bool hasDiffuse  = (pMaterial->GetTexture(aiTextureType_DIFFUSE,    0, &path) == AI_SUCCESS);
+        const bool hasBaseColor = !hasDiffuse &&
+                                  (pMaterial->GetTexture(aiTextureType_BASE_COLOR, 0, &path) == AI_SUCCESS);
+        if (hasDiffuse || hasBaseColor)
         {
             const std::string texPath = path.C_Str();
 

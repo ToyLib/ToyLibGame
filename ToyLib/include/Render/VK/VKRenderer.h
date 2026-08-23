@@ -407,7 +407,9 @@ private:
         VkDescriptorSet set{VK_NULL_HANDLE}; // set=2（mDescPool）
     };
 
-    static constexpr uint32_t kMaxPalette = 96;
+    // 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
+    // シェーダ側 (VK/src/SkinnedMesh.vert, Shadow_SkinnedMesh.vert) と値を合わせること
+    static constexpr uint32_t kMaxPalette = 320;
     static constexpr VkDeviceSize kSkinnedUBOSize = sizeof(float) * 16 * kMaxPalette;
 
     std::vector<std::vector<SkinnedPaletteSlot>> mSkinnedSlots;

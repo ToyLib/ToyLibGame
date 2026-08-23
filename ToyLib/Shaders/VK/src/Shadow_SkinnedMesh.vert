@@ -13,9 +13,10 @@ layout(set=0, binding=0, std140, row_major) uniform ShadowSceneUBO
     mat4 uLightVP;
 } uScene;
 
+// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
 layout(set=2, binding=0, std140, row_major) uniform PaletteUBO
 {
-    mat4 uPalette[96];
+    mat4 uPalette[320];
 } uPal;
 
 layout(push_constant, row_major) uniform PC

@@ -80,17 +80,23 @@ struct MaterialData
 };
 
 // Max palette size must match engine-side upload
-const int kMaxPalette = 96;
-
-struct SkinnedData
-{
-    mat4 matrixPalette[kMaxPalette];
-};
+// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
+// UBO で渡すため regular uniform の 4096 component 制限を超えても OK
+const int kMaxPalette = 320;
 
 uniform SceneData    uScene;
 uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
-uniform SkinnedData  uSkinned;
+
+// ボーンパレット UBO（binding は C++ 側で glUniformBlockBinding で設定）
+// ※ GL 4.1 は layout(binding=N) 不可のため宣言内に書かない
+// ※ Vulkan 版は layout(set=0, binding=0, std140, row_major) で対応
+// row_major: ToyLib は行ベクトル×行列（v*M）なので C++ 側が行優先で格納。
+//            glBufferSubData に転置フラグはないため row_major を明示する。
+layout(std140, row_major) uniform BonePalette
+{
+    mat4 matrixPalette[kMaxPalette];
+};
 
 //======================================================================
 //  SkinnedMesh.vert
@@ -142,10 +148,10 @@ void main()
 
     // 2) スキニング行列を作成（ボーン4本分の線形結合）
     mat4 skinMat =
-          uSkinned.matrixPalette[inSkinBones[0]] * inSkinWeights[0]
-        + uSkinned.matrixPalette[inSkinBones[1]] * inSkinWeights[1]
-        + uSkinned.matrixPalette[inSkinBones[2]] * inSkinWeights[2]
-        + uSkinned.matrixPalette[inSkinBones[3]] * inSkinWeights[3];
+          matrixPalette[inSkinBones[0]] * inSkinWeights[0]
+        + matrixPalette[inSkinBones[1]] * inSkinWeights[1]
+        + matrixPalette[inSkinBones[2]] * inSkinWeights[2]
+        + matrixPalette[inSkinBones[3]] * inSkinWeights[3];
 
     // 3) 頂点位置のスキニング（ToyLib は v * M）
     vec4 skinnedPos = pos * skinMat;

@@ -10,7 +10,8 @@ layout(set = 0, binding = 0, std140, row_major) uniform SceneUBO
     vec4 dirSpecular;
 } uScene;
 
-const int kMaxPalette = 96;
+// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
+const int kMaxPalette = 320;
 
 layout(set = 2, binding = 0, std140, row_major) uniform SkinnedUBO
 {

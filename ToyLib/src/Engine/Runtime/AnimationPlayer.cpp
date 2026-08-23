@@ -92,6 +92,10 @@ void AnimationPlayer::Play(int animID, bool loop)
 
     // ブレンドも停止
     mBlend.Reset();
+
+    // SetMesh 直後など初回 Update() の前でも描画できるよう初期ポーズを即計算する
+    const auto& clips = mMesh->GetAnimationClips();
+    mMesh->ComputePoseAtTime(0.0f, clips[animID].mAnimation, mFinalMatrices);
 }
 
 //-------------------------------------------------------------
@@ -164,61 +168,19 @@ void AnimationPlayer::PlayBlend(int fromAnimID, int toAnimID, float duration)
 
 //-------------------------------------------------------------
 // Update
+//  - ブレンド中なら UpdateBlend()、通常再生なら UpdateNormal() に委譲する
 //-------------------------------------------------------------
-static float SafeTPS(float tps)
-{
-    // Assimpで0のことがあるので保険
-    return (tps > 1e-4f) ? tps : 30.0f;
-}
-
 void AnimationPlayer::Update(float deltaTime)
 {
     if (!mMesh || mIsPaused) return;
 
-    const auto& clips = mMesh->GetAnimationClips();
-    if (mAnimID < 0 || mAnimID >= (int)clips.size()) return;
-
-    const aiAnimation* anim = clips[mAnimID].mAnimation;
-    const float tps = SafeTPS(clips[mAnimID].mTicksPerSecond);
-
-    const float durationTicks = (float)anim->mDuration;
-    const float durationSec   = (durationTicks > 0.0f) ? (durationTicks / tps) : 0.0f;
-
-    //===========================
-    // ★非ループ(PlayOnce) 終了判定：秒で判定
-    //===========================
-    if (!mIsLooping && durationSec > 0.0f)
+    if (mBlend.isBlending)
     {
-        const float nextSec = (mPlayTime + deltaTime) * mPlayRate;
-
-
-        if (nextSec >= durationSec)
-        {
-
-            mIsFinished = true;
-
-            if (mNextAnimID >= 0)
-            {
-                Play(mNextAnimID, true);      // Play()の中で mIsFinished=false にするのはOK
-            }
-            else
-            {
-                // nextが無いなら停止状態にしておくのもアリ
-                // mIsPaused = true;
-            }
-            return;
-        }
+        UpdateBlend(deltaTime);
+        return;
     }
 
-    //===========================
-    // 通常のポーズ計算
-    //===========================
-    const float timeInTicks = (mPlayTime * mPlayRate) * tps;
-    const float animTime    = (durationTicks > 0.0f) ? std::fmod(timeInTicks, durationTicks) : 0.0f;
-
-    mMesh->ComputePoseAtTime(animTime, anim, mFinalMatrices);
-
-    mPlayTime += deltaTime;
+    UpdateNormal(deltaTime);
 }
 
 //-------------------------------------------------------------

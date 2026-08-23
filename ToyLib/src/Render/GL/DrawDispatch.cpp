@@ -9,7 +9,48 @@
 #include "Render/GL/GLShader.h"
 #include "Render/GL/UniformNamesGL.h"
 
+#include "glad/glad.h"
+#include <algorithm>
+
 namespace toy {
+
+//============================================================
+// ボーンパレット UBO
+//   binding = 0 固定（GLShader::Load() で glUniformBlockBinding(prog,"BonePalette",0) 済み）
+//   シェーダ宣言: layout(std140) uniform BonePalette { mat4 matrixPalette[320]; };
+//============================================================
+static constexpr int    kBonePaletteMax     = 320;
+static constexpr GLuint kBonePaletteBinding = 0;
+
+static GLuint GetOrCreateBoneUBO()
+{
+    static GLuint s_boneUBO = 0;
+    if (s_boneUBO == 0)
+    {
+        glGenBuffers(1, &s_boneUBO);
+        glBindBuffer(GL_UNIFORM_BUFFER, s_boneUBO);
+        // std140 で mat4 は 64 バイト → 320 × 64 = 20480 バイト（UBO 保証 64KB 以内）
+        glBufferData(GL_UNIFORM_BUFFER,
+                     kBonePaletteMax * 16 * static_cast<GLsizeiptr>(sizeof(float)),
+                     nullptr,
+                     GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+    return s_boneUBO;
+}
+
+static void UploadBonePalette(const Matrix4* palette, size_t count)
+{
+    const size_t uploadCount = std::min(count, static_cast<size_t>(kBonePaletteMax));
+    GLuint ubo = GetOrCreateBoneUBO();
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferSubData(GL_UNIFORM_BUFFER,
+                    0,
+                    static_cast<GLsizeiptr>(uploadCount * 16 * sizeof(float)),
+                    palette[0].GetAsFloatPtr());
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, kBonePaletteBinding, ubo);
+}
 
 //============================================================
 // GL ライティングヘルパー（LightingManager の GL 依存を DrawDispatch 側に集約）
@@ -219,9 +260,7 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 
         if (it.matrixPalette && it.paletteCount > 0)
         {
-            sh->SetMatrixUniforms(Skinned::MatrixPalette0,
-                                  it.matrixPalette,
-                                  static_cast<unsigned int>(it.paletteCount));
+            UploadBonePalette(it.matrixPalette, it.paletteCount);
         }
         return false;
     }
@@ -283,9 +322,7 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 
     if (it.matrixPalette && it.paletteCount > 0)
     {
-        sh->SetMatrixUniforms(Skinned::MatrixPalette0,
-                              it.matrixPalette,
-                              static_cast<unsigned int>(it.paletteCount));
+        UploadBonePalette(it.matrixPalette, it.paletteCount);
     }
 
     return false;

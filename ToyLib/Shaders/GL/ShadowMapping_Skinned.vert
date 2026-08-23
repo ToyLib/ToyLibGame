@@ -80,17 +80,19 @@ struct MaterialData
 };
 
 // Max palette size must match engine-side upload
-const int kMaxPalette = 96;
-
-struct SkinnedData
-{
-    mat4 matrixPalette[kMaxPalette];
-};
+// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
+const int kMaxPalette = 320;
 
 uniform SceneData    uScene;
 uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
-uniform SkinnedData  uSkinned;
+
+// ボーンパレット UBO（binding は C++ 側で glUniformBlockBinding で設定）
+// row_major: ToyLib は行ベクトル×行列（v*M）なので行優先格納に合わせる
+layout(std140, row_major) uniform BonePalette
+{
+    mat4 matrixPalette[kMaxPalette];
+};
 
 //======================================================================
 //  ShadowMapping_Skinned.vert
@@ -107,7 +109,7 @@ uniform SkinnedData  uSkinned;
 // Uniforms
 // ---------------------------------------------------------
 
-// ボーン変換行列パレット（最大96ボーン）
+// ボーン変換行列パレット（最大320ボーン、UBO）
 // モデル → ワールド変換
 
 // ワールド → ライト空間変換（LightProj * LightView）
@@ -129,10 +131,10 @@ void main()
 
     // 4ボーンの線形合成
     mat4 skinMat =
-          uSkinned.matrixPalette[inSkinBones[0]] * inSkinWeights[0]
-        + uSkinned.matrixPalette[inSkinBones[1]] * inSkinWeights[1]
-        + uSkinned.matrixPalette[inSkinBones[2]] * inSkinWeights[2]
-        + uSkinned.matrixPalette[inSkinBones[3]] * inSkinWeights[3];
+          matrixPalette[inSkinBones[0]] * inSkinWeights[0]
+        + matrixPalette[inSkinBones[1]] * inSkinWeights[1]
+        + matrixPalette[inSkinBones[2]] * inSkinWeights[2]
+        + matrixPalette[inSkinBones[3]] * inSkinWeights[3];
 
     // スキン変換（ToyLib は 行ベクトル × 行列 ）
     vec4 skinnedPos = pos * skinMat;

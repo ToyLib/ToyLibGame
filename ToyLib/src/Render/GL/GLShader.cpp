@@ -31,13 +31,19 @@ bool GLShader::Load(const std::string& vertName, const std::string& fragName)
     glAttachShader(mShaderProgramID, mVertexShaderID);
     glAttachShader(mShaderProgramID, mFragShaderID);
     glLinkProgram(mShaderProgramID);
-    
+
     // リンクエラーがないかチェック
     if (!IsValidProgram())
     {
         return false;
     }
-    
+
+    // UBO binding ポイントを設定
+    // BonePalette ブロックが存在するシェーダ（スキンメッシュ系）のみ有効。
+    // GL 4.1 は layout(binding=N) が使えないため C++ 側で設定する。
+    // Vulkan 側は GLSL で layout(set=0, binding=0) を直接指定するので不要。
+    BindUniformBlock("BonePalette", 0);
+
     return true;
 }
 
@@ -90,7 +96,9 @@ bool GLShader::LoadWithTransformFeedback(
     {
         return false;
     }
-    
+
+    BindUniformBlock("BonePalette", 0);
+
     return true;
 }
 
@@ -252,6 +260,17 @@ bool GLShader::IsValidProgram()
     }
     
     return true;
+}
+
+// UBO binding ポイントをプログラムに設定する
+//   ブロック名が存在しない場合は何もしない（非スキンシェーダでも安全に呼べる）
+void GLShader::BindUniformBlock(const char* blockName, GLuint bindingPoint)
+{
+    GLuint idx = glGetUniformBlockIndex(mShaderProgramID, blockName);
+    if (idx != GL_INVALID_INDEX)
+    {
+        glUniformBlockBinding(mShaderProgramID, idx, bindingPoint);
+    }
 }
 
 } // namespace toy

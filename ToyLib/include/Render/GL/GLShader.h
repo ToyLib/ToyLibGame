@@ -95,12 +95,16 @@ private:
     
     // シェーダファイルを読み込み、コンパイル
     bool CompileShader(const std::string& fileName, GLenum shaderType, GLuint& outShader);
-    
+
     // シェーダコンパイル結果チェック
     bool IsCompiled(GLuint shader);
-    
+
     // シェーダプログラムのリンク＆バリデーションチェック
     bool IsValidProgram();
+
+    // UBO の binding ポイントをプログラムに設定
+    // ブロック名が存在しない場合は何もしない（非スキンシェーダでも安全に呼べる）
+    void BindUniformBlock(const char* blockName, GLuint bindingPoint);
 };
 
 } // namespace toy
