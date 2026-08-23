@@ -88,6 +88,16 @@ private:
     void BuildEvalNodes();
     int  BuildEvalNodeRecursive(const aiNode* node, int parentIndex);
 
+    // broken-chain joint (face ボーン等) の BoneOffset を
+    // Assimp ノード階層から正しく再計算する。
+    // aiProcess_MakeLeftHanded が IBM に対して不整合な変換を
+    // 適用した場合でも、ノード変換から算出した inv(world) で
+    // 上書きするため一貫性が保たれる。
+    void FixBrokenChainBoneOffsets();
+    void FixBoneOffsetsRecursiveAi(const aiNode* node,
+                                   const aiMatrix4x4& parentWorldAi,
+                                   bool parentIsBone);
+
     void CreateMesh(const aiMesh* m);
     void CreateMeshBone(const aiMesh* m);
     void LoadBones(const aiMesh* m, std::vector<struct VertexBoneData>& bones);

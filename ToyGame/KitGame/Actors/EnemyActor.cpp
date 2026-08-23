@@ -61,7 +61,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     
     
-    mEnemyName = "SHIRO";
+    mEnemyName = "海苔子";
     mNameActor = GetApp()->CreateActor<toy::Actor>();
     auto nameBoard = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 40);

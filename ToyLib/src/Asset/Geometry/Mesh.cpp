@@ -212,7 +212,10 @@ void Mesh::ComputeBoneHierarchyCached(float animationTime,
         
         Matrix4 translationM = Matrix4::CreateTranslation(translation);
 
-        nodeTransformation = rotationM * translationM * scalingM;
+        // 行ベクトル規約 v' = v × M では TRS = S × R × T
+        // (旧: rotationM * translationM * scalingM は v × R × T × S で逆順)
+        // スケール≠1のボーン（face rig 等）で歪みが出る
+        nodeTransformation = scalingM * rotationM * translationM;
     }
 
     const Matrix4 globalTransformation = nodeTransformation * parentTransform;
@@ -699,6 +702,7 @@ bool Mesh::Load(const std::string& fileName,
 
     LoadMeshData();
     BuildEvalNodes();
+    FixBrokenChainBoneOffsets(); // face ボーン等の IBM を正しく再計算
     LoadMaterials(assetMamager, fileName);
     LoadAnimations();
 
@@ -872,6 +876,83 @@ void Mesh::LoadAnimations()
 
         mAnimationCacheIndex.emplace(anim, mAnimationCaches.size());
         mAnimationCaches.emplace_back(std::move(cache));
+    }
+}
+
+//-------------------------------------------------------------
+// FixBrokenChainBoneOffsets
+//
+// 問題の原因:
+//   Blender の DEF-only エクスポートでは face DEF ボーンの GLTF 親
+//   ('rig' armature root) がスキンのジョイントセット外になる。
+//   Assimp は aiProcess_MakeLeftHanded で ノード変換 (aiNode::mTransformation)
+//   を正しく変換するが、mOffsetMatrix (IBM) の変換はバージョンによって
+//   不整合になる場合がある。
+//   → body ボーン (階層が閉じている) ではエラーが相殺されるが、
+//     face ボーンはされないため歪みが残る。
+//
+// 修正:
+//   ロード後に Assimp の aiNode ツリーを走査してボーンのワールド変換を
+//   自前で積算し、BoneOffset = inverse(world_Assimp) で上書きする。
+//   ノード変換 (aiNode::mTransformation) は MakeLeftHanded で常に正しく
+//   変換されているので、ここから算出した IBM は一貫性が保証される。
+//
+// 数学的背景 (行ベクトル規約 v' = v × M):
+//   world_ToyLib = MatrixAi2Gl(world_Assimp) = transpose(world_Assimp)
+//   ComputeBoneHierarchyCached で累積される globalTransformation = world_ToyLib
+//   BoneOffset を正しく設定すると:
+//     FinalTransformation = BoneOffset × globalTransformation × mGlobalInverseTransform = I
+//   GLTF は root = identity なので mGlobalInverseTransform = I であり:
+//     BoneOffset = inverse(globalTransformation) = MatrixAi2Gl(inverse(world_Assimp))
+//-------------------------------------------------------------
+void Mesh::FixBrokenChainBoneOffsets()
+{
+    if (!mScene || !mScene->mRootNode || mBoneMapping.empty())
+    {
+        return;
+    }
+
+    // aiMatrix4x4() はデフォルトで単位行列に初期化される
+    // 修正対象: 親がジョイントセット外 (parentIsBone=false) のボーンのみ
+    FixBoneOffsetsRecursiveAi(mScene->mRootNode, aiMatrix4x4(), /*parentIsBone=*/false);
+}
+
+void Mesh::FixBoneOffsetsRecursiveAi(const aiNode* node,
+                                     const aiMatrix4x4& parentWorldAi,
+                                     bool parentIsBone)
+{
+    if (!node)
+    {
+        return;
+    }
+
+    // Assimp の列ベクトル規約: world = parent * local
+    const aiMatrix4x4 worldAi = parentWorldAi * node->mTransformation;
+
+    const std::string name = node->mName.C_Str();
+    const auto it = mBoneMapping.find(name);
+    const bool isBone = (it != mBoneMapping.end());
+
+    if (isBone && !parentIsBone)
+    {
+        // このボーンは「broken-chain」: 親がスキンのジョイントセット外。
+        // body ボーン (親もボーン) は IBM とワールド変換の誤差が相殺されるため
+        // 触らない。face DEF ボーン等の broken-chain だけ再計算する。
+        const unsigned int boneIndex = it->second;
+        if (boneIndex < static_cast<unsigned int>(mBoneInfo.size()))
+        {
+            // BoneOffset = MatrixAi2Gl( inverse(world_Assimp) )
+            // ・world_Assimp は MakeLeftHanded 適用済みのノード変換から積算
+            // ・GLTF root ('rig') = identity なので mGlobalInverseTransform は無視
+            aiMatrix4x4 inv = worldAi;
+            inv = inv.Inverse();
+            MatrixAi2Gl(mBoneInfo[boneIndex].BoneOffset, inv);
+        }
+    }
+
+    for (unsigned int i = 0; i < node->mNumChildren; ++i)
+    {
+        FixBoneOffsetsRecursiveAi(node->mChildren[i], worldAi, isBone);
     }
 }
 
