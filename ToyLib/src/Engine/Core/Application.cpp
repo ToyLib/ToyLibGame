@@ -166,16 +166,17 @@ bool Application::Initialize()
     // システム用アセットマネージャ
     mSystemAssetManager->SetAssetsPath(mSystemAssetPath);
     
+    // OpenAL 初期化（デバイス + コンテキスト）
+    // ※ InitGame() 内でシーンの InitScene() が同期的に走り、
+    //   その中で BGM/SE を再生するケースがあるため、必ず InitGame() より前に済ませる
+    mSoundMixer->InitOpenAL();
+
     LoadData();
     InitGame();
 
     mIsActive   = true;
     mIsPause    = false;
     mTicksCount = SDL_GetTicksNS(); // ★ NS で統一
-    
-    
-    // OpenAL 初期化（デバイス + コンテキスト）
-    mSoundMixer->InitOpenAL();
     
     if (mEnableDebug)
     {
