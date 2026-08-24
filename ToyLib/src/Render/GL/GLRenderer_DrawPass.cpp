@@ -134,22 +134,13 @@ inline void SetCommonUniforms(IRenderer& r,
     }
 
     //========================================================
-    // Shadow : contract(v1) + legacy fallback
+    // Shadow : contract(v2)
+    //  - lightVP は ShadowSceneUBO（binding=2）経由で供給される
+    //  - Object::World のみ per-draw で設定する
     //========================================================
     if (pass == RenderPass::Shadow)
     {
-        const Matrix4 lightVP = r.GetLightSpaceMatrix(cascadeIndex);
-
-        // v1 contract
         sh->SetMatrixUniform(Object::World, it.world);
-
-        // ★どっちを参照してもOKにする（暫定だが強い）
-        sh->SetMatrixUniform(Scene::LightVP0, lightVP);
-        sh->SetMatrixUniform(Scene::LightVP1, lightVP);
-
-        // legacy も同様
-        sh->SetMatrixUniform(Legacy::WorldTransform,   it.world);
-        sh->SetMatrixUniform(Legacy::LightSpaceMatrix, lightVP);
         return;
     }
 }
@@ -359,6 +350,9 @@ void GLRenderer::DrawShadowPass()
         Matrix4 lightVP = lightView * lightProj;
 
         mLightSpaceMatrix[i] = lightVP;
+
+        // ShadowSceneUBO（binding=2）にこのカスケードの lightVP を供給する
+        UploadShadowUBO(lightVP);
 
         DrawBucket_Shadow(mBuckets.shadowCaster, i);
     }

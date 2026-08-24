@@ -88,4 +88,16 @@ static_assert(offsetof(GLSceneUBO, lightViewProj1)   == 640);
 static_assert(offsetof(GLSceneUBO, shadowParams)     == 704);
 static_assert(offsetof(GLSceneUBO, shadowFlags)      == 720);
 
+//----------------------------------------------------------------------
+//  GLShadowSceneUBO
+//  ・シャドウ深度パス専用（VK の ShadowSceneUBO に相当）
+//  ・binding = kShadowUBOBinding (= 2)
+//----------------------------------------------------------------------
+struct GLShadowSceneUBO
+{
+    float lightVP[16];               // offset   0  (64B)
+};
+
+static_assert(sizeof(GLShadowSceneUBO) == 64, "GLShadowSceneUBO size mismatch — check std140 layout");
+
 } // namespace toy

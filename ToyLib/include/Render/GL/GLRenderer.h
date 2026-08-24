@@ -69,6 +69,11 @@ private:
     void   CreateSceneUBO();
     void   UploadSceneUBO();
 
+    // Shadow Scene UBO（カスケードごとの lightVP。VK の ShadowSceneUBO に相当）
+    uint32_t mShadowUBO { 0 };
+    void   CreateShadowUBO();
+    void   UploadShadowUBO(const Matrix4& lightVP);
+
     std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();
     

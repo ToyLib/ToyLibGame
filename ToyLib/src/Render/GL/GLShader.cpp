@@ -1,4 +1,5 @@
 #include "Render/GL/GLShader.h"
+#include "Render/GL/GLBindingPoints.h"
 
 namespace toy {
 
@@ -39,11 +40,12 @@ bool GLShader::Load(const std::string& vertName, const std::string& fragName)
     }
 
     // UBO binding ポイントを設定
-    // BonePalette / SceneUBO ブロックが存在するシェーダに対して有効。
+    // BonePalette / SceneUBO / ShadowSceneUBO ブロックが存在するシェーダに対して有効。
     // GL 4.1 は layout(binding=N) が使えないため C++ 側で設定する。
     // Vulkan 側は GLSL で layout(set=0, binding=N) を直接指定するので不要。
-    BindUniformBlock("BonePalette", 0);  // binding=0（既存）
-    BindUniformBlock("SceneUBO",    1);  // binding=1（新規）
+    BindUniformBlock("BonePalette",    toy::gl::kBonePaletteBinding);
+    BindUniformBlock("SceneUBO",       toy::gl::kSceneUBOBinding);
+    BindUniformBlock("ShadowSceneUBO", toy::gl::kShadowUBOBinding);
 
     return true;
 }
@@ -98,8 +100,9 @@ bool GLShader::LoadWithTransformFeedback(
         return false;
     }
 
-    BindUniformBlock("BonePalette", 0);  // binding=0（既存）
-    BindUniformBlock("SceneUBO",    1);  // binding=1（新規）
+    BindUniformBlock("BonePalette",    toy::gl::kBonePaletteBinding);
+    BindUniformBlock("SceneUBO",       toy::gl::kSceneUBOBinding);
+    BindUniformBlock("ShadowSceneUBO", toy::gl::kShadowUBOBinding);
 
     return true;
 }

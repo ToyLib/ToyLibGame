@@ -101,6 +101,9 @@ bool GLRenderer::Initialize(const Application* app)
     // Scene UBO（フレーム単位のシーンデータ用 Uniform Buffer）
     CreateSceneUBO();
 
+    // Shadow Scene UBO（シャドウ深度パス専用）
+    CreateShadowUBO();
+
     // Clear color
     SetClearColor(mClearColor);
 
@@ -136,6 +139,13 @@ void GLRenderer::Shutdown()
     {
         glDeleteBuffers(1, &mSceneUBO);
         mSceneUBO = 0;
+    }
+
+    // Shadow Scene UBO
+    if (mShadowUBO)
+    {
+        glDeleteBuffers(1, &mShadowUBO);
+        mShadowUBO = 0;
     }
 
     // FBO
@@ -419,6 +429,35 @@ void GLRenderer::UploadSceneUBO()
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, toy::gl::kSceneUBOBinding, mSceneUBO);
+}
+
+//=============================================================
+// Shadow Scene UBO（シャドウ深度パス専用。VK の ShadowSceneUBO 相当）
+//=============================================================
+
+void GLRenderer::CreateShadowUBO()
+{
+    glGenBuffers(1, &mShadowUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, mShadowUBO);
+    glBufferData(GL_UNIFORM_BUFFER,
+                 sizeof(toy::GLShadowSceneUBO),
+                 nullptr,
+                 GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+void GLRenderer::UploadShadowUBO(const Matrix4& lightVP)
+{
+    if (!mShadowUBO) return;
+
+    toy::GLShadowSceneUBO data{};
+    std::memcpy(data.lightVP, lightVP.GetAsFloatPtr(), sizeof(data.lightVP));
+
+    glBindBuffer(GL_UNIFORM_BUFFER, mShadowUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(toy::GLShadowSceneUBO), &data);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    glBindBufferBase(GL_UNIFORM_BUFFER, toy::gl::kShadowUBOBinding, mShadowUBO);
 }
 
 } // namespace toy
