@@ -75,6 +75,10 @@ public:
     
     // int
     void SetIntUniform(const char* name, int value);
+
+    // uViewProj 専用: Sprite/UnlitQuad はフレーム内で同一値を毎描画送っているため、
+    // 前回と同じなら glUniform 呼び出し自体をスキップする
+    void SetViewProjUniformIfChanged(const Matrix4& matrix);
     
     
 private:
@@ -87,6 +91,9 @@ private:
     GLuint mShaderProgramID {};   // リンク済みプログラム
     
     static GLuint sCurrentShaderID; // 同値スキップ用
+
+    Matrix4 mLastViewProj      {};
+    bool    mHasLastViewProj   { false };
     
     
     //---------------------------------------------------------

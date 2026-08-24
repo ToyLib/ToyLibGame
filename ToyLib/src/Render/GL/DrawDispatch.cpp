@@ -92,7 +92,8 @@ static bool DispatchSprite(IRenderer& r,
     }
 
     // 2D/UI 用 VP 行列（SceneUBO は 3D 透視行列なので per-draw で上書き）
-    sh->SetMatrixUniform("uViewProj", it.viewProj);
+    // 同一パス内では同じ値のことが多いので変化時のみ送信する
+    sh->SetViewProjUniformIfChanged(it.viewProj);
 
     // NOTE:
     // Sprite系は contract(v1) に含めてない想定なので、従来名を維持（動作維持）
@@ -294,7 +295,7 @@ static bool DispatchUnlitQuad(IRenderer& r,
     // viewProj は SceneUBO の 3D 透視行列とは別に per-draw で設定
     //========================================================
     sh->SetMatrixUniform(toy::glsl::Object::World, it.world);
-    sh->SetMatrixUniform("uViewProj",              it.viewProj);
+    sh->SetViewProjUniformIfChanged(it.viewProj);
 
     // Payload
     Vector3 tint  = Vector3(1.0f, 1.0f, 1.0f);

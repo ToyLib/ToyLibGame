@@ -1,6 +1,8 @@
 #include "Render/GL/GLShader.h"
 #include "Render/GL/GLBindingPoints.h"
 
+#include <cstring>
+
 namespace toy {
 
 // 同値スキップ用
@@ -136,6 +138,20 @@ void GLShader::SetMatrixUniform(const char* name, const Matrix4& matrix)
 {
     GLint loc = glGetUniformLocation(mShaderProgramID, name);
     glUniformMatrix4fv(loc, 1, GL_TRUE, matrix.GetAsFloatPtr());
+}
+
+// uViewProj 専用: Sprite/UnlitQuad はパス内で同一の行列を毎描画送っているため、
+// 前回値と同じならバイト比較でスキップする（同一シェーダに対する呼び出しのみ有効）
+void GLShader::SetViewProjUniformIfChanged(const Matrix4& matrix)
+{
+    if (mHasLastViewProj && std::memcmp(&mLastViewProj, &matrix, sizeof(Matrix4)) == 0)
+    {
+        return;
+    }
+
+    SetMatrixUniform("uViewProj", matrix);
+    mLastViewProj = matrix;
+    mHasLastViewProj = true;
 }
 
 // 4x4 行列配列を uniform に送る（スキンメッシュのボーン行列など）
