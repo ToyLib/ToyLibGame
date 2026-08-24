@@ -13,6 +13,7 @@ SensorComponent::SensorComponent(Actor* owner, int order)
 
 SensorComponent::SensorComponent(Actor* owner, const Desc& d, int order)
     : Component(owner, order)
+    , mDesc(d)
 {
 }
 
