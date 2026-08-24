@@ -35,7 +35,6 @@ void OutdoorScene::SetupEnvironment()
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
 
-    
     // BGM
     GetApp()->GetSoundMixer()->LoadBGM("MusMus-BGM-112.ogg");
     GetApp()->GetSoundMixer()->PlayBGM();
