@@ -30,8 +30,8 @@ ShiroActor::ShiroActor(toy::Application* a)
     //------------------------------------------------------------------
     // ターゲット表示 / 名前ビルボード
     //------------------------------------------------------------------
-    SetupTargetSprites("UI/candidate.png", "UI/lockon.png");
-    SetupNameBoard("SHIRO", "Font/rounded-mplus-1c-bold.ttf", 4.0f);
+    SetupTargetSprites("candidate.png", "lockon.png");
+    SetupNameBoard("SHIRO", "rounded-mplus-1c-bold.ttf", 4.0f);
 
     //------------------------------------------------------------------
     // Shiro 固有パラメータ（Wolf より広く、やや遅め）
