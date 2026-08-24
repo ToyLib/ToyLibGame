@@ -12,16 +12,17 @@ EnemyActor::EnemyActor(toy::Application* a)
     
     meshComp = CreateComponent<toy::SkeletalMeshComponent>();
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Monsters/Big/Ninja.gltf"));
-    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/norikotest.glb"));
+    meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/noriko.glb"));
     //meshComp->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/Shiro.gltf"));
 
-    auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/norikotest.glb");
+    auto mesh = GetApp()->GetAssetManager()->GetMesh("Field/noriko.glb");
     mesh->SetCancelRootTranslation(true);
     mesh->SetCancelNodeName("Hip");
     
     meshComp->SetYawOffset(Math::ToRadians(0.0f));
-    meshComp->SetToonRender(true);
-    meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
+    meshComp->SetToonRender(false);
+    meshComp->SetContourFactor(1.0f);
+    //meshComp->SetContourColor(Vector3(0.3f, 0.3f, 0.35f));
     // Noriko用
     meshComp->SetLocalScale(3.0f);
     //meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.8f));
@@ -117,7 +118,7 @@ void EnemyActor::ActionIDLE(float deltaTime)
     //anim->Play(3);
     anim->Play(0);
 
-    if (mLifeTime > 5)
+    if (mLifeTime > 10)
     {
         EnemyAction = [this](float dt)
         {
@@ -137,7 +138,8 @@ void EnemyActor::ActionWALK(float deltaTime)
     {
         EnemyAction = [this](float dt)
         {
-            ActionRUN(dt);
+            //ActionRUN(dt);
+            ActionIDLE(dt);
         };
         mLifeTime = 0.0f;
     }
