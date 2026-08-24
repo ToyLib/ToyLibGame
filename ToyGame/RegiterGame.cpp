@@ -3,6 +3,6 @@
 #include "KitGame/GameApp.h"
 
 // ToyLibの起動Applicationとして登録
-TOYLIB_REGISTER_APP(GameRPG)
-//TOYLIB_REGISTER_APP(GameApp)
+//TOYLIB_REGISTER_APP(GameRPG)
+TOYLIB_REGISTER_APP(GameApp)
 
