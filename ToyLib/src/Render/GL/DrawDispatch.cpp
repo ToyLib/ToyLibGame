@@ -43,6 +43,16 @@ static void UploadBonePalette(const Matrix4* palette, size_t count)
     const size_t uploadCount = std::min(count, static_cast<size_t>(kBonePaletteMax));
     GLuint ubo = GetOrCreateBoneUBO();
     glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+
+    // オーファニング: 同一バッファをスキンメッシュ数×カスケード数ぶん
+    // 毎フレーム連続で書き換えるため、事前に glBufferData(nullptr) で
+    // 古いストレージを捨てておかないと、GPU が前回の描画で読み終わるまで
+    // glBufferSubData がブロックする（特に macOS の GL ドライバで顕著）。
+    glBufferData(GL_UNIFORM_BUFFER,
+                 kBonePaletteMax * 16 * static_cast<GLsizeiptr>(sizeof(float)),
+                 nullptr,
+                 GL_DYNAMIC_DRAW);
+
     glBufferSubData(GL_UNIFORM_BUFFER,
                     0,
                     static_cast<GLsizeiptr>(uploadCount * 16 * sizeof(float)),
