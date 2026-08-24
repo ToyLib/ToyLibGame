@@ -4,7 +4,6 @@
 #include "Asset/Geometry/VertexArray.h"
 #include "Asset/Material/Material.h"
 #include "Asset/Material/Texture.h"
-#include "Render/LightingManager.h"
 #include "Render/IRenderer.h"
 #include "Render/GL/GLShader.h"
 #include "Render/GL/UniformNamesGL.h"
@@ -53,43 +52,6 @@ static void UploadBonePalette(const Matrix4* palette, size_t count)
 }
 
 //============================================================
-// GL ライティングヘルパー（LightingManager の GL 依存を DrawDispatch 側に集約）
-//  BuildLightData() で収集した SceneLightData を GLShader uniform に転送する。
-//============================================================
-static void ApplyLightDataToShader(GLShader* sh, const SceneLightData& d)
-{
-    using namespace toy::glsl;
-
-    sh->SetVectorUniform(Scene::CameraPos,    d.cameraPos);
-    sh->SetVectorUniform(Scene::AmbientLight, d.ambientColor);
-    sh->SetFloatUniform (Scene::SunIntensity, d.sunIntensity);
-
-    sh->SetVectorUniform(Scene::Dir_Direction, d.dirDirection);
-    sh->SetVectorUniform(Scene::Dir_Diffuse,   d.dirDiffuse);
-    sh->SetVectorUniform(Scene::Dir_Specular,  d.dirSpecular);
-
-    for (int i = 0; i < d.numPointLights; ++i)
-    {
-        const PointLightData& pl  = d.pointLights[i];
-        const std::string     base =
-            std::string(Scene::PointPrefix) + std::to_string(i) + "].";
-
-        sh->SetVectorUniform((base + "position").c_str(),  pl.position);
-        sh->SetVectorUniform((base + "color").c_str(),     pl.color);
-        sh->SetFloatUniform ((base + "intensity").c_str(), pl.intensity);
-        sh->SetFloatUniform ((base + "constant").c_str(),  pl.constant);
-        sh->SetFloatUniform ((base + "linear").c_str(),    pl.linear);
-        sh->SetFloatUniform ((base + "quadratic").c_str(), pl.quadratic);
-        sh->SetFloatUniform ((base + "radius").c_str(),    pl.radius);
-    }
-    sh->SetIntUniform(Scene::NumPointLights, d.numPointLights);
-
-    sh->SetFloatUniform (Scene::Fog_MaxDist, d.fogMaxDist);
-    sh->SetFloatUniform (Scene::Fog_MinDist, d.fogMinDist);
-    sh->SetVectorUniform(Scene::Fog_Color,   d.fogColor);
-}
-
-//============================================================
 // Sprite
 //============================================================
 static bool DispatchSprite(IRenderer& r,
@@ -118,6 +80,9 @@ static bool DispatchSprite(IRenderer& r,
         color = sp.color;
         alpha = sp.alpha;
     }
+
+    // 2D/UI 用 VP 行列（SceneUBO は 3D 透視行列なので per-draw で上書き）
+    sh->SetMatrixUniform("uViewProj", it.viewProj);
 
     // NOTE:
     // Sprite系は contract(v1) に含めてない想定なので、従来名を維持（動作維持）
@@ -159,15 +124,9 @@ static bool DispatchMesh(IRenderer& r,
 
 
     //========================================================
-    // Contract(v1)
-    //   - uObject.world
-    //   - uScene.viewProj
-    //========================================================
-    sh->SetMatrixUniform(toy::glsl::Object::World,   it.world);
-    sh->SetMatrixUniform(toy::glsl::Scene::ViewProj, it.viewProj);
-
-    //========================================================
     // Payload（toon / overrideColor）
+    //  - Object::World は SetCommonUniforms() で設定済み
+    //  - viewProj は SceneUBO（binding=1）で供給される
     //========================================================
     bool    toon          = false;
     bool    overrideColor = false;
@@ -181,26 +140,13 @@ static bool DispatchMesh(IRenderer& r,
         overrideValue = mp.overrideColorValue;
     }
 
-    // ライティング
-    if (auto lm = r.GetLightingManager())
-    {
-        ApplyLightDataToShader(sh, lm->BuildLightData(r.GetViewMatrix()));
-    }
-
-    // Shadow maps bind
+    // ライティング・シャドウパラメータは SceneUBO（binding=1）で供給される。
+    // シャドウマップテクスチャのみ個別にバインドする（opaque 型は UBO に入れられない）。
     if (auto sm0 = r.GetShadowMapTexture(0)) sm0->SetActive(6);
     if (auto sm1 = r.GetShadowMapTexture(1)) sm1->SetActive(7);
 
     sh->SetTextureUniform(toy::glsl::Scene::ShadowMap0, 6);
     sh->SetTextureUniform(toy::glsl::Scene::ShadowMap1, 7);
-
-    sh->SetMatrixUniform(toy::glsl::Scene::LightVP0, r.GetLightSpaceMatrix(0));
-    sh->SetMatrixUniform(toy::glsl::Scene::LightVP1, r.GetLightSpaceMatrix(1));
-
-    sh->SetFloatUniform(toy::glsl::Scene::CascadeSplit0, r.GetCascadeSplit0());
-    sh->SetFloatUniform(toy::glsl::Scene::CascadeBlend,  r.GetCascadeBlend());
-    sh->SetFloatUniform(toy::glsl::Scene::ShadowBias,    r.GetShadowBias());
-    sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
 
     // Toon
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
@@ -273,14 +219,8 @@ static bool DispatchSkinnedMesh(IRenderer& r,
         return false;
     }
 
-    sh->SetMatrixUniform(Object::World, it.world);
-    sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
-
-    if (auto lm = r.GetLightingManager())
-    {
-        ApplyLightDataToShader(sh, lm->BuildLightData(r.GetViewMatrix()));
-    }
-
+    // Object::World は SetCommonUniforms() で設定済み。
+    // ライティング・シャドウパラメータは SceneUBO（binding=1）で供給される。
     // シャドウマップは overrideColor に関わらず常にバインドする
     // （スキップするとスロット 6/7 に前フレームの残骸が残り、影が壊れる）
     if (auto sm0 = r.GetShadowMapTexture(0))
@@ -294,14 +234,6 @@ static bool DispatchSkinnedMesh(IRenderer& r,
 
     sh->SetTextureUniform(Scene::ShadowMap0, 6);
     sh->SetTextureUniform(Scene::ShadowMap1, 7);
-
-    sh->SetMatrixUniform(Scene::LightVP0, r.GetLightSpaceMatrix(0));
-    sh->SetMatrixUniform(Scene::LightVP1, r.GetLightSpaceMatrix(1));
-
-    sh->SetFloatUniform(Scene::CascadeSplit0, r.GetCascadeSplit0());
-    sh->SetFloatUniform(Scene::CascadeBlend,  r.GetCascadeBlend());
-    sh->SetFloatUniform(Scene::ShadowBias,    r.GetShadowBias());
-    sh->SetIntUniform(toy::glsl::Scene::ShadowEnable, static_cast<int>(r.GetEnableShadow()));
 
     sh->SetBooleanUniform(toy::glsl::Material::Toon, toon);
 
@@ -348,10 +280,11 @@ static bool DispatchUnlitQuad(IRenderer& r,
     }
 
     //========================================================
-    // Contract(v1)
+    // Contract(v2): Object::World は SetCommonUniforms で設定済み
+    // viewProj は SceneUBO の 3D 透視行列とは別に per-draw で設定
     //========================================================
-    sh->SetMatrixUniform(toy::glsl::Object::World,   it.world);
-    sh->SetMatrixUniform(toy::glsl::Scene::ViewProj, it.viewProj);
+    sh->SetMatrixUniform(toy::glsl::Object::World, it.world);
+    sh->SetMatrixUniform("uViewProj",              it.viewProj);
 
     // Payload
     Vector3 tint  = Vector3(1.0f, 1.0f, 1.0f);
@@ -593,10 +526,11 @@ static bool DispatchSurface(IRenderer& r,
 
     sh->SetActive();
 
-    // NOTE: Surface は別契約（uWorld/uView/uProj）を維持（動作維持）
-    sh->SetMatrixUniform("uWorld", it.world);
-    sh->SetMatrixUniform("uView",  r.GetViewMatrix());
-    sh->SetMatrixUniform("uProj",  r.GetProjectionMatrix());
+    // Contract(v2): RenderSurface.vert は uObject.world と SceneUBO の
+    // uScene.viewProj を参照する（uWorld/uView/uProj は廃止済みの名前で、
+    // 存在しないためこの呼び出しは無効化されていた＝サーフェスが描画されない
+    // 原因になっていた）。
+    sh->SetMatrixUniform(toy::glsl::Object::World, it.world);
 
     bool    flipX   = false;
     bool    flipY   = false;
@@ -618,8 +552,19 @@ static bool DispatchSurface(IRenderer& r,
         scanlineStrength = sp.scanlineStrength;
     }
 
-    sh->SetBooleanUniform("uFlipX",   flipX);
-    sh->SetBooleanUniform("uFlipY",   flipY);
+    // uFlipX / uFlipY: bool uniform は GL 4.1 で SetBooleanUniform が誤動作する場合があるため
+    // int で送る（RenderSurface.frag 側も uniform int に統一）。
+    // Mirror(mode==2) は反射カメラの X 軸反転が RTT に含まれているため、
+    // uFlipX=1 で UV を再反転して正しいミラー像を得る（flipX=true がデフォルト）。
+    //
+    // uFlipY について:
+    //   VK は Capture 描画時に viewport.height を負値にして正立させているため
+    //   flipY=false のままで正しく表示される（FieldScene 等の SetFlip(true,false)）。
+    //   GL 側はその補正を行わずに FBO へ描画するため、テクスチャの v=0 が
+    //   キャプチャ画面の下端（地面側）を指してしまい、そのまま false で使うと
+    //   上下が反転して見える。GL では常に反転して補正する。
+    sh->SetIntUniform("uFlipX", flipX ? 1 : 0);
+    sh->SetIntUniform("uFlipY", flipY ? 0 : 1);
     sh->SetFloatUniform  ("uOpacity", opacity);
     sh->SetVectorUniform ("uTint",    tint);
     sh->SetIntUniform    ("uMode",    mode);

@@ -73,13 +73,11 @@ void GLRenderer::ApplyState(const RenderItem& it)
     }
 
     // front face
-    FrontFace ff = it.frontFace;
-    if (mIsDrawingCapture)
-    {
-        ff = (ff == FrontFace::CCW) ? FrontFace::CW : FrontFace::CCW;
-    }
-
-    glFrontFace(ff == FrontFace::CCW ? GL_CCW : GL_CW);
+    // NOTE: VK は SceneCapture 描画でも viewport.height を負値にして正立させており
+    //       front face を反転していない。GL 側だけ反転すると VK と culling 結果が
+    //       食い違い、地面などが欠けて背景色(フォグ色)が透けて見える原因になるため
+    //       ここでは反転しない（VK と同じ仕様に統一）。
+    glFrontFace(it.frontFace == FrontFace::CCW ? GL_CCW : GL_CW);
 
     // color mask (default)
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -126,16 +124,12 @@ inline void SetCommonUniforms(IRenderer& r,
 
     //========================================================
     // World/UI : contract(v1)
+    //  - viewProj は SceneUBO（binding=1）経由で供給される
+    //  - Object::World のみ per-draw で設定する
     //========================================================
     if (pass == RenderPass::World || pass == RenderPass::UI)
     {
-        // v1 contract
-        sh->SetMatrixUniform(Scene::ViewProj, it.viewProj);
-        sh->SetMatrixUniform(Object::World,   it.world);
-
-        // (Optional) legacy fallback (消したいならここを後で削除)
-        sh->SetMatrixUniform(Legacy::ViewProj,       it.viewProj);
-        sh->SetMatrixUniform(Legacy::WorldTransform, it.world);
+        sh->SetMatrixUniform(Object::World, it.world);
         return;
     }
 
@@ -397,6 +391,13 @@ void GLRenderer::RestoreAfterShadowPass()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // シャドウパス終了後に SceneUBO をアップロードする。
+    // ここで行う理由:
+    //   - mLightSpaceMatrix[] が DrawShadowPass() 内で確定する
+    //   - DrawSkyPass / DrawWorldPass より前に必ず呼ばれる
+    //   - シャドウ無効時も RestoreAfterShadowPass() は呼ばれる
+    UploadSceneUBO();
 }
 
 
@@ -723,13 +724,18 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mInvView.Invert();
 
     //==========================================================================
-    // GL SceneCapture only:
-    //   make RTT output orientation match Vulkan side
-    //   row-vector: final clip = v * View * Proj * FlipY
+    // GL は FBO も Screen と同じ Y 方向（Y=0 が下）なので clipFlipY 不要。
+    // UV の上下反転は RenderSurface.frag の uFlipY（デフォルト true）が担う。
     //==========================================================================
-    Matrix4 clipFlipY = Matrix4::Identity;
-    clipFlipY.mat[1][1] = -1.0f;   // Matrix4 の実メンバ名に合わせて必要なら修正
-    mProjectionMatrix = mProjectionMatrix * clipFlipY;
+
+    //==========================================================================
+    // SceneCapture 用に SceneUBO をキャプチャカメラで更新する。
+    // UploadSceneUBO() は通常 RestoreAfterShadowPass() で呼ばれるが、
+    // DrawToRenderTarget は Shadow Pass より前に走るため、
+    // ここで呼ばなければ SceneUBO には前フレームのメインカメラ viewProj が
+    // 残ったままになり、ミラー内のジオメトリが正しい視点で描画されない。
+    //==========================================================================
+    UploadSceneUBO();
 
     //==========================================================================
     // SceneCapture flag（RAII で確実にリセット）
@@ -743,8 +749,12 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     } captureGuard(mIsDrawingCapture);
 
     //==========================================================================
-    // Build render queues
+    // Build render queues（VK 同様、呼び出し元の queue/buckets を退避してから
+    // キャプチャ用に作り直す）
     //==========================================================================
+    auto savedQueue   = mRenderQueue;
+    auto savedBuckets = mBuckets;
+
     BuildFrameQueues();
 
     const auto& items = mRenderQueue.Items();
@@ -823,6 +833,12 @@ void GLRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mViewMatrix = prevView;
     mProjectionMatrix = prevProj;
     mInvView = prevInvV;
+
+    //==========================================================================
+    // Restore render queues
+    //==========================================================================
+    mRenderQueue = std::move(savedQueue);
+    mBuckets     = std::move(savedBuckets);
 
     //==========================================================================
     // Restore framebuffer

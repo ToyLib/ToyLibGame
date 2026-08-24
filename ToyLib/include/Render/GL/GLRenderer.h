@@ -64,6 +64,11 @@ private:
     std::shared_ptr<class Texture> mShadowMapTexture[kShadowCascadeCount];
     Matrix4  mLightSpaceMatrix[kShadowCascadeCount] {};
 
+    // Scene UBO（フレーム単位のシーンデータを一括転送）
+    uint32_t mSceneUBO { 0 };
+    void   CreateSceneUBO();
+    void   UploadSceneUBO();
+
     std::unordered_map<std::string, std::shared_ptr<class GLShader>> mShaders;
     bool LoadShaders();
     

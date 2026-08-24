@@ -1,63 +1,10 @@
 #version 410 core
 
 //======================================================================
-// ToyLib Uniform Contract (v1) - generated
-//   See Render/GL/UniformNamesGL.h
+// ToyLib Uniform Contract (v2) - SceneUBO + BonePalette
+//   C++ mirror : Render/GL/GLShaderTypes.h  (GLSceneUBO)
+//   Binding    : kSceneUBOBinding=1 / kBonePaletteBinding=0
 //======================================================================
-
-struct DirLight
-{
-    vec3 direction;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-struct PointLight
-{
-    vec3  position;
-    vec3  color;
-    float intensity;
-
-    float constant;
-    float linear;
-    float quadratic;
-
-    float radius;
-};
-
-struct FogInfo
-{
-    float maxDist;
-    float minDist;
-    vec3  color;
-};
-
-struct SceneData
-{
-    mat4 viewProj;
-
-    vec3 cameraPos;
-
-    vec3  ambientLight;
-    float sunIntensity;
-
-    DirLight dirLight;
-
-    int        numPointLights;
-    PointLight pointLights[8];
-
-    FogInfo fog;
-
-    sampler2DShadow shadowMap0;
-    sampler2DShadow shadowMap1;
-
-    mat4  lightViewProj0;
-    mat4  lightViewProj1;
-    float cascadeSplit0;
-    float cascadeBlend;
-    float shadowBias;
-    int   shadowEnable;
-};
 
 struct ObjectData
 {
@@ -79,20 +26,39 @@ struct MaterialData
     float specPower;
 };
 
-// Max palette size must match engine-side upload
-// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
-// UBO で渡すため regular uniform の 4096 component 制限を超えても OK
-const int kMaxPalette = 320;
+// GL 4.1 は layout(binding=N) 不可 → C++ 側で glUniformBlockBinding 設定済み
+// row_major: ToyLib は v*M（行ベクトル×行列）規約
+layout(std140, row_major) uniform SceneUBO
+{
+    mat4  viewProj;
+    vec4  cameraAndSun;      // xyz=cameraPos, w=sunIntensity
+    vec4  ambientLight;      // xyz=ambient
+    vec4  dirDirection;      // xyz=dirLight.direction
+    vec4  dirDiffuse;        // xyz=dirLight.diffuse
+    vec4  dirSpecular;       // xyz=dirLight.specular
+    int   numPointLights;
+    int   _plPad0, _plPad1, _plPad2;
+    vec4  plPosRadius[8];      // xyz=position, w=radius
+    vec4  plColorIntensity[8]; // xyz=color, w=intensity
+    vec4  plAtten[8];          // x=constant, y=linear, z=quadratic
+    vec4  fogColor;            // xyz=fog.color
+    vec4  fogParams;           // x=minDist, y=maxDist
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    vec4  shadowParams;        // x=cascadeSplit0, y=cascadeBlend, z=shadowBias
+    ivec4 shadowFlags;         // x=shadowEnable
+} uScene;
 
-uniform SceneData    uScene;
+uniform sampler2DShadow uShadowMap0;
+uniform sampler2DShadow uShadowMap1;
+
 uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
 
-// ボーンパレット UBO（binding は C++ 側で glUniformBlockBinding で設定）
-// ※ GL 4.1 は layout(binding=N) 不可のため宣言内に書かない
-// ※ Vulkan 版は layout(set=0, binding=0, std140, row_major) で対応
-// row_major: ToyLib は行ベクトル×行列（v*M）なので C++ 側が行優先で格納。
-//            glBufferSubData に転置フラグはないため row_major を明示する。
+// ボーンパレット UBO（binding=0）
+// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
+const int kMaxPalette = 320;
+
 layout(std140, row_major) uniform BonePalette
 {
     mat4 matrixPalette[kMaxPalette];

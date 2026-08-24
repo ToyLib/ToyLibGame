@@ -1,62 +1,10 @@
 #version 410
 
 //======================================================================
-// ToyLib Uniform Contract (v1)
+// ToyLib Uniform Contract (v2) - SceneUBO
+//   C++ mirror : Render/GL/GLShaderTypes.h  (GLSceneUBO)
+//   Binding    : Render/GL/GLBindingPoints.h (kSceneUBOBinding = 1)
 //======================================================================
-
-struct DirLight
-{
-    vec3 direction;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-struct PointLight
-{
-    vec3  position;
-    vec3  color;
-    float intensity;
-
-    float constant;
-    float linear;
-    float quadratic;
-
-    float radius;
-};
-
-struct FogInfo
-{
-    float maxDist;
-    float minDist;
-    vec3  color;
-};
-
-struct SceneData
-{
-    mat4 viewProj;
-
-    vec3 cameraPos;
-
-    vec3  ambientLight;
-    float sunIntensity;
-
-    DirLight dirLight;
-
-    int        numPointLights;
-    PointLight pointLights[8];
-
-    FogInfo fog;
-
-    sampler2DShadow shadowMap0;
-    sampler2DShadow shadowMap1;
-
-    mat4  lightViewProj0;
-    mat4  lightViewProj1;
-    float cascadeSplit0;
-    float cascadeBlend;
-    float shadowBias;
-    int   shadowEnable;
-};
 
 struct ObjectData
 {
@@ -78,17 +26,34 @@ struct MaterialData
     float specPower;
 };
 
-const int kMaxPalette = 96;
-
-struct SkinnedData
+// GL 4.1 は layout(binding=N) 不可 → C++ 側で glUniformBlockBinding 設定済み
+// row_major: ToyLib は v*M（行ベクトル×行列）規約
+layout(std140, row_major) uniform SceneUBO
 {
-    mat4 matrixPalette[kMaxPalette];
-};
+    mat4  viewProj;
+    vec4  cameraAndSun;      // xyz=cameraPos, w=sunIntensity
+    vec4  ambientLight;      // xyz=ambient
+    vec4  dirDirection;      // xyz=dirLight.direction
+    vec4  dirDiffuse;        // xyz=dirLight.diffuse
+    vec4  dirSpecular;       // xyz=dirLight.specular
+    int   numPointLights;
+    int   _plPad0, _plPad1, _plPad2;
+    vec4  plPosRadius[8];      // xyz=position, w=radius
+    vec4  plColorIntensity[8]; // xyz=color, w=intensity
+    vec4  plAtten[8];          // x=constant, y=linear, z=quadratic
+    vec4  fogColor;            // xyz=fog.color
+    vec4  fogParams;           // x=minDist, y=maxDist
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    vec4  shadowParams;        // x=cascadeSplit0, y=cascadeBlend, z=shadowBias
+    ivec4 shadowFlags;         // x=shadowEnable
+} uScene;
 
-uniform SceneData    uScene;
+uniform sampler2DShadow uShadowMap0;
+uniform sampler2DShadow uShadowMap1;
+
 uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
-uniform SkinnedData  uSkinned;
 
 
 //======================================================================
@@ -135,15 +100,15 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 
             specIntensity = step(toonSpecThreshold, specIntensity);
 
-            result += uScene.dirLight.diffuse * diffIntensity;
-            result += uScene.dirLight.specular * specIntensity;
+            result += uScene.dirDiffuse.xyz * diffIntensity;
+            result += uScene.dirSpecular.xyz * specIntensity;
         }
         else
         {
-            vec3 diffuse = uScene.dirLight.diffuse * NdotL;
+            vec3 diffuse = uScene.dirDiffuse.xyz * NdotL;
 
             vec3 specular =
-                uScene.dirLight.specular *
+                uScene.dirSpecular.xyz *
                 pow(max(dot(reflect(-L, N), V), 0.0), uMaterial.specPower);
 
             result += diffuse + specular;
@@ -158,13 +123,16 @@ vec3 ComputeLighting(vec3 N, vec3 V, vec3 L)
 // Point Light
 //======================================================================
 
-vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
+// 引数: plPosRadius(xyz=position, w=radius), plColorIntensity(xyz=color, w=intensity),
+//       plAtten(x=constant, y=linear, z=quadratic)
+vec3 ComputePointLight(vec4 posRadius, vec4 colorIntensity, vec4 atten,
+                       vec3 N, vec3 V, vec3 fragPos)
 {
-    vec3 Lvec = light.position - fragPos;
+    vec3 Lvec = posRadius.xyz - fragPos;
     float dist = length(Lvec);
 
     if (dist <= 0.0001) return vec3(0.0);
-    if (dist > light.radius) return vec3(0.0);
+    if (dist > posRadius.w) return vec3(0.0);
 
     vec3 L = normalize(Lvec);
 
@@ -172,9 +140,9 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
     if (NdotL <= 0.0) return vec3(0.0);
 
     float attenuation =
-        1.0 / (light.constant +
-               light.linear * dist +
-               light.quadratic * dist * dist);
+        1.0 / (atten.x +
+               atten.y * dist +
+               atten.z * dist * dist);
 
     vec3 result = vec3(0.0);
 
@@ -187,22 +155,22 @@ vec3 ComputePointLight(PointLight light, vec3 N, vec3 V, vec3 fragPos)
 
         specIntensity = step(toonSpecThreshold, specIntensity);
 
-        result += light.color * diffIntensity;
-        result += light.color * specIntensity;
+        result += colorIntensity.xyz * diffIntensity;
+        result += colorIntensity.xyz * specIntensity;
     }
     else
     {
-        vec3 diffuse = light.color * NdotL;
+        vec3 diffuse = colorIntensity.xyz * NdotL;
 
         vec3 R = reflect(-L, N);
         float spec = pow(max(dot(V, R), 0.0), uMaterial.specPower);
 
-        vec3 specular = light.color * spec;
+        vec3 specular = colorIntensity.xyz * spec;
 
         result += diffuse + specular;
     }
 
-    return result * light.intensity * attenuation;
+    return result * colorIntensity.w * attenuation;
 }
 
 
@@ -236,8 +204,8 @@ float ShadowPCF(
     float ndotl = max(dot(N, L), 0.0);
 
     float bias = max(
-        uScene.shadowBias * (1.0 - ndotl),
-        uScene.shadowBias * 0.25
+        uScene.shadowParams.z * (1.0 - ndotl),
+        uScene.shadowParams.z * 0.25
     );
 
     //----------------------------------------------------------
@@ -282,11 +250,11 @@ void main()
     // Fog factor
     //----------------------------------------------------------
 
-    float dist = length(uScene.cameraPos - fragWorldPos);
+    float dist = length(uScene.cameraAndSun.xyz - fragWorldPos);
 
     float fogFactor = clamp(
-        (uScene.fog.maxDist - dist) /
-        (uScene.fog.maxDist - uScene.fog.minDist),
+        (uScene.fogParams.y - dist) /
+        (uScene.fogParams.y - uScene.fogParams.x),
         0.0,
         1.0
     );
@@ -297,7 +265,7 @@ void main()
 
     if (uMaterial.overrideEnabled)
     {
-        vec3 col = mix(uScene.fog.color, uMaterial.overrideColor, fogFactor);
+        vec3 col = mix(uScene.fogColor.xyz, uMaterial.overrideColor, fogFactor);
         outColor = vec4(col, 1.0);
         return;
     }
@@ -307,8 +275,8 @@ void main()
     //----------------------------------------------------------
 
     vec3 N = normalize(fragNormal);
-    vec3 V = normalize(uScene.cameraPos - fragWorldPos);
-    vec3 L = normalize(-uScene.dirLight.direction);
+    vec3 V = normalize(uScene.cameraAndSun.xyz - fragWorldPos);
+    vec3 L = normalize(-uScene.dirDirection.xyz);
 
     //----------------------------------------------------------
     // Directional light
@@ -316,7 +284,7 @@ void main()
 
     vec3 dirLight = ComputeLighting(N, V, L);
 
-    vec3 lighting = uScene.ambientLight + dirLight;
+    vec3 lighting = uScene.ambientLight.xyz + dirLight;
 
     //----------------------------------------------------------
     // Point lights
@@ -325,7 +293,9 @@ void main()
     for (int i = 0; i < uScene.numPointLights; ++i)
     {
         lighting += ComputePointLight(
-            uScene.pointLights[i],
+            uScene.plPosRadius[i],
+            uScene.plColorIntensity[i],
+            uScene.plAtten[i],
             N,
             V,
             fragWorldPos
@@ -337,10 +307,10 @@ void main()
     //----------------------------------------------------------
     float shadowFactor = 1.0;
     
-    if (uScene.shadowEnable == 1)
+    if (uScene.shadowFlags.x == 1)
     {
         float s0 = ShadowPCF(
-                             uScene.shadowMap0,
+                             uShadowMap0,
                              uScene.lightViewProj0,
                              fragWorldPos,
                              N,
@@ -348,7 +318,7 @@ void main()
                              );
         
         float s1 = ShadowPCF(
-                             uScene.shadowMap1,
+                             uShadowMap1,
                              uScene.lightViewProj1,
                              fragWorldPos,
                              N,
@@ -356,8 +326,8 @@ void main()
                              );
         
         float t = smoothstep(
-                             uScene.cascadeSplit0 - uScene.cascadeBlend,
-                             uScene.cascadeSplit0 + uScene.cascadeBlend,
+                             uScene.shadowParams.x - uScene.shadowParams.y,
+                             uScene.shadowParams.x + uScene.shadowParams.y,
                              dist
                              );
         
@@ -382,7 +352,7 @@ void main()
     //----------------------------------------------------------
 
     vec3 finalColor =
-        mix(uScene.fog.color, baseColor.rgb, fogFactor);
+        mix(uScene.fogColor.xyz, baseColor.rgb, fogFactor);
 
     outColor = vec4(finalColor, baseColor.a);
 }

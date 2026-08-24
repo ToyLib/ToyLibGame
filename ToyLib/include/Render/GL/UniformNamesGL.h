@@ -21,8 +21,8 @@ inline constexpr const char* Fog_MaxDist    = "uScene.fog.maxDist";
 inline constexpr const char* Fog_MinDist    = "uScene.fog.minDist";
 inline constexpr const char* Fog_Color      = "uScene.fog.color";
 
-inline constexpr const char* ShadowMap0     = "uScene.shadowMap0";
-inline constexpr const char* ShadowMap1     = "uScene.shadowMap1";
+inline constexpr const char* ShadowMap0     = "uShadowMap0";
+inline constexpr const char* ShadowMap1     = "uShadowMap1";
 inline constexpr const char* LightVP0       = "uScene.lightViewProj0";
 inline constexpr const char* LightVP1       = "uScene.lightViewProj1";
 inline constexpr const char* CascadeSplit0  = "uScene.cascadeSplit0";
