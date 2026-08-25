@@ -26,6 +26,7 @@ EnemyActor::EnemyActor(toy::Application* a)
     // Noriko用
     meshComp->SetLocalScale(3.0f);
     //meshComp->SetLocalPositon(Vector3(0.0f, 0.0f, 0.8f));
+    
 
 
     
@@ -35,8 +36,8 @@ EnemyActor::EnemyActor(toy::Application* a)
     mCollider->GetBoundingVolume()->AdjustBoundingBox(Vector3(0, 0, -0), Vector3(0.5, 1, 0.3));
     mCollider->SetEnabled(true);
     mCollider->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_FOOT | toy::C_HURTBOX |  toy::C_ENEMY_TEAM);
-    CreateComponent<toy::GravityComponent>();
-    
+    auto grave = CreateComponent<toy::GravityComponent>();
+    grave->SetEnableGroundPose(true);
     
     // 足元スプライト
     mLockOnSigne = CreateComponent<toy::GroundConformSpriteComponent>();
