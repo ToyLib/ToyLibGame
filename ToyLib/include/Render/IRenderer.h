@@ -79,6 +79,9 @@ struct SceneCaptureRequest
     bool drawOverlay { false }; // まず false 推奨
 };
 
+// シャドウカスケード数（GL/VK 共通）。IRenderer::kShadowCascadeCount と同じ値を保つこと。
+constexpr int kShadowCascadeCountMax = 2;
+
 //==============================================================================
 // FrameBuckets
 //  - mFrame.items の index を用途別に分類したもの
@@ -96,8 +99,9 @@ struct FrameBuckets
     std::vector<uint32_t> overlayScreen;
     std::vector<uint32_t> ui;
 
-    // Shadow caster (RenderPass::Shadow)
-    std::vector<uint32_t> shadowCaster;
+    // Shadow caster (RenderPass::Shadow) — カスケードごとに分離
+    //  （各カスケードのライト視錐台と交差する item だけをそのカスケードへ積む）
+    std::vector<uint32_t> shadowCaster[kShadowCascadeCountMax];
 
     void Clear()
     {
@@ -108,7 +112,10 @@ struct FrameBuckets
         sky.clear();
         overlayScreen.clear();
         ui.clear();
-        shadowCaster.clear();
+        for (auto& b : shadowCaster)
+        {
+            b.clear();
+        }
     }
 };
 
@@ -435,7 +442,7 @@ protected:
     int   mShadowFBOWidth    { 4096 };
     int   mShadowFBOHeight   { 4096 };
 
-    static constexpr int kShadowCascadeCount = 2;
+    static constexpr int kShadowCascadeCount = kShadowCascadeCountMax;
 
     // mShadowFBO / mShadowMapTexture / mLightSpaceMatrix は GL 固有リソース → GLRenderer.h の private へ移動済み
 
@@ -522,7 +529,12 @@ protected:
 
     
     virtual bool BeginFrame() = 0;
-    
+
+    // カスケードのライトVP行列を「今のフレームのカメラ/ライト」から再計算する。
+    // BuildFrameQueues() がシャドウキャスターのカリング判定に使うため、
+    // DrawShadowPass() より前（BuildFrameQueues 冒頭）で呼ばれる。
+    virtual void UpdateShadowLightMatrices() {}
+
     virtual void DrawShadowPass() = 0;
     virtual void RestoreAfterShadowPass() = 0;
 

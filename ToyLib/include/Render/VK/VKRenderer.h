@@ -74,6 +74,8 @@ public:
     // 描画フェーズ（IRenderer）
     //  - swapchain renderpass は World/UI を同一pass内で描く前提
     //==========================================================
+    Matrix4 GetLightSpaceMatrix(int cascadeIndex) const override;
+
     void DrawShadowPass() override;
     void RestoreAfterShadowPass() override;
     void DrawSkyPass() override;
@@ -429,7 +431,7 @@ private:
     bool CreateShadowSceneUBOAndSet();
     void DestroyShadowSceneUBOAndSet();
 
-    void UpdateShadowLightMatrices();
+    void UpdateShadowLightMatrices() override;
     void UpdateShadowSceneUBO(int cascadeIndex);
 
     bool BuildShadowPipelinesOnly();

@@ -141,6 +141,16 @@ void IRenderer::BuildFrameQueues()
     const Matrix4 vp = GetViewMatrix() * GetProjectionMatrix();
     const Frustum cameraFrustum = BuildFrustumFromMatrix(vp);
 
+    // シャドウ用: 各カスケードのライトVPを今フレームぶん再計算し、frustumを作っておく
+    // （シャドウキャスターのカリング判定に使う。DrawShadowPass 側はこの後の値をそのまま使う）
+    UpdateShadowLightMatrices();
+
+    Frustum cascadeFrustum[kShadowCascadeCount];
+    for (int c = 0; c < kShadowCascadeCount; ++c)
+    {
+        cascadeFrustum[c] = BuildFrustumFromMatrix(GetLightSpaceMatrix(c));
+    }
+
     for (auto* vc : mVisualComps)
     {
         if (!vc || !vc->IsVisible())
@@ -149,7 +159,10 @@ void IRenderer::BuildFrameQueues()
         }
 
         //====================================================
-        // (B) Shadow caster（★frustum cull しない）
+        // (B) Shadow caster
+        //  - カスケードごとのライト視錐台とAABBを比較し、
+        //    交差するカスケードのbucketにだけ積む（cull）
+        //  - AABBが取れないオブジェクトは安全側に倒して全カスケードへ積む
         //  - payload も mRenderQueue に直接積まれるので消えない
         //====================================================
         if (vc->GetEnableShadow())
@@ -159,9 +172,39 @@ void IRenderer::BuildFrameQueues()
             vc->GatherShadowItems(mRenderQueue);
 
             const uint32_t after = static_cast<uint32_t>(mRenderQueue.Items().size());
-            for (uint32_t i = before; i < after; ++i)
+
+            const BoundingVolumeComponent* shadowBV = nullptr;
+            if (Actor* owner = vc->GetOwner())
             {
-                mBuckets.shadowCaster.push_back(i);
+                shadowBV = owner->GetComponent<BoundingVolumeComponent>();
+            }
+
+            if (shadowBV)
+            {
+                const Cube shadowAABB = shadowBV->GetWorldAABB();
+
+                for (int c = 0; c < kShadowCascadeCount; ++c)
+                {
+                    if (!FrustumIntersectsAABB(cascadeFrustum[c], shadowAABB))
+                    {
+                        continue;
+                    }
+
+                    for (uint32_t i = before; i < after; ++i)
+                    {
+                        mBuckets.shadowCaster[c].push_back(i);
+                    }
+                }
+            }
+            else
+            {
+                for (int c = 0; c < kShadowCascadeCount; ++c)
+                {
+                    for (uint32_t i = before; i < after; ++i)
+                    {
+                        mBuckets.shadowCaster[c].push_back(i);
+                    }
+                }
             }
         }
 
@@ -206,9 +249,13 @@ void IRenderer::BuildFrameQueues()
             const RenderItem& it = items[i];
 
             // safety: RenderItems 側に Shadow が混ざってた場合
+            //  - ここではAABBが手元にないため cull せず全カスケードへ積む
             if (it.pass == RenderPass::Shadow)
             {
-                mBuckets.shadowCaster.push_back(i);
+                for (int c = 0; c < kShadowCascadeCount; ++c)
+                {
+                    mBuckets.shadowCaster[c].push_back(i);
+                }
                 continue;
             }
 
@@ -266,7 +313,10 @@ void IRenderer::BuildFrameQueues()
     SortBucket(mBuckets.overlayScreen);
     SortBucket(mBuckets.ui);
 
-    SortBucket_Shadow(mBuckets.shadowCaster);
+    for (int c = 0; c < kShadowCascadeCount; ++c)
+    {
+        SortBucket_Shadow(mBuckets.shadowCaster[c]);
+    }
 }
 
 //==============================================================================

@@ -585,6 +585,15 @@ void VKRenderer::UpdateShadowLightMatrices()
     }
 }
 
+Matrix4 VKRenderer::GetLightSpaceMatrix(int cascadeIndex) const
+{
+    if (cascadeIndex < 0 || cascadeIndex >= (int)mShadowCascades.size())
+    {
+        return Matrix4::Identity;
+    }
+    return mShadowCascades[cascadeIndex].lightVP;
+}
+
 void VKRenderer::UpdateShadowSceneUBO(int cascadeIndex)
 {
     if (cascadeIndex < 0 || cascadeIndex >= (int)mShadowCascades.size())
@@ -644,8 +653,7 @@ void VKRenderer::DrawShadowPass()
         return;
     }
 
-    // ライト行列更新（CPU側で c.lightVP を計算）
-    UpdateShadowLightMatrices();
+    // ライト行列は UpdateShadowLightMatrices()（BuildFrameQueues 内）で計算済み
 
     for (int ci = 0; ci < kShadowCascadeCount; ++ci)
     {
@@ -713,7 +721,7 @@ void VKRenderer::DrawShadowPass()
         //------------------------------------------------------
         // ※ DrawBucket_Shadow は IRenderer 側で it を回し、
         //    VKRenderer::DrawItem(it, Shadow, cascadeIndex) を呼ぶ想定
-        DrawBucket_Shadow(mBuckets.shadowCaster, ci);
+        DrawBucket_Shadow(mBuckets.shadowCaster[ci], ci);
 
         vkCmdEndRenderPass(cmd);
 

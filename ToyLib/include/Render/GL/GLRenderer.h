@@ -44,7 +44,8 @@ protected:
     
     bool BeginFrame() override;
     void EndFrame() override;
-    
+
+    void UpdateShadowLightMatrices() override;
     void DrawShadowPass() override;
     void RestoreAfterShadowPass() override;
     

@@ -262,33 +262,13 @@ void GLRenderer::EndFrame()
 }
 
 //==============================================================================
-// Shadow pass
+// Shadow light matrices
+//  - カメラ/ライトの現在状態から各カスケードの lightVP を計算する。
+//  - BuildFrameQueues() がシャドウキャスターのカリング判定に使うため、
+//    DrawShadowPass() より前（BuildFrameQueues 冒頭）で呼ばれる。
 //==============================================================================
-void GLRenderer::DrawShadowPass()
+void GLRenderer::UpdateShadowLightMatrices()
 {
-    GLint prevFBO = 0;
-    GLint prevVP[4];
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
-    glGetIntegerv(GL_VIEWPORT, prevVP);
-
-    //---------------------------------------------------------
-    // Shadow pass state
-    //---------------------------------------------------------
-    glDisable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-
-    // Vulkan 相当の depth bias
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.75f, 1.25f);
-
-    // depth のみ書く
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
     //---------------------------------------------------------
     // Light camera
     //---------------------------------------------------------
@@ -331,8 +311,49 @@ void GLRenderer::DrawShadowPass()
         mShadowOrthoHeight * 4.0f
     };
 
+    for (int i = 0; i < kShadowCascadeCount; ++i)
+    {
+        Matrix4 lightProj = Matrix4::CreateOrtho(
+            orthoW[i],
+            orthoH[i],
+            mShadowNear,
+            mShadowFar);
+
+        mLightSpaceMatrix[i] = lightView * lightProj;
+    }
+}
+
+//==============================================================================
+// Shadow pass
+//==============================================================================
+void GLRenderer::DrawShadowPass()
+{
+    GLint prevFBO = 0;
+    GLint prevVP[4];
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+    glGetIntegerv(GL_VIEWPORT, prevVP);
+
+    //---------------------------------------------------------
+    // Shadow pass state
+    //---------------------------------------------------------
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+
+    // Vulkan 相当の depth bias
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.75f, 1.25f);
+
+    // depth のみ書く
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
     //---------------------------------------------------------
     // Render cascades
+    //  - mLightSpaceMatrix[i] は UpdateShadowLightMatrices()（BuildFrameQueues 内）で計算済み
     //---------------------------------------------------------
     for (int i = 0; i < kShadowCascadeCount; ++i)
     {
@@ -341,20 +362,10 @@ void GLRenderer::DrawShadowPass()
 
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        Matrix4 lightProj = Matrix4::CreateOrtho(
-            orthoW[i],
-            orthoH[i],
-            mShadowNear,
-            mShadowFar);
-
-        Matrix4 lightVP = lightView * lightProj;
-
-        mLightSpaceMatrix[i] = lightVP;
-
         // ShadowSceneUBO（binding=2）にこのカスケードの lightVP を供給する
-        UploadShadowUBO(lightVP);
+        UploadShadowUBO(mLightSpaceMatrix[i]);
 
-        DrawBucket_Shadow(mBuckets.shadowCaster, i);
+        DrawBucket_Shadow(mBuckets.shadowCaster[i], i);
     }
 
     //---------------------------------------------------------
