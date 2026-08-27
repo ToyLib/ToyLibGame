@@ -74,9 +74,18 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette, uint32_t p
     {
         return VK_NULL_HANDLE;
     }
-    if (paletteCount > kMaxPalette)
+    if (paletteCount > kPaletteSanityCap)
     {
-        paletteCount = kMaxPalette;
+        // シェーダ側は runtime-sized array なので設計上の上限は無いが、
+        // 壊れたデータで無制限に確保してしまうのを防ぐための安全弁。
+        static bool s_warned = false;
+        if (!s_warned)
+        {
+            std::cerr << "[VK] AcquireSkinnedSet: paletteCount=" << paletteCount
+                      << " exceeds sanity cap (" << kPaletteSanityCap << "), clamped. Data may be corrupted.\n";
+            s_warned = true;
+        }
+        paletteCount = kPaletteSanityCap;
     }
 
     const size_t frameCount = mFrames.size();
@@ -97,79 +106,102 @@ VkDescriptorSet VKRenderer::AcquireSkinnedSet(const Matrix4* palette, uint32_t p
     const uint32_t idx = mSkinnedSlotCursor[mFrameIndex];
     // ★ カーソルは確保成功後にインクリメント（失敗時の early return でずれないように）
 
-    if (idx >= mSkinnedSlots[mFrameIndex].size())
+    const bool isNewSlot = (idx >= mSkinnedSlots[mFrameIndex].size());
+    if (isNewSlot)
     {
-        SkinnedPaletteSlot slot{};
-
-        if (!CreateBufferHostVisible(kSkinnedUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, slot.ubo, slot.mem))
-        {
-            return VK_NULL_HANDLE;
-        }
-
-        const char* set2PipeName = NormalizePipelineNameForSet2(pipelineName);
-
-        VkDescriptorSetLayout set2 = GetPipelineSetLayout(mPipelines, set2PipeName, 2);
-        if (set2 == VK_NULL_HANDLE)
-        {
-            // 最後の保険（運用上 set=2 layout は SkinnedMesh と共通であるべき）
-            set2 = GetPipelineSetLayout(mPipelines, "SkinnedMesh", 2);
-        }
-
-        if (set2 == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VK] AcquireSkinnedSet: set2 layout null pipe=" << pipelineName
-                      << " (normalized=" << (set2PipeName ? set2PipeName : "null") << ")\n";
-            vkDestroyBuffer(mDevice, slot.ubo, nullptr);
-            vkFreeMemory(mDevice, slot.mem, nullptr);
-            return VK_NULL_HANDLE;
-        }
-
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set2;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &slot.set) != VK_SUCCESS || slot.set == VK_NULL_HANDLE)
-        {
-            vkDestroyBuffer(mDevice, slot.ubo, nullptr);
-            vkFreeMemory(mDevice, slot.mem, nullptr);
-            return VK_NULL_HANDLE;
-        }
-
-        VkDescriptorBufferInfo bi{};
-        bi.buffer = slot.ubo;
-        bi.offset = 0;
-        bi.range = kSkinnedUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = slot.set;
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &bi;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-        mSkinnedSlots[mFrameIndex].push_back(slot);
-    }
-
-    // 確保成功（既存スロット再利用 or 新規 push_back 済み）後にインクリメント
-    mSkinnedSlotCursor[mFrameIndex]++;
-
-    Matrix4 tmp[kMaxPalette];
-    for (uint32_t i = 0; i < kMaxPalette; ++i)
-    {
-        tmp[i] = Matrix4::Identity;
-    }
-    for (uint32_t i = 0; i < paletteCount; ++i)
-    {
-        tmp[i] = palette[i];
+        mSkinnedSlots[mFrameIndex].push_back(SkinnedPaletteSlot{});
     }
 
     SkinnedPaletteSlot& s = mSkinnedSlots[mFrameIndex][idx];
-    UploadToBuffer(s.mem, tmp, kSkinnedUBOSize);
+
+    const VkDeviceSize requiredBytes = sizeof(float) * 16 * static_cast<VkDeviceSize>(paletteCount);
+
+    // 新規スロット、または前回よりボーン数が増えた場合だけバッファを（再）確保する。
+    // ★同一frameIndexのスロットはBeginFrame()のfence waitでGPU使用完了が保証された後に
+    //   触るので、ここでバッファを破棄・差し替えても安全。
+    if (isNewSlot || paletteCount > s.capacity)
+    {
+        if (s.ubo != VK_NULL_HANDLE)
+        {
+            vkDestroyBuffer(mDevice, s.ubo, nullptr);
+            s.ubo = VK_NULL_HANDLE;
+        }
+        if (s.mem != VK_NULL_HANDLE)
+        {
+            vkFreeMemory(mDevice, s.mem, nullptr);
+            s.mem = VK_NULL_HANDLE;
+        }
+        s.capacity = 0;
+
+        if (!CreateBufferHostVisible(requiredBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, s.ubo, s.mem))
+        {
+            return VK_NULL_HANDLE;
+        }
+        s.capacity = paletteCount;
+
+        // descriptor set 自体は初回のみ確保し、以降は使い回す
+        if (s.set == VK_NULL_HANDLE)
+        {
+            const char* set2PipeName = NormalizePipelineNameForSet2(pipelineName);
+
+            VkDescriptorSetLayout set2 = GetPipelineSetLayout(mPipelines, set2PipeName, 2);
+            if (set2 == VK_NULL_HANDLE)
+            {
+                // 最後の保険（運用上 set=2 layout は SkinnedMesh と共通であるべき）
+                set2 = GetPipelineSetLayout(mPipelines, "SkinnedMesh", 2);
+            }
+
+            if (set2 == VK_NULL_HANDLE)
+            {
+                std::cerr << "[VK] AcquireSkinnedSet: set2 layout null pipe=" << pipelineName
+                          << " (normalized=" << (set2PipeName ? set2PipeName : "null") << ")\n";
+                vkDestroyBuffer(mDevice, s.ubo, nullptr);
+                vkFreeMemory(mDevice, s.mem, nullptr);
+                s.ubo = VK_NULL_HANDLE;
+                s.mem = VK_NULL_HANDLE;
+                s.capacity = 0;
+                return VK_NULL_HANDLE;
+            }
+
+            VkDescriptorSetAllocateInfo ai{};
+            ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            ai.descriptorPool = mDescPool;
+            ai.descriptorSetCount = 1;
+            ai.pSetLayouts = &set2;
+
+            if (vkAllocateDescriptorSets(mDevice, &ai, &s.set) != VK_SUCCESS || s.set == VK_NULL_HANDLE)
+            {
+                vkDestroyBuffer(mDevice, s.ubo, nullptr);
+                vkFreeMemory(mDevice, s.mem, nullptr);
+                s.ubo = VK_NULL_HANDLE;
+                s.mem = VK_NULL_HANDLE;
+                s.capacity = 0;
+                s.set = VK_NULL_HANDLE;
+                return VK_NULL_HANDLE;
+            }
+        }
+
+        // バッファの実体が変わった（新規 or 差し替え）ので descriptor を書き直す
+        VkDescriptorBufferInfo bi{};
+        bi.buffer = s.ubo;
+        bi.offset = 0;
+        bi.range = requiredBytes;
+
+        VkWriteDescriptorSet w{};
+        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        w.dstSet = s.set;
+        w.dstBinding = 0;
+        w.descriptorCount = 1;
+        w.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        w.pBufferInfo = &bi;
+
+        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+    }
+
+    // 確保成功後にインクリメント（失敗時の early return でずれないように）
+    mSkinnedSlotCursor[mFrameIndex]++;
+
+    UploadToBuffer(s.mem, palette, requiredBytes);
 
     return s.set;
 }

@@ -79,7 +79,11 @@ bool VKRenderer::CreateDescriptorPool()
     // PostEffect等のtexture descriptor用
     constexpr uint32_t kSamplerCount = 1024;
 
-    VkDescriptorPoolSize sizes[2]{};
+    // Skinned palette(set=2)用。UBOのmaxUniformBufferRange保証最小値(16KB)を
+    // 320ボーン分(20KB)が超えるためSTORAGE_BUFFERを使う（AddSet2_SkinnedUBO参照）
+    constexpr uint32_t kSSBOCount = 1024;
+
+    VkDescriptorPoolSize sizes[3]{};
 
     sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     sizes[0].descriptorCount = kUBOCount;
@@ -87,11 +91,14 @@ bool VKRenderer::CreateDescriptorPool()
     sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     sizes[1].descriptorCount = kSamplerCount;
 
+    sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    sizes[2].descriptorCount = kSSBOCount;
+
     VkDescriptorPoolCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     ci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     ci.maxSets = kMaxSetsTotal;
-    ci.poolSizeCount = 2;
+    ci.poolSizeCount = 3;
     ci.pPoolSizes = sizes;
 
     const VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &mDescPool);

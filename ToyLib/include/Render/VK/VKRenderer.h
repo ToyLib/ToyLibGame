@@ -407,12 +407,14 @@ private:
         VkBuffer ubo{VK_NULL_HANDLE};
         VkDeviceMemory mem{VK_NULL_HANDLE};
         VkDescriptorSet set{VK_NULL_HANDLE}; // set=2（mDescPool）
+        uint32_t capacity{0};                // 確保済みのボーン数（このバッファが保持できる上限）
     };
 
-    // 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
-    // シェーダ側 (VK/src/SkinnedMesh.vert, Shadow_SkinnedMesh.vert) と値を合わせること
-    static constexpr uint32_t kMaxPalette = 320;
-    static constexpr VkDeviceSize kSkinnedUBOSize = sizeof(float) * 16 * kMaxPalette;
+    // シェーダ側 (VK/src/SkinnedMesh.vert, Shadow_SkinnedMesh.vert) は
+    // runtime-sized array（SSBO, mat4 matrixPalette[];）なのでコンパイル時の上限は無い。
+    // バッファは AcquireSkinnedSet() 内で必要なボーン数ぶんだけ確保/成長させる。
+    // これは設計上の上限ではなく、壊れたデータによる暴走確保を防ぐための安全弁。
+    static constexpr uint32_t kPaletteSanityCap = 8192;
 
     std::vector<std::vector<SkinnedPaletteSlot>> mSkinnedSlots;
     std::vector<uint32_t> mSkinnedSlotCursor;

@@ -87,11 +87,14 @@ static void AddSet2_Empty(VKPipelineDesc& d)
 
 static void AddSet2_SkinnedUBO(VKPipelineDesc& d)
 {
+    // ★SSBO（STORAGE_BUFFER）: UBOは maxUniformBufferRange の仕様保証最小値が16KBしかなく、
+    //   320ボーン分(20KB)だとGPU/ドライバ依存で範囲外バインドになり得る（AMDでdevice lost実績あり）。
+    //   SSBOは maxStorageBufferRange の保証最小値が128MBなので安全。
     VKDescriptorSetLayoutDesc set2{};
     set2.set = 2;
     set2.bindings.push_back({
         .binding = 0,
-        .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .count   = 1,
         .stages  = VK_SHADER_STAGE_VERTEX_BIT
     });

@@ -13,10 +13,11 @@ layout(set=0, binding=0, std140, row_major) uniform ShadowSceneUBO
     mat4 uLightVP;
 } uScene;
 
-// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
-layout(set=2, binding=0, std140, row_major) uniform PaletteUBO
+// ★runtime-sized array（SSBO最後のメンバのみ許可）: コンパイル時の上限は無い。
+//   実際のボーン数ぶんのバッファがC++側(AcquireSkinnedSet)から都度バインドされる。
+layout(set=2, binding=0, std430, row_major) readonly buffer PaletteSSBO
 {
-    mat4 uPalette[320];
+    mat4 uPalette[];
 } uPal;
 
 layout(push_constant, row_major) uniform PC

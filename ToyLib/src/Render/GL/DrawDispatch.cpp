@@ -10,15 +10,21 @@
 
 #include "glad/glad.h"
 #include <algorithm>
+#include <iostream>
 
 namespace toy {
 
 //============================================================
 // ボーンパレット UBO
 //   binding = 0 固定（GLShader::Load() で glUniformBlockBinding(prog,"BonePalette",0) 済み）
-//   シェーダ宣言: layout(std140) uniform BonePalette { mat4 matrixPalette[320]; };
+//   シェーダ宣言: layout(std140) uniform BonePalette { mat4 matrixPalette[256]; };
+//
+//   ★256 = GL_MAX_UNIFORM_BLOCK_SIZE の仕様保証最小値(16384byte)に収まる上限
+//     (256 * 64byte = 16384byte)。保証を超えるサイズだと環境依存でリンク失敗する
+//     （AMD環境で実際に発生：320本にしたら起動不能になった）。
+//     320本超の大規模リグを使いたい場合はVKバックエンド（SSBO、保証128MB）を使うこと。
 //============================================================
-static constexpr int    kBonePaletteMax     = 320;
+static constexpr int    kBonePaletteMax     = 256;
 static constexpr GLuint kBonePaletteBinding = 0;
 
 static GLuint GetOrCreateBoneUBO()
@@ -28,7 +34,6 @@ static GLuint GetOrCreateBoneUBO()
     {
         glGenBuffers(1, &s_boneUBO);
         glBindBuffer(GL_UNIFORM_BUFFER, s_boneUBO);
-        // std140 で mat4 は 64 バイト → 320 × 64 = 20480 バイト（UBO 保証 64KB 以内）
         glBufferData(GL_UNIFORM_BUFFER,
                      kBonePaletteMax * 16 * static_cast<GLsizeiptr>(sizeof(float)),
                      nullptr,
@@ -40,6 +45,22 @@ static GLuint GetOrCreateBoneUBO()
 
 static void UploadBonePalette(const Matrix4* palette, size_t count)
 {
+    if (count > static_cast<size_t>(kBonePaletteMax))
+    {
+        // ボーン数がGLの上限を超えると、上限を超えた分は切り捨てられ、
+        // シェーダ側のボーンIDがそれを参照すると見た目が壊れる。
+        // 1回だけ警告し、スパムしない（毎フレーム呼ばれるため）。
+        static bool s_warned = false;
+        if (!s_warned)
+        {
+            std::cerr << "[GLRenderer] WARNING: skinned mesh bone count (" << count
+                      << ") exceeds GL palette limit (" << kBonePaletteMax
+                      << "). Bones beyond the limit are dropped and rendering may be corrupted. "
+                      << "Use the VK backend (SSBO, no practical limit) for rigs this large.\n";
+            s_warned = true;
+        }
+    }
+
     const size_t uploadCount = std::min(count, static_cast<size_t>(kBonePaletteMax));
     GLuint ubo = GetOrCreateBoneUBO();
     glBindBuffer(GL_UNIFORM_BUFFER, ubo);

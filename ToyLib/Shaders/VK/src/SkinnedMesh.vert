@@ -10,12 +10,11 @@ layout(set = 0, binding = 0, std140, row_major) uniform SceneUBO
     vec4 dirSpecular;
 } uScene;
 
-// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
-const int kMaxPalette = 320;
-
-layout(set = 2, binding = 0, std140, row_major) uniform SkinnedUBO
+// ★runtime-sized array（SSBO最後のメンバのみ許可）: コンパイル時の上限は無い。
+//   実際のボーン数ぶんのバッファがC++側(AcquireSkinnedSet)から都度バインドされる。
+layout(set = 2, binding = 0, std430, row_major) readonly buffer SkinnedSSBO
 {
-    mat4 matrixPalette[kMaxPalette];
+    mat4 matrixPalette[];
 } uSkinned;
 
 layout(push_constant, row_major) uniform PC

@@ -21,8 +21,10 @@ layout(std140, row_major) uniform ShadowSceneUBO
 uniform ObjectData uObject;
 
 // ボーンパレット UBO（binding=0）
-// 96 → 320 : Blender rigify 等の大規模リグ (300+ ボーン) に対応
-const int kMaxPalette = 320;
+// ★256 = GL_MAX_UNIFORM_BLOCK_SIZE の仕様保証最小値(16384byte)に収まる上限。
+//   320本(20480byte)は環境依存でリンク失敗する（AMD環境で起動不能を確認）。
+//   256本を超える大規模リグはVKバックエンド（SSBO）を使うこと。
+const int kMaxPalette = 256;
 
 layout(std140, row_major) uniform BonePalette
 {
