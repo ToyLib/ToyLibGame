@@ -322,10 +322,6 @@ void VKRenderer::Shutdown()
     mFrameIndex = 0;
     mImageIndex = 0;
 
-    // scene set handle safety
-    mSceneSet.clear();
-    mSceneSet_UI.clear();
-
     // skinned slots safety
     mSkinnedSlots.clear();
     mSkinnedSlotCursor.clear();

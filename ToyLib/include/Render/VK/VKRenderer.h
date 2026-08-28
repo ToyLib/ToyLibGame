@@ -130,15 +130,15 @@ public:
     bool CreateDescriptorPool();
     void DestroyDescriptorPool();
 
-    // SceneUBO は World/UI 両方作る
+    // SceneUBO + SceneSet(set=0) は World/UI 両方作る
     bool CreateSceneUBO();
     void DestroySceneUBO();
 
     // ★更新は必ず「どっちに書くか」を明示する（上書き事故防止）
-    void UpdateSceneUBO_World();                       // mSceneUBO[frame]
-    void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUBO_UI[frame]
+    void UpdateSceneUBO_World();                       // mSceneUniformWorld
+    void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUniformUI
 
-    // SceneSet は World/UI 両方作る（set=0）
+    // fallback texture（set=1）のセットアップ
     bool CreateSceneDescriptorSet();
 
     // BaseMap(set=1)
@@ -304,20 +304,9 @@ private:
     //==========================================================
     VkDescriptorPool mDescPool{VK_NULL_HANDLE};
 
-    // SceneUBO size（構造体サイズと一致させる）
-    size_t mSceneUBOSize{0};
-
-    // SceneUBO（per frame）: World
-    std::vector<VkBuffer> mSceneUBO;
-    std::vector<VkDeviceMemory> mSceneUBOMem;
-
-    // SceneUBO（per frame）: UI
-    std::vector<VkBuffer> mSceneUBO_UI;
-    std::vector<VkDeviceMemory> mSceneUBOMem_UI;
-
-    // SceneSet（per frame）: set=0
-    std::vector<VkDescriptorSet> mSceneSet;    // world
-    std::vector<VkDescriptorSet> mSceneSet_UI; // ui
+    // SceneUBO + SceneSet（per frame, set=0）: World / UI
+    VKUniformSet mSceneUniformWorld;
+    VKUniformSet mSceneUniformUI;
 
     std::vector<VkFence> mImagesInFlight;
 

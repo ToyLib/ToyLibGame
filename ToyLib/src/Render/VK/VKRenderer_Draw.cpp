@@ -390,11 +390,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     }
     else if (isUI)
     {
-        if (mFrameIndex >= mSceneSet_UI.size())
+        sceneSet = mSceneUniformUI.GetSet(mFrameIndex);
+        if (sceneSet == VK_NULL_HANDLE)
         {
             return;
         }
-        sceneSet = mSceneSet_UI[mFrameIndex];
     }
     else
     {
@@ -417,11 +417,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         }
         else
         {
-            if (mFrameIndex >= mSceneSet.size())
+            sceneSet = mSceneUniformWorld.GetSet(mFrameIndex);
+            if (sceneSet == VK_NULL_HANDLE)
             {
                 return;
             }
-            sceneSet = mSceneSet[mFrameIndex];
         }
     }
 

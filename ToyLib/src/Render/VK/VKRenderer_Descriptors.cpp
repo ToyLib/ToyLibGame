@@ -133,37 +133,14 @@ void VKRenderer::DestroyDescriptorPool()
     DestroySkinnedSlots();
 
     //----------------------------------------------------------
-    // Scene / Sky / Overlay sets は mDescPool 所有
+    // Scene / Sky / Overlay の UBO+Set は VKUniformSet::Destroy() 側で
+    // 破棄済み（DestroySceneUBO/DestroySkyUBO/DestroyOverlayUBOが先に呼ばれる）。
+    // ここでは pool 自体を破棄するのみ。
     //----------------------------------------------------------
     if (mDescPool != VK_NULL_HANDLE)
     {
-        for (auto& set : mSceneSet)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet.clear();
-
-        for (auto& set : mSceneSet_UI)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet_UI.clear();
-
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
-    }
-    else
-    {
-        mSceneSet.clear();
-        mSceneSet_UI.clear();
     }
 
     //----------------------------------------------------------
@@ -177,17 +154,15 @@ void VKRenderer::DestroyDescriptorPool()
 //==============================================================
 bool VKRenderer::CreateSceneUBO()
 {
-    if (!mDevice || !mPhysicalDevice)
+    if (!mDevice || !mPhysicalDevice || !mDescPool)
     {
         return false;
     }
 
-    if (!mSceneUBO.empty() && !mSceneUBO_UI.empty())
+    if (mSceneUniformWorld.IsCreated() && mSceneUniformUI.IsCreated())
     {
         return true;
     }
-
-    mSceneUBOSize = sizeof(VKSceneUBO);
 
     const size_t frameCount = mFrames.size();
     if (frameCount == 0)
@@ -195,29 +170,26 @@ bool VKRenderer::CreateSceneUBO()
         return false;
     }
 
-    mSceneUBO.resize(frameCount, VK_NULL_HANDLE);
-    mSceneUBOMem.resize(frameCount, VK_NULL_HANDLE);
-
-    mSceneUBO_UI.resize(frameCount, VK_NULL_HANDLE);
-    mSceneUBOMem_UI.resize(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    // set0 layout は “Sprite” を基準に取得（set0は共通運用の前提）
+    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
+    if (set0 == VK_NULL_HANDLE)
     {
-        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO[i],
-                                     mSceneUBOMem[i]))
-        {
-            std::cerr << "[VKRenderer] CreateSceneUBO(World) failed frame " << i << "\n";
-            DestroySceneUBO();
-            return false;
-        }
+        std::cerr << "[VK] CreateSceneUBO: set0 null\n";
+        return false;
+    }
 
-        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO_UI[i],
-                                     mSceneUBOMem_UI[i]))
-        {
-            std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed frame " << i << "\n";
-            DestroySceneUBO();
-            return false;
-        }
+    if (!mSceneUniformWorld.Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKSceneUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateSceneUBO(World) failed\n";
+        DestroySceneUBO();
+        return false;
+    }
+
+    if (!mSceneUniformUI.Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKSceneUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed\n";
+        DestroySceneUBO();
+        return false;
     }
 
     return true;
@@ -225,34 +197,8 @@ bool VKRenderer::CreateSceneUBO()
 
 void VKRenderer::DestroySceneUBO()
 {
-    if (!mDevice)
-    {
-        return;
-    }
-
-    auto destroyVec = [&](std::vector<VkBuffer>& bufs, std::vector<VkDeviceMemory>& mems)
-    {
-        for (size_t i = 0; i < bufs.size(); ++i)
-        {
-            if (bufs[i] != VK_NULL_HANDLE)
-            {
-                vkDestroyBuffer(mDevice, bufs[i], nullptr);
-                bufs[i] = VK_NULL_HANDLE;
-            }
-            if (mems[i] != VK_NULL_HANDLE)
-            {
-                vkFreeMemory(mDevice, mems[i], nullptr);
-                mems[i] = VK_NULL_HANDLE;
-            }
-        }
-        bufs.clear();
-        mems.clear();
-    };
-
-    destroyVec(mSceneUBO, mSceneUBOMem);
-    destroyVec(mSceneUBO_UI, mSceneUBOMem_UI);
-
-    mSceneUBOSize = 0;
+    mSceneUniformWorld.Destroy(mDevice, mDescPool);
+    mSceneUniformUI.Destroy(mDevice, mDescPool);
 }
 
 //==============================================================
@@ -260,11 +206,7 @@ void VKRenderer::DestroySceneUBO()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_World()
 {
-    if (mSceneUBOMem.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mSceneUBOMem.size())
+    if (!mSceneUniformWorld.IsCreated())
     {
         return;
     }
@@ -371,7 +313,7 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.shadowFlags[2] = 0;
     ubo.shadowFlags[3] = 0;
 
-    UploadToBuffer(mSceneUBOMem[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
+    mSceneUniformWorld.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================
@@ -379,11 +321,7 @@ void VKRenderer::UpdateSceneUBO_World()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
 {
-    if (mSceneUBOMem_UI.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mSceneUBOMem_UI.size())
+    if (!mSceneUniformUI.IsCreated())
     {
         return;
     }
@@ -409,7 +347,7 @@ void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
     ubo.fogParams[2] = 0.0f;
     ubo.fogParams[3] = 0.0f;
 
-    UploadToBuffer(mSceneUBOMem_UI[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
+    mSceneUniformUI.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================
@@ -420,97 +358,6 @@ bool VKRenderer::CreateSceneDescriptorSet()
     if (!mDevice || !mDescPool)
     {
         return false;
-    }
-
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-    if (mSceneUBO.size() != frameCount || mSceneUBO_UI.size() != frameCount)
-    {
-        std::cerr << "[VK] CreateSceneDescriptorSet: SceneUBO not ready.\n";
-        return false;
-    }
-
-    // free old
-    for (auto& ds : mSceneSet)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mSceneSet.clear();
-
-    for (auto& ds : mSceneSet_UI)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mSceneSet_UI.clear();
-
-    mSceneSet.resize(frameCount, VK_NULL_HANDLE);
-    mSceneSet_UI.resize(frameCount, VK_NULL_HANDLE);
-
-    // set0 layout は “Sprite” を基準に取得（set0は共通運用の前提）
-    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
-    if (set0 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] CreateSceneDescriptorSet: set0 null\n";
-        return false;
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set0;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] SceneSet(world) alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet_UI[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] SceneSet(ui) alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        // world
-        VkDescriptorBufferInfo biW{};
-        biW.buffer = mSceneUBO[i];
-        biW.offset = 0;
-        biW.range = mSceneUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = mSceneSet[i];
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &biW;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-        // ui
-        VkDescriptorBufferInfo biUI{};
-        biUI.buffer = mSceneUBO_UI[i];
-        biUI.offset = 0;
-        biUI.range = mSceneUBOSize;
-
-        w.dstSet = mSceneSet_UI[i];
-        w.pBufferInfo = &biUI;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
     }
 
     //----------------------------------------------------------

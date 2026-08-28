@@ -44,13 +44,6 @@ bool VKRenderer::CreateSceneUBO_Capture()
         return false;
     }
     
-    if (mSceneUBOSize == 0)
-    {
-        std::cerr << "[VKRenderer] CreateSceneUBO_Capture: mSceneUBOSize == 0."
-                     " CreateSceneUBO() が先に呼ばれていません。\n";
-        return false;
-    }
-
     VKPipeline* meshPipe = mPipelines.Get("Mesh");
     if (!meshPipe || !meshPipe->IsValid())
     {
@@ -77,7 +70,7 @@ bool VKRenderer::CreateSceneUBO_Capture()
 
         for (uint32_t si = 0; si < kMaxSceneCaptureSlots; ++si)
         {
-            if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            if (!CreateBufferHostVisible((VkDeviceSize)sizeof(VKSceneUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                          mSceneUBO_Capture[fi][si], mSceneUBOMem_Capture[fi][si]))
             {
                 std::cerr << "[VKRenderer] CreateSceneUBO_Capture: buffer failed. frame=" << fi << " slot=" << si
@@ -104,7 +97,7 @@ bool VKRenderer::CreateSceneUBO_Capture()
             VkDescriptorBufferInfo bi{};
             bi.buffer = mSceneUBO_Capture[fi][si];
             bi.offset = 0;
-            bi.range = (VkDeviceSize)mSceneUBOSize;
+            bi.range = (VkDeviceSize)sizeof(VKSceneUBO);
 
             VkWriteDescriptorSet w{};
             w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -298,7 +291,7 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
         ubo.shadowParams[3] = 0.0f;
     }
 
-    UploadToBuffer(mSceneUBOMem_Capture[mFrameIndex][mActiveCaptureSlot], &ubo, (VkDeviceSize)mSceneUBOSize);
+    UploadToBuffer(mSceneUBOMem_Capture[mFrameIndex][mActiveCaptureSlot], &ubo, (VkDeviceSize)sizeof(VKSceneUBO));
 }
 
 //==============================================================
