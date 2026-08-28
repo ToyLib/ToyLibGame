@@ -400,20 +400,16 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
     {
         if (mIsDrawingCapture)
         {
-            if (mFrameIndex >= mSceneSet_Capture.size())
-            {
-                return;
-            }
-            if (mActiveCaptureSlot < 0)
-            {
-                return;
-            }
-            if ((size_t)mActiveCaptureSlot >= mSceneSet_Capture[mFrameIndex].size())
+            if (mActiveCaptureSlot < 0 || (size_t)mActiveCaptureSlot >= kMaxSceneCaptureSlots)
             {
                 return;
             }
 
-            sceneSet = mSceneSet_Capture[mFrameIndex][mActiveCaptureSlot];
+            sceneSet = mCaptureUniform[mActiveCaptureSlot].GetSet(mFrameIndex);
+            if (sceneSet == VK_NULL_HANDLE)
+            {
+                return;
+            }
         }
         else
         {

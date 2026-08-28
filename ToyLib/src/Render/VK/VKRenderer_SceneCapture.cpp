@@ -58,56 +58,14 @@ bool VKRenderer::CreateSceneUBO_Capture()
         return false;
     }
 
-    mSceneUBO_Capture.resize(mFrames.size());
-    mSceneUBOMem_Capture.resize(mFrames.size());
-    mSceneSet_Capture.resize(mFrames.size());
-
-    for (size_t fi = 0; fi < mFrames.size(); ++fi)
+    for (uint32_t si = 0; si < kMaxSceneCaptureSlots; ++si)
     {
-        mSceneUBO_Capture[fi].resize(kMaxSceneCaptureSlots, VK_NULL_HANDLE);
-        mSceneUBOMem_Capture[fi].resize(kMaxSceneCaptureSlots, VK_NULL_HANDLE);
-        mSceneSet_Capture[fi].resize(kMaxSceneCaptureSlots, VK_NULL_HANDLE);
-
-        for (uint32_t si = 0; si < kMaxSceneCaptureSlots; ++si)
+        if (!mCaptureUniform[si].Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKSceneUBO),
+                                        mFrames.size()))
         {
-            if (!CreateBufferHostVisible((VkDeviceSize)sizeof(VKSceneUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                         mSceneUBO_Capture[fi][si], mSceneUBOMem_Capture[fi][si]))
-            {
-                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: buffer failed. frame=" << fi << " slot=" << si
-                          << "\n";
-                DestroySceneUBO_Capture();
-                return false;
-            }
-
-            VkDescriptorSetAllocateInfo ai{};
-            ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            ai.descriptorPool = mDescPool;
-            ai.descriptorSetCount = 1;
-            ai.pSetLayouts = &set0;
-
-            VkResult vr = vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet_Capture[fi][si]);
-            if (vr != VK_SUCCESS || mSceneSet_Capture[fi][si] == VK_NULL_HANDLE)
-            {
-                std::cerr << "[VKRenderer] CreateSceneUBO_Capture: alloc failed. frame=" << fi << " slot=" << si
-                          << " vr=" << vr << "\n";
-                DestroySceneUBO_Capture();
-                return false;
-            }
-
-            VkDescriptorBufferInfo bi{};
-            bi.buffer = mSceneUBO_Capture[fi][si];
-            bi.offset = 0;
-            bi.range = (VkDeviceSize)sizeof(VKSceneUBO);
-
-            VkWriteDescriptorSet w{};
-            w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            w.dstSet = mSceneSet_Capture[fi][si];
-            w.dstBinding = 0;
-            w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            w.descriptorCount = 1;
-            w.pBufferInfo = &bi;
-
-            vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+            std::cerr << "[VKRenderer] CreateSceneUBO_Capture: slot=" << si << " failed\n";
+            DestroySceneUBO_Capture();
+            return false;
         }
     }
 
@@ -119,30 +77,10 @@ bool VKRenderer::CreateSceneUBO_Capture()
 //==============================================================
 void VKRenderer::DestroySceneUBO_Capture()
 {
-    if (mDevice != VK_NULL_HANDLE)
+    for (uint32_t si = 0; si < kMaxSceneCaptureSlots; ++si)
     {
-        for (size_t fi = 0; fi < mSceneUBO_Capture.size(); ++fi)
-        {
-            for (size_t si = 0; si < mSceneUBO_Capture[fi].size(); ++si)
-            {
-                if (mSceneUBO_Capture[fi][si] != VK_NULL_HANDLE)
-                {
-                    vkDestroyBuffer(mDevice, mSceneUBO_Capture[fi][si], nullptr);
-                    mSceneUBO_Capture[fi][si] = VK_NULL_HANDLE;
-                }
-
-                if (mSceneUBOMem_Capture[fi][si] != VK_NULL_HANDLE)
-                {
-                    vkFreeMemory(mDevice, mSceneUBOMem_Capture[fi][si], nullptr);
-                    mSceneUBOMem_Capture[fi][si] = VK_NULL_HANDLE;
-                }
-            }
-        }
+        mCaptureUniform[si].Destroy(mDevice, mDescPool);
     }
-
-    mSceneUBO_Capture.clear();
-    mSceneUBOMem_Capture.clear();
-    mSceneSet_Capture.clear();
 
     mCaptureSlotCursor = 0;
     mActiveCaptureSlot = -1;
@@ -153,15 +91,7 @@ void VKRenderer::DestroySceneUBO_Capture()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
 {
-    if (mActiveCaptureSlot < 0)
-    {
-        return;
-    }
-    if (mFrameIndex >= mSceneUBOMem_Capture.size())
-    {
-        return;
-    }
-    if ((size_t)mActiveCaptureSlot >= mSceneUBOMem_Capture[mFrameIndex].size())
+    if (mActiveCaptureSlot < 0 || (size_t)mActiveCaptureSlot >= kMaxSceneCaptureSlots)
     {
         return;
     }
@@ -291,7 +221,7 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
         ubo.shadowParams[3] = 0.0f;
     }
 
-    UploadToBuffer(mSceneUBOMem_Capture[mFrameIndex][mActiveCaptureSlot], &ubo, (VkDeviceSize)sizeof(VKSceneUBO));
+    mCaptureUniform[mActiveCaptureSlot].Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================

@@ -534,9 +534,7 @@ private:
 
     static constexpr uint32_t kMaxSceneCaptureSlots = 8;
 
-    std::vector<std::vector<VkBuffer>> mSceneUBO_Capture;          // [frame][slot]
-    std::vector<std::vector<VkDeviceMemory>> mSceneUBOMem_Capture; // [frame][slot]
-    std::vector<std::vector<VkDescriptorSet>> mSceneSet_Capture;   // [frame][slot]
+    std::array<VKUniformSet, kMaxSceneCaptureSlots> mCaptureUniform;
 
     uint32_t mCaptureSlotCursor{0};
     int mActiveCaptureSlot{-1};
