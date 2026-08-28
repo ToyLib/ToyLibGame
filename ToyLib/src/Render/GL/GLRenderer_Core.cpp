@@ -35,12 +35,14 @@ bool GLRenderer::Initialize(const Application* app)
     //---------------------------------------------------------
     // OpenGL コンテキスト生成
     //---------------------------------------------------------
+    std::cerr << "[Renderer] Creating GL context..." << std::endl;
     mGLContext = SDL_GL_CreateContext(mWindow);
     if (!mGLContext)
     {
         std::cerr << "Failed to create GL context: " << SDL_GetError() << std::endl;
         return false;
     }
+    std::cerr << "[Renderer] GL context created." << std::endl;
 
 
     // VSync

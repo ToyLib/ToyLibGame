@@ -2,8 +2,29 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Runtime/SingleInstance.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <iostream>
+
+// ドライバ内クラッシュ等、cerr を吐く間もなく落ちるケースを
+// ログに残すための最終防衛ライン（例外コード/アドレスのみ記録）
+static LONG WINAPI ToyLibUnhandledExceptionFilter(EXCEPTION_POINTERS* info)
+{
+    std::cerr << "[FATAL] Unhandled exception. Code=0x" << std::hex
+              << info->ExceptionRecord->ExceptionCode
+              << " Address=" << info->ExceptionRecord->ExceptionAddress
+              << std::dec << std::endl;
+    std::cerr.flush();
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(ToyLibUnhandledExceptionFilter);
+#endif
+
     //---------------------------------------------------------
     // シングルインスタンスチェック
     // ・アプリの多重起動を防ぐ

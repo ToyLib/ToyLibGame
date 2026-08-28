@@ -154,6 +154,8 @@ bool Application::Initialize()
     
     SDL_SetWindowPosition(mWindow, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
+    std::cerr << "[Application] SDL_CreateWindow OK (backend="
+              << (RenderBackendState::Get().IsVK() ? "VK" : "GL") << ")" << std::endl;
 
     // Renderer 初期化（）
     if (!mRenderer->Initialize(this))
