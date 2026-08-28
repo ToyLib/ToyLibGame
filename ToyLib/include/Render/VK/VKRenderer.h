@@ -438,9 +438,7 @@ private:
     VkRenderPass mShadowRenderPass{VK_NULL_HANDLE};
     VkSampler mShadowSampler{VK_NULL_HANDLE};
 
-    std::array<std::vector<VkBuffer>, kShadowCascadeCount> mShadowSceneUBO;
-    std::array<std::vector<VkDeviceMemory>, kShadowCascadeCount> mShadowSceneUBOMem;
-    std::array<std::vector<VkDescriptorSet>, kShadowCascadeCount> mShadowSceneSet;
+    std::array<VKUniformSet, kShadowCascadeCount> mShadowUniform;
 
 private:
     //==========================================================

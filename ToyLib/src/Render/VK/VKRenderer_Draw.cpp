@@ -382,11 +382,11 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         {
             return;
         }
-        if (mFrameIndex >= mShadowSceneSet[cascadeIndex].size())
+        sceneSet = mShadowUniform[cascadeIndex].GetSet(mFrameIndex);
+        if (sceneSet == VK_NULL_HANDLE)
         {
             return;
         }
-        sceneSet = mShadowSceneSet[cascadeIndex][mFrameIndex];
     }
     else if (isUI)
     {

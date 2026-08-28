@@ -43,6 +43,11 @@ public:
         return !mUBO.empty();
     }
 
+    size_t FrameCount() const
+    {
+        return mUBO.size();
+    }
+
 private:
     std::vector<VkBuffer> mUBO;
     std::vector<VkDeviceMemory> mMem;
