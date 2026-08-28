@@ -1,63 +1,10 @@
 #version 410 core
 
 //======================================================================
-// ToyLib Uniform Contract (v1) - generated
-//   See Render/GL/UniformNamesGL.h
+// ToyLib Uniform Contract (v2) - SceneUBO
+//   C++ mirror : Render/GL/GLShaderTypes.h  (GLSceneUBO)
+//   Binding    : Render/GL/GLBindingPoints.h (kSceneUBOBinding = 1)
 //======================================================================
-
-struct DirLight
-{
-    vec3 direction;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-struct PointLight
-{
-    vec3  position;
-    vec3  color;
-    float intensity;
-
-    float constant;
-    float linear;
-    float quadratic;
-
-    float radius;
-};
-
-struct FogInfo
-{
-    float maxDist;
-    float minDist;
-    vec3  color;
-};
-
-struct SceneData
-{
-    mat4 viewProj;
-
-    vec3 cameraPos;
-
-    vec3  ambientLight;
-    float sunIntensity;
-
-    DirLight dirLight;
-
-    int        numPointLights;
-    PointLight pointLights[8];
-
-    FogInfo fog;
-
-    sampler2DShadow shadowMap0;
-    sampler2DShadow shadowMap1;
-
-    mat4  lightViewProj0;
-    mat4  lightViewProj1;
-    float cascadeSplit0;
-    float cascadeBlend;
-    float shadowBias;
-    int   shadowEnable;
-};
 
 struct ObjectData
 {
@@ -79,21 +26,37 @@ struct MaterialData
     float specPower;
 };
 
-// Max palette size must match engine-side upload
-const int kMaxPalette = 96;
-
-struct SkinnedData
+// GL 4.1 は layout(binding=N) 不可 → C++ 側で glUniformBlockBinding 設定済み
+// row_major: ToyLib は v*M（行ベクトル×行列）規約
+layout(std140, row_major) uniform SceneUBO
 {
-    mat4 matrixPalette[kMaxPalette];
-};
+    mat4  viewProj;
+    vec4  cameraAndSun;      // xyz=cameraPos, w=sunIntensity
+    vec4  ambientLight;      // xyz=ambient
+    vec4  dirDirection;      // xyz=dirLight.direction
+    vec4  dirDiffuse;        // xyz=dirLight.diffuse
+    vec4  dirSpecular;       // xyz=dirLight.specular
+    int   numPointLights;
+    int   _plPad0, _plPad1, _plPad2;
+    vec4  plPosRadius[8];      // xyz=position, w=radius
+    vec4  plColorIntensity[8]; // xyz=color, w=intensity
+    vec4  plAtten[8];          // x=constant, y=linear, z=quadratic
+    vec4  fogColor;            // xyz=fog.color
+    vec4  fogParams;           // x=minDist, y=maxDist
+    mat4  lightViewProj0;
+    mat4  lightViewProj1;
+    vec4  shadowParams;        // x=cascadeSplit0, y=cascadeBlend, z=shadowBias
+    ivec4 shadowFlags;         // x=shadowEnable
+} uScene;
 
-uniform SceneData    uScene;
+uniform sampler2DShadow uShadowMap0;
+uniform sampler2DShadow uShadowMap1;
+
 uniform ObjectData   uObject;
 uniform MaterialData uMaterial;
 
 // 2D/UI パス用 VP 行列
 uniform mat4 uViewProj;
-uniform SkinnedData  uSkinned;
 
 //======================================================================
 //  Unlit.vert
