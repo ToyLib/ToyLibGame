@@ -29,22 +29,9 @@ bool GLRenderer::Initialize(const Application* app)
 {
     mWindow = app->GetSDLWindow();      // 非所有
 
-    //---------------------------------------------------------
-    // OpenGL コンテキスト属性設定
-    //---------------------------------------------------------
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    // OpenGL コンテキスト属性は、ウィンドウのピクセルフォーマット確定に
+    // 影響するため SDL_CreateWindow より前(Application::Initialize)で設定済み
 
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-
-    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-    
     //---------------------------------------------------------
     // OpenGL コンテキスト生成
     //---------------------------------------------------------

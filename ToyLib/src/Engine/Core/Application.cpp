@@ -114,6 +114,27 @@ bool Application::Initialize()
         mRenderer = std::make_unique<GLRenderer>();
         windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
         mApplicationTitle = mApplicationTitle + " (OpenGL)";
+
+        //-------------------------------------------------------
+        // OpenGL コンテキスト属性設定
+        //   SDL_WINDOW_OPENGL 指定の SDL_CreateWindow はこの時点の
+        //   属性でピクセルフォーマットを確定するため、必ず
+        //   SDL_CreateWindow より前に呼ぶ必要がある
+        //   (Windows/WGL環境で後段に置くとAMD等のドライバで
+        //    コンテキスト生成に失敗/フリーズする)
+        //-------------------------------------------------------
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+        SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+        SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+        SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+        SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+
+        SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
     }
 
 
