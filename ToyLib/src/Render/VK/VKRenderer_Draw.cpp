@@ -908,19 +908,14 @@ void VKRenderer::DrawItem_UnlitQuad(VkCommandBuffer cmd, const RenderItem& it, V
 void VKRenderer::DrawItem_SkyDome(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
                                   const char* pipelineName)
 {
-    if (mFrameIndex >= mSkySet.size())
+    VkDescriptorSet skySet = mSkyUniform.GetSet(mFrameIndex);
+    if (skySet == VK_NULL_HANDLE)
     {
         return;
     }
 
     VKPipeline* pipe = mPipelines.Get(pipelineName);
     if (!pipe || !pipe->IsValid())
-    {
-        return;
-    }
-
-    VkDescriptorSet skySet = mSkySet[mFrameIndex];
-    if (skySet == VK_NULL_HANDLE)
     {
         return;
     }

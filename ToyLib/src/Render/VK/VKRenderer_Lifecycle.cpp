@@ -172,11 +172,6 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    if (!CreateSkyUBO())
-    {
-        Shutdown();
-        return false;
-    }
     if (!CreateOverlayUBO())
     {
         Shutdown();
@@ -187,7 +182,7 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    if (!CreateSkyDescriptorSet())
+    if (!CreateSkyUBO())
     {
         Shutdown();
         return false;

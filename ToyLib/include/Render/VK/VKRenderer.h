@@ -18,6 +18,7 @@
 
 #include "Render/IRenderer.h"
 #include "Render/VK/Pipeline/VKPipelineLibrary.h"
+#include "Render/VK/VKUniformSet.h"
 #include "Utils/MathUtil.h"
 
 #include <SDL3/SDL.h>
@@ -318,12 +319,6 @@ private:
     std::vector<VkDescriptorSet> mSceneSet;    // world
     std::vector<VkDescriptorSet> mSceneSet_UI; // ui
 
-    // Sky UBO / set
-    std::vector<VkBuffer> mSkyUBO;
-    std::vector<VkDeviceMemory> mSkyUBOMem;
-    std::vector<VkDescriptorSet> mSkySet;
-    size_t mSkyUBOSize{0};
-
     // OverlayScreen UBO / set
     std::vector<VkBuffer> mOverlayUBO;
     std::vector<VkDeviceMemory> mOverlayUBOMem;
@@ -499,7 +494,8 @@ private:
     bool CreateSkyUBO();
     void DestroySkyUBO();
     void UpdateSkyUBO(const SkyDomePayload& sky);
-    bool CreateSkyDescriptorSet();
+
+    VKUniformSet mSkyUniform;
 
 private:
     //==========================================================
