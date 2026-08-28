@@ -319,12 +319,6 @@ private:
     std::vector<VkDescriptorSet> mSceneSet;    // world
     std::vector<VkDescriptorSet> mSceneSet_UI; // ui
 
-    // OverlayScreen UBO / set
-    std::vector<VkBuffer> mOverlayUBO;
-    std::vector<VkDeviceMemory> mOverlayUBOMem;
-    std::vector<VkDescriptorSet> mOverlaySet;
-    size_t mOverlayUBOSize{0};
-
     std::vector<VkFence> mImagesInFlight;
 
 private:
@@ -504,7 +498,8 @@ private:
     bool CreateOverlayUBO();
     void DestroyOverlayUBO();
     void UpdateOverlayUBO(const OverlayPayload& overlay);
-    bool CreateOverlayDescriptorSet();
+
+    VKUniformSet mOverlayUniform;
 
 private:
     //==========================================================

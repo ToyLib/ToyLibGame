@@ -187,11 +187,6 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    if (!CreateOverlayDescriptorSet())
-    {
-        Shutdown();
-        return false;
-    }
     if (!CreatePostEffectDescriptorSets())
     {
         Shutdown();

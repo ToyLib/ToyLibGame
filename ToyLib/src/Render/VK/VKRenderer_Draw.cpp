@@ -952,19 +952,14 @@ void VKRenderer::DrawItem_SkyDome(VkCommandBuffer cmd, const RenderItem& it, VkD
 //==============================================================
 void VKRenderer::DrawItem_Overlay(VkCommandBuffer cmd, const RenderItem& it, const char* pipelineName)
 {
-    if (mFrameIndex >= mOverlaySet.size())
+    VkDescriptorSet overlaySet = mOverlayUniform.GetSet(mFrameIndex);
+    if (overlaySet == VK_NULL_HANDLE)
     {
         return;
     }
 
     VKPipeline* pipe = mPipelines.Get(pipelineName);
     if (!pipe || !pipe->IsValid())
-    {
-        return;
-    }
-
-    VkDescriptorSet overlaySet = mOverlaySet[mFrameIndex];
-    if (overlaySet == VK_NULL_HANDLE)
     {
         return;
     }

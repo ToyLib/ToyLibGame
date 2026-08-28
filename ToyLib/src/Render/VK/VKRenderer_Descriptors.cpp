@@ -157,16 +157,6 @@ void VKRenderer::DestroyDescriptorPool()
         }
         mSceneSet_UI.clear();
 
-        for (auto& set : mOverlaySet)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mOverlaySet.clear();
-
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
     }
@@ -174,7 +164,6 @@ void VKRenderer::DestroyDescriptorPool()
     {
         mSceneSet.clear();
         mSceneSet_UI.clear();
-        mOverlaySet.clear();
     }
 
     //----------------------------------------------------------
@@ -1300,17 +1289,15 @@ void VKRenderer::UpdateSkyUBO(const SkyDomePayload& sky)
 //==============================================================
 bool VKRenderer::CreateOverlayUBO()
 {
-    if (!mDevice || !mPhysicalDevice)
+    if (!mDevice || !mPhysicalDevice || !mDescPool)
     {
         return false;
     }
 
-    if (!mOverlayUBO.empty())
+    if (mOverlayUniform.IsCreated())
     {
         return true;
     }
-
-    mOverlayUBOSize = sizeof(VKOverlayUBO);
 
     const size_t frameCount = mFrames.size();
     if (frameCount == 0)
@@ -1318,18 +1305,18 @@ bool VKRenderer::CreateOverlayUBO()
         return false;
     }
 
-    mOverlayUBO.resize(frameCount, VK_NULL_HANDLE);
-    mOverlayUBOMem.resize(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    // Alpha版を基準に set=1 layout を取得
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "WeatherOverlay", 1);
+    if (set1 == VK_NULL_HANDLE)
     {
-        if (!CreateBufferHostVisible(static_cast<VkDeviceSize>(mOverlayUBOSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     mOverlayUBO[i], mOverlayUBOMem[i]))
-        {
-            std::cerr << "[VKRenderer] CreateOverlayUBO failed frame " << i << "\n";
-            DestroyOverlayUBO();
-            return false;
-        }
+        std::cerr << "[VK] CreateOverlayUBO: WeatherOverlay set1 null\n";
+        return false;
+    }
+
+    if (!mOverlayUniform.Create(mDevice, mPhysicalDevice, mDescPool, set1, sizeof(VKOverlayUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateOverlayUBO failed\n";
+        return false;
     }
 
     return true;
@@ -1337,28 +1324,7 @@ bool VKRenderer::CreateOverlayUBO()
 
 void VKRenderer::DestroyOverlayUBO()
 {
-    if (!mDevice)
-    {
-        return;
-    }
-
-    for (size_t i = 0; i < mOverlayUBO.size(); ++i)
-    {
-        if (mOverlayUBO[i] != VK_NULL_HANDLE)
-        {
-            vkDestroyBuffer(mDevice, mOverlayUBO[i], nullptr);
-            mOverlayUBO[i] = VK_NULL_HANDLE;
-        }
-        if (mOverlayUBOMem[i] != VK_NULL_HANDLE)
-        {
-            vkFreeMemory(mDevice, mOverlayUBOMem[i], nullptr);
-            mOverlayUBOMem[i] = VK_NULL_HANDLE;
-        }
-    }
-
-    mOverlayUBO.clear();
-    mOverlayUBOMem.clear();
-    mOverlayUBOSize = 0;
+    mOverlayUniform.Destroy(mDevice, mDescPool);
 }
 
 //==============================================================
@@ -1366,11 +1332,7 @@ void VKRenderer::DestroyOverlayUBO()
 //==============================================================
 void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
 {
-    if (mOverlayUBOMem.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mOverlayUBOMem.size())
+    if (!mOverlayUniform.IsCreated())
     {
         return;
     }
@@ -1413,82 +1375,7 @@ void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
     ubo.flareColor[2] = overlay.flareColor.z;
     ubo.flareColor[3] = 0.0f;
 
-    UploadToBuffer(mOverlayUBOMem[mFrameIndex], &ubo, static_cast<VkDeviceSize>(mOverlayUBOSize));
-}
-
-//==============================================================
-// Overlay Descriptor Set (set=1 binding=0 UBO)
-//==============================================================
-bool VKRenderer::CreateOverlayDescriptorSet()
-{
-    if (!mDevice || !mDescPool)
-    {
-        return false;
-    }
-
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-
-    if (mOverlayUBO.size() != frameCount)
-    {
-        std::cerr << "[VK] CreateOverlayDescriptorSet: OverlayUBO not ready.\n";
-        return false;
-    }
-
-    for (auto& ds : mOverlaySet)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mOverlaySet.clear();
-
-    mOverlaySet.resize(frameCount, VK_NULL_HANDLE);
-
-    // Alpha版を基準に set=1 layout を取得
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "WeatherOverlay", 1);
-    if (set1 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] CreateOverlayDescriptorSet: WeatherOverlay set1 null\n";
-        return false;
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set1;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mOverlaySet[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] OverlaySet alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        VkDescriptorBufferInfo bi{};
-        bi.buffer = mOverlayUBO[i];
-        bi.offset = 0;
-        bi.range = mOverlayUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = mOverlaySet[i];
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &bi;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-    }
-
-    return true;
+    mOverlayUniform.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 } // namespace toy
