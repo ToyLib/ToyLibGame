@@ -44,7 +44,7 @@ bool VKRenderer::BuildDefaultPipelines()
     mPipelines.DestroyAll();
 
     // pipeline を作り直したら setLayout が変わる可能性がある
-    ClearBaseMapSetCache();
+    mBaseMapCache.Clear();
 
 
 
@@ -274,7 +274,7 @@ bool VKRenderer::BuildDefaultPipelines()
     mPipelines.DestroyAll();
 
     // pipeline を作り直したら setLayout が変わる可能性がある
-    ClearBaseMapSetCache();
+    mBaseMapCache.Clear();
 
     // PostEffect は pipeline recreate 後に layout を取り直す
     mPostEffectSets.clear();

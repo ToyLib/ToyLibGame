@@ -366,22 +366,7 @@ void VKRenderer::OnWindowResized(int width, int height)
 //--------------------------------------------------------------
 void VKRenderer::OnTextureUnloaded(const Texture* tex)
 {
-    if (!tex)
-    {
-        return;
-    }
-
-    for (auto it = mBaseMapSetCache.begin(); it != mBaseMapSetCache.end();)
-    {
-        if (it->first.tex == tex)
-        {
-            it = mBaseMapSetCache.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
+    mBaseMapCache.RemoveTexture(tex);
 }
 
 } // namespace toy
