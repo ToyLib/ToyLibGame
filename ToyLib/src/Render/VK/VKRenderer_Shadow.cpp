@@ -93,33 +93,9 @@ bool VKRenderer::CreateShadowResources()
 
         for (int ci = 0; ci < kShadowCascadeCount; ++ci)
         {
-            if (mShadowSceneUBO[ci].size() != frameCount)
+            if (!mShadowUniform[ci].IsCreated() || mShadowUniform[ci].FrameCount() != frameCount)
             {
                 return false;
-            }
-            if (mShadowSceneUBOMem[ci].size() != frameCount)
-            {
-                return false;
-            }
-            if (mShadowSceneSet[ci].size() != frameCount)
-            {
-                return false;
-            }
-
-            for (size_t fi = 0; fi < frameCount; ++fi)
-            {
-                if (mShadowSceneUBO[ci][fi] == VK_NULL_HANDLE)
-                {
-                    return false;
-                }
-                if (mShadowSceneUBOMem[ci][fi] == VK_NULL_HANDLE)
-                {
-                    return false;
-                }
-                if (mShadowSceneSet[ci][fi] == VK_NULL_HANDLE)
-                {
-                    return false;
-                }
             }
         }
         return true;
@@ -334,9 +310,7 @@ void VKRenderer::DestroyShadowResources()
 
         for (int ci = 0; ci < kShadowCascadeCount; ++ci)
         {
-            mShadowSceneUBO[ci].clear();
-            mShadowSceneUBOMem[ci].clear();
-            mShadowSceneSet[ci].clear();
+            mShadowUniform[ci].Destroy(mDevice, mDescPool);
         }
 
         mShadowRenderPass = VK_NULL_HANDLE;
@@ -423,52 +397,13 @@ bool VKRenderer::CreateShadowSceneUBOAndSet()
         return false;
     }
 
-    const VkDeviceSize uboSize = sizeof(VKShadowSceneUBO);
-
     for (int ci = 0; ci < kShadowCascadeCount; ++ci)
     {
-        mShadowSceneUBO[ci].assign(frameCount, VK_NULL_HANDLE);
-        mShadowSceneUBOMem[ci].assign(frameCount, VK_NULL_HANDLE);
-        mShadowSceneSet[ci].assign(frameCount, VK_NULL_HANDLE);
-
-        for (size_t fi = 0; fi < frameCount; ++fi)
+        if (!mShadowUniform[ci].Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKShadowSceneUBO),
+                                       frameCount))
         {
-            if (!CreateBufferHostVisible(uboSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mShadowSceneUBO[ci][fi],
-                                         mShadowSceneUBOMem[ci][fi]))
-            {
-                std::cerr << "[VKRenderer] Shadow: CreateBufferHostVisible failed cascade=" << ci << " frame=" << fi
-                          << "\n";
-                return false;
-            }
-
-            VkDescriptorSetAllocateInfo ai{};
-            ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            ai.descriptorPool = mDescPool;
-            ai.descriptorSetCount = 1;
-            ai.pSetLayouts = &set0;
-
-            if (vkAllocateDescriptorSets(mDevice, &ai, &mShadowSceneSet[ci][fi]) != VK_SUCCESS ||
-                mShadowSceneSet[ci][fi] == VK_NULL_HANDLE)
-            {
-                std::cerr << "[VKRenderer] Shadow: alloc shadow scene set failed cascade=" << ci << " frame=" << fi
-                          << "\n";
-                return false;
-            }
-
-            VkDescriptorBufferInfo bi{};
-            bi.buffer = mShadowSceneUBO[ci][fi];
-            bi.offset = 0;
-            bi.range = uboSize;
-
-            VkWriteDescriptorSet w{};
-            w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            w.dstSet = mShadowSceneSet[ci][fi];
-            w.dstBinding = 0;
-            w.descriptorCount = 1;
-            w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            w.pBufferInfo = &bi;
-
-            vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
+            std::cerr << "[VKRenderer] Shadow: CreateShadowSceneUBOAndSet failed cascade=" << ci << "\n";
+            return false;
         }
     }
 
@@ -477,61 +412,9 @@ bool VKRenderer::CreateShadowSceneUBOAndSet()
 
 void VKRenderer::DestroyShadowSceneUBOAndSet()
 {
-    if (!mDevice)
-    {
-        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
-        {
-            mShadowSceneUBO[ci].clear();
-            mShadowSceneUBOMem[ci].clear();
-            mShadowSceneSet[ci].clear();
-        }
-        return;
-    }
-
-    // free DS
-    if (mDescPool)
-    {
-        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
-        {
-            for (auto& ds : mShadowSceneSet[ci])
-            {
-                if (ds)
-                {
-                    vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-                }
-                ds = VK_NULL_HANDLE;
-            }
-            mShadowSceneSet[ci].clear();
-        }
-    }
-    else
-    {
-        for (int ci = 0; ci < kShadowCascadeCount; ++ci)
-        {
-            mShadowSceneSet[ci].clear();
-        }
-    }
-
-    // destroy UBOs
     for (int ci = 0; ci < kShadowCascadeCount; ++ci)
     {
-        for (size_t fi = 0; fi < mShadowSceneUBO[ci].size(); ++fi)
-        {
-            if (mShadowSceneUBO[ci][fi])
-            {
-                vkDestroyBuffer(mDevice, mShadowSceneUBO[ci][fi], nullptr);
-            }
-            mShadowSceneUBO[ci][fi] = VK_NULL_HANDLE;
-
-            if (mShadowSceneUBOMem[ci][fi])
-            {
-                vkFreeMemory(mDevice, mShadowSceneUBOMem[ci][fi], nullptr);
-            }
-            mShadowSceneUBOMem[ci][fi] = VK_NULL_HANDLE;
-        }
-
-        mShadowSceneUBO[ci].clear();
-        mShadowSceneUBOMem[ci].clear();
+        mShadowUniform[ci].Destroy(mDevice, mDescPool);
     }
 }
 
@@ -606,7 +489,7 @@ void VKRenderer::UpdateShadowSceneUBO(int cascadeIndex)
     }
 
     // ★cascade別 [frame] に書く
-    if (mShadowSceneUBOMem[cascadeIndex].empty() || mFrameIndex >= mShadowSceneUBOMem[cascadeIndex].size())
+    if (!mShadowUniform[cascadeIndex].IsCreated())
     {
         return;
     }
@@ -614,7 +497,7 @@ void VKRenderer::UpdateShadowSceneUBO(int cascadeIndex)
     VKShadowSceneUBO ubo{};
     std::memcpy(ubo.lightVP, &mShadowCascades[cascadeIndex].lightVP, sizeof(float) * 16);
 
-    UploadToBuffer(mShadowSceneUBOMem[cascadeIndex][mFrameIndex], &ubo, sizeof(VKShadowSceneUBO));
+    mShadowUniform[cascadeIndex].Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //--------------------------------------------------------------

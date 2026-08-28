@@ -18,6 +18,8 @@
 
 #include "Render/IRenderer.h"
 #include "Render/VK/Pipeline/VKPipelineLibrary.h"
+#include "Render/VK/VKBaseMapDescriptorCache.h"
+#include "Render/VK/VKUniformSet.h"
 #include "Utils/MathUtil.h"
 
 #include <SDL3/SDL.h>
@@ -129,15 +131,15 @@ public:
     bool CreateDescriptorPool();
     void DestroyDescriptorPool();
 
-    // SceneUBO は World/UI 両方作る
+    // SceneUBO + SceneSet(set=0) は World/UI 両方作る
     bool CreateSceneUBO();
     void DestroySceneUBO();
 
     // ★更新は必ず「どっちに書くか」を明示する（上書き事故防止）
-    void UpdateSceneUBO_World();                       // mSceneUBO[frame]
-    void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUBO_UI[frame]
+    void UpdateSceneUBO_World();                       // mSceneUniformWorld
+    void UpdateSceneUBO_UI(const Matrix4& uiViewProj); // mSceneUniformUI
 
-    // SceneSet は World/UI 両方作る（set=0）
+    // fallback texture（set=1）のセットアップ
     bool CreateSceneDescriptorSet();
 
     // BaseMap(set=1)
@@ -199,18 +201,6 @@ private:
     bool CreateBufferHostVisible(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& outBuf, VkDeviceMemory& outMem);
 
     bool UploadToBuffer(VkDeviceMemory mem, const void* data, VkDeviceSize size);
-
-private:
-    //==========================================================
-    // BaseMap(set=1) キャッシュ
-    //==========================================================
-    void ClearBaseMapSetCache();
-
-    // Fallback 1x1 white texture + descriptor set(set=1)
-    bool CreateFallbackWhiteTexture();
-    void DestroyFallbackWhiteTexture();
-    bool CreateFallbackBaseMapSet(const char* pipelineName);
-    void DestroyFallbackBaseMapSet();
 
 private:
     //==========================================================
@@ -303,99 +293,18 @@ private:
     //==========================================================
     VkDescriptorPool mDescPool{VK_NULL_HANDLE};
 
-    // SceneUBO size（構造体サイズと一致させる）
-    size_t mSceneUBOSize{0};
-
-    // SceneUBO（per frame）: World
-    std::vector<VkBuffer> mSceneUBO;
-    std::vector<VkDeviceMemory> mSceneUBOMem;
-
-    // SceneUBO（per frame）: UI
-    std::vector<VkBuffer> mSceneUBO_UI;
-    std::vector<VkDeviceMemory> mSceneUBOMem_UI;
-
-    // SceneSet（per frame）: set=0
-    std::vector<VkDescriptorSet> mSceneSet;    // world
-    std::vector<VkDescriptorSet> mSceneSet_UI; // ui
-
-    // Sky UBO / set
-    std::vector<VkBuffer> mSkyUBO;
-    std::vector<VkDeviceMemory> mSkyUBOMem;
-    std::vector<VkDescriptorSet> mSkySet;
-    size_t mSkyUBOSize{0};
-
-    // OverlayScreen UBO / set
-    std::vector<VkBuffer> mOverlayUBO;
-    std::vector<VkDeviceMemory> mOverlayUBOMem;
-    std::vector<VkDescriptorSet> mOverlaySet;
-    size_t mOverlayUBOSize{0};
+    // SceneUBO + SceneSet（per frame, set=0）: World / UI
+    VKUniformSet mSceneUniformWorld;
+    VKUniformSet mSceneUniformUI;
 
     std::vector<VkFence> mImagesInFlight;
 
 private:
     //==========================================================
-    // BaseMap(set=1)
-    //  - “専用 pool を増設”して枯れを回避
+    // BaseMap(set=1) + fallback(1x1 white)
+    //  - テクスチャ→DescriptorSetのキャッシュ/プール管理はVKBaseMapDescriptorCacheに委譲
     //==========================================================
-    struct BaseMapKey
-    {
-        // frame は含めない — テクスチャセットは全フレーム共用可能
-        // テクスチャ破棄時は ClearBaseMapSetCache() で一括解放すること
-        const Texture* tex = nullptr;
-        std::string pipelineName;
-
-        bool operator==(const BaseMapKey& o) const
-        {
-            return tex == o.tex && pipelineName == o.pipelineName;
-        }
-    };
-
-    struct BaseMapKeyHash
-    {
-        size_t operator()(const BaseMapKey& k) const noexcept
-        {
-            size_t h = 1469598103934665603ull;
-            auto mix = [&](size_t v)
-            {
-                h ^= v;
-                h *= 1099511628211ull;
-            };
-
-            mix(std::hash<const void*>{}(k.tex));
-            mix(std::hash<std::string>{}(k.pipelineName));
-            return h;
-        }
-    };
-
-    struct CachedDescriptorSet
-    {
-        VkDescriptorPool pool = VK_NULL_HANDLE;
-        VkDescriptorSet set = VK_NULL_HANDLE;
-    };
-
-    std::unordered_map<BaseMapKey, CachedDescriptorSet, BaseMapKeyHash> mBaseMapSetCache;
-
-    std::vector<VkDescriptorPool> mBaseMapPools;
-    uint32_t mBaseMapPoolCursor = 0;
-
-    VkDescriptorPool CreateBaseMapPool(uint32_t maxSets, uint32_t samplerCount);
-    VkDescriptorPool GetActiveBaseMapPool();
-    VkDescriptorPool GrowBaseMapPoolAndGet();
-
-private:
-    //==========================================================
-    // Fallback base map（1x1 white）
-    //==========================================================
-    VkImage mFallbackWhiteImg{VK_NULL_HANDLE};
-    VkDeviceMemory mFallbackWhiteMem{VK_NULL_HANDLE};
-    VkImageView mFallbackWhiteView{VK_NULL_HANDLE};
-    VkSampler mFallbackWhiteSampler{VK_NULL_HANDLE};
-
-    // backward compat（旧名だけ残す）
-    VkDescriptorSet mFallbackBaseMapSet{VK_NULL_HANDLE};
-
-    // pipeline ごとの fallback DS（pool も保持）
-    std::unordered_map<std::string, CachedDescriptorSet> mFallbackBaseMapSetByPipe;
+    VKBaseMapDescriptorCache mBaseMapCache;
 
 private:
     //==========================================================
@@ -460,9 +369,7 @@ private:
     VkRenderPass mShadowRenderPass{VK_NULL_HANDLE};
     VkSampler mShadowSampler{VK_NULL_HANDLE};
 
-    std::array<std::vector<VkBuffer>, kShadowCascadeCount> mShadowSceneUBO;
-    std::array<std::vector<VkDeviceMemory>, kShadowCascadeCount> mShadowSceneUBOMem;
-    std::array<std::vector<VkDescriptorSet>, kShadowCascadeCount> mShadowSceneSet;
+    std::array<VKUniformSet, kShadowCascadeCount> mShadowUniform;
 
 private:
     //==========================================================
@@ -499,7 +406,8 @@ private:
     bool CreateSkyUBO();
     void DestroySkyUBO();
     void UpdateSkyUBO(const SkyDomePayload& sky);
-    bool CreateSkyDescriptorSet();
+
+    VKUniformSet mSkyUniform;
 
 private:
     //==========================================================
@@ -508,7 +416,8 @@ private:
     bool CreateOverlayUBO();
     void DestroyOverlayUBO();
     void UpdateOverlayUBO(const OverlayPayload& overlay);
-    bool CreateOverlayDescriptorSet();
+
+    VKUniformSet mOverlayUniform;
 
 private:
     //==========================================================
@@ -556,9 +465,7 @@ private:
 
     static constexpr uint32_t kMaxSceneCaptureSlots = 8;
 
-    std::vector<std::vector<VkBuffer>> mSceneUBO_Capture;          // [frame][slot]
-    std::vector<std::vector<VkDeviceMemory>> mSceneUBOMem_Capture; // [frame][slot]
-    std::vector<std::vector<VkDescriptorSet>> mSceneSet_Capture;   // [frame][slot]
+    std::array<VKUniformSet, kMaxSceneCaptureSlots> mCaptureUniform;
 
     uint32_t mCaptureSlotCursor{0};
     int mActiveCaptureSlot{-1};

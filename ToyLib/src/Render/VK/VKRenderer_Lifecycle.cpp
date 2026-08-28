@@ -172,11 +172,6 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    if (!CreateSkyUBO())
-    {
-        Shutdown();
-        return false;
-    }
     if (!CreateOverlayUBO())
     {
         Shutdown();
@@ -187,12 +182,7 @@ bool VKRenderer::Initialize(const Application* app)
         Shutdown();
         return false;
     }
-    if (!CreateSkyDescriptorSet())
-    {
-        Shutdown();
-        return false;
-    }
-    if (!CreateOverlayDescriptorSet())
+    if (!CreateSkyUBO())
     {
         Shutdown();
         return false;
@@ -332,10 +322,6 @@ void VKRenderer::Shutdown()
     mFrameIndex = 0;
     mImageIndex = 0;
 
-    // scene set handle safety
-    mSceneSet.clear();
-    mSceneSet_UI.clear();
-
     // skinned slots safety
     mSkinnedSlots.clear();
     mSkinnedSlotCursor.clear();
@@ -380,22 +366,7 @@ void VKRenderer::OnWindowResized(int width, int height)
 //--------------------------------------------------------------
 void VKRenderer::OnTextureUnloaded(const Texture* tex)
 {
-    if (!tex)
-    {
-        return;
-    }
-
-    for (auto it = mBaseMapSetCache.begin(); it != mBaseMapSetCache.end();)
-    {
-        if (it->first.tex == tex)
-        {
-            it = mBaseMapSetCache.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
+    mBaseMapCache.RemoveTexture(tex);
 }
 
 } // namespace toy

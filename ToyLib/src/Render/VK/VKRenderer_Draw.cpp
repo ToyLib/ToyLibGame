@@ -382,46 +382,42 @@ void VKRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
         {
             return;
         }
-        if (mFrameIndex >= mShadowSceneSet[cascadeIndex].size())
+        sceneSet = mShadowUniform[cascadeIndex].GetSet(mFrameIndex);
+        if (sceneSet == VK_NULL_HANDLE)
         {
             return;
         }
-        sceneSet = mShadowSceneSet[cascadeIndex][mFrameIndex];
     }
     else if (isUI)
     {
-        if (mFrameIndex >= mSceneSet_UI.size())
+        sceneSet = mSceneUniformUI.GetSet(mFrameIndex);
+        if (sceneSet == VK_NULL_HANDLE)
         {
             return;
         }
-        sceneSet = mSceneSet_UI[mFrameIndex];
     }
     else
     {
         if (mIsDrawingCapture)
         {
-            if (mFrameIndex >= mSceneSet_Capture.size())
-            {
-                return;
-            }
-            if (mActiveCaptureSlot < 0)
-            {
-                return;
-            }
-            if ((size_t)mActiveCaptureSlot >= mSceneSet_Capture[mFrameIndex].size())
+            if (mActiveCaptureSlot < 0 || (size_t)mActiveCaptureSlot >= kMaxSceneCaptureSlots)
             {
                 return;
             }
 
-            sceneSet = mSceneSet_Capture[mFrameIndex][mActiveCaptureSlot];
-        }
-        else
-        {
-            if (mFrameIndex >= mSceneSet.size())
+            sceneSet = mCaptureUniform[mActiveCaptureSlot].GetSet(mFrameIndex);
+            if (sceneSet == VK_NULL_HANDLE)
             {
                 return;
             }
-            sceneSet = mSceneSet[mFrameIndex];
+        }
+        else
+        {
+            sceneSet = mSceneUniformWorld.GetSet(mFrameIndex);
+            if (sceneSet == VK_NULL_HANDLE)
+            {
+                return;
+            }
         }
     }
 
@@ -908,19 +904,14 @@ void VKRenderer::DrawItem_UnlitQuad(VkCommandBuffer cmd, const RenderItem& it, V
 void VKRenderer::DrawItem_SkyDome(VkCommandBuffer cmd, const RenderItem& it, VkDescriptorSet sceneSet,
                                   const char* pipelineName)
 {
-    if (mFrameIndex >= mSkySet.size())
+    VkDescriptorSet skySet = mSkyUniform.GetSet(mFrameIndex);
+    if (skySet == VK_NULL_HANDLE)
     {
         return;
     }
 
     VKPipeline* pipe = mPipelines.Get(pipelineName);
     if (!pipe || !pipe->IsValid())
-    {
-        return;
-    }
-
-    VkDescriptorSet skySet = mSkySet[mFrameIndex];
-    if (skySet == VK_NULL_HANDLE)
     {
         return;
     }
@@ -957,19 +948,14 @@ void VKRenderer::DrawItem_SkyDome(VkCommandBuffer cmd, const RenderItem& it, VkD
 //==============================================================
 void VKRenderer::DrawItem_Overlay(VkCommandBuffer cmd, const RenderItem& it, const char* pipelineName)
 {
-    if (mFrameIndex >= mOverlaySet.size())
+    VkDescriptorSet overlaySet = mOverlayUniform.GetSet(mFrameIndex);
+    if (overlaySet == VK_NULL_HANDLE)
     {
         return;
     }
 
     VKPipeline* pipe = mPipelines.Get(pipelineName);
     if (!pipe || !pipe->IsValid())
-    {
-        return;
-    }
-
-    VkDescriptorSet overlaySet = mOverlaySet[mFrameIndex];
-    if (overlaySet == VK_NULL_HANDLE)
     {
         return;
     }

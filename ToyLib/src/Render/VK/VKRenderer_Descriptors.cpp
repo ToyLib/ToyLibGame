@@ -1,32 +1,25 @@
 //======================================================================
 // Render/VK/VKRenderer_Descriptors.cpp
 //  - DescriptorPool / SceneUBO(World+UI) / SceneSet(World+UI)
-//  - BaseMap set cache (set=1) : “専用 pool を増設”
-//  - Fallback(1x1 white) texture & set=1 (pipelineごと)
+//  - BaseMap set cache (set=1) / Fallback(1x1 white) texture の管理は
+//    VKBaseMapDescriptorCache に委譲（本ファイルからは呼び出すのみ）
 //  - Skinned palette slots (set=2) : draw ごとに acquire して上書き事故を回避
 //
 // 方針（確定）:
-//  - SceneUBO は World と UI を分離（mSceneUBO / mSceneUBO_UI）
-//  - SceneSet も World と UI を分離（mSceneSet / mSceneSet_UI）
+//  - SceneUBO/SceneSet(World/UI) は VKUniformSet で管理する
 //  - Update は UpdateSceneUBO_World / UpdateSceneUBO_UI のみを使う
 //  - Skinned palette は AcquireSkinnedSet() で set=2 を draw ごとに確保/更新
-//  - BaseMap(set=1) は baseMapPools から確保し、枯れたら増設
 //======================================================================
 
 #include "Render/VK/VKRenderer.h"
 
-#include "Asset/Material/ITextureGPU.h"
-#include "Asset/Material/Texture.h"
 #include "Render/LightingManager.h"
 #include "Render/VK/Pipeline/VKPipeline.h"
 #include "Render/VK/VKShaderTypes.h"
-#include "Render/VK/VKTextureGPU.h"
 #include "Render/VK/VKUtil.h"
 
-#include <algorithm>
 #include <cstring>
 #include <iostream>
-#include <unordered_map>
 
 namespace toy
 {
@@ -47,20 +40,6 @@ static VkDescriptorSetLayout GetPipelineSetLayout(VKPipelineLibrary& lib, const 
         return VK_NULL_HANDLE;
     }
     return p->GetSetLayout(setIndex);
-}
-
-static std::string NormalizePipelineName(const char* name)
-{
-    return name ? std::string(name) : std::string();
-}
-
-static bool IsShadowPipelineName(const char* pipelineName)
-{
-    if (!pipelineName)
-    {
-        return false;
-    }
-    return (std::strncmp(pipelineName, "Shadow", 6) == 0);
 }
 
 //==============================================================
@@ -124,8 +103,7 @@ void VKRenderer::DestroyDescriptorPool()
     //----------------------------------------------------------
     // BaseMap pools は mDescPool と独立
     //----------------------------------------------------------
-    ClearBaseMapSetCache();
-    DestroyFallbackBaseMapSet();
+    mBaseMapCache.Clear();
 
     //----------------------------------------------------------
     // Skinned slot pool (UBO + DS)
@@ -133,65 +111,20 @@ void VKRenderer::DestroyDescriptorPool()
     DestroySkinnedSlots();
 
     //----------------------------------------------------------
-    // Scene / Sky / Overlay sets は mDescPool 所有
+    // Scene / Sky / Overlay の UBO+Set は VKUniformSet::Destroy() 側で
+    // 破棄済み（DestroySceneUBO/DestroySkyUBO/DestroyOverlayUBOが先に呼ばれる）。
+    // ここでは pool 自体を破棄するのみ。
     //----------------------------------------------------------
     if (mDescPool != VK_NULL_HANDLE)
     {
-        for (auto& set : mSceneSet)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet.clear();
-
-        for (auto& set : mSceneSet_UI)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mSceneSet_UI.clear();
-
-        for (auto& set : mSkySet)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mSkySet.clear();
-
-        for (auto& set : mOverlaySet)
-        {
-            if (set != VK_NULL_HANDLE)
-            {
-                vkFreeDescriptorSets(mDevice, mDescPool, 1, &set);
-                set = VK_NULL_HANDLE;
-            }
-        }
-        mOverlaySet.clear();
-
         vkDestroyDescriptorPool(mDevice, mDescPool, nullptr);
         mDescPool = VK_NULL_HANDLE;
-    }
-    else
-    {
-        mSceneSet.clear();
-        mSceneSet_UI.clear();
-        mSkySet.clear();
-        mOverlaySet.clear();
     }
 
     //----------------------------------------------------------
     // fallback image/sampler（pool所有ではない）
     //----------------------------------------------------------
-    DestroyFallbackWhiteTexture();
+    mBaseMapCache.DestroyFallbackWhiteTexture();
 }
 
 //==============================================================
@@ -199,17 +132,15 @@ void VKRenderer::DestroyDescriptorPool()
 //==============================================================
 bool VKRenderer::CreateSceneUBO()
 {
-    if (!mDevice || !mPhysicalDevice)
+    if (!mDevice || !mPhysicalDevice || !mDescPool)
     {
         return false;
     }
 
-    if (!mSceneUBO.empty() && !mSceneUBO_UI.empty())
+    if (mSceneUniformWorld.IsCreated() && mSceneUniformUI.IsCreated())
     {
         return true;
     }
-
-    mSceneUBOSize = sizeof(VKSceneUBO);
 
     const size_t frameCount = mFrames.size();
     if (frameCount == 0)
@@ -217,29 +148,26 @@ bool VKRenderer::CreateSceneUBO()
         return false;
     }
 
-    mSceneUBO.resize(frameCount, VK_NULL_HANDLE);
-    mSceneUBOMem.resize(frameCount, VK_NULL_HANDLE);
-
-    mSceneUBO_UI.resize(frameCount, VK_NULL_HANDLE);
-    mSceneUBOMem_UI.resize(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    // set0 layout は “Sprite” を基準に取得（set0は共通運用の前提）
+    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
+    if (set0 == VK_NULL_HANDLE)
     {
-        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO[i],
-                                     mSceneUBOMem[i]))
-        {
-            std::cerr << "[VKRenderer] CreateSceneUBO(World) failed frame " << i << "\n";
-            DestroySceneUBO();
-            return false;
-        }
+        std::cerr << "[VK] CreateSceneUBO: set0 null\n";
+        return false;
+    }
 
-        if (!CreateBufferHostVisible((VkDeviceSize)mSceneUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSceneUBO_UI[i],
-                                     mSceneUBOMem_UI[i]))
-        {
-            std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed frame " << i << "\n";
-            DestroySceneUBO();
-            return false;
-        }
+    if (!mSceneUniformWorld.Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKSceneUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateSceneUBO(World) failed\n";
+        DestroySceneUBO();
+        return false;
+    }
+
+    if (!mSceneUniformUI.Create(mDevice, mPhysicalDevice, mDescPool, set0, sizeof(VKSceneUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateSceneUBO(UI) failed\n";
+        DestroySceneUBO();
+        return false;
     }
 
     return true;
@@ -247,34 +175,8 @@ bool VKRenderer::CreateSceneUBO()
 
 void VKRenderer::DestroySceneUBO()
 {
-    if (!mDevice)
-    {
-        return;
-    }
-
-    auto destroyVec = [&](std::vector<VkBuffer>& bufs, std::vector<VkDeviceMemory>& mems)
-    {
-        for (size_t i = 0; i < bufs.size(); ++i)
-        {
-            if (bufs[i] != VK_NULL_HANDLE)
-            {
-                vkDestroyBuffer(mDevice, bufs[i], nullptr);
-                bufs[i] = VK_NULL_HANDLE;
-            }
-            if (mems[i] != VK_NULL_HANDLE)
-            {
-                vkFreeMemory(mDevice, mems[i], nullptr);
-                mems[i] = VK_NULL_HANDLE;
-            }
-        }
-        bufs.clear();
-        mems.clear();
-    };
-
-    destroyVec(mSceneUBO, mSceneUBOMem);
-    destroyVec(mSceneUBO_UI, mSceneUBOMem_UI);
-
-    mSceneUBOSize = 0;
+    mSceneUniformWorld.Destroy(mDevice, mDescPool);
+    mSceneUniformUI.Destroy(mDevice, mDescPool);
 }
 
 //==============================================================
@@ -282,11 +184,7 @@ void VKRenderer::DestroySceneUBO()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_World()
 {
-    if (mSceneUBOMem.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mSceneUBOMem.size())
+    if (!mSceneUniformWorld.IsCreated())
     {
         return;
     }
@@ -393,7 +291,7 @@ void VKRenderer::UpdateSceneUBO_World()
     ubo.shadowFlags[2] = 0;
     ubo.shadowFlags[3] = 0;
 
-    UploadToBuffer(mSceneUBOMem[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
+    mSceneUniformWorld.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================
@@ -401,11 +299,7 @@ void VKRenderer::UpdateSceneUBO_World()
 //==============================================================
 void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
 {
-    if (mSceneUBOMem_UI.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mSceneUBOMem_UI.size())
+    if (!mSceneUniformUI.IsCreated())
     {
         return;
     }
@@ -431,7 +325,7 @@ void VKRenderer::UpdateSceneUBO_UI(const Matrix4& uiViewProj)
     ubo.fogParams[2] = 0.0f;
     ubo.fogParams[3] = 0.0f;
 
-    UploadToBuffer(mSceneUBOMem_UI[mFrameIndex], &ubo, (VkDeviceSize)mSceneUBOSize);
+    mSceneUniformUI.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================
@@ -444,639 +338,37 @@ bool VKRenderer::CreateSceneDescriptorSet()
         return false;
     }
 
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-    if (mSceneUBO.size() != frameCount || mSceneUBO_UI.size() != frameCount)
-    {
-        std::cerr << "[VK] CreateSceneDescriptorSet: SceneUBO not ready.\n";
-        return false;
-    }
-
-    // free old
-    for (auto& ds : mSceneSet)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mSceneSet.clear();
-
-    for (auto& ds : mSceneSet_UI)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mSceneSet_UI.clear();
-
-    mSceneSet.resize(frameCount, VK_NULL_HANDLE);
-    mSceneSet_UI.resize(frameCount, VK_NULL_HANDLE);
-
-    // set0 layout は “Sprite” を基準に取得（set0は共通運用の前提）
-    VkDescriptorSetLayout set0 = GetPipelineSetLayout(mPipelines, "Sprite", 0);
-    if (set0 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] CreateSceneDescriptorSet: set0 null\n";
-        return false;
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set0;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] SceneSet(world) alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mSceneSet_UI[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] SceneSet(ui) alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        // world
-        VkDescriptorBufferInfo biW{};
-        biW.buffer = mSceneUBO[i];
-        biW.offset = 0;
-        biW.range = mSceneUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = mSceneSet[i];
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &biW;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-        // ui
-        VkDescriptorBufferInfo biUI{};
-        biUI.buffer = mSceneUBO_UI[i];
-        biUI.offset = 0;
-        biUI.range = mSceneUBOSize;
-
-        w.dstSet = mSceneSet_UI[i];
-        w.pBufferInfo = &biUI;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-    }
-
     //----------------------------------------------------------
     // fallback texture（set=1）
     //----------------------------------------------------------
-    if (!CreateFallbackWhiteTexture())
+    mBaseMapCache.Init(mDevice, mPhysicalDevice);
+
+    if (!mBaseMapCache.CreateFallbackWhiteTexture([this]() { return BeginOneTimeCommands(); },
+                                                   [this](VkCommandBuffer cmd) { EndOneTimeCommands(cmd); }))
     {
         return false;
     }
 
     // BaseMap 側は pool chain を使う（枯れ対策）
-    if (!CreateFallbackBaseMapSet("Sprite"))
+    static const char* kFallbackPipelines[] = {"Sprite",      "Mesh",           "Mesh_CW",
+                                               "SkinnedMesh", "SkinnedMesh_CW", "UnlitQuad"};
+    for (const char* pipelineName : kFallbackPipelines)
     {
-        return false;
-    }
-    if (!CreateFallbackBaseMapSet("Mesh"))
-    {
-        return false;
-    }
-    if (!CreateFallbackBaseMapSet("Mesh_CW"))
-    {
-        return false;
-    }
-    if (!CreateFallbackBaseMapSet("SkinnedMesh"))
-    {
-        return false;
-    }
-    if (!CreateFallbackBaseMapSet("SkinnedMesh_CW"))
-    {
-        return false;
-    }
-    if (!CreateFallbackBaseMapSet("UnlitQuad"))
-    {
-        return false;
-    }
-
-    return true;
-}
-
-//==============================================================
-// BaseMap pools
-//==============================================================
-VkDescriptorPool VKRenderer::CreateBaseMapPool(uint32_t maxSets, uint32_t samplerCount)
-{
-    if (!mDevice)
-    {
-        return VK_NULL_HANDLE;
-    }
-
-    VkDescriptorPoolSize sizes[1]{};
-    sizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    sizes[0].descriptorCount = samplerCount;
-
-    VkDescriptorPoolCreateInfo ci{};
-    ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ci.flags = 0; // ★個別freeしない運用（poolごと破棄）
-    ci.maxSets = maxSets;
-    ci.poolSizeCount = 1;
-    ci.pPoolSizes = sizes;
-
-    VkDescriptorPool pool = VK_NULL_HANDLE;
-    VkResult vr = vkCreateDescriptorPool(mDevice, &ci, nullptr, &pool);
-    if (vr != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] CreateBaseMapPool failed vr=" << vr << "\n";
-        return VK_NULL_HANDLE;
-    }
-    return pool;
-}
-
-VkDescriptorPool VKRenderer::GetActiveBaseMapPool()
-{
-    if (mBaseMapPools.empty())
-    {
-        VkDescriptorPool p = CreateBaseMapPool(/*maxSets*/ 8192, /*samplerCount*/ 8192);
-        if (p)
-        {
-            mBaseMapPools.push_back(p);
-        }
-        mBaseMapPoolCursor = 0;
-    }
-    return mBaseMapPools.empty() ? VK_NULL_HANDLE : mBaseMapPools[mBaseMapPoolCursor];
-}
-
-VkDescriptorPool VKRenderer::GrowBaseMapPoolAndGet()
-{
-    const uint32_t n = (uint32_t)mBaseMapPools.size();
-    const uint32_t maxSets = 8192u + 4096u * n;
-    const uint32_t samplers = 8192u + 4096u * n;
-
-    VkDescriptorPool p = CreateBaseMapPool(maxSets, samplers);
-    if (!p)
-    {
-        return VK_NULL_HANDLE;
-    }
-
-    mBaseMapPools.push_back(p);
-    mBaseMapPoolCursor = (uint32_t)mBaseMapPools.size() - 1;
-    return p;
-}
-
-//==============================================================
-// BaseMap set cache (set=1 binding=0 CombinedImageSampler)
-//==============================================================
-void VKRenderer::ClearBaseMapSetCache()
-{
-    // cacheは “poolごと破棄” するので、個別 vkFree は不要
-    mBaseMapSetCache.clear();
-
-    // fallback DS も baseMap pool 所有なので破棄対象
-    mFallbackBaseMapSetByPipe.clear();
-    mFallbackBaseMapSet = VK_NULL_HANDLE;
-
-    // baseMap pools destroy
-    if (mDevice)
-    {
-        for (auto& p : mBaseMapPools)
-        {
-            if (p != VK_NULL_HANDLE)
-            {
-                vkDestroyDescriptorPool(mDevice, p, nullptr);
-                p = VK_NULL_HANDLE;
-            }
-        }
-    }
-    mBaseMapPools.clear();
-    mBaseMapPoolCursor = 0;
-}
-
-VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
-{
-    if (!mDevice || !pipelineName)
-    {
-        std::cerr << "[VK] BaseMapSet: invalid state dev/name\n";
-        return VK_NULL_HANDLE;
-    }
-
-    const std::string pipeName = NormalizePipelineName(pipelineName);
-
-    // Shadow pass は set=1(BaseMap) を使わない設計。
-    // ここに来たら呼び出し側の設計ミスなので弾く。
-    if (IsShadowPipelineName(pipelineName))
-    {
-        std::cerr << "[VK] BaseMapSet: Shadow pipeline requested set=1 (BUG) name=" << pipelineName << "\n";
-        return VK_NULL_HANDLE;
-    }
-
-    //----------------------------------------------------------
-    // fallback
-    //----------------------------------------------------------
-    if (!tex)
-    {
-        auto it = mFallbackBaseMapSetByPipe.find(pipeName);
-        if (it != mFallbackBaseMapSetByPipe.end() && it->second.set != VK_NULL_HANDLE)
-        {
-            return it->second.set;
-        }
-
-        if (CreateFallbackBaseMapSet(pipelineName))
-        {
-            it = mFallbackBaseMapSetByPipe.find(pipeName);
-            if (it != mFallbackBaseMapSetByPipe.end())
-            {
-                return it->second.set;
-            }
-        }
-
-        std::cerr << "[VK] BaseMapSet: fallback missing (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    //----------------------------------------------------------
-    // cache (frame をまたいで再利用 — テクスチャは破棄まで安定)
-    //----------------------------------------------------------
-    BaseMapKey key{};
-    key.tex = tex;
-    key.pipelineName = pipeName;
-
-    if (auto it = mBaseMapSetCache.find(key); it != mBaseMapSetCache.end())
-    {
-        return it->second.set;
-    }
-
-    //----------------------------------------------------------
-    // layout
-    //----------------------------------------------------------
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
-    if (set1 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] BaseMapSet: set1 layout NULL (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    //----------------------------------------------------------
-    // GPU
-    //----------------------------------------------------------
-    ITextureGPU* gpu = (ITextureGPU*)tex->GetGPU();
-    if (!gpu)
-    {
-        std::cerr << "[VK] BaseMapSet: tex GPU NULL (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    auto* vkgpu = dynamic_cast<VKTextureGPU*>(gpu);
-    if (!vkgpu)
-    {
-        std::cerr << "[VK] BaseMapSet: GPU not VKTextureGPU (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    const VkSampler sampler = vkgpu->GetSampler();
-    const VkImageView view = vkgpu->GetImageView();
-    if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] BaseMapSet: sampler/view NULL (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    //----------------------------------------------------------
-    // alloc from active baseMap pool
-    //----------------------------------------------------------
-    VkDescriptorPool pool = GetActiveBaseMapPool();
-    if (pool == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] BaseMapSet: baseMap pool null (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    auto allocOnce = [&](VkDescriptorPool p, VkDescriptorSet& outSet) -> VkResult
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = p;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set1;
-
-        return vkAllocateDescriptorSets(mDevice, &ai, &outSet);
-    };
-
-    VkDescriptorSet ds = VK_NULL_HANDLE;
-    VkResult vr = allocOnce(pool, ds);
-
-    // 枯れたら増設してもう一回
-    if (vr == VK_ERROR_OUT_OF_POOL_MEMORY || vr == VK_ERROR_FRAGMENTED_POOL)
-    {
-        pool = GrowBaseMapPoolAndGet();
-        if (pool == VK_NULL_HANDLE)
-        {
-            std::cerr << "[VK] BaseMapSet: grow pool failed (" << pipelineName << ")\n";
-            return VK_NULL_HANDLE;
-        }
-
-        ds = VK_NULL_HANDLE;
-        vr = allocOnce(pool, ds);
-    }
-
-    if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] BaseMapSet: alloc failed vr=" << vr << " (" << pipelineName << ")\n";
-        return VK_NULL_HANDLE;
-    }
-
-    //----------------------------------------------------------
-    // write
-    //----------------------------------------------------------
-    VkDescriptorImageInfo ii{};
-    ii.sampler = sampler;
-    ii.imageView = view;
-    ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet w{};
-    w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet = ds;
-    w.dstBinding = 0;
-    w.descriptorCount = 1;
-    w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    w.pImageInfo = &ii;
-
-    vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-    //----------------------------------------------------------
-    // cache
-    //----------------------------------------------------------
-    CachedDescriptorSet cds{};
-    cds.pool = pool;
-    cds.set = ds;
-    mBaseMapSetCache[key] = cds;
-
-    return ds;
-}
-
-//==============================================================
-// Fallback White Texture (1x1 RGBA8) : Image/View/Sampler
-//==============================================================
-bool VKRenderer::CreateFallbackWhiteTexture()
-{
-    if (!mDevice || !mPhysicalDevice)
-    {
-        return false;
-    }
-    if (mFallbackWhiteImg != VK_NULL_HANDLE && mFallbackWhiteView != VK_NULL_HANDLE &&
-        mFallbackWhiteSampler != VK_NULL_HANDLE)
-    {
-        return true;
-    }
-
-    DestroyFallbackWhiteTexture();
-
-    const uint32_t w = 1;
-    const uint32_t h = 1;
-    const uint32_t pixel = 0xFFFFFFFFu;
-
-    VkBuffer staging = VK_NULL_HANDLE;
-    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
-
-    if (!toy::vkutil::CreateBuffer_HostVisible(mPhysicalDevice, mDevice, sizeof(uint32_t),
-                                               VK_BUFFER_USAGE_TRANSFER_SRC_BIT, staging, stagingMem))
-    {
-        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: staging buffer create failed\n";
-        return false;
-    }
-
-    void* mapped = nullptr;
-    if (vkMapMemory(mDevice, stagingMem, 0, sizeof(uint32_t), 0, &mapped) != VK_SUCCESS)
-    {
-        vkDestroyBuffer(mDevice, staging, nullptr);
-        vkFreeMemory(mDevice, stagingMem, nullptr);
-        return false;
-    }
-    std::memcpy(mapped, &pixel, sizeof(uint32_t));
-    vkUnmapMemory(mDevice, stagingMem);
-
-    if (!toy::vkutil::CreateImage2D(mPhysicalDevice, mDevice, w, h, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mFallbackWhiteImg, mFallbackWhiteMem,
-                                    VK_IMAGE_LAYOUT_UNDEFINED))
-    {
-        vkDestroyBuffer(mDevice, staging, nullptr);
-        vkFreeMemory(mDevice, stagingMem, nullptr);
-        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: CreateImage2D failed\n";
-        return false;
-    }
-
-    VkCommandBuffer cmd = BeginOneTimeCommands();
-    if (cmd == VK_NULL_HANDLE)
-    {
-        vkDestroyBuffer(mDevice, staging, nullptr);
-        vkFreeMemory(mDevice, stagingMem, nullptr);
-        DestroyFallbackWhiteTexture();
-        return false;
-    }
-
-    toy::vkutil::CmdTransitionImageLayout(cmd, mFallbackWhiteImg, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                          VK_PIPELINE_STAGE_TRANSFER_BIT, 0, VK_ACCESS_TRANSFER_WRITE_BIT);
-
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {w, h, 1};
-
-    vkCmdCopyBufferToImage(cmd, staging, mFallbackWhiteImg, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-    toy::vkutil::CmdTransitionImageLayout(
-        cmd, mFallbackWhiteImg, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
-
-    EndOneTimeCommands(cmd);
-
-    vkDestroyBuffer(mDevice, staging, nullptr);
-    vkFreeMemory(mDevice, stagingMem, nullptr);
-
-    mFallbackWhiteView =
-        toy::vkutil::CreateImageView2D(mDevice, mFallbackWhiteImg, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    if (mFallbackWhiteView == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: CreateImageView2D failed\n";
-        DestroyFallbackWhiteTexture();
-        return false;
-    }
-
-    VkSamplerCreateInfo sci{};
-    sci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sci.magFilter = VK_FILTER_LINEAR;
-    sci.minFilter = VK_FILTER_LINEAR;
-    sci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    sci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sci.minLod = 0.0f;
-    sci.maxLod = 0.0f;
-    sci.maxAnisotropy = 1.0f;
-
-    if (vkCreateSampler(mDevice, &sci, nullptr, &mFallbackWhiteSampler) != VK_SUCCESS)
-    {
-        std::cerr << "[VKRenderer] CreateFallbackWhiteTexture: vkCreateSampler failed\n";
-        DestroyFallbackWhiteTexture();
-        return false;
-    }
-
-    return true;
-}
-
-void VKRenderer::DestroyFallbackWhiteTexture()
-{
-    if (!mDevice)
-    {
-        return;
-    }
-
-    if (mFallbackWhiteSampler != VK_NULL_HANDLE)
-    {
-        vkDestroySampler(mDevice, mFallbackWhiteSampler, nullptr);
-        mFallbackWhiteSampler = VK_NULL_HANDLE;
-    }
-    if (mFallbackWhiteView != VK_NULL_HANDLE)
-    {
-        vkDestroyImageView(mDevice, mFallbackWhiteView, nullptr);
-        mFallbackWhiteView = VK_NULL_HANDLE;
-    }
-    if (mFallbackWhiteImg != VK_NULL_HANDLE)
-    {
-        vkDestroyImage(mDevice, mFallbackWhiteImg, nullptr);
-        mFallbackWhiteImg = VK_NULL_HANDLE;
-    }
-    if (mFallbackWhiteMem != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(mDevice, mFallbackWhiteMem, nullptr);
-        mFallbackWhiteMem = VK_NULL_HANDLE;
-    }
-}
-
-//==============================================================
-// Fallback BaseMap DS (set=1)
-//  - BaseMapPoolから allocate（枯れ対策）
-//==============================================================
-bool VKRenderer::CreateFallbackBaseMapSet(const char* pipelineName)
-{
-    if (!mDevice || !pipelineName)
-    {
-        return false;
-    }
-    if (mFallbackWhiteView == VK_NULL_HANDLE || mFallbackWhiteSampler == VK_NULL_HANDLE)
-    {
-        return false;
-    }
-
-    const std::string pipeName = NormalizePipelineName(pipelineName);
-
-    {
-        auto it = mFallbackBaseMapSetByPipe.find(pipeName);
-        if (it != mFallbackBaseMapSetByPipe.end() && it->second.set != VK_NULL_HANDLE)
-        {
-            return true;
-        }
-    }
-
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, pipelineName, 1);
-    if (set1 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] FallbackBaseMapSet: set1 layout null (" << pipelineName << ")\n";
-        return false;
-    }
-
-    VkDescriptorPool pool = GetActiveBaseMapPool();
-    if (pool == VK_NULL_HANDLE)
-    {
-        return false;
-    }
-
-    auto allocOnce = [&](VkDescriptorPool p, VkDescriptorSet& outSet) -> VkResult
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = p;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set1;
-        return vkAllocateDescriptorSets(mDevice, &ai, &outSet);
-    };
-
-    VkDescriptorSet ds = VK_NULL_HANDLE;
-    VkResult vr = allocOnce(pool, ds);
-
-    if (vr == VK_ERROR_OUT_OF_POOL_MEMORY || vr == VK_ERROR_FRAGMENTED_POOL)
-    {
-        pool = GrowBaseMapPoolAndGet();
-        if (pool == VK_NULL_HANDLE)
+        if (!mBaseMapCache.CreateFallbackBaseMapSet(mPipelines, pipelineName))
         {
             return false;
         }
-        ds = VK_NULL_HANDLE;
-        vr = allocOnce(pool, ds);
-    }
-
-    if (vr != VK_SUCCESS || ds == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] FallbackBaseMapSet: alloc failed vr=" << vr << " (" << pipelineName << ")\n";
-        return false;
-    }
-
-    VkDescriptorImageInfo ii{};
-    ii.sampler = mFallbackWhiteSampler;
-    ii.imageView = mFallbackWhiteView;
-    ii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet w{};
-    w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    w.dstSet = ds;
-    w.dstBinding = 0;
-    w.descriptorCount = 1;
-    w.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    w.pImageInfo = &ii;
-
-    vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-
-    CachedDescriptorSet cds{};
-    cds.pool = pool;
-    cds.set = ds;
-
-    mFallbackBaseMapSetByPipe[pipeName] = cds;
-
-    // backward compat
-    if (std::strcmp(pipelineName, "Sprite") == 0)
-    {
-        mFallbackBaseMapSet = ds;
     }
 
     return true;
 }
 
-void VKRenderer::DestroyFallbackBaseMapSet()
+//==============================================================
+// BaseMap(set=1) の管理は VKBaseMapDescriptorCache に委譲
+//==============================================================
+VkDescriptorSet VKRenderer::GetOrCreateBaseMapSet(const Texture* tex, const char* pipelineName)
 {
-    // baseMap pool を “まとめて破棄” する設計なので、
-    // ここでは map をクリアするだけでOK（pool破棄は ClearBaseMapSetCache で行う）
-    mFallbackBaseMapSetByPipe.clear();
-    mFallbackBaseMapSet = VK_NULL_HANDLE;
+    return mBaseMapCache.GetOrCreateBaseMapSet(mPipelines, tex, pipelineName);
 }
 
 //==============================================================
@@ -1205,17 +497,15 @@ void VKRenderer::DestroySkinnedSlots()
 //==============================================================
 bool VKRenderer::CreateSkyUBO()
 {
-    if (!mDevice || !mPhysicalDevice)
+    if (!mDevice || !mPhysicalDevice || !mDescPool)
     {
         return false;
     }
 
-    if (!mSkyUBO.empty())
+    if (mSkyUniform.IsCreated())
     {
         return true;
     }
-
-    mSkyUBOSize = sizeof(VKSkyUBO);
 
     const size_t frameCount = mFrames.size();
     if (frameCount == 0)
@@ -1223,18 +513,17 @@ bool VKRenderer::CreateSkyUBO()
         return false;
     }
 
-    mSkyUBO.resize(frameCount, VK_NULL_HANDLE);
-    mSkyUBOMem.resize(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "SkyDome", 1);
+    if (set1 == VK_NULL_HANDLE)
     {
-        if (!CreateBufferHostVisible((VkDeviceSize)mSkyUBOSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mSkyUBO[i],
-                                     mSkyUBOMem[i]))
-        {
-            std::cerr << "[VKRenderer] CreateSkyUBO failed frame " << i << "\n";
-            DestroySkyUBO();
-            return false;
-        }
+        std::cerr << "[VK] CreateSkyUBO: SkyDome set1 null\n";
+        return false;
+    }
+
+    if (!mSkyUniform.Create(mDevice, mPhysicalDevice, mDescPool, set1, sizeof(VKSkyUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateSkyUBO failed\n";
+        return false;
     }
 
     return true;
@@ -1242,28 +531,7 @@ bool VKRenderer::CreateSkyUBO()
 
 void VKRenderer::DestroySkyUBO()
 {
-    if (!mDevice)
-    {
-        return;
-    }
-
-    for (size_t i = 0; i < mSkyUBO.size(); ++i)
-    {
-        if (mSkyUBO[i] != VK_NULL_HANDLE)
-        {
-            vkDestroyBuffer(mDevice, mSkyUBO[i], nullptr);
-            mSkyUBO[i] = VK_NULL_HANDLE;
-        }
-        if (mSkyUBOMem[i] != VK_NULL_HANDLE)
-        {
-            vkFreeMemory(mDevice, mSkyUBOMem[i], nullptr);
-            mSkyUBOMem[i] = VK_NULL_HANDLE;
-        }
-    }
-
-    mSkyUBO.clear();
-    mSkyUBOMem.clear();
-    mSkyUBOSize = 0;
+    mSkyUniform.Destroy(mDevice, mDescPool);
 }
 
 //==============================================================
@@ -1271,11 +539,7 @@ void VKRenderer::DestroySkyUBO()
 //==============================================================
 void VKRenderer::UpdateSkyUBO(const SkyDomePayload& sky)
 {
-    if (mSkyUBOMem.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mSkyUBOMem.size())
+    if (!mSkyUniform.IsCreated())
     {
         return;
     }
@@ -1331,81 +595,7 @@ void VKRenderer::UpdateSkyUBO(const SkyDomePayload& sky)
     ubo.rawCloudColor[2] = sky.skyRawCloudColor.z;
     ubo.rawCloudColor[3] = 0.0f;
 
-    UploadToBuffer(mSkyUBOMem[mFrameIndex], &ubo, static_cast<VkDeviceSize>(mSkyUBOSize));
-}
-
-//==============================================================
-// Sky Descriptor Set (set=1 binding=0 UBO)
-//==============================================================
-bool VKRenderer::CreateSkyDescriptorSet()
-{
-    if (!mDevice || !mDescPool)
-    {
-        return false;
-    }
-
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-
-    if (mSkyUBO.size() != frameCount)
-    {
-        std::cerr << "[VK] CreateSkyDescriptorSet: SkyUBO not ready.\n";
-        return false;
-    }
-
-    for (auto& ds : mSkySet)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mSkySet.clear();
-
-    mSkySet.resize(frameCount, VK_NULL_HANDLE);
-
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "SkyDome", 1);
-    if (set1 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] CreateSkyDescriptorSet: SkyDome set1 null\n";
-        return false;
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set1;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mSkySet[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] SkySet alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        VkDescriptorBufferInfo bi{};
-        bi.buffer = mSkyUBO[i];
-        bi.offset = 0;
-        bi.range = mSkyUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = mSkySet[i];
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &bi;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-    }
-
-    return true;
+    mSkyUniform.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 //==============================================================
@@ -1413,17 +603,15 @@ bool VKRenderer::CreateSkyDescriptorSet()
 //==============================================================
 bool VKRenderer::CreateOverlayUBO()
 {
-    if (!mDevice || !mPhysicalDevice)
+    if (!mDevice || !mPhysicalDevice || !mDescPool)
     {
         return false;
     }
 
-    if (!mOverlayUBO.empty())
+    if (mOverlayUniform.IsCreated())
     {
         return true;
     }
-
-    mOverlayUBOSize = sizeof(VKOverlayUBO);
 
     const size_t frameCount = mFrames.size();
     if (frameCount == 0)
@@ -1431,18 +619,18 @@ bool VKRenderer::CreateOverlayUBO()
         return false;
     }
 
-    mOverlayUBO.resize(frameCount, VK_NULL_HANDLE);
-    mOverlayUBOMem.resize(frameCount, VK_NULL_HANDLE);
-
-    for (size_t i = 0; i < frameCount; ++i)
+    // Alpha版を基準に set=1 layout を取得
+    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "WeatherOverlay", 1);
+    if (set1 == VK_NULL_HANDLE)
     {
-        if (!CreateBufferHostVisible(static_cast<VkDeviceSize>(mOverlayUBOSize), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     mOverlayUBO[i], mOverlayUBOMem[i]))
-        {
-            std::cerr << "[VKRenderer] CreateOverlayUBO failed frame " << i << "\n";
-            DestroyOverlayUBO();
-            return false;
-        }
+        std::cerr << "[VK] CreateOverlayUBO: WeatherOverlay set1 null\n";
+        return false;
+    }
+
+    if (!mOverlayUniform.Create(mDevice, mPhysicalDevice, mDescPool, set1, sizeof(VKOverlayUBO), frameCount))
+    {
+        std::cerr << "[VKRenderer] CreateOverlayUBO failed\n";
+        return false;
     }
 
     return true;
@@ -1450,28 +638,7 @@ bool VKRenderer::CreateOverlayUBO()
 
 void VKRenderer::DestroyOverlayUBO()
 {
-    if (!mDevice)
-    {
-        return;
-    }
-
-    for (size_t i = 0; i < mOverlayUBO.size(); ++i)
-    {
-        if (mOverlayUBO[i] != VK_NULL_HANDLE)
-        {
-            vkDestroyBuffer(mDevice, mOverlayUBO[i], nullptr);
-            mOverlayUBO[i] = VK_NULL_HANDLE;
-        }
-        if (mOverlayUBOMem[i] != VK_NULL_HANDLE)
-        {
-            vkFreeMemory(mDevice, mOverlayUBOMem[i], nullptr);
-            mOverlayUBOMem[i] = VK_NULL_HANDLE;
-        }
-    }
-
-    mOverlayUBO.clear();
-    mOverlayUBOMem.clear();
-    mOverlayUBOSize = 0;
+    mOverlayUniform.Destroy(mDevice, mDescPool);
 }
 
 //==============================================================
@@ -1479,11 +646,7 @@ void VKRenderer::DestroyOverlayUBO()
 //==============================================================
 void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
 {
-    if (mOverlayUBOMem.empty())
-    {
-        return;
-    }
-    if (mFrameIndex >= mOverlayUBOMem.size())
+    if (!mOverlayUniform.IsCreated())
     {
         return;
     }
@@ -1526,82 +689,7 @@ void VKRenderer::UpdateOverlayUBO(const OverlayPayload& overlay)
     ubo.flareColor[2] = overlay.flareColor.z;
     ubo.flareColor[3] = 0.0f;
 
-    UploadToBuffer(mOverlayUBOMem[mFrameIndex], &ubo, static_cast<VkDeviceSize>(mOverlayUBOSize));
-}
-
-//==============================================================
-// Overlay Descriptor Set (set=1 binding=0 UBO)
-//==============================================================
-bool VKRenderer::CreateOverlayDescriptorSet()
-{
-    if (!mDevice || !mDescPool)
-    {
-        return false;
-    }
-
-    const size_t frameCount = mFrames.size();
-    if (frameCount == 0)
-    {
-        return false;
-    }
-
-    if (mOverlayUBO.size() != frameCount)
-    {
-        std::cerr << "[VK] CreateOverlayDescriptorSet: OverlayUBO not ready.\n";
-        return false;
-    }
-
-    for (auto& ds : mOverlaySet)
-    {
-        if (ds != VK_NULL_HANDLE)
-        {
-            vkFreeDescriptorSets(mDevice, mDescPool, 1, &ds);
-            ds = VK_NULL_HANDLE;
-        }
-    }
-    mOverlaySet.clear();
-
-    mOverlaySet.resize(frameCount, VK_NULL_HANDLE);
-
-    // Alpha版を基準に set=1 layout を取得
-    VkDescriptorSetLayout set1 = GetPipelineSetLayout(mPipelines, "WeatherOverlay", 1);
-    if (set1 == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VK] CreateOverlayDescriptorSet: WeatherOverlay set1 null\n";
-        return false;
-    }
-
-    for (size_t i = 0; i < frameCount; ++i)
-    {
-        VkDescriptorSetAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        ai.descriptorPool = mDescPool;
-        ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &set1;
-
-        if (vkAllocateDescriptorSets(mDevice, &ai, &mOverlaySet[i]) != VK_SUCCESS)
-        {
-            std::cerr << "[VK] OverlaySet alloc failed frame=" << i << "\n";
-            return false;
-        }
-
-        VkDescriptorBufferInfo bi{};
-        bi.buffer = mOverlayUBO[i];
-        bi.offset = 0;
-        bi.range = mOverlayUBOSize;
-
-        VkWriteDescriptorSet w{};
-        w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        w.dstSet = mOverlaySet[i];
-        w.dstBinding = 0;
-        w.descriptorCount = 1;
-        w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        w.pBufferInfo = &bi;
-
-        vkUpdateDescriptorSets(mDevice, 1, &w, 0, nullptr);
-    }
-
-    return true;
+    mOverlayUniform.Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
 } // namespace toy

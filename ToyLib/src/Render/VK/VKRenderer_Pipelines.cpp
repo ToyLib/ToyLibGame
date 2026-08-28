@@ -44,7 +44,7 @@ bool VKRenderer::BuildDefaultPipelines()
     mPipelines.DestroyAll();
 
     // pipeline を作り直したら setLayout が変わる可能性がある
-    ClearBaseMapSetCache();
+    mBaseMapCache.Clear();
 
 
 
@@ -274,7 +274,12 @@ bool VKRenderer::BuildDefaultPipelines()
     mPipelines.DestroyAll();
 
     // pipeline を作り直したら setLayout が変わる可能性がある
-    ClearBaseMapSetCache();
+    mBaseMapCache.Clear();
+
+    // Skinned palette(set=2)の VkDescriptorSet も古い setLayout に紐づいたまま残ってしまうため、
+    // ここで破棄する（破棄しないと次回 AcquireSkinnedSet() が解放済み layout の
+    // DescriptorSet を vkUpdateDescriptorSets してクラッシュする）
+    DestroySkinnedSlots();
 
     // PostEffect は pipeline recreate 後に layout を取り直す
     mPostEffectSets.clear();
