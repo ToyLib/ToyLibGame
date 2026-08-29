@@ -1,209 +1,383 @@
 cmake_minimum_required(VERSION 3.15)
+
 project(GameApp)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ============================================================
+# Project paths
+# ============================================================
+
 set(TOYLIB_PATH ToyLib)
 set(TOYKIT_PATH ToyKit)
-set(GAME_PATH  ToyGame)
+set(GAME_PATH   ToyGame)
+
+# ============================================================
+# Windows / vcpkg settings
+# ============================================================
+
+if(WIN32)
+    set(VCPKG_ROOT "C:/tools/vcpkg")
+    set(VCPKG_TRIPLET "x64-windows")
+
+    set(VCPKG_INC_DIR
+        "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include"
+    )
+
+    set(VCPKG_LIB_DIR
+        "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib"
+    )
+
+    set(VCPKG_BIN_DIR
+        "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin"
+    )
+endif()
+
+# ============================================================
+# OpenGL
+# ============================================================
 
 find_package(OpenGL REQUIRED)
 
-# ========================
-# Vulkan (always link)
-# ========================
-# 3OS すべてで Vulkan loader/headers が入っている前提で構成する。
-# - Windows: vcpkg (VulkanConfig.cmake)
-# - Linux  : apt (FindVulkan.cmake で拾える)
-# - macOS  : MoltenVK + vulkan-loader/headers を CMake が拾える状態（後述）
+# ============================================================
+# Vulkan
+# ============================================================
+#
+# Windows:
+#   vcpkg
+#
+# Linux:
+#   apt / system Vulkan SDK
+#
+# macOS:
+#   MoltenVK + Vulkan loader / headers
+#
+# ============================================================
+
 find_package(Vulkan REQUIRED)
 
-# ToyLib のソース
-file(GLOB_RECURSE TOYLIB_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/src/*.cpp
+# ============================================================
+# Source files
+# ============================================================
+
+# ToyLib
+file(
+    GLOB_RECURSE TOYLIB_SOURCES
+    CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/src/*.cpp"
 )
 
-# ToyKit のソース
-file(GLOB_RECURSE TOYKIT_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/${TOYKIT_PATH}/src/*.cpp
+# ToyKit
+file(
+    GLOB_RECURSE TOYKIT_SOURCES
+    CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/${TOYKIT_PATH}/src/*.cpp"
 )
 
-# GameApp 以下のソース
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/${GAME_PATH}/*.cpp
+# Game
+file(
+    GLOB_RECURSE GAME_SOURCES
+    CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/${GAME_PATH}/*.cpp"
 )
 
-set(SOURCES
+set(
+    SOURCES
     ${TOYLIB_SOURCES}
     ${TOYKIT_SOURCES}
     ${GAME_SOURCES}
 )
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+# ============================================================
+# GLAD
+# ============================================================
 
-# ========================
-# GLAD（組み込み）
-# ========================
-add_library(glad STATIC
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/src/glad.c
+add_library(
+    glad
+    STATIC
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/src/glad.c"
 )
 
-target_include_directories(glad PUBLIC
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/include
+target_include_directories(
+    glad
+    PUBLIC
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/glad/include"
 )
 
-# ヘッダ（ToyLib / ToyKit / Game と External/json.hpp）
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/include
-    ${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External
-    ${CMAKE_SOURCE_DIR}/${TOYKIT_PATH}/include
-    ${CMAKE_SOURCE_DIR}/${GAME_PATH}
+# ============================================================
+# stb_vorbis
+# ============================================================
+
+add_library(
+    stb_vorbis
+    STATIC
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External/stb_vorbis.c"
 )
 
-# ========================
-# Linux: SDL3 fallback (system -> vendored source)
-#  - Linux のみで有効化
-# ========================
-option(TOYLIB_LINUX_USE_VENDORED_SDL3 "Linux: use vendored SDL3 sources when system packages are not available" ON)
+# ============================================================
+# Game executable
+# ============================================================
 
-set(TOYLIB_EXTERNAL_DIR "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External" CACHE PATH "External dependencies root (ToyLib/External)")
-set(TOYLIB_SDL3_SOURCE_DIR       "${TOYLIB_EXTERNAL_DIR}/SDL3"       CACHE PATH "Path to SDL3 source dir")
-set(TOYLIB_SDL3_IMAGE_SOURCE_DIR "${TOYLIB_EXTERNAL_DIR}/SDL3_image" CACHE PATH "Path to SDL3_image source dir")
-set(TOYLIB_SDL3_TTF_SOURCE_DIR   "${TOYLIB_EXTERNAL_DIR}/SDL3_ttf"   CACHE PATH "Path to SDL3_ttf source dir")
+add_executable(
+    ${PROJECT_NAME}
+    ${SOURCES}
+)
 
-function(toy_linux_add_subdirectory_if_exists dir build_subdir out_var)
+# ============================================================
+# Include directories
+# ============================================================
+
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/include"
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External"
+    "${CMAKE_SOURCE_DIR}/${TOYKIT_PATH}/include"
+    "${CMAKE_SOURCE_DIR}/${GAME_PATH}"
+)
+
+# ============================================================
+# Linux SDL3 fallback
+# ============================================================
+
+option(
+    TOYLIB_LINUX_USE_VENDORED_SDL3
+    "Linux: use vendored SDL3 sources when system packages are not available"
+    ON
+)
+
+set(
+    TOYLIB_EXTERNAL_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/External"
+    CACHE PATH
+    "External dependencies root (ToyLib/External)"
+)
+
+set(
+    TOYLIB_SDL3_SOURCE_DIR
+    "${TOYLIB_EXTERNAL_DIR}/SDL3"
+    CACHE PATH
+    "Path to SDL3 source dir"
+)
+
+set(
+    TOYLIB_SDL3_IMAGE_SOURCE_DIR
+    "${TOYLIB_EXTERNAL_DIR}/SDL3_image"
+    CACHE PATH
+    "Path to SDL3_image source dir"
+)
+
+set(
+    TOYLIB_SDL3_TTF_SOURCE_DIR
+    "${TOYLIB_EXTERNAL_DIR}/SDL3_ttf"
+    CACHE PATH
+    "Path to SDL3_ttf source dir"
+)
+
+function(
+    toy_linux_add_subdirectory_if_exists
+    dir
+    build_subdir
+    out_var
+)
+
     if(EXISTS "${dir}/CMakeLists.txt")
-        add_subdirectory("${dir}" "${build_subdir}" EXCLUDE_FROM_ALL)
+
+        add_subdirectory(
+            "${dir}"
+            "${build_subdir}"
+            EXCLUDE_FROM_ALL
+        )
+
         set(${out_var} TRUE PARENT_SCOPE)
+
     else()
+
         set(${out_var} FALSE PARENT_SCOPE)
+
     endif()
+
 endfunction()
 
 function(toy_linux_find_or_vendored_sdl3)
-    # ---- SDL3 ----
+
+    # --------------------------------------------------------
+    # SDL3
+    # --------------------------------------------------------
+
     find_package(SDL3 QUIET CONFIG)
+
     if(NOT SDL3_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
-        message(STATUS "Linux: SDL3 not found. Falling back to vendored source: ${TOYLIB_SDL3_SOURCE_DIR}")
+
+        message(
+            STATUS
+            "Linux: SDL3 not found. Falling back to vendored source: ${TOYLIB_SDL3_SOURCE_DIR}"
+        )
+
         toy_linux_add_subdirectory_if_exists(
             "${TOYLIB_SDL3_SOURCE_DIR}"
             "${CMAKE_BINARY_DIR}/_deps/sdl3-build"
             _ok_sdl3
         )
+
         if(NOT _ok_sdl3 OR NOT TARGET SDL3::SDL3)
-            message(FATAL_ERROR
+
+            message(
+                FATAL_ERROR
                 "Linux: SDL3 not found.\n"
                 "  - Install system package (e.g. libsdl3-dev) OR\n"
                 "  - Put SDL3 sources at: ${TOYLIB_SDL3_SOURCE_DIR}\n"
-                "  - Or set -DTOYLIB_LINUX_USE_VENDORED_SDL3=OFF to disable fallback.\n"
+                "  - Or set -DTOYLIB_LINUX_USE_VENDORED_SDL3=OFF."
             )
+
         endif()
+
     elseif(NOT SDL3_FOUND)
-        message(FATAL_ERROR
-            "Linux: SDL3 not found. Install system package (e.g. libsdl3-dev)\n"
-            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+
+        message(
+            FATAL_ERROR
+            "Linux: SDL3 not found.\n"
+            "Install system package or enable vendored SDL3."
         )
+
     endif()
 
-    # ---- SDL3_image ----
-    find_package(SDL3_image QUIET CONFIG)
-    if(NOT SDL3_image_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
-        message(STATUS "Linux: SDL3_image not found. Falling back to vendored source: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}")
+    # --------------------------------------------------------
+    # SDL3_image
+    # --------------------------------------------------------
 
-        set(SDLIMAGE_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_image" FORCE)
+    find_package(SDL3_image QUIET CONFIG)
+
+    if(
+        NOT SDL3_image_FOUND
+        AND TOYLIB_LINUX_USE_VENDORED_SDL3
+    )
+
+        message(
+            STATUS
+            "Linux: SDL3_image not found. Falling back to vendored source: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}"
+        )
+
+        set(
+            SDLIMAGE_VENDORED
+            ON
+            CACHE BOOL
+            "Use vendored dependencies for SDL3_image"
+            FORCE
+        )
 
         toy_linux_add_subdirectory_if_exists(
             "${TOYLIB_SDL3_IMAGE_SOURCE_DIR}"
             "${CMAKE_BINARY_DIR}/_deps/sdl3_image-build"
             _ok_sdl3_image
         )
-        if(NOT _ok_sdl3_image OR NOT TARGET SDL3_image::SDL3_image)
-            message(FATAL_ERROR
-                "Linux: SDL3_image not found.\n"
-                "  - Install system package (e.g. libsdl3-image-dev) OR\n"
-                "  - Put SDL3_image sources at: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}\n"
-            )
-        endif()
-    elseif(NOT SDL3_image_FOUND)
-        message(FATAL_ERROR
-            "Linux: SDL3_image not found. Install system package (e.g. libsdl3-image-dev)\n"
-            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+
+        if(
+            NOT _ok_sdl3_image
+            OR NOT TARGET SDL3_image::SDL3_image
         )
+
+            message(
+                FATAL_ERROR
+                "Linux: SDL3_image not found.\n"
+                "  - Install system package OR\n"
+                "  - Put SDL3_image sources at: ${TOYLIB_SDL3_IMAGE_SOURCE_DIR}"
+            )
+
+        endif()
+
+    elseif(NOT SDL3_image_FOUND)
+
+        message(
+            FATAL_ERROR
+            "Linux: SDL3_image not found."
+        )
+
     endif()
 
-    # ---- SDL3_ttf ----
-    find_package(SDL3_ttf QUIET CONFIG)
-    if(NOT SDL3_ttf_FOUND AND TOYLIB_LINUX_USE_VENDORED_SDL3)
-        message(STATUS "Linux: SDL3_ttf not found. Falling back to vendored source: ${TOYLIB_SDL3_TTF_SOURCE_DIR}")
+    # --------------------------------------------------------
+    # SDL3_ttf
+    # --------------------------------------------------------
 
-        set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored dependencies for SDL3_ttf" FORCE)
+    find_package(SDL3_ttf QUIET CONFIG)
+
+    if(
+        NOT SDL3_ttf_FOUND
+        AND TOYLIB_LINUX_USE_VENDORED_SDL3
+    )
+
+        message(
+            STATUS
+            "Linux: SDL3_ttf not found. Falling back to vendored source: ${TOYLIB_SDL3_TTF_SOURCE_DIR}"
+        )
+
+        set(
+            SDLTTF_VENDORED
+            ON
+            CACHE BOOL
+            "Use vendored dependencies for SDL3_ttf"
+            FORCE
+        )
 
         toy_linux_add_subdirectory_if_exists(
             "${TOYLIB_SDL3_TTF_SOURCE_DIR}"
             "${CMAKE_BINARY_DIR}/_deps/sdl3_ttf-build"
             _ok_sdl3_ttf
         )
-        if(NOT _ok_sdl3_ttf OR NOT TARGET SDL3_ttf::SDL3_ttf)
-            message(FATAL_ERROR
-                "Linux: SDL3_ttf not found.\n"
-                "  - Install system package (e.g. libsdl3-ttf-dev) OR\n"
-                "  - Put SDL3_ttf sources at: ${TOYLIB_SDL3_TTF_SOURCE_DIR}\n"
-                "  Note: SDL3_ttf may require freetype/harfbuzz dev packages or vendored deps.\n"
-            )
-        endif()
-    elseif(NOT SDL3_ttf_FOUND)
-        message(FATAL_ERROR
-            "Linux: SDL3_ttf not found. Install system package (e.g. libsdl3-ttf-dev)\n"
-            "or enable -DTOYLIB_LINUX_USE_VENDORED_SDL3=ON."
+
+        if(
+            NOT _ok_sdl3_ttf
+            OR NOT TARGET SDL3_ttf::SDL3_ttf
         )
+
+            message(
+                FATAL_ERROR
+                "Linux: SDL3_ttf not found.\n"
+                "  - Install system package OR\n"
+                "  - Put SDL3_ttf sources at: ${TOYLIB_SDL3_TTF_SOURCE_DIR}"
+            )
+
+        endif()
+
+    elseif(NOT SDL3_ttf_FOUND)
+
+        message(
+            FATAL_ERROR
+            "Linux: SDL3_ttf not found."
+        )
+
     endif()
+
 endfunction()
 
-#========================
-# プラットフォーム別設定
-#========================
+# ============================================================
+# Platform settings
+# ============================================================
+
 if(WIN32)
+
+    # ========================================================
+    # Windows
+    # ========================================================
+
     message(STATUS "Configuring for Windows build")
 
     find_package(SDL3 CONFIG REQUIRED)
     find_package(SDL3_image CONFIG REQUIRED)
     find_package(SDL3_ttf CONFIG REQUIRED)
     find_package(assimp CONFIG REQUIRED)
-    find_package(OpenAL CONFIG REQUIRED)  # openal-soft (vcpkg) 前提
+    find_package(OpenAL CONFIG REQUIRED)
 
-    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
-    # （vcpkg toolchain を使っている前提）
-
-    # vcpkg
-    set(VCPKG_ROOT "C:/tools/vcpkg")
-    set(VCPKG_TRIPLET "x64-windows")
-
-    set(VCPKG_INC_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include")
-    set(VCPKG_LIB_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib")
-    set(VCPKG_BIN_DIR "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/bin")
-
-    # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        HINTS ${VCPKG_INC_DIR}
+    target_include_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+        "${VCPKG_INC_DIR}"
     )
 
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        HINTS ${VCPKG_LIB_DIR}
-    )
-
-    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Run: vcpkg install mpg123:x64-windows")
-    endif()
-
-    target_include_directories(${PROJECT_NAME} PRIVATE
-        ${VCPKG_INC_DIR}
-        ${MPG123_INCLUDE_DIR}
-    )
-
-    target_link_libraries(${PROJECT_NAME}
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PRIVATE
         OpenGL32
         Vulkan::Vulkan
         SDL3::SDL3
@@ -212,217 +386,499 @@ if(WIN32)
         assimp::assimp
         OpenAL::OpenAL
         glad
-        ${MPG123_LIBRARY}
+        stb_vorbis
     )
 
-    target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PRIVATE
+        SDL_MAIN_HANDLED
+    )
 
-    if (MSVC)
-        target_compile_options(${PROJECT_NAME} PRIVATE /utf-8 /MP)
-        target_link_options(${PROJECT_NAME} PRIVATE /SUBSYSTEM:CONSOLE)
+    if(MSVC)
+
+        target_compile_options(
+            ${PROJECT_NAME}
+            PRIVATE
+            /utf-8
+            /MP
+        )
+
+        target_link_options(
+            ${PROJECT_NAME}
+            PRIVATE
+            /SUBSYSTEM:CONSOLE
+        )
+
     endif()
 
-    # DLL コピー
-    # NOTE:
-    #  Vulkan loader (vulkan-1.dll) は通常 OS/SDK 側に入っているが、
-    #  “配布/別PCで確実に動かす” ならコピー戦略を別途検討（今は開発優先でOK）。
-    set(DLL_FILES
+    # --------------------------------------------------------
+    # DLL copy
+    # --------------------------------------------------------
+
+    set(
+        DLL_FILES
+
         "${VCPKG_BIN_DIR}/SDL3.dll"
         "${VCPKG_BIN_DIR}/SDL3_image.dll"
         "${VCPKG_BIN_DIR}/jpeg62.dll"
         "${VCPKG_BIN_DIR}/libpng16.dll"
         "${VCPKG_BIN_DIR}/z.dll"
         "${VCPKG_BIN_DIR}/SDL3_ttf.dll"
+
         "${VCPKG_BIN_DIR}/assimp-vc145-mt.dll"
         "${VCPKG_BIN_DIR}/fmt.dll"
+
         "${VCPKG_BIN_DIR}/freetype.dll"
         "${VCPKG_BIN_DIR}/bz2.dll"
+
         "${VCPKG_BIN_DIR}/openal32.dll"
-        "${VCPKG_BIN_DIR}/mpg123.dll"
     )
 
     foreach(dll ${DLL_FILES})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${dll}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-            COMMENT "Copying ${dll} to $<TARGET_FILE_DIR:${PROJECT_NAME}>"
-        )
+
+        if(EXISTS "${dll}")
+
+            add_custom_command(
+                TARGET ${PROJECT_NAME}
+                POST_BUILD
+
+                COMMAND
+                    ${CMAKE_COMMAND}
+                    -E copy_if_different
+                    "${dll}"
+                    "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+
+                COMMENT
+                    "Copying ${dll}"
+            )
+
+        endif()
+
     endforeach()
 
 elseif(UNIX AND NOT APPLE)
-    message(STATUS "Configuring for Linux build (APT/system packages + SDL3 source fallback)")
 
-    find_package(OpenGL REQUIRED)
-    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
+    # ========================================================
+    # Linux
+    # ========================================================
 
-    # SDL3: system -> source fallback（Linuxのみ）
+    message(
+        STATUS
+        "Configuring for Linux build (APT/system packages + SDL3 source fallback)"
+    )
+
     toy_linux_find_or_vendored_sdl3()
 
-    # Assimp / OpenAL / fmt
     find_package(assimp REQUIRED)
     find_package(OpenAL REQUIRED)
-    find_package(fmt REQUIRED)
 
-    # mpg123
-    find_package(PkgConfig QUIET)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(MPG123 QUIET IMPORTED_TARGET mpg123)
-    endif()
-
-    if(TARGET PkgConfig::MPG123)
-        set(MPG123_TARGET PkgConfig::MPG123)
-    else()
-        find_path(MPG123_INCLUDE_DIR
-            NAMES mpg123.h
-            PATHS
-                /usr/include
-                /usr/local/include
-                /usr/include/mpg123
-                /usr/local/include/mpg123
-        )
-
-        find_library(MPG123_LIBRARY
-            NAMES mpg123
-            PATHS
-                /usr/lib
-                /usr/local/lib
-                /usr/lib/x86_64-linux-gnu
-                /usr/lib64
-        )
-
-        if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-            message(FATAL_ERROR
-                "mpg123 not found. Install: sudo apt install libmpg123-dev"
-            )
-        endif()
-
-        add_library(mpg123::mpg123 UNKNOWN IMPORTED)
-        set_target_properties(mpg123::mpg123 PROPERTIES
-            IMPORTED_LOCATION "${MPG123_LIBRARY}"
-            INTERFACE_INCLUDE_DIRECTORIES "${MPG123_INCLUDE_DIR}"
-        )
-        set(MPG123_TARGET mpg123::mpg123)
-    endif()
-
-    target_link_libraries(${PROJECT_NAME}
+    target_link_libraries(
+        ${PROJECT_NAME}
         PRIVATE
-            OpenGL::GL
-            Vulkan::Vulkan
-            SDL3::SDL3
-            SDL3_image::SDL3_image
-            SDL3_ttf::SDL3_ttf
-            assimp::assimp
-            OpenAL::OpenAL
-            fmt::fmt
-            glad
-            ${MPG123_TARGET}
-    )
-
-    target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
-
-elseif(APPLE)
-    message(STATUS "Configuring for macOS build")
-
-    find_package(OpenGL REQUIRED)
-    # Vulkan は上で find_package(Vulkan REQUIRED) 済み
-
-    # SDL3（Homebrew）
-    find_package(SDL3        REQUIRED CONFIG HINTS /opt/homebrew/opt/sdl3)
-    find_package(SDL3_image  REQUIRED CONFIG HINTS /opt/homebrew/opt/sdl3_image)
-    find_package(SDL3_ttf    REQUIRED CONFIG HINTS /opt/homebrew/opt/sdl3_ttf)
-
-    find_package(ASSIMP REQUIRED HINTS /opt/homebrew/opt/assimp)
-    find_package(OpenAL REQUIRED HINTS /opt/homebrew/opt/openal-soft)
-
-    # mpg123
-    find_path(MPG123_INCLUDE_DIR
-        NAMES mpg123.h
-        HINTS
-            /opt/homebrew/opt/mpg123/include
-            /opt/homebrew/include
-            /usr/local/include
-    )
-
-    find_library(MPG123_LIBRARY
-        NAMES mpg123
-        HINTS
-            /opt/homebrew/opt/mpg123/lib
-            /opt/homebrew/lib
-            /usr/local/lib
-    )
-
-    if(NOT MPG123_INCLUDE_DIR OR NOT MPG123_LIBRARY)
-        message(FATAL_ERROR "mpg123 not found. Please install with 'brew install mpg123'.")
-    endif()
-
-    target_include_directories(${PROJECT_NAME} PRIVATE
-        /opt/homebrew/include
-        ${ASSIMP_INCLUDE_DIRS}
-        ${OPENAL_INCLUDE_DIR}
-        ${MPG123_INCLUDE_DIR}
-    )
-
-    target_link_libraries(${PROJECT_NAME}
         OpenGL::GL
         Vulkan::Vulkan
         SDL3::SDL3
         SDL3_image::SDL3_image
         SDL3_ttf::SDL3_ttf
         assimp::assimp
+        OpenAL::OpenAL
         glad
-        ${OPENAL_LIBRARY}
-        ${MPG123_LIBRARY}
+        stb_vorbis
     )
 
-    set_target_properties(${PROJECT_NAME} PROPERTIES
+    target_compile_definitions(
+        ${PROJECT_NAME}
+        PRIVATE
+        SDL_MAIN_HANDLED
+    )
+
+elseif(APPLE)
+
+    # ========================================================
+    # macOS
+    # ========================================================
+
+    message(STATUS "Configuring for macOS build")
+
+    find_package(
+        SDL3
+        REQUIRED
+        CONFIG
+        HINTS
+        /opt/homebrew/opt/sdl3
+        /usr/local/opt/sdl3
+    )
+
+    find_package(
+        SDL3_image
+        REQUIRED
+        CONFIG
+        HINTS
+        /opt/homebrew/opt/sdl3_image
+        /usr/local/opt/sdl3_image
+    )
+
+    find_package(
+        SDL3_ttf
+        REQUIRED
+        CONFIG
+        HINTS
+        /opt/homebrew/opt/sdl3_ttf
+        /usr/local/opt/sdl3_ttf
+    )
+
+    find_package(
+        ASSIMP
+        REQUIRED
+        HINTS
+        /opt/homebrew/opt/assimp
+        /usr/local/opt/assimp
+    )
+
+    find_package(
+        OpenAL
+        REQUIRED
+        HINTS
+        /opt/homebrew/opt/openal-soft
+        /usr/local/opt/openal-soft
+    )
+
+    target_include_directories(
+        ${PROJECT_NAME}
+        PRIVATE
+
+        /opt/homebrew/include
+        /usr/local/include
+
+        ${ASSIMP_INCLUDE_DIRS}
+        ${OPENAL_INCLUDE_DIR}
+        ${MPG123_INCLUDE_DIR}
+    )
+
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PRIVATE
+
+        OpenGL::GL
+        Vulkan::Vulkan
+
+        SDL3::SDL3
+        SDL3_image::SDL3_image
+        SDL3_ttf::SDL3_ttf
+
+        assimp::assimp
+
+        glad
+        stb_vorbis
+
+        ${OPENAL_LIBRARY}
+    )
+
+    set_target_properties(
+        ${PROJECT_NAME}
+
+        PROPERTIES
+
         BUILD_WITH_INSTALL_RPATH TRUE
-        INSTALL_RPATH "@executable_path/../lib;/opt/homebrew/lib"
+
+        INSTALL_RPATH
+        "@executable_path/../lib;/opt/homebrew/lib;/usr/local/lib"
     )
 
 endif()
 
-#========================
-# 資材コピー（共通）
-#========================
+# ============================================================
+# Vulkan shader compiler
+# GLSL -> SPIR-V
+# ============================================================
 
-set(SOURCE_SHADER_DIR       "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders")
-set(SOURCE_SYSASSET_DIR     "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Assets")
-set(SOURCE_ASSET_DIR        "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets")
-set(SOURCE_SETTINGS_DIR     "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings")
-set(SOURCE_SYSSETTINGS_DIR  "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings")
-
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SOURCE_SHADER_DIR}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
-    COMMENT "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+set(
+    VK_SHADER_SRC_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders/VK/src"
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SOURCE_SYSASSET_DIR}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
-    COMMENT "Copying System Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+set(
+    VK_SHADER_SPV_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders/VK/spv"
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SOURCE_ASSET_DIR}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
-    COMMENT "Copying Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+# ------------------------------------------------------------
+# Find glslc
+# ------------------------------------------------------------
+
+if(WIN32)
+
+    # vcpkg shaderc
+    #
+    # C:/tools/vcpkg/installed/x64-windows/tools/shaderc/glslc.exe
+
+    find_program(
+        GLSLC_EXECUTABLE
+
+        NAMES
+        glslc.exe
+        glslc
+
+        HINTS
+        "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/tools/shaderc"
+        "${VCPKG_BIN_DIR}"
+    )
+
+elseif(APPLE)
+
+    # Homebrew
+    #
+    # Apple Silicon:
+    #   /opt/homebrew/bin/glslc
+    #
+    # Intel:
+    #   /usr/local/bin/glslc
+
+    find_program(
+        GLSLC_EXECUTABLE
+
+        NAMES
+        glslc
+
+        HINTS
+        /opt/homebrew/bin
+        /usr/local/bin
+    )
+
+else()
+
+    # Linux / apt / system
+
+    find_program(
+        GLSLC_EXECUTABLE
+
+        NAMES
+        glslc
+
+        HINTS
+        /usr/bin
+        /usr/local/bin
+    )
+
+endif()
+
+if(NOT GLSLC_EXECUTABLE)
+
+    message(
+        FATAL_ERROR
+
+        "glslc was not found.\n"
+        "\n"
+        "Windows:\n"
+        "  vcpkg install shaderc:x64-windows\n"
+        "\n"
+        "macOS:\n"
+        "  brew install shaderc\n"
+        "\n"
+        "Linux:\n"
+        "  Install glslc / shaderc package.\n"
+    )
+
+endif()
+
+message(
+    STATUS
+    "Vulkan shader compiler: ${GLSLC_EXECUTABLE}"
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SOURCE_SETTINGS_DIR}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
-    COMMENT "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+# ------------------------------------------------------------
+# Shader source list
+# ------------------------------------------------------------
+
+file(
+    GLOB VK_SHADER_SOURCES
+
+    CONFIGURE_DEPENDS
+
+    "${VK_SHADER_SRC_DIR}/*.vert"
+    "${VK_SHADER_SRC_DIR}/*.frag"
+    "${VK_SHADER_SRC_DIR}/*.comp"
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${SOURCE_SYSSETTINGS_DIR}"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
-    COMMENT "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
+set(VK_SHADER_SPV_FILES)
+
+foreach(SHADER ${VK_SHADER_SOURCES})
+
+    get_filename_component(
+        SHADER_NAME
+        "${SHADER}"
+        NAME
+    )
+
+    set(
+        SPV_FILE
+        "${VK_SHADER_SPV_DIR}/${SHADER_NAME}.spv"
+    )
+
+    add_custom_command(
+        OUTPUT
+        "${SPV_FILE}"
+
+        COMMAND
+        ${CMAKE_COMMAND}
+        -E make_directory
+        "${VK_SHADER_SPV_DIR}"
+
+        COMMAND
+        "${GLSLC_EXECUTABLE}"
+        "${SHADER}"
+        -o
+        "${SPV_FILE}"
+
+        DEPENDS
+        "${SHADER}"
+
+        COMMENT
+        "Compiling Vulkan shader: ${SHADER_NAME}"
+
+        VERBATIM
+    )
+
+    list(
+        APPEND
+        VK_SHADER_SPV_FILES
+        "${SPV_FILE}"
+    )
+
+endforeach()
+
+# ------------------------------------------------------------
+# Vulkan shader target
+# ------------------------------------------------------------
+
+add_custom_target(
+    VulkanShaders
+    DEPENDS
+    ${VK_SHADER_SPV_FILES}
+)
+
+# GameApp build requires shaders
+add_dependencies(
+    ${PROJECT_NAME}
+    VulkanShaders
+)
+
+# ============================================================
+# Resource copy
+# ============================================================
+
+set(
+    SOURCE_SHADER_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Shaders"
+)
+
+set(
+    SOURCE_SYSASSET_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Assets"
+)
+
+set(
+    SOURCE_ASSET_DIR
+    "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Assets"
+)
+
+set(
+    SOURCE_SETTINGS_DIR
+    "${CMAKE_SOURCE_DIR}/${GAME_PATH}/Settings"
+)
+
+set(
+    SOURCE_SYSSETTINGS_DIR
+    "${CMAKE_SOURCE_DIR}/${TOYLIB_PATH}/Settings"
+)
+
+# ------------------------------------------------------------
+# Shaders
+# ------------------------------------------------------------
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_directory
+    "${SOURCE_SHADER_DIR}"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+
+    COMMENT
+    "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+)
+
+# ------------------------------------------------------------
+# ToyLib Assets
+# ------------------------------------------------------------
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_directory
+    "${SOURCE_SYSASSET_DIR}"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+
+    COMMENT
+    "Copying System Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+)
+
+# ------------------------------------------------------------
+# Game Assets
+# ------------------------------------------------------------
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_directory
+    "${SOURCE_ASSET_DIR}"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+
+    COMMENT
+    "Copying Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+)
+
+# ------------------------------------------------------------
+# Game Settings
+# ------------------------------------------------------------
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_directory
+    "${SOURCE_SETTINGS_DIR}"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+
+    COMMENT
+    "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+)
+
+# ------------------------------------------------------------
+# ToyLib Settings
+# ------------------------------------------------------------
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_directory
+    "${SOURCE_SYSSETTINGS_DIR}"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
+
+    COMMENT
+    "Copying System Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
 )
