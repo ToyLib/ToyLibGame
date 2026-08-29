@@ -427,6 +427,11 @@ protected:
 
     std::vector<SceneCaptureRequest> mSceneCaptureQueue {};
 
+    // DrawToRenderTarget() 実行中(true)かどうか。
+    // BuildFrameQueues() 側で、SceneCapture 用の一時カメラ切り替え中は
+    // シャドウのライトVPを再計算しない、といった分岐に使う。
+    bool mIsDrawingCapture { false };
+
     //--------------------------------------------------------------------------
     // Lighting / Shadow
     //--------------------------------------------------------------------------

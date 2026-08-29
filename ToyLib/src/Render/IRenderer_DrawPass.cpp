@@ -143,7 +143,15 @@ void IRenderer::BuildFrameQueues()
 
     // シャドウ用: 各カスケードのライトVPを今フレームぶん再計算し、frustumを作っておく
     // （シャドウキャスターのカリング判定に使う。DrawShadowPass 側はこの後の値をそのまま使う）
-    UpdateShadowLightMatrices();
+    //
+    // SceneCapture（ミラー等のRTT）は DrawToRenderTarget() 内で mViewMatrix/mInvView を
+    // 一時的にキャプチャ用カメラへ差し替えた上でこの BuildFrameQueues() を再度呼ぶ。
+    // ここで再計算してしまうと、実際にレンダリング済みの（メインカメラ基準の）シャドウマップと
+    // ライトVPがズレてキャプチャ内のシャドウ位置がおかしくなるため、キャプチャ中は再計算しない。
+    if (!mIsDrawingCapture)
+    {
+        UpdateShadowLightMatrices();
+    }
 
     Frustum cascadeFrustum[kShadowCascadeCount];
     for (int c = 0; c < kShadowCascadeCount; ++c)

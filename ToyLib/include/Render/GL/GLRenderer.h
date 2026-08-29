@@ -58,7 +58,7 @@ protected:
 
 private:
     SDL_GLContext mGLContext        { nullptr };
-    bool          mIsDrawingCapture { false };
+    // mIsDrawingCapture は IRenderer 側で共有定義（BuildFrameQueues が参照するため）
 
     // Shadow mapping リソース（GL 固有 — IRenderer には置かない）
     uint32_t mShadowFBO[kShadowCascadeCount] {};

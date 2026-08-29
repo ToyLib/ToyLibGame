@@ -221,6 +221,11 @@ void VKRenderer::UpdateSceneUBO_Capture(const Matrix4& viewProj)
         ubo.shadowParams[3] = 0.0f;
     }
 
+    ubo.shadowFlags[0] = static_cast<int>(mEnableShadow);
+    ubo.shadowFlags[1] = 0;
+    ubo.shadowFlags[2] = 0;
+    ubo.shadowFlags[3] = 0;
+
     mCaptureUniform[mActiveCaptureSlot].Upload(mDevice, mFrameIndex, &ubo, sizeof(ubo));
 }
 
@@ -274,9 +279,11 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
     mInvView = req.view;
     mInvView.Invert();
 
-    BuildFrameQueues();
-
+    // BuildFrameQueues() はキャプチャ用カメラ切り替え中かどうかを見て
+    // シャドウのライトVP再計算をスキップするため、呼び出し前にセットする。
     mIsDrawingCapture = true;
+
+    BuildFrameQueues();
 
     const Matrix4 viewProj = mViewMatrix * mProjectionMatrix;
     UpdateSceneUBO_Capture(viewProj);

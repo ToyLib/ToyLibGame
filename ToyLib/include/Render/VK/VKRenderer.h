@@ -460,9 +460,8 @@ private:
 private:
     //==========================================================
     // SceneCapture
+    //  - mIsDrawingCapture は IRenderer 側で共有定義（BuildFrameQueues が参照するため）
     //==========================================================
-    bool mIsDrawingCapture{false};
-
     static constexpr uint32_t kMaxSceneCaptureSlots = 8;
 
     std::array<VKUniformSet, kMaxSceneCaptureSlots> mCaptureUniform;
