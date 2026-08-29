@@ -13,6 +13,9 @@ DerivedData/
 *.a
 *.lib
 
+# Shader SPV
+ToyLib/Shaders/VK/spv/
+
 # Xcode specific
 *.xcuserstate
 *.xcworkspace/xcuserdata/
