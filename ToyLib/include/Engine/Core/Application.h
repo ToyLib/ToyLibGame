@@ -114,6 +114,11 @@ private:
     int   mWindowedWidth  { 1600 };
     int   mWindowedHeight {  900 };
 
+    // 設定ファイルで指定された「希望フルスクリーン解像度」
+    // （mScreenWidth/Height はリサイズの度に上書きされるため別保持）
+    int   mFullscreenWidth  { 0 };
+    int   mFullscreenHeight { 0 };
+
     bool  mIsActive { false };
     bool  mIsPause  { false };
     Uint64 mTicksCount {};            // 前フレームの時刻（ns 単位）

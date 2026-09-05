@@ -80,6 +80,10 @@ bool Application::LoadSettings(const std::string& filePath)
         JsonHelper::GetInt(data["screen"], "screen_width",  mScreenWidth);
         JsonHelper::GetInt(data["screen"], "screen_height", mScreenHeight);
         JsonHelper::GetBool(data["screen"], "fullscreen", mIsFullScreen);
+
+        // フルスクリーン時に狙う解像度も同じ設定値を使う
+        mFullscreenWidth  = mScreenWidth;
+        mFullscreenHeight = mScreenHeight;
     }
     
     //---------------------------------------------------------

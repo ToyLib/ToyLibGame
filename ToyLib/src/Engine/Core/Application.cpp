@@ -680,6 +680,25 @@ void Application::SetFullscreen(bool enable)
         SDL_GetWindowSize(mWindow, &w, &h);
         mWindowedWidth  = w;
         mWindowedHeight = h;
+
+        // 設定ファイルの解像度に最も近いディスプレイモードを試す。
+        // 見つからない/変更できない環境（Waylandなど）では
+        // nullptr 指定＝ボーダレスフルスクリーン（デスクトップ解像度）に
+        // フォールバックする（＝これまでの挙動）。
+        SDL_DisplayMode closest{};
+        const SDL_DisplayID displayId = SDL_GetDisplayForWindow(mWindow);
+        const bool foundMode =
+            (displayId != 0) &&
+            (mFullscreenWidth  > 0) &&
+            (mFullscreenHeight > 0) &&
+            SDL_GetClosestFullscreenDisplayMode(
+                displayId, mFullscreenWidth, mFullscreenHeight,
+                0.0f, false, &closest);
+
+        if (!foundMode || !SDL_SetWindowFullscreenMode(mWindow, &closest))
+        {
+            SDL_SetWindowFullscreenMode(mWindow, nullptr);
+        }
     }
 
     if (!SDL_SetWindowFullscreen(mWindow, enable))
