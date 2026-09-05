@@ -58,6 +58,10 @@ bool VKRenderer::CreateInstance()
 #if !defined(NDEBUG)
     mEnableValidation = mEnableValidation && toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
 
+    std::cerr << "[VKRenderer] Validation layer (" << kValidationLayers[0] << "): "
+               << (mEnableValidation ? "found, enabling" : "NOT FOUND -- install the Vulkan SDK to get it")
+               << "\n";
+
     // ★診断用: GPU-Assisted Validationが使えれば、シェーダ内のSSBO/バッファ
     //   範囲外アクセスをクラッシュ前に検知できる（AMD device lost原因の切り分け用）。
     //   robustBufferAccessだけでは検知できないケースがあるため追加する。
