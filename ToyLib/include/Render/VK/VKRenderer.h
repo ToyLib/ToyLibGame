@@ -220,6 +220,7 @@ private:
     VkSurfaceKHR mSurface{VK_NULL_HANDLE};
     VkDebugUtilsMessengerEXT mDebugMessenger{VK_NULL_HANDLE};
     bool mEnableValidation{true};
+    bool mEnableGpuAssistedValidation{false};
 
     VkPhysicalDevice mPhysicalDevice{VK_NULL_HANDLE};
     VkDevice mDevice{VK_NULL_HANDLE};

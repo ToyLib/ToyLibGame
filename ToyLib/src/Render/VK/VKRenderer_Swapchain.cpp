@@ -58,11 +58,21 @@ bool VKRenderer::CreateInstance()
 #if !defined(NDEBUG)
     mEnableValidation = mEnableValidation && toy::vkutil::HasLayer(kValidationLayers[0], availLayers);
 
+    // ★診断用: GPU-Assisted Validationが使えれば、シェーダ内のSSBO/バッファ
+    //   範囲外アクセスをクラッシュ前に検知できる（AMD device lost原因の切り分け用）。
+    //   robustBufferAccessだけでは検知できないケースがあるため追加する。
     if (mEnableValidation)
     {
         if (toy::vkutil::HasInstanceExt(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, availExts))
         {
             exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        mEnableGpuAssistedValidation =
+            toy::vkutil::HasInstanceExt(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, availExts);
+        if (mEnableGpuAssistedValidation)
+        {
+            exts.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
     }
 #else
@@ -96,6 +106,8 @@ bool VKRenderer::CreateInstance()
 
     std::vector<const char*> layers;
     VkDebugUtilsMessengerCreateInfoEXT dbgCI{};
+    VkValidationFeatureEnableEXT gpuAvFeatures[] = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT};
+    VkValidationFeaturesEXT validationFeatures{};
 #if !defined(NDEBUG)
     if (mEnableValidation)
     {
@@ -111,7 +123,21 @@ bool VKRenderer::CreateInstance()
                             VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         dbgCI.pfnUserCallback = toy::vkutil::DebugCallback;
 
-        ici.pNext = &dbgCI;
+        if (mEnableGpuAssistedValidation)
+        {
+            validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+            validationFeatures.enabledValidationFeatureCount = 1;
+            validationFeatures.pEnabledValidationFeatures = gpuAvFeatures;
+            validationFeatures.pNext = &dbgCI;
+
+            ici.pNext = &validationFeatures;
+
+            std::cerr << "[VKRenderer] GPU-Assisted Validation: enabled (debug diagnostics)\n";
+        }
+        else
+        {
+            ici.pNext = &dbgCI;
+        }
     }
 #endif
 
@@ -243,6 +269,14 @@ bool VKRenderer::CreateDeviceAndQueues()
     std::cerr << "[VKRenderer] robustBufferAccess: "
                << (supported.robustBufferAccess ? "supported, enabling" : "NOT supported by this GPU/driver")
                << "\n";
+
+    // GPU-Assisted Validationがバッファ範囲外アクセスを検出するには
+    // ストア/アトミック系のシェーダfeatureが要る。診断目的なので対応していれば有効化する。
+    if (mEnableGpuAssistedValidation)
+    {
+        features.vertexPipelineStoresAndAtomics = supported.vertexPipelineStoresAndAtomics;
+        features.fragmentStoresAndAtomics = supported.fragmentStoresAndAtomics;
+    }
 
     VkDeviceCreateInfo dci{};
     dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
