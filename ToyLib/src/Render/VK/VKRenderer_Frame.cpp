@@ -183,9 +183,13 @@ bool VKRenderer::BeginFrame()
     mb.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     mb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
 
+    // ★dstAccessMaskにVERTEX_ATTRIBUTE_READ_BITを含めているので、
+    //   dstStageMaskにもVERTEX_INPUT_BITが必要
+    //   (VUID-vkCmdPipelineBarrier-dstAccessMask-02816、Validation Layerで検出)。
     vkCmdPipelineBarrier(frame.cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &mb, 0,
-                         nullptr, 0, nullptr);
+                         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 1, &mb, 0, nullptr, 0, nullptr);
 
     //---------------------------------------------------------
     // SceneRT check
