@@ -712,16 +712,6 @@ void Application::SetFullscreen(bool enable)
             SDL_SetWindowFullscreenMode(mWindow, nullptr);
         }
     }
-    else
-    {
-        // 排他モード（実解像度変更）からウィンドウモードへ戻る前に、
-        // 一旦「デスクトップ解像度のボーダレスフルスクリーン」に
-        // 切り替えておく。フルスクリーンを抜けた後にモード解除する
-        // 順序だと、特にWindowsで実解像度（ChangeDisplaySettings）の
-        // 巻き戻しが行われないまま残ることがあるため。
-        SDL_SetWindowFullscreenMode(mWindow, nullptr);
-        SDL_SyncWindow(mWindow);
-    }
 
     if (!SDL_SetWindowFullscreen(mWindow, enable))
     {
@@ -730,16 +720,18 @@ void Application::SetFullscreen(bool enable)
         return;
     }
 
-    // SDL_SetWindowFullscreen()はプラットフォームによって非同期。
-    // Windowsは実際のモニタ解像度変更を伴うため反映に時間がかかり、
-    // 待たずに進めると復元前の情報を基にサイズ/位置を決めてしまい崩れる。
-    // ここで実際に遷移が完了するまでブロックして待つ。
+    // SDL_SetWindowFullscreen()はプラットフォームによって非同期のため、
+    // 実際に遷移が完了するまでブロックして待つ
+    // （待たずに進めると遷移前の情報を基にサイズ/位置を決めてしまう）
     SDL_SyncWindow(mWindow);
 
     mIsFullScreen = enable;
 
     if (!enable)
     {
+        // 全画面用に固定していた解像度モード指定を解除しておく
+        SDL_SetWindowFullscreenMode(mWindow, nullptr);
+
         if (mWindowedWidth > 0 && mWindowedHeight > 0)
         {
             // ここで発生する SDL_EVENT_WINDOW_RESIZED は自前の変更なので
