@@ -33,5 +33,9 @@
     "ortho_height": 100.0,
     "resolution_width": 4096,
     "resolution_height": 4096
+  },
+  "validation": {
+    "enable": true,
+    "gpu_assisted": false
   }
 }

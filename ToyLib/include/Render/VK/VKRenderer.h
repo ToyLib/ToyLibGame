@@ -219,8 +219,8 @@ private:
     VkInstance mInstance{VK_NULL_HANDLE};
     VkSurfaceKHR mSurface{VK_NULL_HANDLE};
     VkDebugUtilsMessengerEXT mDebugMessenger{VK_NULL_HANDLE};
-    bool mEnableValidation{true};
-    bool mEnableGpuAssistedValidation{false};
+    // mEnableValidation / mEnableGpuAssistedValidation は IRenderer 側
+    // (Renderer_Settings.jsonの"validation"で設定可能)
 
     VkPhysicalDevice mPhysicalDevice{VK_NULL_HANDLE};
     VkDevice mDevice{VK_NULL_HANDLE};

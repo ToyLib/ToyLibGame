@@ -80,14 +80,23 @@ bool VKRenderer::CreateInstance()
             vkEnumerateInstanceExtensionProperties(kValidationLayers[0], &layerExtCount, layerExts.data());
         }
 
-        mEnableGpuAssistedValidation = toy::vkutil::HasInstanceExt(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, layerExts);
+        // ★mEnableGpuAssistedValidationはRenderer_Settings.jsonの
+        //   "validation.gpu_assisted"で指定されたユーザーの希望値（既定false）。
+        //   実際に対応していない環境なら&&でfalseに落とす。
+        mEnableGpuAssistedValidation = mEnableGpuAssistedValidation &&
+            toy::vkutil::HasInstanceExt(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, layerExts);
         if (mEnableGpuAssistedValidation)
         {
             exts.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
     }
+    else
+    {
+        mEnableGpuAssistedValidation = false;
+    }
 #else
     mEnableValidation = false;
+    mEnableGpuAssistedValidation = false;
 #endif
 
     const bool hasPortEnum = toy::vkutil::HasInstanceExt(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME, availExts);

@@ -166,7 +166,20 @@ bool IRenderer::LoadSettings(const std::string& filePath)
         JsonHelper::GetInt  (data["shadow"], "resolution_width",  mShadowFBOWidth);
         JsonHelper::GetInt  (data["shadow"], "resolution_height", mShadowFBOHeight);
     }
-    
+
+    //---------------------------------------------------------
+    // Validation Layer設定（VK限定。GLは無視）
+    //   "validation": {
+    //       "enable": true,        // Debugビルドのみ有効。Releaseでは常に無効
+    //       "gpu_assisted": false  // 重いので既定off。範囲外アクセス調査時のみtrueに
+    //   }
+    //---------------------------------------------------------
+    if (data.contains("validation"))
+    {
+        JsonHelper::GetBool(data["validation"], "enable",       mEnableValidation);
+        JsonHelper::GetBool(data["validation"], "gpu_assisted", mEnableGpuAssistedValidation);
+    }
+
     std::cerr << "Loaded Renderer settings from "
               << filePath.c_str() << std::endl;
     return true;
