@@ -68,8 +68,19 @@ bool VKRenderer::CreateInstance()
             exts.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
-        mEnableGpuAssistedValidation =
-            toy::vkutil::HasInstanceExt(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, availExts);
+        // ★VK_EXT_validation_featuresはローダー本体ではなく
+        //   VK_LAYER_KHRONOS_validationレイヤーが提供する拡張なので、
+        //   vkEnumerateInstanceExtensionProperties(nullptr, ...)（=availExts）には
+        //   出てこない。レイヤー名を指定して問い合わせる必要がある。
+        uint32_t layerExtCount = 0;
+        vkEnumerateInstanceExtensionProperties(kValidationLayers[0], &layerExtCount, nullptr);
+        std::vector<VkExtensionProperties> layerExts(layerExtCount);
+        if (layerExtCount)
+        {
+            vkEnumerateInstanceExtensionProperties(kValidationLayers[0], &layerExtCount, layerExts.data());
+        }
+
+        mEnableGpuAssistedValidation = toy::vkutil::HasInstanceExt(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, layerExts);
         if (mEnableGpuAssistedValidation)
         {
             exts.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
