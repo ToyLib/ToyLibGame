@@ -1,6 +1,5 @@
 #include "FieldScene.h"
 #include "SnowScene.h"
-#include "StageScene.h"
 #include "ToyLib.h"
 #include "../Actors/PlayerActor.h"
 #include "../Actors/RPGCharacter.h"
@@ -126,7 +125,7 @@ void FieldScene::ProcessInput(const struct toy::InputState &input)
 {
     if (input.IsButtonPressed(toy::GameButton::Start))
     {
-        RequestChange(std::make_unique<StageScene>());
+        RequestChange(std::make_unique<SnowScene>());
     }
 }
 
