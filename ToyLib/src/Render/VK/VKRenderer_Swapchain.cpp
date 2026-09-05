@@ -240,6 +240,10 @@ bool VKRenderer::CreateDeviceAndQueues()
     VkPhysicalDeviceFeatures features{};
     features.robustBufferAccess = supported.robustBufferAccess;
 
+    std::cerr << "[VKRenderer] robustBufferAccess: "
+               << (supported.robustBufferAccess ? "supported, enabling" : "NOT supported by this GPU/driver")
+               << "\n";
+
     VkDeviceCreateInfo dci{};
     dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dci.queueCreateInfoCount = static_cast<uint32_t>(qcis.size());
