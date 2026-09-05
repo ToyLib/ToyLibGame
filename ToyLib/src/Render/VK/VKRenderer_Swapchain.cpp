@@ -230,7 +230,15 @@ bool VKRenderer::CreateDeviceAndQueues()
     std::vector<const char*> devExts;
     devExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+    // Skinned palette(set=2)はボーンindexの範囲外アクセスがあると本来UB。
+    // robustBufferAccessを有効化しておくと、そのUBがGPUハング(特にAMD)ではなく
+    // 単なるゼロ読みに丸められるため、ボーンパレットが大きいモデルでの
+    // まれなフリーズに対する保険になる。
+    VkPhysicalDeviceFeatures supported{};
+    vkGetPhysicalDeviceFeatures(mPhysicalDevice, &supported);
+
     VkPhysicalDeviceFeatures features{};
+    features.robustBufferAccess = supported.robustBufferAccess;
 
     VkDeviceCreateInfo dci{};
     dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
