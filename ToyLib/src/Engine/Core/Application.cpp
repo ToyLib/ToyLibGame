@@ -712,15 +712,26 @@ void Application::SetFullscreen(bool enable)
 
     mIsFullScreen = enable;
 
-    HandleWindowResized();
-
-    if (!enable && mWindowedWidth > 0 && mWindowedHeight > 0)
+    if (!enable)
     {
-        SDL_SetWindowSize(mWindow, mWindowedWidth, mWindowedHeight);
-        SDL_SetWindowPosition(mWindow,
-            SDL_WINDOWPOS_CENTERED,
-            SDL_WINDOWPOS_CENTERED);
+        // 全画面用に固定していた解像度モード指定を解除しておく。
+        // 残したままだと、特にWindowsでOS側の解像度復元と
+        // ウィンドウサイズ復元のタイミングが競合しやすい。
+        SDL_SetWindowFullscreenMode(mWindow, nullptr);
+
+        if (mWindowedWidth > 0 && mWindowedHeight > 0)
+        {
+            // ここで発生する SDL_EVENT_WINDOW_RESIZED は自前の変更なので
+            // アスペクト補正ロジックを再度走らせないようフラグを立てる
+            mIsAdjustingSize = true;
+            SDL_SetWindowSize(mWindow, mWindowedWidth, mWindowedHeight);
+            SDL_SetWindowPosition(mWindow,
+                SDL_WINDOWPOS_CENTERED,
+                SDL_WINDOWPOS_CENTERED);
+        }
     }
+
+    HandleWindowResized();
 }
 
 void Application::ToggleFullscreen()
