@@ -4,6 +4,7 @@
 #include "Render/VK/VKSceneRenderTarget.h"
 
 #include "Render/RenderBackendState.h"
+#include "Render/VK/VKUtil.h"
 #include "Asset/Material/Texture.h"
 
 #include <iostream>
@@ -97,6 +98,14 @@ bool VKSceneRenderTarget::Create(int w, int h)
         Unload();
         return false;
     }
+
+    // ★colorをfinalLayout(SHADER_READ_ONLY_OPTIMAL)へ先に遷移しておく。
+    //   これをしないと、まだ一度もこのRTへ描画していない最初のフレームで
+    //   PostEffectパスが先にサンプルしてしまった場合、UNDEFINEDレイアウトの
+    //   まま読むことになりVUID違反(内容もゴミ)になる
+    //   (Validation Layerで実際に検出)。中身が初回だけゴミなのは変わらないが、
+    //   少なくとも仕様違反にはならない。
+    TransitionColorToShaderReadOnly();
 
     if (!CreateColorSampler())
     {
@@ -250,6 +259,60 @@ bool VKSceneRenderTarget::CreateImages()
     }
 
     return true;
+}
+
+//------------------------------------------------------------------------------
+// TransitionColorToShaderReadOnly
+//  作成直後(まだ一度もrender passで描画していない状態)のcolor imageを
+//  UNDEFINED -> SHADER_READ_ONLY_OPTIMALへ遷移しておく。失敗しても
+//  致命的ではない(単にVUID違反が残るだけ)ので、失敗は無視して続行する。
+//------------------------------------------------------------------------------
+void VKSceneRenderTarget::TransitionColorToShaderReadOnly()
+{
+    if (mColorImage == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    auto commandPool = static_cast<VkCommandPool>(RenderBackendState::Get().GetVKCommandPool());
+    auto queue = static_cast<VkQueue>(RenderBackendState::Get().GetVKGraphicsQueue());
+    if (commandPool == VK_NULL_HANDLE || queue == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkCommandBufferAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool = commandPool;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    if (vkAllocateCommandBuffers(mDevice, &ai, &cmd) != VK_SUCCESS || cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkCommandBufferBeginInfo bi{};
+    bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &bi);
+
+    toy::vkutil::CmdTransitionImageLayout(cmd, mColorImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                          VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, VK_ACCESS_SHADER_READ_BIT);
+
+    vkEndCommandBuffer(cmd);
+
+    VkSubmitInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+
+    vkQueueSubmit(queue, 1, &si, VK_NULL_HANDLE);
+    vkQueueWaitIdle(queue);
+
+    vkFreeCommandBuffers(mDevice, commandPool, 1, &cmd);
 }
 
 //------------------------------------------------------------------------------

@@ -47,6 +47,7 @@ public:
 
 private:
     bool CreateImages();
+    void TransitionColorToShaderReadOnly();
     bool CreateRenderPass();
     bool CreateFramebuffer();
 
