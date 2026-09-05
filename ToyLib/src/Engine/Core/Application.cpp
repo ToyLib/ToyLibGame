@@ -686,9 +686,19 @@ void Application::SetFullscreen(bool enable)
         // true の場合は設定ファイルの解像度に最も近いディスプレイモードを試し、
         // 見つからない/変更できない環境（Waylandなど）では
         // nullptr 指定＝ボーダレスフルスクリーンにフォールバックする。
+        //
+        // Windowsは排他フルスクリーン解除時にOS側の解像度復元が
+        // 正しく行われないことがある（SDL3側の既知の不安定挙動）ため、
+        // 設定値に関わらず常にボーダレスフルスクリーンを使う。
+#ifdef _WIN32
+        constexpr bool kAllowExclusiveResolution = false;
+#else
+        constexpr bool kAllowExclusiveResolution = true;
+#endif
         SDL_DisplayMode closest{};
         const SDL_DisplayID displayId = SDL_GetDisplayForWindow(mWindow);
         const bool foundMode =
+            kAllowExclusiveResolution &&
             mFullscreenUseSettingResolution &&
             (displayId != 0) &&
             (mFullscreenWidth  > 0) &&
