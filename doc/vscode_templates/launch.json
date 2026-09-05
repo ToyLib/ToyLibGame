@@ -2,13 +2,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch GameApp (Windows)",
+      "name": "Launch GameApp (Windows, Debug)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/Debug/GameApp.exe",
       "cwd": "${workspaceFolder}/build/Debug",
       "console": "internalConsole",
-      "preLaunchTask": "CMake Build (Windows)"
+      "preLaunchTask": "CMake Build Debug (Windows)"
+    },
+    {
+      "name": "Launch GameApp (Windows, Release)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Release/GameApp.exe",
+      "cwd": "${workspaceFolder}/build/Release",
+      "console": "internalConsole",
+      "preLaunchTask": "CMake Build Release (Windows)"
     },
     {
       "name": "Launch GameApp (Linux)",

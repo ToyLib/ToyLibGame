@@ -1,106 +1,155 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    // =========================
-    // Clean
-    // =========================
-    {
-      "label": "Clean Build Folder (Unix)",
-      "type": "shell",
-      "command": "rm",
-      "args": ["-rf", "build"],
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-    },
-    {
-      "label": "Clean Build Folder (Windows)",
-      "type": "shell",
-      "command": "Remove-Item -Recurse -Force build",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-    },
-
-    // =========================
-    // CMake Configure
-    // =========================
-    {
-      "label": "CMake Configure (macOS)",
-      "type": "shell",
-      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-      // 必要なら ↓ を付けて「毎回クリーン」もできる
-      // "dependsOn": "Clean Build Folder (Unix)"
-    },
+    "version": "2.0.0",
+    "tasks": [
+        // ============================================================
+        // Clean
+        // ============================================================
         {
-      "label": "CMake Configure (Unix)",
-      "type": "shell",
-      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-      // 必要なら ↓ を付けて「毎回クリーン」もできる
-      // "dependsOn": "Clean Build Folder (Unix)"
-    },
-    {
-      "label": "CMake Configure (Windows)",
-      "type": "shell",
-      "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=C:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      }
-      // 必要なら ↓
-      // "dependsOn": "Clean Build Folder (Windows)"
-    },
+            "label": "Clean Build Folder (Unix)",
+            "type": "shell",
+            "command": "rm",
+            "args": [
+                "-rf",
+                "build"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Clean Build Folder (Windows)",
+            "type": "shell",
+            "command": "Remove-Item -Recurse -Force build",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
 
-    // =========================
-    // CMake Build
-    // =========================
-    {
-      "label": "CMake Build (Unix)",
-      "type": "shell",
-      "command": "cmake --build build --parallel",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "dependsOn": "CMake Configure (Unix)"
-    },
-    {
-      "label": "CMake Build (macOS)",
-      "type": "shell",
-      "command": "cmake --build build --parallel",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "dependsOn": "CMake Configure (macOS)"
-    },
-    {
-      "label": "CMake Build (Windows)",
-      "type": "shell",
-      "command": "cmake --build build --config Debug --parallel",
-      "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": false
-      },
-      "dependsOn": "CMake Configure (Windows)"
-    }
-  ]
+        // ============================================================
+        // CMake Configure
+        // ============================================================
+
+        // ------------------------------------------------------------
+        // macOS
+        // Single-config generator
+        // ------------------------------------------------------------
+        {
+            "label": "CMake Configure (macOS)",
+            "type": "shell",
+            "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+
+            // 毎回クリーンしたい場合:
+            // "dependsOn": "Clean Build Folder (Unix)"
+        },
+
+        // ------------------------------------------------------------
+        // Linux / Unix
+        // Single-config generator
+        // ------------------------------------------------------------
+        {
+            "label": "CMake Configure (Unix)",
+            "type": "shell",
+            "command": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+
+            // 毎回クリーンしたい場合:
+            // "dependsOn": "Clean Build Folder (Unix)"
+        },
+
+        // ------------------------------------------------------------
+        // Windows
+        //
+        // Visual Studio Generator は multi-config なので
+        // CMAKE_BUILD_TYPE は指定しない。
+        //
+        // Debug / Release は cmake --build の
+        // --config で切り替える。
+        // ------------------------------------------------------------
+        {
+            "label": "CMake Configure (Windows)",
+            "type": "shell",
+            "command": "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=C:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+
+            // 毎回クリーンしたい場合:
+            // "dependsOn": "Clean Build Folder (Windows)"
+        },
+
+        // ============================================================
+        // CMake Build - macOS / Unix
+        // ============================================================
+        {
+            "label": "CMake Build (Unix)",
+            "type": "shell",
+            "command": "cmake --build build --parallel",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": "CMake Configure (Unix)"
+        },
+        {
+            "label": "CMake Build (macOS)",
+            "type": "shell",
+            "command": "cmake --build build --parallel",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": "CMake Configure (macOS)"
+        },
+
+        // ============================================================
+        // CMake Build - Windows
+        // ============================================================
+
+        // ------------------------------------------------------------
+        // Debug
+        // ------------------------------------------------------------
+        {
+            "label": "CMake Build Debug (Windows)",
+            "type": "shell",
+            "command": "cmake --build build --config Debug --parallel",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": "CMake Configure (Windows)"
+        },
+
+        // ------------------------------------------------------------
+        // Release
+        // ------------------------------------------------------------
+        {
+            "label": "CMake Build Release (Windows)",
+            "type": "shell",
+            "command": "cmake --build build --config Release --parallel",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "dependsOn": "CMake Configure (Windows)"
+        }
+    ]
 }
