@@ -203,6 +203,17 @@ bool VKRenderer::Initialize(const Application* app)
             OnTextureUnloaded(tex);
         });
 
+    // VKTextureGPUのVulkanハンドル破棄を遅延させるためのコールバック。
+    // 即destroyすると、in-flightな別フレームのコマンドバッファがまだ
+    // 参照しているDescriptorSet/Samplerを壊してしまう（テキストテクスチャの
+    // 再生成などで実際にAMD実機のdevice lostを引き起こしていた）。
+    RenderBackendState::Get().SetGpuHandleRetireCallback(
+        [this](void* sampler, void* view, void* image, void* mem)
+        {
+            RetireTextureHandles(static_cast<VkSampler>(sampler), static_cast<VkImageView>(view),
+                                  static_cast<VkImage>(image), static_cast<VkDeviceMemory>(mem));
+        });
+
     std::cerr << "[VKRenderer] Init OK. Swapchain(" << mSwapchainExtent.width << "x" << mSwapchainExtent.height
               << ") Scale=" << mWindowDisplayScale << " Images=" << (int)mSwapchainImages.size() << "\n";
 
@@ -225,8 +236,12 @@ void VKRenderer::Shutdown()
         vkDeviceWaitIdle(mDevice);
     }
 
+    // vkDeviceWaitIdle済みなので、遅延中の破棄は全て即座に実行してよい。
+    FlushRetiredTextures(/*force=*/true);
+
     // コールバック解除（Texture デストラクタが Shutdown 後に走っても安全）
     RenderBackendState::Get().ClearTextureUnloadCallback();
+    RenderBackendState::Get().ClearGpuHandleRetireCallback();
 
     mPost.paperTex.reset();
     DestroyShadowResources();
@@ -263,17 +278,12 @@ void VKRenderer::Shutdown()
             {
                 vkDestroySemaphore(mDevice, f.imageAvailable, nullptr);
             }
-            if (f.renderFinished)
-            {
-                vkDestroySemaphore(mDevice, f.renderFinished, nullptr);
-            }
             if (f.inFlight)
             {
                 vkDestroyFence(mDevice, f.inFlight, nullptr);
             }
         }
         f.imageAvailable = VK_NULL_HANDLE;
-        f.renderFinished = VK_NULL_HANDLE;
         f.inFlight = VK_NULL_HANDLE;
         f.cmd = VK_NULL_HANDLE;
     }
@@ -373,6 +383,73 @@ void VKRenderer::OnWindowResized(int width, int height)
 void VKRenderer::OnTextureUnloaded(const Texture* tex)
 {
     mBaseMapCache.RemoveTexture(tex);
+}
+
+//--------------------------------------------------------------
+// Texture GPU handles: deferred destroy
+//--------------------------------------------------------------
+void VKRenderer::RetireTextureHandles(VkSampler sampler, VkImageView view, VkImage image, VkDeviceMemory mem)
+{
+    if (!mDevice)
+    {
+        // deviceが既に無いなら遅延させる意味が無い（待つ相手が居ない）
+        if (sampler) vkDestroySampler(mDevice, sampler, nullptr);
+        if (view) vkDestroyImageView(mDevice, view, nullptr);
+        if (image) vkDestroyImage(mDevice, image, nullptr);
+        if (mem) vkFreeMemory(mDevice, mem, nullptr);
+        return;
+    }
+
+    RetiredGpuTexture r{};
+    r.sampler = sampler;
+    r.view = view;
+    r.image = image;
+    r.mem = mem;
+    // mFrames.size()回分のBeginFrame()(=fence wait)を経れば、
+    // このハンドルが積まれた時点で記録されていたin-flightな
+    // コマンドバッファは全て完了していることが保証される。
+    r.framesRemaining = static_cast<uint32_t>(mFrames.size() > 0 ? mFrames.size() : 1);
+
+    mRetiredTextures.push_back(r);
+}
+
+void VKRenderer::FlushRetiredTextures(bool force)
+{
+    if (mRetiredTextures.empty())
+    {
+        return;
+    }
+    if (!mDevice)
+    {
+        mRetiredTextures.clear();
+        return;
+    }
+
+    for (auto it = mRetiredTextures.begin(); it != mRetiredTextures.end();)
+    {
+        bool ready = force;
+        if (!ready)
+        {
+            if (it->framesRemaining > 0)
+            {
+                --it->framesRemaining;
+            }
+            ready = (it->framesRemaining == 0);
+        }
+
+        if (ready)
+        {
+            if (it->sampler) vkDestroySampler(mDevice, it->sampler, nullptr);
+            if (it->view) vkDestroyImageView(mDevice, it->view, nullptr);
+            if (it->image) vkDestroyImage(mDevice, it->image, nullptr);
+            if (it->mem) vkFreeMemory(mDevice, it->mem, nullptr);
+            it = mRetiredTextures.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
 } // namespace toy

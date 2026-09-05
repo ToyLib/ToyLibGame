@@ -74,6 +74,32 @@ public:
         }
     }
 
+    //==============================================================
+    // GPUハンドルの遅延破棄（VKRenderer が登録）
+    //  - VkSampler/VkImageView/VkImage/VkDeviceMemoryを即座にdestroyすると、
+    //    それを参照するDescriptorSetがまだ別フレームのin-flightな
+    //    コマンドバッファで使用中の場合に破棄済みオブジェクト参照になる
+    //    (テキストテクスチャの毎フレーム再生成などで実際に発生)。
+    //    登録されていれば、破棄はコールバック先(VKRenderer)に委譲し、
+    //    GPU使用完了が保証されたタイミングまで遅延させる。
+    //==============================================================
+    using GpuHandleRetireCallback = std::function<void(void* sampler, void* view, void* image, void* memory)>;
+
+    void SetGpuHandleRetireCallback(GpuHandleRetireCallback cb) { mGpuHandleRetireCallback = std::move(cb); }
+    void ClearGpuHandleRetireCallback()                         { mGpuHandleRetireCallback = nullptr; }
+
+    // 戻り値: 遅延破棄を引き受けたら true（呼び出し側は即座にdestroyしてはいけない）。
+    //         falseならコールバック未登録＝呼び出し側で従来通り即座にdestroyする。
+    bool RetireGpuHandles(void* sampler, void* view, void* image, void* memory)
+    {
+        if (!mGpuHandleRetireCallback)
+        {
+            return false;
+        }
+        mGpuHandleRetireCallback(sampler, view, image, memory);
+        return true;
+    }
+
 private:
     RenderBackendType mType { RenderBackendType::Unknown };
 
@@ -84,6 +110,7 @@ private:
     void* mVKCommandPool    { nullptr }; // VkCommandPool
 
     TextureUnloadCallback mTextureUnloadCallback;
+    GpuHandleRetireCallback mGpuHandleRetireCallback;
 };
 
 } // namespace toy

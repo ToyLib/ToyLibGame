@@ -47,26 +47,36 @@ void VKTextureGPU::Unload()
 
     if (mOwnsImage)
     {
-        if (mSampler)
+        // ★即destroyすると、このテクスチャを参照するDescriptorSetが
+        //   別フレーム(frames-in-flight)のコマンドバッファでまだ使用中の
+        //   可能性がある（テキストテクスチャの毎フレーム再生成などで
+        //   実際にAMD実機のdevice lostを引き起こしていた）。
+        //   VKRendererが登録していれば、GPU使用完了を保証できるタイミング
+        //   まで破棄を委譲する。未登録(GL/シャットダウン後等)なら従来通り即destroy。
+        const bool retired = RenderBackendState::Get().RetireGpuHandles(mSampler, mView, mImage, mMemory);
+        if (!retired)
         {
-            vkDestroySampler(mDevice, mSampler, nullptr);
-            mSampler = VK_NULL_HANDLE;
+            if (mSampler)
+            {
+                vkDestroySampler(mDevice, mSampler, nullptr);
+            }
+            if (mView)
+            {
+                vkDestroyImageView(mDevice, mView, nullptr);
+            }
+            if (mImage)
+            {
+                vkDestroyImage(mDevice, mImage, nullptr);
+            }
+            if (mMemory)
+            {
+                vkFreeMemory(mDevice, mMemory, nullptr);
+            }
         }
-        if (mView)
-        {
-            vkDestroyImageView(mDevice, mView, nullptr);
-            mView = VK_NULL_HANDLE;
-        }
-        if (mImage)
-        {
-            vkDestroyImage(mDevice, mImage, nullptr);
-            mImage = VK_NULL_HANDLE;
-        }
-        if (mMemory)
-        {
-            vkFreeMemory(mDevice, mMemory, nullptr);
-            mMemory = VK_NULL_HANDLE;
-        }
+        mSampler = VK_NULL_HANDLE;
+        mView = VK_NULL_HANDLE;
+        mImage = VK_NULL_HANDLE;
+        mMemory = VK_NULL_HANDLE;
     }
     else
     {

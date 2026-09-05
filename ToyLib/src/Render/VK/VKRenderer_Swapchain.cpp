@@ -301,20 +301,12 @@ bool VKRenderer::CreateDeviceAndQueues()
     dci.ppEnabledExtensionNames = devExts.data();
     dci.pEnabledFeatures = &features;
 
-#if !defined(NDEBUG)
-    std::vector<const char*> layers;
-    if (mEnableValidation)
-    {
-        layers.push_back(kValidationLayers[0]);
-        dci.enabledLayerCount = static_cast<uint32_t>(layers.size());
-        dci.ppEnabledLayerNames = layers.data();
-    }
-    else
-    {
-        dci.enabledLayerCount = 0;
-        dci.ppEnabledLayerNames = nullptr;
-    }
-#endif
+    // ★VkDeviceCreateInfo::enabledLayerCountはVulkan 1.0時代の名残で、
+    //   現在は必ず0でなければならない（インスタンスレイヤーが自動的に
+    //   デバイスにも適用されるため）。以前ここでkValidationLayersを
+    //   デバイス側にも設定していたが、Validation Layer自体から
+    //   「Device Layers have never worked since Vulkan 1.0」と
+    //   VUID違反として指摘された。
 
     VkResult vr = vkCreateDevice(mPhysicalDevice, &dci, nullptr, &mDevice);
     if (vr != VK_SUCCESS || mDevice == VK_NULL_HANDLE)
@@ -451,6 +443,34 @@ bool VKRenderer::CreateSwapchainAndViews()
 
     mImagesInFlight.assign(scImgCount, VK_NULL_HANDLE);
 
+    // ★renderFinishedはswapchain image単位(EndFrame()参照)。
+    mRenderFinishedByImage.assign(scImgCount, VK_NULL_HANDLE);
+    for (uint32_t i = 0; i < scImgCount; ++i)
+    {
+        VkSemaphoreCreateInfo semCI{};
+        semCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        if (vkCreateSemaphore(mDevice, &semCI, nullptr, &mRenderFinishedByImage[i]) != VK_SUCCESS)
+        {
+            std::cerr << "[VKRenderer] vkCreateSemaphore(renderFinished) failed (index=" << i << ")\n";
+
+            for (VkSemaphore& s : mRenderFinishedByImage)
+            {
+                if (s != VK_NULL_HANDLE)
+                {
+                    vkDestroySemaphore(mDevice, s, nullptr);
+                    s = VK_NULL_HANDLE;
+                }
+            }
+            mRenderFinishedByImage.clear();
+            mImagesInFlight.clear();
+            mSwapchainImages.clear();
+
+            vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+            mSwapchain = VK_NULL_HANDLE;
+            return false;
+        }
+    }
+
     mSwapchainImageViews.assign(scImgCount, VK_NULL_HANDLE);
     for (uint32_t i = 0; i < scImgCount; ++i)
     {
@@ -481,6 +501,16 @@ bool VKRenderer::CreateSwapchainAndViews()
             mSwapchainImageViews.clear();
             mSwapchainImages.clear();
             mImagesInFlight.clear();
+
+            for (VkSemaphore& s : mRenderFinishedByImage)
+            {
+                if (s != VK_NULL_HANDLE)
+                {
+                    vkDestroySemaphore(mDevice, s, nullptr);
+                    s = VK_NULL_HANDLE;
+                }
+            }
+            mRenderFinishedByImage.clear();
 
             vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
             mSwapchain = VK_NULL_HANDLE;
@@ -613,12 +643,26 @@ bool VKRenderer::CreateRenderPass()
     subpass.pColorAttachments = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
-    VkSubpassDependency dep{};
-    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dep.dstSubpass = 0;
-    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    VkSubpassDependency deps[2]{};
+    deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    deps[0].dstSubpass = 0;
+    deps[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    deps[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    deps[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    // ★このrenderpassに対して作られる"Mesh"/"SkinnedMesh"パイプラインは
+    //   VKSceneRenderTarget(鏡/水面キャプチャ用、dependencyCount=2)の
+    //   render pass内でも使い回される。dependencyCountが異なると
+    //   Validation Layerが「render pass互換性違反」として弾く
+    //   (VUID-vkCmdDrawIndexed-renderPass-02684、AMD実機でdevice lostの
+    //   引き金になっていた可能性がある)。本passでは不要だが、
+    //   互換性のためVKSceneRenderTarget側と同数のdependencyを持たせる。
+    deps[1].srcSubpass = 0;
+    deps[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    deps[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    deps[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    deps[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
     VkAttachmentDescription atts[2] = {color, depth};
 
@@ -628,8 +672,8 @@ bool VKRenderer::CreateRenderPass()
     rpci.pAttachments = atts;
     rpci.subpassCount = 1;
     rpci.pSubpasses = &subpass;
-    rpci.dependencyCount = 1;
-    rpci.pDependencies = &dep;
+    rpci.dependencyCount = 2;
+    rpci.pDependencies = deps;
 
     VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
     if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)

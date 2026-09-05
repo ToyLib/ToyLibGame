@@ -79,6 +79,10 @@ bool VKRenderer::BeginFrame()
         return false;
     }
 
+    // このframeIndexのGPU使用完了が保証されたので、その時点までに
+    // 積まれていたテクスチャの遅延破棄をここで1世代分進める。
+    FlushRetiredTextures(/*force=*/false);
+
     //---------------------------------------------------------
     // acquire swapchain image
     //---------------------------------------------------------
@@ -223,6 +227,13 @@ void VKRenderer::EndFrame()
 
     FrameSync& frame = mFrames[mFrameIndex];
 
+    if (mImageIndex >= mRenderFinishedByImage.size())
+    {
+        std::cerr << "[VKRenderer] EndFrame: mImageIndex out of range for mRenderFinishedByImage\n";
+        return;
+    }
+    VkSemaphore renderFinished = mRenderFinishedByImage[mImageIndex];
+
     //---------------------------------------------------------
     // ensure render pass closed
     //---------------------------------------------------------
@@ -240,6 +251,10 @@ void VKRenderer::EndFrame()
 
     //---------------------------------------------------------
     // submit
+    //  ★signal側は「swapchain image単位」のセマフォを使う（frame単位だと
+    //    presentがまだそのセマフォを使用中の状態で次のsubmitがsignalし直して
+    //    しまう可能性があるため。frame数とimage数が異なる/acquireの順序が
+    //    ラウンドロビンでない場合に発生し得る）。
     //---------------------------------------------------------
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -254,7 +269,7 @@ void VKRenderer::EndFrame()
     si.pCommandBuffers = &frame.cmd;
 
     si.signalSemaphoreCount = 1;
-    si.pSignalSemaphores = &frame.renderFinished;
+    si.pSignalSemaphores = &renderFinished;
 
     //---------------------------------------------------------
     // reset fence (直前にリセット: submit 直前が推奨パターン)
@@ -288,7 +303,7 @@ void VKRenderer::EndFrame()
     pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
     pi.waitSemaphoreCount = 1;
-    pi.pWaitSemaphores = &frame.renderFinished;
+    pi.pWaitSemaphores = &renderFinished;
 
     pi.swapchainCount = 1;
     pi.pSwapchains = &mSwapchain;
@@ -366,7 +381,6 @@ bool VKRenderer::CreateSyncObjects()
     for (auto& f : mFrames)
     {
         if (vkCreateSemaphore(mDevice, &sci, nullptr, &f.imageAvailable) != VK_SUCCESS ||
-            vkCreateSemaphore(mDevice, &sci, nullptr, &f.renderFinished) != VK_SUCCESS ||
             vkCreateFence(mDevice, &fci, nullptr, &f.inFlight) != VK_SUCCESS)
         {
             std::cerr << "[VKRenderer] Create sync objects failed.\n";
@@ -469,6 +483,16 @@ void VKRenderer::CleanupSwapchain()
     }
     mSwapchainImageViews.clear();
     mSwapchainImages.clear();
+
+    for (auto& s : mRenderFinishedByImage)
+    {
+        if (s != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(mDevice, s, nullptr);
+        }
+    }
+    mRenderFinishedByImage.clear();
+    mImagesInFlight.clear();
 
     if (mSwapchain)
     {

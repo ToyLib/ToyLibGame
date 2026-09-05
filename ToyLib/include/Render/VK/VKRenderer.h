@@ -267,7 +267,6 @@ private:
     {
         VkCommandBuffer cmd{VK_NULL_HANDLE};
         VkSemaphore imageAvailable{VK_NULL_HANDLE};
-        VkSemaphore renderFinished{VK_NULL_HANDLE};
         VkFence inFlight{VK_NULL_HANDLE};
     };
 
@@ -305,6 +304,14 @@ private:
 
     std::vector<VkFence> mImagesInFlight;
 
+    // ★renderFinishedはpresent(スワップチェーンimage単位)が待つセマフォなので、
+    //   frame-in-flight単位ではなくswapchain image単位で持つ必要がある。
+    //   frame単位のまま使うと、frame数とimage数が一致しない/acquire順が
+    //   ラウンドロビンにならないケースで「まだ使用中のセマフォを再signal」する
+    //   VUID-vkQueueSubmit-pSignalSemaphores-00067違反になり得る
+    //   （Validation Layerで実際に検出：AMD device lostの原因候補）。
+    std::vector<VkSemaphore> mRenderFinishedByImage;
+
 private:
     //==========================================================
     // BaseMap(set=1) + fallback(1x1 white)
@@ -337,6 +344,30 @@ private:
     VkDescriptorSet AcquireSkinnedSet(const Matrix4* palette, uint32_t paletteCount, const char* pipelineName);
 
     void DestroySkinnedSlots();
+
+private:
+    //==========================================================
+    // Texture(VKTextureGPU)の遅延破棄キュー
+    //  - テキストテクスチャ等はTexture差し替えのたびに旧GPUオブジェクトが
+    //    即destroyされていたが、in-flightな別フレームのコマンドバッファが
+    //    まだ参照している可能性があり、AMD実機のdevice lostの原因候補と
+    //    なっていた（Validation Layerで実際に検出）。
+    //    BeginFrame()を経由してmFrames.size()回分待ってから実際に破棄する
+    //    ことで、GPU使用完了を保証する。
+    //==========================================================
+    struct RetiredGpuTexture
+    {
+        VkSampler sampler{VK_NULL_HANDLE};
+        VkImageView view{VK_NULL_HANDLE};
+        VkImage image{VK_NULL_HANDLE};
+        VkDeviceMemory mem{VK_NULL_HANDLE};
+        uint32_t framesRemaining{0};
+    };
+
+    std::vector<RetiredGpuTexture> mRetiredTextures;
+
+    void RetireTextureHandles(VkSampler sampler, VkImageView view, VkImage image, VkDeviceMemory mem);
+    void FlushRetiredTextures(bool force);
 
 private:
     //==========================================================
