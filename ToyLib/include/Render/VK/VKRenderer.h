@@ -275,6 +275,11 @@ private:
     uint32_t mImageIndex{0};
     bool mNeedRecreateSwapchain{false};
 
+    // ★vkQueueSubmit/vkWaitForFences等が致命的に失敗した場合に立てる。
+    //   一度立ったら以降のBeginFrame()は即falseを返し、
+    //   signalされないfenceをUINT64_MAXで待ち続けて無限フリーズするのを防ぐ。
+    bool mDeviceLost{false};
+
     float mWindowDisplayScale{1.0f};
 
     // swapchain renderpass の中に居るか（World/UI を同一passで描くため）

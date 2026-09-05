@@ -40,6 +40,15 @@ bool VKRenderer::BeginFrame()
         return false;
     }
 
+    // ★EndFrame()のvkQueueSubmit等が一度失敗すると、そのフレームのfenceは
+    //   リセットされたままGPUからsignalされることが無くなる。以前はここで
+    //   毎フレームUINT64_MAXのvkWaitForFencesに入り、エラーも出さずに
+    //   アプリごとフリーズしていた。mDeviceLostが立ったら即座に諦める。
+    if (mDeviceLost)
+    {
+        return false;
+    }
+
     //---------------------------------------------------------
     // swapchain recreate
     //---------------------------------------------------------
@@ -56,12 +65,17 @@ bool VKRenderer::BeginFrame()
 
     //---------------------------------------------------------
     // wait previous frame
+    //  ★UINT64_MAX(無限待ち)ではなく有限タイムアウトにし、fenceが
+    //    二度とsignalされない状態になっても即座に検知できるようにする。
     //---------------------------------------------------------
-    VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+    constexpr uint64_t kFenceTimeoutNs = 5'000'000'000ULL; // 5秒
+    VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, kFenceTimeoutNs);
 
     if (wr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkWaitForFences failed: " << wr << "\n";
+        std::cerr << "[VKRenderer] vkWaitForFences failed/timeout: " << wr
+                   << " -- treating device as lost, halting VK rendering.\n";
+        mDeviceLost = true;
         return false;
     }
 
@@ -89,11 +103,13 @@ bool VKRenderer::BeginFrame()
     //---------------------------------------------------------
     if (mImageIndex < mImagesInFlight.size() && mImagesInFlight[mImageIndex] != VK_NULL_HANDLE)
     {
-        VkResult iwr = vkWaitForFences(mDevice, 1, &mImagesInFlight[mImageIndex], VK_TRUE, UINT64_MAX);
+        VkResult iwr = vkWaitForFences(mDevice, 1, &mImagesInFlight[mImageIndex], VK_TRUE, kFenceTimeoutNs);
 
         if (iwr != VK_SUCCESS)
         {
-            std::cerr << "[VKRenderer] image fence wait failed\n";
+            std::cerr << "[VKRenderer] image fence wait failed/timeout: " << iwr
+                       << " -- treating device as lost, halting VK rendering.\n";
+            mDeviceLost = true;
             return false;
         }
     }
@@ -246,7 +262,8 @@ void VKRenderer::EndFrame()
     VkResult rr = vkResetFences(mDevice, 1, &frame.inFlight);
     if (rr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkResetFences failed\n";
+        std::cerr << "[VKRenderer] vkResetFences failed: " << rr << "\n";
+        mDeviceLost = true;
         return;
     }
 
@@ -254,7 +271,13 @@ void VKRenderer::EndFrame()
 
     if (sr != VK_SUCCESS)
     {
-        std::cerr << "[VKRenderer] vkQueueSubmit failed\n";
+        // ★ここでfenceは既にreset済み(unsignaled)だが、submit失敗により
+        //   GPUからsignalされることは無くなった。以前はここでmDeviceLostを
+        //   立てていなかったため、次フレームのBeginFrame()がこのfenceを
+        //   UINT64_MAXで待ち続け、エラーも出さずにアプリごとフリーズしていた。
+        std::cerr << "[VKRenderer] vkQueueSubmit failed: " << sr
+                   << " -- treating device as lost, halting VK rendering.\n";
+        mDeviceLost = true;
         return;
     }
 
