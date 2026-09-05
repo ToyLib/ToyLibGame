@@ -3,8 +3,8 @@
   "asset_path": "ToyLib/Assets/",
   "renderer_backend": "VK",
   "screen": {
-    "screen_width": 1920,
-    "screen_height": 1080,
+    "screen_width": 1280,
+    "screen_height": 720,
     "fullscreen": false,
     "fullscreen_use_setting_resolution": true
   },
