@@ -118,6 +118,9 @@ private:
     // （mScreenWidth/Height はリサイズの度に上書きされるため別保持）
     int   mFullscreenWidth  { 0 };
     int   mFullscreenHeight { 0 };
+    // true: mFullscreenWidth/Height に最も近いモードへ切り替える
+    // false: 常にOS/デスクトップ解像度のボーダレスフルスクリーンにする
+    bool  mFullscreenUseSettingResolution { true };
 
     bool  mIsActive { false };
     bool  mIsPause  { false };

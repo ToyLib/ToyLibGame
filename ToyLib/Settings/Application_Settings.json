@@ -1,11 +1,12 @@
 {
   "title": "ToyGame",
   "asset_path": "ToyLib/Assets/",
-  "renderer_backend": "VK",
+  "renderer_backend": "GL",
   "screen": {
     "screen_width": 1920,
     "screen_height": 1080,
-    "fullscreen": false
+    "fullscreen": false,
+    "fullscreen_use_setting_resolution": true
   },
   "target_fps": 0,
   "debug": {
