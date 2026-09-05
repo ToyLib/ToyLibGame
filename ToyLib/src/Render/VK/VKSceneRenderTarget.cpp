@@ -353,24 +353,23 @@ bool VKSceneRenderTarget::CreateRenderPass()
     subpass.pColorAttachments       = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
-    // Dependencies
-    VkSubpassDependency deps[2]{};
-
-    // External -> subpass
-    deps[0].srcSubpass    = VK_SUBPASS_EXTERNAL;
-    deps[0].dstSubpass    = 0;
-    deps[0].srcStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    deps[0].dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    deps[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    deps[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    // subpass -> External (for sampling)
-    deps[1].srcSubpass    = 0;
-    deps[1].dstSubpass    = VK_SUBPASS_EXTERNAL;
-    deps[1].srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    deps[1].dstStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    deps[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    // ★このrenderpass用に作られる訳ではなく、スワップチェーンの本passと
+    //   共通の"Mesh"/"SkinnedMesh"パイプラインをここでも使い回す設計のため、
+    //   dependencyの内容(stage/accessマスク含む)を完全に一致させる必要がある
+    //   (Validation Layerがrender pass互換性をdependency内容まで厳密に
+    //   チェックしており、AMD実機のdevice lost原因の一つだった)。
+    //   このpassだけに必要な「書き込み後、同一フレーム内で後段のサンプリング
+    //   まで待つ」同期は、render pass dependencyではなくDrawToRenderTarget()
+    //   側の明示的なvkCmdPipelineBarrierで行う（VKRenderer_Swapchain.cppの
+    //   CreateRenderPass()と本passのdependencyを必ず同じ内容に保つこと）。
+    VkSubpassDependency dep{};
+    dep.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass    = 0;
+    dep.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dep.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkAttachmentDescription atts[2] = { color, depth };
 
@@ -380,8 +379,8 @@ bool VKSceneRenderTarget::CreateRenderPass()
     rpci.pAttachments    = atts;
     rpci.subpassCount    = 1;
     rpci.pSubpasses      = &subpass;
-    rpci.dependencyCount = 2;
-    rpci.pDependencies   = deps;
+    rpci.dependencyCount = 1;
+    rpci.pDependencies   = &dep;
 
     const VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
     if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)

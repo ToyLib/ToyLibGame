@@ -378,6 +378,26 @@ void VKRenderer::DrawToRenderTarget(const SceneCaptureRequest& req)
 
     vkCmdEndRenderPass(cmd);
 
+    // ★render pass終了時にcolorはfinalLayout(SHADER_READ_ONLY_OPTIMAL)へ
+    //   自動遷移するが、それを「後段の描画(鏡/水面サーフェスのサンプリング)が
+    //   待つ」保証は無い。以前はrender pass自身のsubpass->externalな
+    //   dependencyでこれを担っていたが、そのdependencyの内容がスワップチェーン
+    //   本passと食い違うと render pass互換性違反(パイプライン共用のため)に
+    //   なるためrender pass側からは外した。代わりにここで明示的にbarrierを張る。
+    VkImageMemoryBarrier colorBarrier{};
+    colorBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    colorBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    colorBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    colorBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    colorBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    colorBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    colorBarrier.image = vkrt->GetColorImage();
+    colorBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                        0, nullptr, 0, nullptr, 1, &colorBarrier);
+
     mIsDrawingCapture = false;
     mActiveCaptureSlot = -1;
 

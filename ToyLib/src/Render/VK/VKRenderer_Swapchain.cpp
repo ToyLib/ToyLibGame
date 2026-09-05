@@ -633,26 +633,22 @@ bool VKRenderer::CreateRenderPass()
     subpass.pColorAttachments = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
-    VkSubpassDependency deps[2]{};
-    deps[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    deps[0].dstSubpass = 0;
-    deps[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    deps[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    deps[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
     // ★このrenderpassに対して作られる"Mesh"/"SkinnedMesh"パイプラインは
-    //   VKSceneRenderTarget(鏡/水面キャプチャ用、dependencyCount=2)の
-    //   render pass内でも使い回される。dependencyCountが異なると
-    //   Validation Layerが「render pass互換性違反」として弾く
-    //   (VUID-vkCmdDrawIndexed-renderPass-02684、AMD実機でdevice lostの
-    //   引き金になっていた可能性がある)。本passでは不要だが、
-    //   互換性のためVKSceneRenderTarget側と同数のdependencyを持たせる。
-    deps[1].srcSubpass = 0;
-    deps[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    deps[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    deps[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    deps[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    deps[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    //   VKSceneRenderTarget(鏡/水面キャプチャ用)のrender pass内でも
+    //   使い回される。Validation Layerはrender pass互換性をdependencyの
+    //   個数だけでなく内容(stage/accessマスク)まで厳密にチェックするため、
+    //   このdependencyはVKSceneRenderTarget::CreateRenderPass()のものと
+    //   完全に一致させる必要がある（片方だけ変更しないこと）。
+    //   本passでは不要な内容(FRAGMENT_SHADER/SHADER_READ)も含むが、
+    //   それらは単に「待つ相手がない」だけで安全側に働く。
+    VkSubpassDependency dep{};
+    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass = 0;
+    dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dep.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkAttachmentDescription atts[2] = {color, depth};
 
@@ -662,8 +658,8 @@ bool VKRenderer::CreateRenderPass()
     rpci.pAttachments = atts;
     rpci.subpassCount = 1;
     rpci.pSubpasses = &subpass;
-    rpci.dependencyCount = 2;
-    rpci.pDependencies = deps;
+    rpci.dependencyCount = 1;
+    rpci.pDependencies = &dep;
 
     VkResult vr = vkCreateRenderPass(mDevice, &rpci, nullptr, &mRenderPass);
     if (vr != VK_SUCCESS || mRenderPass == VK_NULL_HANDLE)

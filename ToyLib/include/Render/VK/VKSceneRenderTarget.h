@@ -40,6 +40,7 @@ public:
     VkImageView GetColorView() const { return mColorView; }
     VkImageView GetDepthView() const { return mDepthView; }
     VkSampler   GetColorSampler() const { return mColorSampler; }
+    VkImage     GetColorImage() const { return mColorImage; }
 
     VkRenderPass  GetRenderPass() const { return mRenderPass; }
     VkFramebuffer GetFramebuffer() const { return mFramebuffer; }
