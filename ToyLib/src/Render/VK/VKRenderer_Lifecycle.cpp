@@ -372,6 +372,18 @@ void VKRenderer::OnWindowResized(int width, int height)
 
     mScreenWidth = static_cast<float>(width);
     mScreenHeight = static_cast<float>(height);
+
+    // ★起動直後、SDL3がDPI補正等で同じサイズのRESIZEイベントを連続で
+    //   発火することがある（実際どのログでも起動直後に2回連続で発生）。
+    //   サイズが変わっていないのに毎回スワップチェーンを作り直すと、
+    //   一瞬だけ画面が乱れる/暗転するちらつきの原因になり得るため、
+    //   実際にサイズが変わった場合のみ再構築する。
+    if (mSwapchainExtent.width == static_cast<uint32_t>(width) &&
+        mSwapchainExtent.height == static_cast<uint32_t>(height))
+    {
+        return;
+    }
+
     mNeedRecreateSwapchain = true;
 }
 
