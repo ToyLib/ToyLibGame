@@ -95,6 +95,12 @@ void IRenderer::Draw()
 
     if (!BeginFrame())
     {
+        // ★BeginFrame失敗時もキューは破棄する。
+        //   ここで残すと、次にレンダラーが破棄される際に mSceneCaptureQueue
+        //   (IRenderer基底クラスのメンバ)がVKRenderer::Shutdown()より後に
+        //   破棄され、そのshared_ptr<IRenderTarget>が既に破棄済みの
+        //   VkDeviceに対してvkDestroyFramebuffer等を呼んでクラッシュする。
+        mSceneCaptureQueue.clear();
         return;
     }
 

@@ -112,6 +112,12 @@ void GLRenderer::Shutdown()
     if (!mWindow || !mGLContext) return;
     if (SDL_GL_MakeCurrent(mWindow, mGLContext) != 0) return;
 
+    // ★mSceneCaptureQueue(IRenderer基底クラスのメンバ)はshared_ptr<IRenderTarget>を
+    //   保持し得る。GLコンテキスト破棄後に~IRenderer()側でRenderTargetが
+    //   破棄されるとGL関数が無効なコンテキストに対して呼ばれてしまうため、
+    //   ここで先に空にしておく（VKRenderer::Shutdown()と同様の対策）。
+    mSceneCaptureQueue.clear();
+
     // Shadow textures
     for (auto& tex : mShadowMapTexture)
     {

@@ -214,6 +214,12 @@ bool VKRenderer::Initialize(const Application* app)
 //--------------------------------------------------------------
 void VKRenderer::Shutdown()
 {
+    // ★mSceneCaptureQueue(IRenderer基底クラスのメンバ)はshared_ptr<IRenderTarget>を
+    //   保持し得る。ここで先に空にしておかないと、VkDevice破棄後に
+    //   ~IRenderer()側でRenderTargetが破棄されてvkDestroyFramebuffer等が
+    //   解放済みdeviceに対して呼ばれクラッシュする（派生→基底の破棄順の問題）。
+    mSceneCaptureQueue.clear();
+
     if (mDevice)
     {
         vkDeviceWaitIdle(mDevice);
