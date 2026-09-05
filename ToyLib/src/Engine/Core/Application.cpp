@@ -710,13 +710,17 @@ void Application::SetFullscreen(bool enable)
         return;
     }
 
+    // SDL_SetWindowFullscreen()はプラットフォームによって非同期。
+    // Windowsは実際のモニタ解像度変更を伴うため反映に時間がかかり、
+    // 待たずに進めると復元前の情報を基にサイズ/位置を決めてしまい崩れる。
+    // ここで実際に遷移が完了するまでブロックして待つ。
+    SDL_SyncWindow(mWindow);
+
     mIsFullScreen = enable;
 
     if (!enable)
     {
-        // 全画面用に固定していた解像度モード指定を解除しておく。
-        // 残したままだと、特にWindowsでOS側の解像度復元と
-        // ウィンドウサイズ復元のタイミングが競合しやすい。
+        // 全画面用に固定していた解像度モード指定を解除しておく
         SDL_SetWindowFullscreenMode(mWindow, nullptr);
 
         if (mWindowedWidth > 0 && mWindowedHeight > 0)
@@ -728,6 +732,8 @@ void Application::SetFullscreen(bool enable)
             SDL_SetWindowPosition(mWindow,
                 SDL_WINDOWPOS_CENTERED,
                 SDL_WINDOWPOS_CENTERED);
+            // サイズ/位置変更の反映も待ってから最終状態を取得する
+            SDL_SyncWindow(mWindow);
         }
     }
 
