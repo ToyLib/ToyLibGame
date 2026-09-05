@@ -90,6 +90,10 @@ bool GLRenderTarget::Create(int w, int h)
         return fail("CreateRenderColorRGBA8 failed");
     }
 
+    // GL は VK と異なりキャプチャ描画時にY反転を行わないため、
+    // テクスチャ側にフラグを立てて消費側（Sprite/RenderSurface等）で自動補正させる。
+    mColorTex->SetCaptureFlippedY(true);
+
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_2D,

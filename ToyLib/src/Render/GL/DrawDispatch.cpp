@@ -126,10 +126,16 @@ static bool DispatchSprite(IRenderer& r,
         it.texture.ptr->SetActive(it.textureUnit);
         sh->SetTextureUniform("uTexture", it.textureUnit);
         sh->SetBooleanUniform("uUseTexture", true);
+
+        // SceneCapture(Fixed等)のRTテクスチャはGLでは上下逆に格納されるため、
+        // Texture 側のフラグ（IsCaptureFlippedY）を見て自動的に補正する。
+        // VK側のテクスチャは常に false（正立済み）なので補正されない。
+        sh->SetIntUniform("uFlipY", it.texture.ptr->IsCaptureFlippedY() ? 1 : 0);
     }
     else
     {
         sh->SetBooleanUniform("uUseTexture", false);
+        sh->SetIntUniform("uFlipY", 0);
     }
 
     return false;
@@ -590,13 +596,15 @@ static bool DispatchSurface(IRenderer& r,
     // uFlipX=1 で UV を再反転して正しいミラー像を得る（flipX=true がデフォルト）。
     //
     // uFlipY について:
-    //   VK は Capture 描画時に viewport.height を負値にして正立させているため
-    //   flipY=false のままで正しく表示される（FieldScene 等の SetFlip(true,false)）。
-    //   GL 側はその補正を行わずに FBO へ描画するため、テクスチャの v=0 が
-    //   キャプチャ画面の下端（地面側）を指してしまい、そのまま false で使うと
-    //   上下が反転して見える。GL では常に反転して補正する。
+    //   VK は Capture 描画時に viewport.height を負値にして正立させて焼き込むため、
+    //   テクスチャは常に正しい向き（Texture::IsCaptureFlippedY()==false）。
+    //   GL はその補正を行わずに FBO へ描画するため、テクスチャ側で
+    //   IsCaptureFlippedY()==true が立つ。ここでは「シーン側が要求する flipY」と
+    //   「バックエンド起因の反転」を XOR することで、GL/VK 双方で同じ SetFlip() 呼び出しが
+    //   同じ見え方になるようにする。
+    const bool texFlippedY = (it.texture.ptr && it.texture.ptr->IsCaptureFlippedY());
     sh->SetIntUniform("uFlipX", flipX ? 1 : 0);
-    sh->SetIntUniform("uFlipY", flipY ? 0 : 1);
+    sh->SetIntUniform("uFlipY", (flipY != texFlippedY) ? 1 : 0);
     sh->SetFloatUniform  ("uOpacity", opacity);
     sh->SetVectorUniform ("uTint",    tint);
     sh->SetIntUniform    ("uMode",    mode);

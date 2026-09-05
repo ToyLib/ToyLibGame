@@ -96,13 +96,23 @@ out vec4 outColor;
 uniform vec3  uSpriteColor;
 uniform float uSpriteAlpha;
 
+//------------------------------------------------------------------------
+// SceneCapture(RenderTarget) 由来のテクスチャ用フラグ
+//  - GL の RTT は VK と異なり上下逆に格納されるため、その場合のみ
+//    C++側（Texture::IsCaptureFlippedY）から 1 が渡される。
+//------------------------------------------------------------------------
+uniform int uFlipY;   // 0=off, 1=flip
+
 //======================================================================
 // メイン
 //======================================================================
 void main()
 {
+    vec2 uv = fragTexCoord;
+    if (uFlipY != 0) uv.y = 1.0 - uv.y;
+
     // テクスチャ取得
-    vec4 tex = texture(uMaterial.baseMap, fragTexCoord);
+    vec4 tex = texture(uMaterial.baseMap, uv);
 
     // RGB は Tint を乗算、Alpha はスプライト α を乗算
     //  - tex.a が元画像の透明度

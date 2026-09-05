@@ -100,12 +100,24 @@ public:
                             int width,
                             int height);
 
+    //============================================================
+    // SceneCapture RT 用フラグ
+    //  - VK はキャプチャ描画時に viewport を反転して正立させて焼き込むため不要（false のまま）
+    //  - GL は同じ補正を行わないため、テクスチャの内容が上下逆になる。
+    //    このフラグを立てておき、サンプリング側（Sprite/RenderSurface等）で
+    //    自動的に UV を反転させる。
+    //============================================================
+    void SetCaptureFlippedY(bool flipped) { mCaptureFlippedY = flipped; }
+    bool IsCaptureFlippedY() const { return mCaptureFlippedY; }
+
 private:
     // GPU実装（GL/VK差し替え可能）
     std::unique_ptr<ITextureGPU> mGPU;
 
     int mWidth  { 0 };
     int mHeight { 0 };
+
+    bool mCaptureFlippedY { false };
 };
 
 } // namespace toy
