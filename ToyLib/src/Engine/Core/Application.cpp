@@ -71,7 +71,8 @@ bool Application::Initialize()
         return false;
     }
 
-    LoadSettings("ToyLib/Settings/Application_Settings.json");
+    LoadSettings("ToyLib/Settings/Application_Settings.json",
+                 "ToyGame/Settings/System/Application_Settings.json");
     if (mScreenWidth  <= 0)
     {
         mScreenWidth  = 1280;

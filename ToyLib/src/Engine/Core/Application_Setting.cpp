@@ -1,7 +1,6 @@
 #include "Engine/Core/Application.h"
 #include "Utils/JsonHelper.h"
 #include "Render/RenderBackendState.h"
-#include <fstream>
 #include <iostream>
 
 namespace toy {
@@ -11,33 +10,20 @@ namespace toy {
 //   - ウィンドウタイトル
 //   - デフォルトのウィンドウサイズ
 //=============================================================
-bool Application::LoadSettings(const std::string& filePath)
+bool Application::LoadSettings(const std::string& defaultPath, const std::string& userPath)
 {
     //---------------------------------------------------------
-    // ファイルオープン
-    //---------------------------------------------------------
-    std::ifstream file(filePath);
-    if (!file.is_open())
-    {
-        std::cerr << "Failed to open Application settings file: "
-                  << filePath.c_str() << std::endl;
-        return false;
-    }
-    
-    //---------------------------------------------------------
-    // JSON パース
+    // デフォルト設定を読み込み、実行環境ごとの設定ファイル(userPath)で上書き。
+    // userPath が無ければデフォルト値で新規生成する。
     //---------------------------------------------------------
     nlohmann::json data;
-    try
+    if (!JsonHelper::LoadWithUserOverride(defaultPath, userPath, data))
     {
-        file >> data;
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        std::cerr << "Failed to open Application settings file: "
+                  << defaultPath.c_str() << std::endl;
         return false;
     }
-    
+
     //---------------------------------------------------------
     // タイトル
     //   "title": "ToyLib App"
@@ -102,7 +88,7 @@ bool Application::LoadSettings(const std::string& filePath)
 
     
     std::cerr << "Loaded Application settings from "
-              << filePath.c_str() << std::endl;
+              << defaultPath.c_str() << " (override: " << userPath.c_str() << ")" << std::endl;
     return true;
 }
 

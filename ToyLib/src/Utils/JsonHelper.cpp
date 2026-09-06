@@ -1,6 +1,7 @@
 #include "Utils/JsonHelper.h"
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 namespace JsonHelper
 {
@@ -175,6 +176,37 @@ namespace JsonHelper
     }
 
     //==========================================================================
+    // デフォルト設定 + 実行環境ごとの上書き設定の読み込み
+    //==========================================================================
+
+    bool LoadWithUserOverride(const std::string& defaultPath,
+                              const std::string& userPath,
+                              nlohmann::json& out)
+    {
+        if (!LoadFromFile(defaultPath, out))
+        {
+            return false;
+        }
+
+        if (std::filesystem::exists(userPath))
+        {
+            nlohmann::json userData;
+            if (LoadFromFile(userPath, userData))
+            {
+                // 同じキーはユーザー側の値で上書き、無いキーはデフォルトのまま
+                out.merge_patch(userData);
+            }
+        }
+        else
+        {
+            // 初回起動時: デフォルト値をそのままユーザー設定として生成
+            SaveToFile(userPath, out);
+        }
+
+        return true;
+    }
+
+    //==========================================================================
     // サブオブジェクト取得
     //==========================================================================
 
@@ -186,6 +218,89 @@ namespace JsonHelper
             return true;
         }
         return false;
+    }
+
+    //==========================================================================
+    // 基本型の書き込み
+    //==========================================================================
+
+    void SetInt(nlohmann::json& obj, const char* key, int value)
+    {
+        obj[key] = value;
+    }
+
+    void SetFloat(nlohmann::json& obj, const char* key, float value)
+    {
+        obj[key] = value;
+    }
+
+    void SetBool(nlohmann::json& obj, const char* key, bool value)
+    {
+        obj[key] = value;
+    }
+
+    void SetString(nlohmann::json& obj, const char* key, const std::string& value)
+    {
+        obj[key] = value;
+    }
+
+    //==========================================================================
+    // 文字列配列の書き込み
+    //==========================================================================
+
+    void SetStringArray(nlohmann::json& obj,
+                        const char* key,
+                        const std::vector<std::string>& value)
+    {
+        obj[key] = value;
+    }
+
+    //==========================================================================
+    // Vector 系の書き込み
+    //==========================================================================
+
+    void SetVector2(nlohmann::json& obj, const char* key, const Vector2& value)
+    {
+        obj[key] = { value.x, value.y };
+    }
+
+    void SetVector3(nlohmann::json& obj, const char* key, const Vector3& value)
+    {
+        obj[key] = { value.x, value.y, value.z };
+    }
+
+    //==========================================================================
+    // サブオブジェクトの書き込み
+    //==========================================================================
+
+    void SetObject(nlohmann::json& obj, const char* key, const nlohmann::json& value)
+    {
+        obj[key] = value;
+    }
+
+    //==========================================================================
+    // JSONファイル書き込み
+    //==========================================================================
+
+    bool SaveToFile(const std::string& path, const nlohmann::json& data, int indent)
+    {
+        // 出力先ディレクトリが無ければ作成する（例: ToyGame/Settings/System/ の初回生成）
+        std::filesystem::path filePath(path);
+        if (filePath.has_parent_path())
+        {
+            std::error_code ec;
+            std::filesystem::create_directories(filePath.parent_path(), ec);
+        }
+
+        std::ofstream ofs(path);
+        if (!ofs)
+        {
+            std::cerr << "[JsonHelper] Failed to open json file for write: " << path << std::endl;
+            return false;
+        }
+
+        ofs << data.dump(indent);
+        return true;
     }
 
 } // namespace JsonHelper

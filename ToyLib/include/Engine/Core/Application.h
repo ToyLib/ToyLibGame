@@ -167,7 +167,7 @@ private:
     //-----------------------------------------
     // 設定読み込み
     //-----------------------------------------
-    bool LoadSettings(const std::string& filePath);
+    bool LoadSettings(const std::string& defaultPath, const std::string& userPath);
     
     
     //-----------------------------------------

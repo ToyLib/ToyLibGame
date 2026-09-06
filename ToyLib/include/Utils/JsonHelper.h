@@ -57,10 +57,64 @@ namespace JsonHelper
     bool LoadFromFile(const std::string& path, nlohmann::json& out);
 
     //--------------------------------------------------------------------------
+    // デフォルト設定 + 実行環境ごとの上書き設定の読み込み
+    //--------------------------------------------------------------------------
+    // ・defaultPath を読み込んでベースとする（読み込めなければ false）。
+    // ・userPath が存在すれば、その内容をベースにマージ（同じキーは上書き）。
+    // ・userPath が存在しなければ、デフォルト値をそのまま userPath に新規生成する。
+    bool LoadWithUserOverride(const std::string& defaultPath,
+                              const std::string& userPath,
+                              nlohmann::json& out);
+
+    //--------------------------------------------------------------------------
     // オブジェクト型のサブ要素取得
     //--------------------------------------------------------------------------
 
     // obj[key] が object の場合、そのまま out に代入して true。
     // それ以外（存在しない or object でない）は false。
     bool GetObject(const nlohmann::json& obj, const char* key, nlohmann::json& out);
+
+    //==========================================================================
+    // 基本型の書き込みヘルパー
+    //--------------------------------------------------------------------------
+    // ・obj[key] に value を設定する（Get系と対称。書き込みは失敗しないので戻り値なし）。
+    //==========================================================================
+
+    void SetInt   (nlohmann::json& obj, const char* key, int value);
+    void SetFloat (nlohmann::json& obj, const char* key, float value);
+    void SetBool  (nlohmann::json& obj, const char* key, bool value);
+    void SetString(nlohmann::json& obj, const char* key, const std::string& value);
+
+    //--------------------------------------------------------------------------
+    // 文字列配列の書き込み
+    //--------------------------------------------------------------------------
+
+    void SetStringArray(nlohmann::json& obj,
+                        const char* key,
+                        const std::vector<std::string>& value);
+
+    //--------------------------------------------------------------------------
+    // 数学型（Vector）の書き込み
+    //--------------------------------------------------------------------------
+
+    // key: [x, y]
+    void SetVector2(nlohmann::json& obj, const char* key, const Vector2& value);
+
+    // key: [x, y, z]
+    void SetVector3(nlohmann::json& obj, const char* key, const Vector3& value);
+
+    //--------------------------------------------------------------------------
+    // オブジェクト型のサブ要素書き込み
+    //--------------------------------------------------------------------------
+
+    // obj[key] = value（サブオブジェクトをそのまま設定）
+    void SetObject(nlohmann::json& obj, const char* key, const nlohmann::json& value);
+
+    //--------------------------------------------------------------------------
+    // JSONファイル書き込み
+    //--------------------------------------------------------------------------
+
+    // data を整形済み(indentスペース)JSONとして path に書き出す。
+    // 失敗時は false（ファイルオープン失敗など）。
+    bool SaveToFile(const std::string& path, const nlohmann::json& data, int indent = 4);
 } // namespace JsonHelper

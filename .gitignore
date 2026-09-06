@@ -16,6 +16,9 @@ DerivedData/
 # Shader SPV
 ToyLib/Shaders/VK/spv/
 
+# 実行環境ごとのアプリ設定（デフォルト値は ToyLib/Settings/ 側、これは各環境で生成される上書き用）
+ToyGame/Settings/System/
+
 # Xcode specific
 *.xcuserstate
 *.xcworkspace/xcuserdata/
