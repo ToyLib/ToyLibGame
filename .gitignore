@@ -39,6 +39,10 @@ CTestTestfile.cmake
 *.tmp
 *.swp
 
+# Python
+__pycache__/
+*.pyc
+
 # VSCode settings (if you don't want to share local settings)
 .vscode/
 # VS settings (if you don't want to share local settings)

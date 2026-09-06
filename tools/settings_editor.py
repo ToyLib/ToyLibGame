@@ -5,7 +5,7 @@
 # を生成・編集するための開発者向け簡易ツール。
 #
 # Application / Renderer タブはフィールド単位のフォーム編集。
-# InputConfig タブは項目が多く構造も複雑なので、引き続き生JSONテキスト編集。
+# InputConfig タブはボタン名を行とした表形式編集（keyboard/gamepadはカンマ区切り）。
 #
 # 各タブ共通の操作:
 # - Load    : System 側があれば読み込み、無ければデフォルト値をテンプレートとして表示
@@ -79,8 +79,13 @@ class ScrollableFrame(ttk.Frame):
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 
-class RawJsonTab(ttk.Frame):
-    """生JSONテキストとして編集するタブ（InputConfigなど構造が複雑なもの向け）。"""
+class ButtonTableTab(ttk.Frame):
+    """InputConfig用の表形式タブ。
+
+    "buttons": { "A": {"keyboard": [...], "gamepad": [...]}, ... } を
+    行=ボタン名、列=keyboard/gamepad（カンマ区切りテキスト）の表として編集する。
+    ボタンの一覧は読み込んだJSONから動的に組み立てるので、行の追加/削除には未対応。
+    """
 
     def __init__(self, parent, label, default_rel_path, user_rel_path):
         super().__init__(parent, padding=8)
@@ -88,8 +93,8 @@ class RawJsonTab(ttk.Frame):
         self.default_path = os.path.join(REPO_ROOT, default_rel_path)
         self.user_path = os.path.join(REPO_ROOT, user_rel_path)
         self.user_rel_path = user_rel_path
-
-        self.status_var = tk.StringVar()
+        self.data = {}
+        self.rows = []  # [(button_name, keyboard_var, gamepad_var)]
 
         button_row = ttk.Frame(self)
         button_row.pack(fill=tk.X, pady=(0, 6))
@@ -97,18 +102,15 @@ class RawJsonTab(ttk.Frame):
         ttk.Button(button_row, text="Save", command=self.save).pack(side=tk.LEFT, padx=6)
         ttk.Button(button_row, text="デフォルトを表示", command=self.show_default).pack(side=tk.LEFT)
 
-        self.text = tk.Text(self, wrap="none", undo=True, font=("Menlo", 12))
-        self.text.pack(fill=tk.BOTH, expand=True)
-
+        self.status_var = tk.StringVar()
         ttk.Label(self, textvariable=self.status_var, foreground="#555").pack(
-            fill=tk.X, pady=(4, 0), anchor="w"
+            fill=tk.X, pady=(0, 6), anchor="w"
         )
 
-        self.load()
+        self.scroll = ScrollableFrame(self)
+        self.scroll.pack(fill=tk.BOTH, expand=True)
 
-    def _set_text(self, data):
-        self.text.delete("1.0", tk.END)
-        self.text.insert("1.0", json.dumps(data, indent=2, ensure_ascii=False))
+        self.load()
 
     def _read_json_file(self, path):
         with open(path, "r", encoding="utf-8") as f:
@@ -117,39 +119,81 @@ class RawJsonTab(ttk.Frame):
     def load(self):
         try:
             if os.path.exists(self.user_path):
-                data = self._read_json_file(self.user_path)
-                self._set_text(data)
+                self.data = self._read_json_file(self.user_path)
                 self.status_var.set(f"読み込み: {self.user_rel_path}")
             else:
-                data = self._read_json_file(self.default_path)
-                self._set_text(data)
+                self.data = self._read_json_file(self.default_path)
                 self.status_var.set(
                     f"System設定が無いのでデフォルト値を表示中（未保存）: {self.user_rel_path}"
                 )
         except Exception as e:
             messagebox.showerror(self.label, f"読み込みに失敗しました:\n{e}")
-            self.status_var.set("読み込みエラー")
+            self.data = {"buttons": {}}
+        self._rebuild_table()
 
     def show_default(self):
         try:
-            data = self._read_json_file(self.default_path)
-            self._set_text(data)
+            self.data = self._read_json_file(self.default_path)
             self.status_var.set("デフォルト値を表示中（未保存）")
         except Exception as e:
             messagebox.showerror(self.label, f"デフォルト設定の読み込みに失敗しました:\n{e}")
+            return
+        self._rebuild_table()
+
+    def _rebuild_table(self):
+        for child in self.scroll.inner.winfo_children():
+            child.destroy()
+        self.rows = []
+
+        buttons = self.data.get("buttons", {})
+
+        header = ttk.Frame(self.scroll.inner)
+        header.pack(fill=tk.X, padx=4, pady=(4, 2), anchor="w")
+        ttk.Label(header, text="ボタン", width=12, font=("", 10, "bold")).grid(
+            row=0, column=0, padx=(4, 8)
+        )
+        ttk.Label(header, text="キーボード（カンマ区切り）", width=30, font=("", 10, "bold")).grid(
+            row=0, column=1, padx=4
+        )
+        ttk.Label(header, text="ゲームパッド（カンマ区切り）", width=30, font=("", 10, "bold")).grid(
+            row=0, column=2, padx=4
+        )
+
+        for button_name, binding in buttons.items():
+            row = ttk.Frame(self.scroll.inner)
+            row.pack(fill=tk.X, padx=4, pady=1, anchor="w")
+
+            ttk.Label(row, text=button_name, width=12).grid(row=0, column=0, padx=(4, 8))
+
+            keyboard = binding.get("keyboard", []) if isinstance(binding, dict) else []
+            gamepad = binding.get("gamepad", []) if isinstance(binding, dict) else []
+
+            kb_var = tk.StringVar(value=", ".join(keyboard))
+            gp_var = tk.StringVar(value=", ".join(gamepad))
+
+            ttk.Entry(row, textvariable=kb_var, width=32).grid(row=0, column=1, padx=4)
+            ttk.Entry(row, textvariable=gp_var, width=32).grid(row=0, column=2, padx=4)
+
+            self.rows.append((button_name, kb_var, gp_var))
 
     def save(self):
-        text = self.text.get("1.0", tk.END)
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            messagebox.showerror(self.label, f"JSONとして解釈できません:\n{e}")
-            return
+        buttons = {}
+        for button_name, kb_var, gp_var in self.rows:
+            entry = {}
+            kb_list = [s.strip() for s in kb_var.get().split(",") if s.strip()]
+            gp_list = [s.strip() for s in gp_var.get().split(",") if s.strip()]
+            if kb_list:
+                entry["keyboard"] = kb_list
+            if gp_list:
+                entry["gamepad"] = gp_list
+            buttons[button_name] = entry
+
+        self.data["buttons"] = buttons
 
         try:
             os.makedirs(os.path.dirname(self.user_path), exist_ok=True)
             with open(self.user_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+                json.dump(self.data, f, indent=2, ensure_ascii=False)
             self.status_var.set(f"保存しました: {self.user_rel_path}")
         except Exception as e:
             messagebox.showerror(self.label, f"保存に失敗しました:\n{e}")
@@ -412,9 +456,9 @@ def main():
         text="Renderer",
     )
     notebook.add(
-        RawJsonTab(notebook, "InputConfig",
-                   "ToyLib/Settings/InputConfig.json",
-                   "ToyGame/Settings/System/InputConfig.json"),
+        ButtonTableTab(notebook, "InputConfig",
+                       "ToyLib/Settings/InputConfig.json",
+                       "ToyGame/Settings/System/InputConfig.json"),
         text="InputConfig",
     )
 
