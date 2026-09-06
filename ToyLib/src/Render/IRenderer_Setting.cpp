@@ -1,7 +1,6 @@
 #include "Render/IRenderer.h"
 #include "Render/LightingManager.h"
 #include "Utils/JsonHelper.h"
-#include <fstream>
 #include <iostream>
 
 namespace toy {
@@ -11,33 +10,20 @@ namespace toy {
 //   - Renderer_Settings.json などから描画関連の初期設定を読み込む
 //   - ウィンドウタイトル／解像度／FOV／クリアカラー／フォグ／シャドウ等
 //=============================================================
-bool IRenderer::LoadSettings(const std::string& filePath)
+bool IRenderer::LoadSettings(const std::string& defaultPath, const std::string& userPath)
 {
     //---------------------------------------------------------
-    // ファイルオープン
-    //---------------------------------------------------------
-    std::ifstream file(filePath);
-    if (!file.is_open())
-    {
-        std::cerr << "Failed to open Renderer settings file: "
-                  << filePath.c_str() << std::endl;
-        return false;
-    }
-    
-    //---------------------------------------------------------
-    // JSON パース
+    // デフォルト設定を読み込み、実行環境ごとの設定ファイル(userPath)で上書き。
+    // userPath が無ければデフォルト値で新規生成する。
     //---------------------------------------------------------
     nlohmann::json data;
-    try
+    if (!JsonHelper::LoadWithUserOverride(defaultPath, userPath, data))
     {
-        file >> data;
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        std::cerr << "Failed to open Renderer settings file: "
+                  << defaultPath.c_str() << std::endl;
         return false;
     }
-    
+
     //---------------------------------------------------------
     // シェーダーパス
     //   "shader_path": "ToyLib/Shaders/"
@@ -181,7 +167,7 @@ bool IRenderer::LoadSettings(const std::string& filePath)
     }
 
     std::cerr << "Loaded Renderer settings from "
-              << filePath.c_str() << std::endl;
+              << defaultPath.c_str() << " (override: " << userPath.c_str() << ")" << std::endl;
     return true;
 }
 

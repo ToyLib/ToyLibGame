@@ -179,7 +179,8 @@ bool Application::Initialize()
     
     // 入力システム初期化
     mInputSys->Initialize(mWindow);
-    mInputSys->LoadButtonConfig("ToyLib/Settings/InputConfig.json");
+    mInputSys->LoadButtonConfig("ToyLib/Settings/InputConfig.json",
+                                 "ToyGame/Settings/System/InputConfig.json");
 
     // 初回必要であれば起動時フルスクリーンに切り替え
     if (mIsFullScreen)

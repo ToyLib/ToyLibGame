@@ -42,7 +42,8 @@ namespace toy {
 IRenderer::IRenderer()
 {
     mLightingManager = std::make_shared<LightingManager>();
-    LoadSettings("ToyLib/Settings/Renderer_Settings.json");
+    LoadSettings("ToyLib/Settings/Renderer_Settings.json",
+                 "ToyGame/Settings/System/Renderer_Settings.json");
     
 
 }

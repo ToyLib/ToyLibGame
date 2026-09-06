@@ -3,7 +3,6 @@
 
 #include <SDL3/SDL.h>
 #include <cstring>
-#include <fstream>
 #include <iostream>
 
 namespace toy {
@@ -430,32 +429,24 @@ Vector2 InputSystem::Filter2D(int inputX, int inputY)
 //   - "buttons" オブジェクトを走査して、
 //     各 GameButton に keyboard / gamepad バインドを登録
 //=============================================================
-bool InputSystem::LoadButtonConfig(const std::string& filePath)
+bool InputSystem::LoadButtonConfig(const std::string& defaultPath, const std::string& userPath)
 {
-    std::ifstream ifs(filePath);
-    if (!ifs)
+    //---------------------------------------------------------
+    // デフォルト設定を読み込み、実行環境ごとの設定ファイル(userPath)で上書き。
+    // userPath が無ければデフォルト値で新規生成する。
+    //---------------------------------------------------------
+    nlohmann::json root;
+    if (!JsonHelper::LoadWithUserOverride(defaultPath, userPath, root))
     {
         std::cerr << "[InputSystem] Failed to open button config: "
-                  << filePath << std::endl;
-        return false;
-    }
-
-    nlohmann::json root;
-    try
-    {
-        ifs >> root;
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "[InputSystem] JSON parse error in "
-                  << filePath << ": " << e.what() << std::endl;
+                  << defaultPath << std::endl;
         return false;
     }
 
     if (!root.contains("buttons") || !root["buttons"].is_object())
     {
         std::cerr << "[InputSystem] 'buttons' object not found in: "
-                  << filePath << std::endl;
+                  << defaultPath << std::endl;
         return false;
     }
 
@@ -515,7 +506,7 @@ bool InputSystem::LoadButtonConfig(const std::string& filePath)
     }
 
     std::cerr << "[InputSystem] Loaded button config: "
-              << filePath << std::endl;
+              << defaultPath << " (override: " << userPath << ")" << std::endl;
     return true;
 }
 

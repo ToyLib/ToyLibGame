@@ -164,7 +164,7 @@ public:
     const InputState& GetState() const { return mState; }
     
     // JSON からボタンバインディングを読み込み
-    bool LoadButtonConfig(const std::string& filePath);
+    bool LoadButtonConfig(const std::string& defaultPath, const std::string& userPath);
     
     // 論理ボタン問い合わせ API
     bool IsButtonDown(GameButton button) const;

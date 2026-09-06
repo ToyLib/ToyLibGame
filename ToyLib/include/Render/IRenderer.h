@@ -511,7 +511,7 @@ protected:
     // Internal init
     //--------------------------------------------------------------------------
 
-    bool LoadSettings(const std::string& filePath);
+    bool LoadSettings(const std::string& defaultPath, const std::string& userPath);
     virtual bool InitializeShadowMapping() { return false; }
 
     //--------------------------------------------------------------------------
