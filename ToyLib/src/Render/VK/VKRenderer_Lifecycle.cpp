@@ -194,7 +194,16 @@ bool VKRenderer::Initialize(const Application* app)
     }
 
     // Shadow
+    // ★BuildDefaultPipelines() はこれより前に呼ばれており、その時点では
+    //   mShadowRenderPass がまだ無いため ShadowMesh/ShadowSkinned は作られない。
+    //   CreateShadowResources() で render pass を作った後、ここで改めて
+    //   シャドウ用パイプラインだけを作る（さもないと初回起動時は影が一切出ない）。
     CreateShadowResources();
+    if (!BuildShadowPipelinesOnly())
+    {
+        Shutdown();
+        return false;
+    }
 
     // テクスチャアンロード通知を登録（BaseMapSetCache のダングリングポインタ対策）
     RenderBackendState::Get().SetTextureUnloadCallback(

@@ -451,6 +451,14 @@ bool VKRenderer::RecreateSwapchain()
         return false;
     }
 
+    // ★ShadowMesh/ShadowSkinned は上の BuildDefaultPipelines() 時点の
+    //   (これから破棄される) 古い mShadowRenderPass で作られてしまっているため、
+    //   新しい render pass に対して作り直す。
+    if (!BuildShadowPipelinesOnly())
+    {
+        return false;
+    }
+
     return true;
 }
 
