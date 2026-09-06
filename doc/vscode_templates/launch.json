@@ -8,7 +8,7 @@
       "program": "${workspaceFolder}/build/Debug/GameApp.exe",
       "cwd": "${workspaceFolder}/build/Debug",
       "console": "internalConsole",
-      "preLaunchTask": "Copy Runtime Resources Debug (Windows)"
+      "preLaunchTask": "Prepare Run Debug (Windows)"
     },
     {
       "name": "Launch GameApp (Windows, Release)",
@@ -17,7 +17,7 @@
       "program": "${workspaceFolder}/build/Release/GameApp.exe",
       "cwd": "${workspaceFolder}/build/Release",
       "console": "internalConsole",
-      "preLaunchTask": "Copy Runtime Resources Release (Windows)"
+      "preLaunchTask": "Prepare Run Release (Windows)"
     },
     {
       "name": "Launch GameApp (Linux)",
@@ -27,7 +27,7 @@
       "cwd": "${workspaceFolder}/build",
       "MIMode": "gdb",
       "console": "internalConsole",
-      "preLaunchTask": "Copy Runtime Resources (Unix)"
+      "preLaunchTask": "Prepare Run (Unix)"
     },
     {
       "name": "Launch GameApp (macOS)",
@@ -37,7 +37,7 @@
       "cwd": "${workspaceFolder}/build",
       "MIMode": "lldb",
       "console": "internalConsole",
-      "preLaunchTask": "Copy Runtime Resources (macOS)"
+      "preLaunchTask": "Prepare Run (macOS)"
     }
   ]
 }

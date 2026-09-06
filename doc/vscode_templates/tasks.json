@@ -28,12 +28,13 @@
                 "isDefault": false
             }
         },
+
         // ============================================================
         // CMake Configure
         // ============================================================
+
         // ------------------------------------------------------------
         // macOS
-        // Single-config generator
         // ------------------------------------------------------------
         {
             "label": "CMake Configure (macOS)",
@@ -44,12 +45,10 @@
                 "kind": "build",
                 "isDefault": false
             }
-            // 毎回クリーンしたい場合:
-            // "dependsOn": "Clean Build Folder (Unix)"
         },
+
         // ------------------------------------------------------------
         // Linux / Unix
-        // Single-config generator
         // ------------------------------------------------------------
         {
             "label": "CMake Configure (Unix)",
@@ -60,17 +59,10 @@
                 "kind": "build",
                 "isDefault": false
             }
-            // 毎回クリーンしたい場合:
-            // "dependsOn": "Clean Build Folder (Unix)"
         },
+
         // ------------------------------------------------------------
         // Windows
-        //
-        // Visual Studio Generator は multi-config なので
-        // CMAKE_BUILD_TYPE は指定しない。
-        //
-        // Debug / Release は cmake --build の
-        // --config で切り替える。
         // ------------------------------------------------------------
         {
             "label": "CMake Configure (Windows)",
@@ -81,9 +73,8 @@
                 "kind": "build",
                 "isDefault": false
             }
-            // 毎回クリーンしたい場合:
-            // "dependsOn": "Clean Build Folder (Windows)"
         },
+
         // ============================================================
         // CMake Build - macOS / Unix
         // ============================================================
@@ -109,12 +100,10 @@
             },
             "dependsOn": "CMake Configure (macOS)"
         },
+
         // ============================================================
         // CMake Build - Windows
         // ============================================================
-        // ------------------------------------------------------------
-        // Debug
-        // ------------------------------------------------------------
         {
             "label": "CMake Build Debug (Windows)",
             "type": "shell",
@@ -126,9 +115,6 @@
             },
             "dependsOn": "CMake Configure (Windows)"
         },
-        // ------------------------------------------------------------
-        // Release
-        // ------------------------------------------------------------
         {
             "label": "CMake Build Release (Windows)",
             "type": "shell",
@@ -140,48 +126,59 @@
             },
             "dependsOn": "CMake Configure (Windows)"
         },
+
         // ============================================================
-        // Runtime Resource Copy
+        // Prepare Run
         //
-        // GameApp本体はビルドせず、
-        // Shaders / Assets / Settings のコピーだけ実行する。
-        // VSCode launch.json の preLaunchTask から利用可能。
+        // Configure
+        //   ↓
+        // 必要なら Shader / GameApp をビルド
+        //   ↓
+        // Runtime Resources をコピー
         // ============================================================
+
         // ------------------------------------------------------------
         // macOS
         // ------------------------------------------------------------
         {
-            "label": "Copy Runtime Resources (macOS)",
+            "label": "Prepare Run (macOS)",
             "type": "shell",
-            "command": "cmake --build build --target CopyRuntimeResources",
-            "problemMatcher": []
+            "command": "cmake --build build --target PrepareRun --parallel",
+            "problemMatcher": [],
+            "dependsOn": "CMake Configure (macOS)"
         },
+
         // ------------------------------------------------------------
         // Linux / Unix
         // ------------------------------------------------------------
         {
-            "label": "Copy Runtime Resources (Unix)",
+            "label": "Prepare Run (Unix)",
             "type": "shell",
-            "command": "cmake --build build --target CopyRuntimeResources",
-            "problemMatcher": []
+            "command": "cmake --build build --target PrepareRun --parallel",
+            "problemMatcher": [],
+            "dependsOn": "CMake Configure (Unix)"
         },
+
         // ------------------------------------------------------------
         // Windows Debug
         // ------------------------------------------------------------
         {
-            "label": "Copy Runtime Resources Debug (Windows)",
+            "label": "Prepare Run Debug (Windows)",
             "type": "shell",
-            "command": "cmake --build build --target CopyRuntimeResources --config Debug",
-            "problemMatcher": []
+            "command": "cmake --build build --target PrepareRun --config Debug --parallel",
+            "problemMatcher": [],
+            "dependsOn": "CMake Configure (Windows)"
         },
+
         // ------------------------------------------------------------
         // Windows Release
         // ------------------------------------------------------------
         {
-            "label": "Copy Runtime Resources Release (Windows)",
+            "label": "Prepare Run Release (Windows)",
             "type": "shell",
-            "command": "cmake --build build --target CopyRuntimeResources --config Release",
-            "problemMatcher": []
+            "command": "cmake --build build --target PrepareRun --config Release --parallel",
+            "problemMatcher": [],
+            "dependsOn": "CMake Configure (Windows)"
         }
     ]
 }
