@@ -28,11 +28,9 @@
                 "isDefault": false
             }
         },
-
         // ============================================================
         // CMake Configure
         // ============================================================
-
         // ------------------------------------------------------------
         // macOS
         // Single-config generator
@@ -46,11 +44,9 @@
                 "kind": "build",
                 "isDefault": false
             }
-
             // 毎回クリーンしたい場合:
             // "dependsOn": "Clean Build Folder (Unix)"
         },
-
         // ------------------------------------------------------------
         // Linux / Unix
         // Single-config generator
@@ -64,11 +60,9 @@
                 "kind": "build",
                 "isDefault": false
             }
-
             // 毎回クリーンしたい場合:
             // "dependsOn": "Clean Build Folder (Unix)"
         },
-
         // ------------------------------------------------------------
         // Windows
         //
@@ -87,11 +81,9 @@
                 "kind": "build",
                 "isDefault": false
             }
-
             // 毎回クリーンしたい場合:
             // "dependsOn": "Clean Build Folder (Windows)"
         },
-
         // ============================================================
         // CMake Build - macOS / Unix
         // ============================================================
@@ -117,11 +109,9 @@
             },
             "dependsOn": "CMake Configure (macOS)"
         },
-
         // ============================================================
         // CMake Build - Windows
         // ============================================================
-
         // ------------------------------------------------------------
         // Debug
         // ------------------------------------------------------------
@@ -136,7 +126,6 @@
             },
             "dependsOn": "CMake Configure (Windows)"
         },
-
         // ------------------------------------------------------------
         // Release
         // ------------------------------------------------------------
@@ -150,6 +139,49 @@
                 "isDefault": false
             },
             "dependsOn": "CMake Configure (Windows)"
+        },
+        // ============================================================
+        // Runtime Resource Copy
+        //
+        // GameApp本体はビルドせず、
+        // Shaders / Assets / Settings のコピーだけ実行する。
+        // VSCode launch.json の preLaunchTask から利用可能。
+        // ============================================================
+        // ------------------------------------------------------------
+        // macOS
+        // ------------------------------------------------------------
+        {
+            "label": "Copy Runtime Resources (macOS)",
+            "type": "shell",
+            "command": "cmake --build build --target CopyRuntimeResources",
+            "problemMatcher": []
+        },
+        // ------------------------------------------------------------
+        // Linux / Unix
+        // ------------------------------------------------------------
+        {
+            "label": "Copy Runtime Resources (Unix)",
+            "type": "shell",
+            "command": "cmake --build build --target CopyRuntimeResources",
+            "problemMatcher": []
+        },
+        // ------------------------------------------------------------
+        // Windows Debug
+        // ------------------------------------------------------------
+        {
+            "label": "Copy Runtime Resources Debug (Windows)",
+            "type": "shell",
+            "command": "cmake --build build --target CopyRuntimeResources --config Debug",
+            "problemMatcher": []
+        },
+        // ------------------------------------------------------------
+        // Windows Release
+        // ------------------------------------------------------------
+        {
+            "label": "Copy Runtime Resources Release (Windows)",
+            "type": "shell",
+            "command": "cmake --build build --target CopyRuntimeResources --config Release",
+            "problemMatcher": []
         }
     ]
 }

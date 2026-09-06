@@ -794,43 +794,82 @@ set(
 )
 
 # ------------------------------------------------------------
-# Shaders
+# Runtime copy script
 # ------------------------------------------------------------
 
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
+set(
+    RUNTIME_COPY_SCRIPT
+    "${CMAKE_BINARY_DIR}/CopyRuntimeResources.cmake"
+)
 
-    COMMAND
-    ${CMAKE_COMMAND}
-    -E copy_directory
-    "${SOURCE_SHADER_DIR}"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+file(
+    GENERATE
+    OUTPUT
+    "${RUNTIME_COPY_SCRIPT}"
 
-    COMMENT
-    "Copying Shaders to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+    CONTENT
+"
+message(STATUS \"Copying runtime resources...\")
+
+file(
+    COPY
+    \"${SOURCE_SHADER_DIR}/\"
+    DESTINATION
+    \"$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders\"
+)
+
+file(
+    COPY
+    \"${SOURCE_SYSASSET_DIR}/\"
+    DESTINATION
+    \"$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets\"
+)
+
+file(
+    COPY
+    \"${SOURCE_ASSET_DIR}/\"
+    DESTINATION
+    \"$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets\"
+)
+
+file(
+    COPY
+    \"${SOURCE_SETTINGS_DIR}/\"
+    DESTINATION
+    \"$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings\"
+)
+
+file(
+    COPY
+    \"${SOURCE_SYSSETTINGS_DIR}/\"
+    DESTINATION
+    \"$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings\"
+)
+
+message(STATUS \"Runtime resource copy complete.\")
+"
 )
 
 # ------------------------------------------------------------
-# ToyLib Assets
+# Copy-only target
 # ------------------------------------------------------------
 
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
+add_custom_target(
+    CopyRuntimeResources
 
     COMMAND
-    ${CMAKE_COMMAND}
-    -E copy_directory
-    "${SOURCE_SYSASSET_DIR}"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+        ${CMAKE_COMMAND}
+        -P
+        "${RUNTIME_COPY_SCRIPT}"
 
     COMMENT
-    "Copying System Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+        "Copying runtime resources"
+
+    VERBATIM
 )
 
 # ------------------------------------------------------------
-# Game Assets
+# Normal GameApp build
 # ------------------------------------------------------------
 
 add_custom_command(
@@ -838,47 +877,12 @@ add_custom_command(
     POST_BUILD
 
     COMMAND
-    ${CMAKE_COMMAND}
-    -E copy_directory
-    "${SOURCE_ASSET_DIR}"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+        ${CMAKE_COMMAND}
+        -P
+        "${RUNTIME_COPY_SCRIPT}"
 
     COMMENT
-    "Copying Assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
-)
+        "Copying runtime resources after build"
 
-# ------------------------------------------------------------
-# Game Settings
-# ------------------------------------------------------------
-
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-
-    COMMAND
-    ${CMAKE_COMMAND}
-    -E copy_directory
-    "${SOURCE_SETTINGS_DIR}"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
-
-    COMMENT
-    "Copying Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
-)
-
-# ------------------------------------------------------------
-# ToyLib Settings
-# ------------------------------------------------------------
-
-add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-
-    COMMAND
-    ${CMAKE_COMMAND}
-    -E copy_directory
-    "${SOURCE_SYSSETTINGS_DIR}"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
-
-    COMMENT
-    "Copying System Settings to $<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
+    VERBATIM
 )
