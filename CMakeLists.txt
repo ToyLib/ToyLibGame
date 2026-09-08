@@ -408,8 +408,6 @@ if(WIN32)
 
     # --------------------------------------------------------
     # DLL copy
-    #
-    # DLL は実行ファイルが再リンクされたときにコピーする。
     # --------------------------------------------------------
 
     set(
@@ -575,13 +573,9 @@ elseif(APPLE)
 
     set_target_properties(
         ${PROJECT_NAME}
-
         PROPERTIES
-
         BUILD_WITH_INSTALL_RPATH TRUE
-
-        INSTALL_RPATH
-        "@executable_path/../lib;/opt/homebrew/lib;/usr/local/lib"
+        INSTALL_RPATH "@executable_path/../lib;/opt/homebrew/lib;/usr/local/lib"
     )
 
 endif()
@@ -609,11 +603,9 @@ if(WIN32)
 
     find_program(
         GLSLC_EXECUTABLE
-
         NAMES
         glslc.exe
         glslc
-
         HINTS
         "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/tools/shaderc"
         "${VCPKG_BIN_DIR}"
@@ -623,10 +615,8 @@ elseif(APPLE)
 
     find_program(
         GLSLC_EXECUTABLE
-
         NAMES
         glslc
-
         HINTS
         /opt/homebrew/bin
         /usr/local/bin
@@ -636,10 +626,8 @@ else()
 
     find_program(
         GLSLC_EXECUTABLE
-
         NAMES
         glslc
-
         HINTS
         /usr/bin
         /usr/local/bin
@@ -651,7 +639,6 @@ if(NOT GLSLC_EXECUTABLE)
 
     message(
         FATAL_ERROR
-
         "glslc was not found.\n"
         "\n"
         "Windows:\n"
@@ -677,9 +664,7 @@ message(
 
 file(
     GLOB VK_SHADER_SOURCES
-
     CONFIGURE_DEPENDS
-
     "${VK_SHADER_SRC_DIR}/*.vert"
     "${VK_SHADER_SRC_DIR}/*.frag"
     "${VK_SHADER_SRC_DIR}/*.comp"
@@ -702,7 +687,7 @@ foreach(SHADER ${VK_SHADER_SOURCES})
 
     add_custom_command(
         OUTPUT
-        "${SPV_FILE}"
+            "${SPV_FILE}"
 
         COMMAND
             ${CMAKE_COMMAND}
@@ -742,7 +727,6 @@ add_custom_target(
     ${VK_SHADER_SPV_FILES}
 )
 
-# GameApp requires current Vulkan shaders.
 add_dependencies(
     ${PROJECT_NAME}
     VulkanShaders
@@ -780,13 +764,11 @@ set(
 # ------------------------------------------------------------
 # Runtime output directory
 #
-# Windows / Visual Studio:
-#
+# Windows:
 #   build/Debug
 #   build/Release
 #
-# Linux / macOS:
-#
+# macOS / Linux:
 #   build
 # ------------------------------------------------------------
 
@@ -807,24 +789,14 @@ else()
 endif()
 
 # ============================================================
-# PrepareRun
+# CopyRuntimeResources
 #
-# This is the normal "ready to launch" target.
-#
-# 1. VulkanShaders is checked through GameApp dependency.
-# 2. GameApp is rebuilt only when required.
-# 3. Runtime resources are always copied.
-#
-# ALL means normal `cmake --build build` also performs this step.
+# Explicit copy-only target.
+# This target always runs when invoked.
 # ============================================================
 
 add_custom_target(
-    PrepareRun
-    ALL
-
-    # --------------------------------------------------------
-    # Shaders
-    # --------------------------------------------------------
+    CopyRuntimeResources
 
     COMMAND
         ${CMAKE_COMMAND}
@@ -832,19 +804,11 @@ add_custom_target(
         "${SOURCE_SHADER_DIR}"
         "${RUNTIME_OUTPUT_DIR}/${TOYLIB_PATH}/Shaders"
 
-    # --------------------------------------------------------
-    # ToyLib Assets
-    # --------------------------------------------------------
-
     COMMAND
         ${CMAKE_COMMAND}
         -E copy_directory
         "${SOURCE_SYSASSET_DIR}"
         "${RUNTIME_OUTPUT_DIR}/${TOYLIB_PATH}/Assets"
-
-    # --------------------------------------------------------
-    # Game Assets
-    # --------------------------------------------------------
 
     COMMAND
         ${CMAKE_COMMAND}
@@ -852,19 +816,11 @@ add_custom_target(
         "${SOURCE_ASSET_DIR}"
         "${RUNTIME_OUTPUT_DIR}/${GAME_PATH}/Assets"
 
-    # --------------------------------------------------------
-    # Game Settings
-    # --------------------------------------------------------
-
     COMMAND
         ${CMAKE_COMMAND}
         -E copy_directory
         "${SOURCE_SETTINGS_DIR}"
         "${RUNTIME_OUTPUT_DIR}/${GAME_PATH}/Settings"
-
-    # --------------------------------------------------------
-    # ToyLib Settings
-    # --------------------------------------------------------
 
     COMMAND
         ${CMAKE_COMMAND}
@@ -872,11 +828,78 @@ add_custom_target(
         "${SOURCE_SYSSETTINGS_DIR}"
         "${RUNTIME_OUTPUT_DIR}/${TOYLIB_PATH}/Settings"
 
-    DEPENDS
-        ${PROJECT_NAME}
+    COMMENT
+        "Copying runtime resources to ${RUNTIME_OUTPUT_DIR}"
+
+    VERBATIM
+)
+
+# ============================================================
+# PrepareRun
+#
+# Used by VSCode preLaunchTask / CMake build preset.
+#
+# GameApp:
+#   - VulkanShaders checked
+#   - C++ compiled/linked only when required
+#
+# CopyRuntimeResources:
+#   - always executed
+# ============================================================
+
+add_custom_target(
+    PrepareRun
+)
+
+add_dependencies(
+    PrepareRun
+    ${PROJECT_NAME}
+    CopyRuntimeResources
+)
+
+# ============================================================
+# GameApp POST_BUILD resource copy
+#
+# Important for Visual Studio / IDE cases where GameApp is
+# built directly instead of PrepareRun.
+# ============================================================
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+
+    COMMAND
+        ${CMAKE_COMMAND}
+        -E copy_directory
+        "${SOURCE_SHADER_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Shaders"
+
+    COMMAND
+        ${CMAKE_COMMAND}
+        -E copy_directory
+        "${SOURCE_SYSASSET_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Assets"
+
+    COMMAND
+        ${CMAKE_COMMAND}
+        -E copy_directory
+        "${SOURCE_ASSET_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Assets"
+
+    COMMAND
+        ${CMAKE_COMMAND}
+        -E copy_directory
+        "${SOURCE_SETTINGS_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${GAME_PATH}/Settings"
+
+    COMMAND
+        ${CMAKE_COMMAND}
+        -E copy_directory
+        "${SOURCE_SYSSETTINGS_DIR}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${TOYLIB_PATH}/Settings"
 
     COMMENT
-        "Preparing GameApp runtime resources"
+        "Copying runtime resources after GameApp build"
 
     VERBATIM
 )
