@@ -1,5 +1,6 @@
 {
   "version": 3,
+
   "cmakeMinimumRequired": {
     "major": 3,
     "minor": 15,
@@ -8,35 +9,18 @@
 
   "configurePresets": [
     {
-      "name": "windows-debug",
-      "displayName": "Windows x64 Debug (vcpkg)",
-      "description": "Build with MSVC + Visual Studio, Debug, using vcpkg toolchain.",
+      "name": "windows",
+      "displayName": "Windows x64 (vcpkg)",
+      "description": "Configure with MSVC + Visual Studio 2026 using vcpkg.",
       "generator": "Visual Studio 18 2026",
       "binaryDir": "${sourceDir}/build",
+
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "C:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "CMAKE_CXX_STANDARD": "20",
         "CMAKE_CXX_STANDARD_REQUIRED": "ON"
       },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
-      "name": "windows-release",
-      "displayName": "Windows x64 Release (vcpkg)",
-      "description": "Build with MSVC + Visual Studio, Release, using vcpkg toolchain.",
-      "generator": "Visual Studio 18 2026",
-      "binaryDir": "${sourceDir}/build",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "C:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_CXX_STANDARD_REQUIRED": "ON"
-      },
+
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -49,12 +33,35 @@
     {
       "name": "windows-debug",
       "displayName": "Build Windows Debug",
-      "configurePreset": "windows-debug"
+      "configurePreset": "windows",
+      "configuration": "Debug"
     },
+
     {
       "name": "windows-release",
       "displayName": "Build Windows Release",
-      "configurePreset": "windows-release"
+      "configurePreset": "windows",
+      "configuration": "Release"
+    },
+
+    {
+      "name": "windows-debug-run",
+      "displayName": "Prepare Run Windows Debug",
+      "configurePreset": "windows",
+      "configuration": "Debug",
+      "targets": [
+        "PrepareRun"
+      ]
+    },
+
+    {
+      "name": "windows-release-run",
+      "displayName": "Prepare Run Windows Release",
+      "configurePreset": "windows",
+      "configuration": "Release",
+      "targets": [
+        "PrepareRun"
+      ]
     }
   ],
 
@@ -62,7 +69,8 @@
     {
       "name": "windows-debug-tests",
       "displayName": "CTest Windows Debug",
-      "configurePreset": "windows-debug",
+      "configurePreset": "windows",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       }
