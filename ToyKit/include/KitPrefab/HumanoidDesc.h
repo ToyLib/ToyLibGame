@@ -31,9 +31,11 @@ struct HumanoidDesc
     Vector3  colliderScale  = Vector3::One;
     uint32_t colliderFlags  = 0;
 
-    // 重力
-    bool useGravity       = true;
-    bool enableGroundPose = false;
+    // 重力（GravityComponent 自体の既定値と揃えてある）
+    bool  useGravity       = true;
+    bool  enableGroundPose = false;
+    float gravityAccel     = -60.0f;
+    float jumpSpeed        = 22.0f;
 
     //-------------------------------------------------------------------
     // ロックオン戦闘（Field/Battle切換え・追従カメラ・索敵）
@@ -53,6 +55,7 @@ struct HumanoidDesc
 
     // 足音（空文字なら無効）
     std::string footstepSound;
+    float       footstepVolume = 1.0f;
 
     // 名前ビルボード（空文字なら非表示）
     std::string displayName;

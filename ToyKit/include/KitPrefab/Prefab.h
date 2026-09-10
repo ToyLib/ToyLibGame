@@ -49,6 +49,7 @@ public:
     float GetScale() const;
 
     const Matrix4&    GetWorldTransform() const;
+    Vector3           GetForward() const;
 
     virtual void SetVisible(bool visible)          = 0;
     virtual void SetCollisionEnabled(bool enabled) = 0;

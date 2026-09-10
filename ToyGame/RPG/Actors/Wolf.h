@@ -12,8 +12,8 @@ class Wolf
 public:
     explicit Wolf(toy::Application* app);
 
-    // ※ HeroActor が toy::Actor 継承のままなので、当面は Actor* を受け取る。
-    void SetTarget(toy::Actor* target) { mTarget = target; }
+    // ターゲット（プレイヤー）を設定する。Prefab 越しに位置だけを参照する。
+    void SetTarget(toy::kit::Prefab* target) { mTarget = target; }
 
     void           SetPosition(const Vector3& pos) { mBody.SetPosition(pos); }
     const Vector3& GetPosition() const { return mBody.GetPosition(); }
@@ -34,7 +34,7 @@ private:
     void  LookAtTarget();
 
     toy::kit::Humanoid mBody;
-    toy::Actor*         mTarget = nullptr;
+    toy::kit::Prefab*   mTarget = nullptr;
 
     float mDetectRange = 30.0f;
     float mMoveSpeed   = 8.0f;

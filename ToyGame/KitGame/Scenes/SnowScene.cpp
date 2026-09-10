@@ -2,7 +2,6 @@
 #include "FieldScene.h"
 #include "ToyLib.h"
 #include "../Actors/Player.h"
-#include "../Actors/RPGCharacter.h"
 #include "../Actors/FieldMonster.h"
 
 

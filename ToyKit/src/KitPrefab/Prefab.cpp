@@ -89,6 +89,11 @@ const Matrix4& Prefab::GetWorldTransform() const
     return mActor->GetWorldTransform();
 }
 
+Vector3 Prefab::GetForward() const
+{
+    return mActor->GetForward();
+}
+
 void Prefab::SetScale(float scale)
 {
     mActor->SetScale(scale);

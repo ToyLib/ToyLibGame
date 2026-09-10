@@ -16,10 +16,8 @@ class Shiro
 public:
     explicit Shiro(toy::Application* app);
 
-    // ターゲット（プレイヤー）を設定する。
-    // ※ HeroActor が toy::Actor 継承のままなので、当面は Actor* を受け取る。
-    //   Hero 側の移行が終わったら Prefab* を受け取る形に揃える。
-    void SetTarget(toy::Actor* target) { mTarget = target; }
+    // ターゲット（プレイヤー）を設定する。Prefab 越しに位置だけを参照する。
+    void SetTarget(toy::kit::Prefab* target) { mTarget = target; }
 
     void           SetPosition(const Vector3& pos) { mBody.SetPosition(pos); }
     const Vector3& GetPosition() const { return mBody.GetPosition(); }
@@ -40,7 +38,7 @@ private:
     void  LookAtTarget();                          // Y 軸回転のみ
 
     toy::kit::Humanoid mBody;
-    toy::Actor*         mTarget = nullptr;
+    toy::kit::Prefab*   mTarget = nullptr;
 
     float mDetectRange = 40.0f; // 索敵範囲（XZ距離）
     float mMoveSpeed   = 6.0f;  // 追跡速度

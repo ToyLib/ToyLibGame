@@ -174,6 +174,8 @@ void Humanoid::SetupGravity(const HumanoidDesc& desc)
 
     mGravity = GetActor()->CreateComponent<toy::GravityComponent>();
     mGravity->SetEnableGroundPose(desc.enableGroundPose);
+    mGravity->SetGravityAccel(desc.gravityAccel);
+    mGravity->SetJumpSpeed(desc.jumpSpeed);
 
     TrackGravity(mGravity);
 }
@@ -219,7 +221,7 @@ void Humanoid::SetupFootstep(const HumanoidDesc& desc)
 
     mFootstepSound = GetActor()->CreateComponent<toy::SoundComponent>();
     mFootstepSound->SetSound(desc.footstepSound);
-    mFootstepSound->SetVolume(1.0f);
+    mFootstepSound->SetVolume(desc.footstepVolume);
     mFootstepSound->Enable3DSound(true);
 }
 

@@ -20,7 +20,7 @@
 class OutdoorScene : public toy::kit::IScene
 {
 public:
-    // Shiro/Wolf は前方宣言のみのため、それらの std::unique_ptr を完全型が
+    // Hero/Shiro/Wolf は前方宣言のみのため、それらの std::unique_ptr を完全型が
     // 見える OutdoorScene.cpp 側で暗黙生成させる（out-of-line constructor/destructor）
     OutdoorScene();
     ~OutdoorScene() override;
@@ -61,6 +61,11 @@ private:
 
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
-    std::unique_ptr<class Shiro>              mShiro;
-    std::vector<std::unique_ptr<class Wolf>>  mWolves;
+    std::unique_ptr<class Hero>                mHero;
+    std::unique_ptr<class Shiro>               mShiro;
+    std::vector<std::unique_ptr<class Wolf>>   mWolves;
+
+    // Hero の位置を毎フレーム反映するマーカー Actor（FollowMoveComponent 等、
+    // 本物の toy::Actor を要求するレガシー系との橋渡し用）
+    toy::Actor* mHeroMarker = nullptr;
 };

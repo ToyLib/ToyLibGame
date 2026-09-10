@@ -1,6 +1,6 @@
 #include "OutdoorScene.h"
 #include "ToyLib.h"
-#include "../Actors/HeroActor.h"
+#include "../Actors/Hero.h"
 #include "../Actors/Wolf.h"
 #include "../Actors/Shiro.h"
 #include "../Actors/IslandActor.h"
@@ -92,22 +92,28 @@ void OutdoorScene::SetupProps()
 //-----------------------------------------------------------------------------
 void OutdoorScene::SetupCharacters()
 {
-    // プレイヤー
-    auto* hero = CreateActor<HeroActor>();
+    // プレイヤー（新方針: Humanoid Prefab を内包する Game Logic）
+    mHero = std::make_unique<Hero>(GetApp());
 
     // Wolf x5（プレイヤーをターゲットに。新方針: Humanoid Prefab を内包する Game Logic）
     for (int i = 0; i < 5; ++i)
     {
         auto wolf = std::make_unique<Wolf>(GetApp());
         wolf->SetPosition(Vector3(-20.0f + i * 10.0f, 3.0f, -20.0f));
-        wolf->SetTarget(hero);
+        wolf->SetTarget(&mHero->GetBody());
         mWolves.push_back(std::move(wolf));
     }
 
     // Shiro（焚き火の向かい側。新方針: Humanoid Prefab を内包する Game Logic）
     mShiro = std::make_unique<Shiro>(GetApp());
     mShiro->SetPosition(Vector3(0.0f, 0.0f, -25.0f));
-    mShiro->SetTarget(hero);
+    mShiro->SetTarget(&mHero->GetBody());
+
+    // Hero の位置を毎フレーム反映するマーカー Actor。
+    // Hero 自体は toy::Actor を持たないため、FollowMoveComponent など
+    // 「本物の Actor」をターゲットに要求するレガシー系のためだけに用意する。
+    mHeroMarker = CreateActor<toy::Actor>();
+    mHeroMarker->SetPosition(mHero->GetPosition());
 
     // Stan（プレイヤー追従）
     auto* stan = CreateActor<toy::Actor>();
@@ -128,7 +134,7 @@ void OutdoorScene::SetupCharacters()
     stanColl->SetEnabled(true);
 
     auto* stanMove = stan->CreateComponent<toy::FollowMoveComponent>();
-    stanMove->SetTarget(hero);
+    stanMove->SetTarget(mHeroMarker);
     stanMove->SetFollowSpeed(10.0f);
 
     stan->CreateComponent<toy::GravityComponent>();
@@ -168,6 +174,16 @@ void OutdoorScene::Update(float deltaTime)
         mWeather->Update(deltaTime);
     }
 
+    if (mHero)
+    {
+        mHero->Update(deltaTime);
+
+        if (mHeroMarker)
+        {
+            mHeroMarker->SetPosition(mHero->GetPosition());
+        }
+    }
+
     if (mShiro)
     {
         mShiro->Update(deltaTime);
@@ -193,6 +209,11 @@ void OutdoorScene::Update(float deltaTime)
 
 void OutdoorScene::ProcessInput(const toy::InputState& input)
 {
+    if (mHero)
+    {
+        mHero->ProcessInput(input);
+    }
+
     if (input.Keyboard.GetKeyState(SDL_SCANCODE_F6) == toy::EPressed)
     {
         bool s = GetApp()->GetRenderer()->GetEnableShadow();
