@@ -13,6 +13,8 @@
 #include "KitPrefab/Prefab.h"
 #include "KitPrefab/CreatureDesc.h"
 #include "KitPrefab/Creature.h"
+#include "KitPrefab/HumanoidDesc.h"
+#include "KitPrefab/Humanoid.h"
 
 // KitActor（廃止予定。移行が完了したクラスから順次削除する）
 #include "KitActor/KitCharacterActor.h"

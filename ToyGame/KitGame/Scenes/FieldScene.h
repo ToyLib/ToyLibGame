@@ -11,7 +11,7 @@ class FieldScene : public toy::kit::IScene
 public:
     explicit FieldScene();
 
-    // FieldMonster は前方宣言のみのため、std::unique_ptr<FieldMonster> を
+    // Player/FieldMonster は前方宣言のみのため、それらの std::unique_ptr を
     // 完全型が見える FieldScene.cpp 側で暗黙生成させる（out-of-line destructor）
     ~FieldScene() override;
 
@@ -29,9 +29,8 @@ private:
     
     class toy::TextSpriteComponent* mTextComp;
 
-    toy::Actor* mPlayerActor;
-
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
+    std::unique_ptr<class Player> mPlayer;
     std::vector<std::unique_ptr<class FieldMonster>> mMonsters;
 };

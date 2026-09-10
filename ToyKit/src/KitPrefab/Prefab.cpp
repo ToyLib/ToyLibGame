@@ -65,6 +65,21 @@ const Vector3& Prefab::GetPosition() const
     return mActor->GetPosition();
 }
 
+void Prefab::SetRotation(const Quaternion& rot)
+{
+    mActor->SetRotation(rot);
+}
+
+const Quaternion& Prefab::GetRotation() const
+{
+    return mActor->GetRotation();
+}
+
+const Matrix4& Prefab::GetWorldTransform() const
+{
+    return mActor->GetWorldTransform();
+}
+
 void Prefab::TickFromActor(float deltaTime)
 {
     DetectCollisionEvents();

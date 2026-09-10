@@ -36,8 +36,13 @@ public:
     //-------------------------------------------------------------------
     // Interface（共通分）
     //-------------------------------------------------------------------
-    void           SetPosition(const Vector3& pos);
-    const Vector3& GetPosition() const;
+    void              SetPosition(const Vector3& pos);
+    const Vector3&    GetPosition() const;
+
+    void              SetRotation(const Quaternion& rot);
+    const Quaternion& GetRotation() const;
+
+    const Matrix4&    GetWorldTransform() const;
 
     virtual void SetVisible(bool visible)          = 0;
     virtual void SetCollisionEnabled(bool enabled) = 0;

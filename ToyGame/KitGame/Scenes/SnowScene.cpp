@@ -1,7 +1,7 @@
 #include "SnowScene.h"
 #include "FieldScene.h"
 #include "ToyLib.h"
-#include "../Actors/PlayerActor.h"
+#include "../Actors/Player.h"
 #include "../Actors/RPGCharacter.h"
 #include "../Actors/FieldMonster.h"
 
@@ -39,8 +39,9 @@ void SnowScene::InitScene()
     InitField();
 
 
-    mPlayerActor = CreateActor<PlayerActor>();
-    
+    mPlayer = std::make_unique<Player>(GetApp());
+
+
     // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
     {
@@ -147,6 +148,11 @@ void SnowScene::InitScene()
 
 void SnowScene::ProcessInput(const struct toy::InputState &input)
 {
+    if (mPlayer)
+    {
+        mPlayer->ProcessInput(input);
+    }
+
     if (input.IsButtonPressed(toy::GameButton::Start))
     {
         RequestChange(std::make_unique<FieldScene>());
@@ -158,6 +164,11 @@ void SnowScene::Update(float deltaTime)
     if (mWeather)
     {
         mWeather->Update(deltaTime);
+    }
+
+    if (mPlayer)
+    {
+        mPlayer->Update(deltaTime);
     }
 
     for (auto& monster : mMonsters)
@@ -178,13 +189,13 @@ void SnowScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayerActor->GetPosition();
+    Vector3 pos = mPlayer->GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
-    
-    
-    mPlyCamera->SetPosition(mPlayerActor->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
-    auto mat = mPlayerActor->GetWorldTransform();
+
+
+    mPlyCamera->SetPosition(mPlayer->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    auto mat = mPlayer->GetWorldTransform();
     mat *= Matrix4::CreateRotationY(Math::ToRadians(180.0f));
     mPlyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
     

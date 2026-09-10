@@ -1,7 +1,7 @@
 #include "FieldScene.h"
 #include "SnowScene.h"
 #include "ToyLib.h"
-#include "../Actors/PlayerActor.h"
+#include "../Actors/Player.h"
 #include "../Actors/RPGCharacter.h"
 #include "../Actors/FieldMonster.h"
 
@@ -38,8 +38,8 @@ void FieldScene::InitScene()
     InitField();
 
 
-    mPlayerActor = CreateActor<PlayerActor>();
-   
+    mPlayer = std::make_unique<Player>(GetApp());
+
     // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
     {
@@ -125,6 +125,11 @@ void FieldScene::InitScene()
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
 {
+    if (mPlayer)
+    {
+        mPlayer->ProcessInput(input);
+    }
+
     if (input.IsButtonPressed(toy::GameButton::Start))
     {
         RequestChange(std::make_unique<SnowScene>());
@@ -137,6 +142,11 @@ void FieldScene::Update(float deltaTime)
     if (mWeather)
     {
         mWeather->Update(deltaTime);
+    }
+
+    if (mPlayer)
+    {
+        mPlayer->Update(deltaTime);
     }
 
     for (auto& monster : mMonsters)
@@ -157,7 +167,7 @@ void FieldScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayerActor->GetPosition();
+    Vector3 pos = mPlayer->GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
 }
