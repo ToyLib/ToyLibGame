@@ -3,11 +3,18 @@
 #include "ToyKit.h"
 #include "ToyLib.h"
 
+#include <memory>
+#include <vector>
+
 class SnowScene : public toy::kit::IScene
 {
 public:
     explicit SnowScene();
-    
+
+    // FieldMonster は前方宣言のみのため、std::unique_ptr<FieldMonster> を
+    // 完全型が見える SnowScene.cpp 側で暗黙生成させる（out-of-line destructor）
+    ~SnowScene() override;
+
     void ProcessInput(const struct toy::InputState& input) override;
     void Update(float deltaTime) override;
 protected:
@@ -19,9 +26,13 @@ private:
     void DeployBrick(Vector3 pos);
     void DeployFire(Vector3 pos);
     std::unique_ptr<class toy::WeatherManager> mWeather;
-    
+
     class toy::TextSpriteComponent* mTextComp;
-    
+
     toy::Actor* mPlayerActor;
     toy::Actor* mPlyCamera;
+
+    // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
+    // Scene 側で寿命を管理する）
+    std::vector<std::unique_ptr<class FieldMonster>> mMonsters;
 };

@@ -3,11 +3,18 @@
 #include "ToyKit.h"
 #include "ToyLib.h"
 
+#include <memory>
+#include <vector>
+
 class FieldScene : public toy::kit::IScene
 {
 public:
     explicit FieldScene();
-    
+
+    // FieldMonster は前方宣言のみのため、std::unique_ptr<FieldMonster> を
+    // 完全型が見える FieldScene.cpp 側で暗黙生成させる（out-of-line destructor）
+    ~FieldScene() override;
+
     void ProcessInput(const struct toy::InputState& input) override;
     void Update(float deltaTime) override;
 protected:
@@ -21,6 +28,10 @@ private:
     std::unique_ptr<class toy::WeatherManager> mWeather;
     
     class toy::TextSpriteComponent* mTextComp;
-    
+
     toy::Actor* mPlayerActor;
+
+    // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
+    // Scene 側で寿命を管理する）
+    std::vector<std::unique_ptr<class FieldMonster>> mMonsters;
 };

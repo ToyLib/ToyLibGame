@@ -3,14 +3,16 @@
 #include "ToyLib.h"
 #include "../Actors/PlayerActor.h"
 #include "../Actors/RPGCharacter.h"
-#include "../Actors/EnemyActor.h"
+#include "../Actors/FieldMonster.h"
 
 
 
 SnowScene::SnowScene()
 {
-    
+
 }
+
+SnowScene::~SnowScene() = default;
 
 void SnowScene::InitScene()
 
@@ -39,13 +41,13 @@ void SnowScene::InitScene()
 
     mPlayerActor = CreateActor<PlayerActor>();
     
-    // エネミー
+    // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
     {
-        auto enemy = CreateActor<EnemyActor>();
-        enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
+        Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
+        mMonsters.push_back(std::make_unique<FieldMonster>(GetApp(), pos));
     }
- 
+
     
     
     // フォント
@@ -157,7 +159,12 @@ void SnowScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
-    
+
+    for (auto& monster : mMonsters)
+    {
+        monster->Update(deltaTime);
+    }
+
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
     (void)m;

@@ -72,7 +72,9 @@ protected:
     virtual void UnloadScene() {}
 
     
-    const toy::Application* GetApp() { return mApp; }
+    // toy::Actor::GetApp() と同様に非 const で返す
+    // （Prefab の生成など、非 const な Application API を呼ぶ場面があるため）
+    toy::Application* GetApp() { return mApp; }
 
 private:
     toy::Application* mApp = nullptr;
