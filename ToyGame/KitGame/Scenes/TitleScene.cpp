@@ -1,7 +1,7 @@
 #include "TitleScene.h"
 #include "ToyLib.h"
 #include "FieldScene.h"
-#include "StageScene.h"
+#include "StoryScene.h"
 
 TitleScene::TitleScene()
     : toy::kit::IScene()
@@ -67,6 +67,6 @@ void TitleScene::ProcessInput(const toy::InputState& input)
     if (input.IsButtonPressed(toy::GameButton::A)
         || input.IsButtonPressed(toy::GameButton::Start))
     {
-        RequestChange(std::make_unique<StageScene>());
+        RequestChange(std::make_unique<StoryScene>());
     }
 }

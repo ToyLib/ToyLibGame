@@ -4,10 +4,10 @@
 #include "ToyLib.h"
 #include <iostream>
 
-class StageScene : public toy::kit::IScene
+class StoryScene : public toy::kit::IScene
 {
 public:
-    explicit StageScene(){}
+    explicit StoryScene(){}
     void Update(float delatTime) override;
     void ProcessInput(const struct toy::InputState& input) override;
 protected:

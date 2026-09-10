@@ -3,7 +3,7 @@
 #include "ToyLib.h"
 #include "Scenes/FieldScene.h"
 #include "Scenes/TitleScene.h"
-#include "Scenes/StageScene.h"
+#include "Scenes/StoryScene.h"
 #include "Scenes/SnowScene.h"
 
 

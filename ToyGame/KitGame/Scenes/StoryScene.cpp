@@ -1,7 +1,7 @@
-#include "StageScene.h"
+#include "StoryScene.h"
 #include "FieldScene.h"
 
-void StageScene::InitScene()
+void StoryScene::InitScene()
 {
     auto a = CreateActor<toy::Actor>();
     auto mesh = a->CreateComponent<toy::SkeletalMeshComponent>();
@@ -43,10 +43,10 @@ void StageScene::InitScene()
     ac->SetPosition(Vector3(100.0f, 100.0f, 0));
 }
 
-void StageScene::Update(float delatTime)
+void StoryScene::Update(float delatTime)
 {
 }
-void StageScene::ProcessInput(const toy::InputState &input)
+void StoryScene::ProcessInput(const toy::InputState &input)
 {
     if (input.IsButtonPressed(toy::GameButton::A) == toy::EPressed)
     {
