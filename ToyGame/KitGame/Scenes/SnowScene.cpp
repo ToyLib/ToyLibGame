@@ -1,58 +1,130 @@
 #include "SnowScene.h"
 #include "FieldScene.h"
 #include "ToyLib.h"
-#include "../Actors/PlayerActor.h"
-#include "../Actors/RPGCharacter.h"
-#include "../Actors/EnemyActor.h"
+#include "../Actors/Player.h"
+#include "../Actors/FieldMonster.h"
 
 
 
 SnowScene::SnowScene()
 {
-    
+
 }
 
-void SnowScene::InitScene()
+SnowScene::~SnowScene() = default;
 
+void SnowScene::InitScene()
+{
+    DefineEnvironment();
+    DefineWorld();
+    DefineUI();
+}
+
+//-----------------------------------------------------------------------------
+// DefineEnvironment — ポストエフェクト / 時間帯 / BGM
+//-----------------------------------------------------------------------------
+void SnowScene::DefineEnvironment()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::FeilyLand;
+    effectDesc.type      = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
-    effectDesc.paperTex = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
+    effectDesc.paperTex  = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
-    
-    
-    // 時間の設定
+
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(3000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(22.0f, 0.0f);
 
-   
-    
-    // BGM
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.ogg");
     GetApp()->GetSoundMixer()->PlayBGM();
     GetApp()->GetSoundMixer()->SetBgmVolume(0.5f);
     GetApp()->GetSoundMixer()->SetMasterVolume(0.7f);
+}
 
+//-----------------------------------------------------------------------------
+// DefineWorld — 地形/プロップ（InitField）+ プレイヤー + エネミー + 鏡 + 雪
+//-----------------------------------------------------------------------------
+void SnowScene::DefineWorld()
+{
     InitField();
 
+    mPlayer = std::make_unique<Player>(GetApp());
 
-    mPlayerActor = CreateActor<PlayerActor>();
-    
-    // エネミー
+    // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
     {
-        auto enemy = CreateActor<EnemyActor>();
-        enemy->SetPosition(Vector3(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f));
+        Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
+        mMonsters.push_back(std::make_unique<FieldMonster>(GetApp(), pos));
     }
- 
-    
-    
-    // フォント
-    auto fnt = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
-    // テキスト用 Actor を作成
+
+    // 鏡を出す
+    auto mirrorActor = CreateActor<toy::Actor>();
+    mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
+    mirrorActor->SetScale(1.0f);
+    mirrorActor->SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(45.0f)));
+    auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
+    capture->Init({ .width = 512, .height = 512 });
+    capture->SetCaptureMode(toy::CaptureMode::Mirror);
+
+    auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
+    mirrorComp->SetTexture(capture->GetColorTexture());
+    mirrorComp->SetScale(10.0f, 10.0f);
+    capture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+    mirrorComp->SetFlip(true, false);
+    mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
+
+    // 主人公視点（画面右上のミニカメラ）
+    mPlyCamera = CreateActor<toy::Actor>();
+    mPlyCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    auto plyCapture = mPlyCamera->CreateComponent<toy::SceneCaptureComponent>();
+    plyCapture->Init({ .width = 320, .height = 240 });
+    plyCapture->SetCaptureMode(toy::CaptureMode::Fixed);
+    plyCapture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+
+    auto plyCameraDisplay = CreateActor<toy::Actor>();
+    plyCameraDisplay->SetPosition(Vector3(800, 400, 0));
+    auto plyCameraSprite = plyCameraDisplay->CreateComponent<toy::SpriteComponent>();
+    plyCameraSprite->SetTexture(plyCapture->GetColorTexture());
+
+    // 雪
+    auto snowActor = CreateActor<toy::Actor>();
+    auto snow = snowActor->CreateComponent<toy::ParticleComponent>();
+    snow->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
+
+    toy::ParticleDesc snowDesc;
+    snowDesc.mode = toy::ParticleMode::SnowField;
+
+    snowDesc.maxParticles  = 512;
+    snowDesc.componentLife = 0.0f;   // 常時稼働
+    snowDesc.particleLife  = 10.0f;
+    snowDesc.size          = 0.22f;
+
+    snowDesc.spawnRatePerSec = 0.0f; // SnowField では未使用
+    snowDesc.spawnRampSec    = 0.0f;
+    snowDesc.spread          = 0.0f; // SnowField では未使用
+    snowDesc.gravity         = 0.45f;
+    snowDesc.lift            = 0.0f;
+
+    snowDesc.additiveBlend = false;
+    snowDesc.warmStart     = true;
+    snowDesc.emitterOffset = Vector3::Zero;
+
+    // SnowField 専用
+    snowDesc.fieldExtent = Vector3(60.0f, 16.0f, 60.0f);
+    snowDesc.wind        = Vector3(0.12f, 0.0f, 0.05f);
+    snowDesc.followCamera = true;
+    snowDesc.respawnTop   = true;
+
+    snow->Init(snowDesc);
+    snow->Start();
+}
+
+//-----------------------------------------------------------------------------
+// DefineUI — 時刻表示
+//-----------------------------------------------------------------------------
+void SnowScene::DefineUI()
+{
+    auto fnt     = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 24);
     auto uiActor = CreateActor<toy::Actor>();
-    //uiActor->SetPosition(Vector3(600.0f, 360.0f, 0.0f)); // 2Dスクリーン座標として扱う
     uiActor->SetPosition(Vector3(1100.0f, 10.0f, 0.0f)); // 2Dスクリーン座標として扱う
 
     auto text = uiActor->CreateComponent<toy::TextSpriteComponent>();
@@ -60,91 +132,15 @@ void SnowScene::InitScene()
     text->SetFormat("");
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
-    
-
-    {
-        // 鏡を出す
-        auto mirrorActor = CreateActor<toy::Actor>();
-        mirrorActor->SetPosition(Vector3(20.0f, 0.0f, 15.0f));
-        mirrorActor->SetScale(1.0f);
-        Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
-        mirrorActor->SetRotation(q);
-        auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-        capture->Init({ .width = 512, .height = 512 });
-        capture->SetCaptureMode(toy::CaptureMode::Mirror);
-
-        auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
-        mirrorComp->SetTexture(capture->GetColorTexture());
-        mirrorComp->SetScale(10.0f, 10.0f);
-        capture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
-        mirrorComp->SetFlip(true, false);
-        mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
-    }
-    {// 主人公視点
-        mPlyCamera = CreateActor<toy::Actor>();
-        mPlyCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
-        auto capture = mPlyCamera->CreateComponent<toy::SceneCaptureComponent>();
-        capture->Init({ .width = 320, .height = 240 });
-        capture->SetCaptureMode(toy::CaptureMode::Fixed);
-        capture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
-        
-        auto b = CreateActor<toy::Actor>();
-        b->SetPosition(Vector3(800, 400, 0));
-        auto sp = b->CreateComponent<toy::SpriteComponent>();
-        sp->SetTexture(capture->GetColorTexture());
-    }
-
-
-    {
-        auto a = CreateActor<toy::Actor>();
-        auto snow = a->CreateComponent<toy::ParticleComponent>();
-        snow->SetTexture(GetApp()->GetAssetManager()->GetTexture("Field/snow.png"));
-        
-        toy::ParticleDesc desc;
-
-        desc.mode = toy::ParticleMode::SnowField;
-
-        // ---------------------------------------------------------
-        // 基本
-        // ---------------------------------------------------------
-        desc.maxParticles = 512;
-
-        desc.componentLife = 0.0f;   // 常時稼働
-        desc.particleLife  = 10.0f;
-
-        desc.size = 0.22f;
-
-        desc.spawnRatePerSec = 0.0f; // SnowField では未使用
-        desc.spawnRampSec    = 0.0f;
-
-        desc.spread  = 0.0f;         // SnowField では未使用
-        desc.gravity = 0.45f;
-        desc.lift    = 0.0f;
-
-        desc.additiveBlend = false;
-        desc.warmStart     = true;
-
-        desc.emitterOffset = Vector3::Zero;
-
-        // ---------------------------------------------------------
-        // SnowField 専用
-        // ---------------------------------------------------------
-        desc.fieldExtent = Vector3(60.0f, 16.0f, 60.0f);
-        desc.wind         = Vector3(0.12f, 0.0f, 0.05f);
-
-        desc.followCamera = true;
-        desc.respawnTop   = true;
-
-        
-        snow->Init(desc);
-        snow->Start();
-    }
-    
-    
 }
 
 void SnowScene::ProcessInput(const struct toy::InputState &input)
 {
+    if (mPlayer)
+    {
+        mPlayer->ProcessInput(input);
+    }
+
     if (input.IsButtonPressed(toy::GameButton::Start))
     {
         RequestChange(std::make_unique<FieldScene>());
@@ -157,7 +153,17 @@ void SnowScene::Update(float deltaTime)
     {
         mWeather->Update(deltaTime);
     }
-    
+
+    if (mPlayer)
+    {
+        mPlayer->Update(deltaTime);
+    }
+
+    for (auto& monster : mMonsters)
+    {
+        monster->Update(deltaTime);
+    }
+
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
     auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
     (void)m;
@@ -171,13 +177,13 @@ void SnowScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayerActor->GetPosition();
+    Vector3 pos = mPlayer->GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
-    
-    
-    mPlyCamera->SetPosition(mPlayerActor->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
-    auto mat = mPlayerActor->GetWorldTransform();
+
+
+    mPlyCamera->SetPosition(mPlayer->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    auto mat = mPlayer->GetWorldTransform();
     mat *= Matrix4::CreateRotationY(Math::ToRadians(180.0f));
     mPlyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
     
@@ -226,12 +232,6 @@ void SnowScene::DeployGround()
         const auto& polys = va->GetWorldPolygons(actor->GetWorldTransform());
         GetApp()->GetPhysWorld()->SetGroundPolygons(polys);
     }
-}
-
-void SnowScene::DeployBrick(Vector3 pos)
-{
-
-
 }
 
 void SnowScene::DeployFire(Vector3 pos)
