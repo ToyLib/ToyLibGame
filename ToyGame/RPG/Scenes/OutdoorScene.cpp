@@ -2,10 +2,13 @@
 #include "ToyLib.h"
 #include "../Actors/HeroActor.h"
 #include "../Actors/WolfActor.h"
-#include "../Actors/ShiroActor.h"
+#include "../Actors/Shiro.h"
 #include "../Actors/IslandActor.h"
 #include "../Actors/MagicActor.h"
 #include "../Actors/HealMagicActor.h"
+
+OutdoorScene::OutdoorScene()  = default;
+OutdoorScene::~OutdoorScene() = default;
 
 //=============================================================================
 // InitScene
@@ -100,10 +103,10 @@ void OutdoorScene::SetupCharacters()
         wolf->SetTarget(hero);
     }
 
-    // Shiro（焚き火の向かい側）
-    auto* shiro = CreateActor<ShiroActor>();
-    shiro->SetPosition(Vector3(0.0f, 0.0f, -25.0f));
-    shiro->SetTarget(hero);
+    // Shiro（焚き火の向かい側。新方針: Humanoid Prefab を内包する Game Logic）
+    mShiro = std::make_unique<Shiro>(GetApp());
+    mShiro->SetPosition(Vector3(0.0f, 0.0f, -25.0f));
+    mShiro->SetTarget(hero);
 
     // Stan（プレイヤー追従）
     auto* stan = CreateActor<toy::Actor>();
@@ -162,6 +165,11 @@ void OutdoorScene::Update(float deltaTime)
     if (mWeather)
     {
         mWeather->Update(deltaTime);
+    }
+
+    if (mShiro)
+    {
+        mShiro->Update(deltaTime);
     }
 
     // 時刻表示

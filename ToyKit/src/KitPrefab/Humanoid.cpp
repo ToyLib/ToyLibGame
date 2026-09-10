@@ -28,10 +28,21 @@ Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
     SetupMesh(desc);
     SetupCollider(desc);
     SetupGravity(desc);
-    SetupMove();
-    SetupCamera(desc);
-    SetupSensor(desc);
+
+    if (desc.enableLockOnCombat)
+    {
+        SetupMove();
+        SetupCamera(desc);
+        SetupSensor(desc);
+    }
+
     SetupFootstep(desc);
+
+    if (!desc.displayName.empty())
+    {
+        SetupNameBoard(desc.displayName, desc.fontPath, desc.nameYOffset, desc.nameColor);
+    }
+    SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
 }
 
 //=============================================================================
@@ -126,13 +137,22 @@ void Humanoid::ReleaseTarget()
 void Humanoid::SetupMesh(const HumanoidDesc& desc)
 {
     mMesh = GetActor()->CreateComponent<toy::SkeletalMeshComponent>();
-    mMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh(desc.model));
+
+    auto mesh = GetApp()->GetAssetManager()->GetMesh(desc.model);
+    mMesh->SetMesh(mesh);
+
+    if (!desc.cancelRootTranslationBone.empty())
+    {
+        mesh->SetCancelRootTranslation(true);
+        mesh->SetCancelNodeName(desc.cancelRootTranslationBone);
+    }
 
     mMesh->SetToonRender(desc.toonRender);
     mMesh->SetContourFactor(desc.contourFactor);
     mMesh->SetContourColor(desc.contourColor);
     mMesh->SetYawOffset(Math::ToRadians(desc.yawOffsetDeg));
     mMesh->SetLocalScale(desc.scale);
+    mMesh->SetLocalPositon(desc.meshOffset);
 }
 
 void Humanoid::SetupCollider(const HumanoidDesc& desc)
@@ -206,8 +226,11 @@ void Humanoid::SetupFootstep(const HumanoidDesc& desc)
 //=============================================================================
 void Humanoid::OnUpdate(float deltaTime)
 {
-    SearchTarget(deltaTime);
-    UpdateModeAndCamera();
+    if (mDesc.enableLockOnCombat)
+    {
+        SearchTarget(deltaTime);
+        UpdateModeAndCamera();
+    }
     UpdateMovableRecovery();
     UpdateFootstepSound();
 }

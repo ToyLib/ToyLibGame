@@ -2,8 +2,11 @@
 
 #include "Engine/Core/Actor.h"
 #include "Engine/Core/Application.h"
+#include "Asset/AssetManager.h"
 #include "Physics/ColliderComponent.h"
 #include "Physics/GravityComponent.h"
+#include "Graphics/Sprite/GroundConformSpriteComponent.h"
+#include "Graphics/Billboard/TextBillboardComponent.h"
 
 namespace toy::kit {
 
@@ -47,6 +50,11 @@ Prefab::Prefab(toy::Application* app)
 
 Prefab::~Prefab()
 {
+    if (mNameActor)
+    {
+        mNameActor->SetState(toy::Actor::State::Dead);
+    }
+
     if (mActor)
     {
         // Actor 側からの逆参照を先に断ってから Dead マークする
@@ -84,6 +92,8 @@ void Prefab::TickFromActor(float deltaTime)
 {
     DetectCollisionEvents();
     DetectGroundedEvent();
+    UpdateNameBoard();
+    UpdateTargetSprites();
     OnUpdate(deltaTime);
 }
 
@@ -106,6 +116,79 @@ void Prefab::DetectGroundedEvent()
     {
         mWasGrounded = grounded;
         mOnGrounded.Emit(GroundedEvent{ grounded });
+    }
+}
+
+//=============================================================================
+// 名前ビルボード
+//=============================================================================
+void Prefab::SetupNameBoard(const std::string& name, const std::string& fontPath,
+                            float yOffset, const Vector3& color)
+{
+    mNameYOffset = yOffset;
+
+    // ビルボードを本体の Actor に持たせるとスケールの影響を受けるため、
+    // 独立した Actor に持たせる
+    mNameActor = mApp->CreateActor<toy::Actor>();
+
+    auto* board = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
+    auto  font  = mApp->GetAssetManager()->GetFont(fontPath, 40);
+    board->SetFont(font);
+    board->SetFormat(name);
+    board->SetScale(0.01f);
+    board->SetColor(color);
+}
+
+void Prefab::UpdateNameBoard()
+{
+    if (!mNameActor) return;
+
+    const Vector3& pos = GetPosition();
+    mNameActor->SetPosition(Vector3(pos.x, pos.y + mNameYOffset, pos.z));
+}
+
+//=============================================================================
+// ターゲット表示スプライト
+//=============================================================================
+void Prefab::SetupTargetSprites(const std::string& candidateTex, const std::string& lockedTex)
+{
+    if (!candidateTex.empty())
+    {
+        mCandidateSigne = CreateTargetSprite(candidateTex);
+    }
+    if (!lockedTex.empty())
+    {
+        mLockedSigne = CreateTargetSprite(lockedTex);
+    }
+}
+
+toy::GroundConformSpriteComponent* Prefab::CreateTargetSprite(const std::string& texPath)
+{
+    auto* sprite = mActor->CreateComponent<toy::GroundConformSpriteComponent>();
+    sprite->SetTexture(mApp->GetAssetManager()->GetTexture(texPath));
+    sprite->SetSize(5, 5);
+    sprite->SetBlendAdd(false);
+    sprite->SetAlpha(1.0f);
+    sprite->SetGroundLift(0.2f);
+    sprite->SetGridDiv(4);
+    sprite->SetMaxDeltaFromCenter(0.6f);
+    sprite->SetVisible(false);
+    return sprite;
+}
+
+void Prefab::UpdateTargetSprites()
+{
+    if (!mCollider) return;
+
+    const auto state = mCollider->GetTargetState();
+
+    if (mCandidateSigne)
+    {
+        mCandidateSigne->SetVisible(state == toy::TargetState::Candidate);
+    }
+    if (mLockedSigne)
+    {
+        mLockedSigne->SetVisible(state == toy::TargetState::Locked);
     }
 }
 

@@ -20,6 +20,10 @@ struct HumanoidDesc
     bool        toonRender    = false;
     float       contourFactor = 1.0f;
     Vector3     contourColor  = Vector3(0.2f, 0.2f, 0.2f);
+    Vector3     meshOffset    = Vector3::Zero;
+
+    // ルートモーションを打ち消したいボーン名（空なら何もしない）
+    std::string cancelRootTranslationBone;
 
     // コライダー
     Vector3  colliderOffset = Vector3::Zero;
@@ -30,20 +34,34 @@ struct HumanoidDesc
     bool useGravity       = true;
     bool enableGroundPose = false;
 
-    // 索敵（ロックオン候補探索）
+    //-------------------------------------------------------------------
+    // ロックオン戦闘（Field/Battle切換え・追従カメラ・索敵）
+    //  プレイヤーが操作する Humanoid だけ true にする。
+    //  NPC の Humanoid（索敵/追跡は Game Logic 側の AI が行う）では false のまま。
+    //-------------------------------------------------------------------
+    bool enableLockOnCombat = false;
+
     float sensorFovDeg           = 60.0f;
     float sensorMaxDist          = 40.0f;
     float sensorNearOverrideDist = 20.0f;
 
-    // ロック解除条件
     float lockBreakDist    = 35.0f;
     float lockLostGraceSec = 0.7f;
+
+    bool freezeCameraYInAir = true;
 
     // 足音（空文字なら無効）
     std::string footstepSound;
 
-    // カメラ
-    bool freezeCameraYInAir = true;
+    // 名前ビルボード（空文字なら非表示）
+    std::string displayName;
+    std::string fontPath    = "Font/rounded-mplus-1c-bold.ttf";
+    float       nameYOffset = 4.0f;
+    Vector3     nameColor   = Vector3(1.0f, 0.0f, 0.0f);
+
+    // ターゲット表示スプライト（空文字なら非表示）
+    std::string candidateTexture;
+    std::string lockedTexture;
 };
 
 } // namespace toy::kit

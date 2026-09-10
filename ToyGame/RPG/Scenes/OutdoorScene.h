@@ -17,7 +17,10 @@
 class OutdoorScene : public toy::kit::IScene
 {
 public:
-    OutdoorScene() = default;
+    // Shiro は前方宣言のみのため、std::unique_ptr<Shiro> を完全型が見える
+    // OutdoorScene.cpp 側で暗黙生成させる（out-of-line constructor/destructor）
+    OutdoorScene();
+    ~OutdoorScene() override;
 
     void ProcessInput(const toy::InputState& input) override;
     void Update(float deltaTime) override;
@@ -52,4 +55,8 @@ private:
     //------------------------------------------------------------------
     std::unique_ptr<toy::WeatherManager> mWeather;
     toy::TextSpriteComponent*            mTextComp = nullptr;
+
+    // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
+    // Scene 側で寿命を管理する）
+    std::unique_ptr<class Shiro> mShiro;
 };

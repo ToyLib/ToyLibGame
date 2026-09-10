@@ -19,6 +19,8 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 
     desc.enableGroundPose = false; // アニメは自前で制御
 
+    desc.enableLockOnCombat = true; // プレイヤー操作: Field/Battle切換え・カメラ・索敵を有効化
+
     desc.sensorFovDeg           = 60.0f;
     desc.sensorMaxDist          = 40.0f;
     desc.sensorNearOverrideDist = 20.0f;

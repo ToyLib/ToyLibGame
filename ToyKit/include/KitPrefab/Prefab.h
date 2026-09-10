@@ -4,11 +4,14 @@
 #include "KitSignal/Events.h"
 #include "Utils/MathUtil.h"
 
+#include <string>
+
 namespace toy {
 class Application;
 class Actor;
 class ColliderComponent;
 class GravityComponent;
+class GroundConformSpriteComponent;
 } // namespace toy
 
 namespace toy::kit {
@@ -64,6 +67,21 @@ protected:
     void TrackCollider(toy::ColliderComponent* collider) { mCollider = collider; }
     void TrackGravity(toy::GravityComponent* gravity)    { mGravity  = gravity;  }
 
+    //---------------------------------------------------------------
+    // 装飾ヘルパー（Creature/Humanoid など複数の Prefab から共通で使う）
+    //  呼ばなければ何も生成されず、コストもゼロ。
+    //---------------------------------------------------------------
+
+    // 頭上に名前ビルボードを表示する（別 Actor を内部生成し、追従させる）
+    void SetupNameBoard(const std::string& name, const std::string& fontPath,
+                        float yOffset = 4.0f,
+                        const Vector3& color = Vector3(1.0f, 0.0f, 0.0f));
+
+    // ロックオン候補/ロック中の足元スプライトを表示する
+    // ※ 呼ぶ前に TrackCollider() 済みであること。空文字なら該当スプライトは作らない。
+    void SetupTargetSprites(const std::string& candidateTex,
+                            const std::string& lockedTex = "");
+
     // 派生Prefab固有の毎フレーム処理（必要なものだけ override）
     virtual void OnUpdate(float /*deltaTime*/) {}
 
@@ -76,6 +94,11 @@ private:
     void DetectCollisionEvents();
     void DetectGroundedEvent();
 
+    void UpdateNameBoard();
+    void UpdateTargetSprites();
+
+    toy::GroundConformSpriteComponent* CreateTargetSprite(const std::string& texPath);
+
     toy::Application* mApp    = nullptr;
     toy::Actor*        mActor = nullptr;
 
@@ -86,6 +109,14 @@ private:
     Signal<GroundedEvent>  mOnGrounded;
 
     bool mWasGrounded = false;
+
+    // 名前ビルボード（別 Actor）
+    toy::Actor* mNameActor   = nullptr;
+    float       mNameYOffset = 4.0f;
+
+    // ターゲット表示スプライト
+    toy::GroundConformSpriteComponent* mCandidateSigne = nullptr;
+    toy::GroundConformSpriteComponent* mLockedSigne    = nullptr;
 };
 
 } // namespace toy::kit
