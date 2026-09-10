@@ -9,7 +9,8 @@
 //=============================================================================
 // OutdoorScene
 //  RPG フィールドシーン。IScene を継承し GameFlow で管理される。
-//  KitGame の FieldScene と同じ形（InitScene + Deploy* ヘルパー）で構成する。
+//  KitGame の FieldScene と同じ形（InitScene → DefineEnvironment/World/UI +
+//  Deploy* ヘルパー）で構成する。
 //=============================================================================
 
 class OutdoorScene : public toy::kit::IScene
@@ -29,6 +30,11 @@ protected:
     void UnloadScene() override;
 
 private:
+    // InitScene() の構成（Environment / World / UI を宣言する場所を分ける）
+    void DefineEnvironment();
+    void DefineWorld();
+    void DefineUI();
+
     void InitField();
     void DeployGround();
     void DeploySky();

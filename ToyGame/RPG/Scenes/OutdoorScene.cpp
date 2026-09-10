@@ -18,23 +18,36 @@ OutdoorScene::~OutdoorScene() = default;
 
 void OutdoorScene::InitScene()
 {
-    // ポストエフェクト
+    DefineEnvironment();
+    DefineWorld();
+    DefineUI();
+}
+
+//-----------------------------------------------------------------------------
+// DefineEnvironment — ポストエフェクト / 時間帯 / BGM
+//-----------------------------------------------------------------------------
+void OutdoorScene::DefineEnvironment()
+{
     toy::PostEffectDesc effectDesc;
     effectDesc.type      = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
     effectDesc.paperTex  = GetApp()->GetAssetManager()->GetTexture("paper_tex.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
-    // 時間帯
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(10000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(12.0f, 30.0f);
 
-    // BGM
     GetApp()->GetSoundMixer()->LoadBGM("MusMus-BGM-112.ogg");
     GetApp()->GetSoundMixer()->PlayBGM();
     GetApp()->GetSoundMixer()->SetBgmVolume(0.5f);
     GetApp()->GetSoundMixer()->SetMasterVolume(0.8f);
+}
 
+//-----------------------------------------------------------------------------
+// DefineWorld — 地形/プロップ（InitField）+ Hero/Wolf/Shiro/Stan
+//-----------------------------------------------------------------------------
+void OutdoorScene::DefineWorld()
+{
     InitField();
 
     // プレイヤー（新方針: Humanoid Prefab を内包する Game Logic）
@@ -96,7 +109,13 @@ void OutdoorScene::InitScene()
     stanMove->SetFollowSpeed(10.0f);
 
     stan->CreateComponent<toy::GravityComponent>();
+}
 
+//-----------------------------------------------------------------------------
+// DefineUI — ヘルスバー / 時刻表示
+//-----------------------------------------------------------------------------
+void OutdoorScene::DefineUI()
+{
     // ヘルスバー
     auto* hbActor = CreateActor<toy::Actor>();
     hbActor->SetPosition(Vector3(0.0f, 680.0f, 0.0f));

@@ -20,10 +20,14 @@ public:
 protected:
     void InitScene() override;
 private:
+    // InitScene() の構成（Environment / World / UI を宣言する場所を分ける）
+    void DefineEnvironment();
+    void DefineWorld();
+    void DefineUI();
+
     void InitField();
     void DeployGround();
     void DeploySky();
-    void DeployBrick(Vector3 pos);
     void DeployFire(Vector3 pos);
     std::unique_ptr<class toy::WeatherManager> mWeather;
 
