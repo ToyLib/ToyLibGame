@@ -1,7 +1,7 @@
 #include "OutdoorScene.h"
 #include "ToyLib.h"
 #include "../Actors/HeroActor.h"
-#include "../Actors/WolfActor.h"
+#include "../Actors/Wolf.h"
 #include "../Actors/Shiro.h"
 #include "../Actors/IslandActor.h"
 #include "../Actors/MagicActor.h"
@@ -95,12 +95,13 @@ void OutdoorScene::SetupCharacters()
     // プレイヤー
     auto* hero = CreateActor<HeroActor>();
 
-    // Wolf x5（プレイヤーをターゲットに）
+    // Wolf x5（プレイヤーをターゲットに。新方針: Humanoid Prefab を内包する Game Logic）
     for (int i = 0; i < 5; ++i)
     {
-        auto* wolf = CreateActor<WolfActor>();
+        auto wolf = std::make_unique<Wolf>(GetApp());
         wolf->SetPosition(Vector3(-20.0f + i * 10.0f, 3.0f, -20.0f));
         wolf->SetTarget(hero);
+        mWolves.push_back(std::move(wolf));
     }
 
     // Shiro（焚き火の向かい側。新方針: Humanoid Prefab を内包する Game Logic）
@@ -170,6 +171,11 @@ void OutdoorScene::Update(float deltaTime)
     if (mShiro)
     {
         mShiro->Update(deltaTime);
+    }
+
+    for (auto& wolf : mWolves)
+    {
+        wolf->Update(deltaTime);
     }
 
     // 時刻表示

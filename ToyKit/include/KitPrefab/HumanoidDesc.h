@@ -15,6 +15,7 @@ struct HumanoidDesc
 {
     // メッシュ
     std::string model;
+    int         meshDrawOrder = 100;
     float       scale         = 1.0f;
     float       yawOffsetDeg  = 0.0f;
     bool        toonRender    = false;
@@ -62,6 +63,15 @@ struct HumanoidDesc
     // ターゲット表示スプライト（空文字なら非表示）
     std::string candidateTexture;
     std::string lockedTexture;
+
+    // アンビエントサウンド（空文字なら無効。唸り声など常時ループ再生）
+    std::string ambientSound;
+    float       ambientSoundVolume = 1.0f;
+
+    // 常時表示テキスト（空文字なら非表示。吹き出し等）
+    std::string speechText;
+    std::string speechFontPath = "Font/rounded-mplus-1c-bold.ttf";
+    Vector3     speechColor    = Vector3(1.0f, 1.0f, 1.0f);
 };
 
 } // namespace toy::kit

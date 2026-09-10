@@ -45,6 +45,9 @@ public:
     void              SetRotation(const Quaternion& rot);
     const Quaternion& GetRotation() const;
 
+    void  SetScale(float scale);
+    float GetScale() const;
+
     const Matrix4&    GetWorldTransform() const;
 
     virtual void SetVisible(bool visible)          = 0;
@@ -81,6 +84,14 @@ protected:
     // ※ 呼ぶ前に TrackCollider() 済みであること。空文字なら該当スプライトは作らない。
     void SetupTargetSprites(const std::string& candidateTex,
                             const std::string& lockedTex = "");
+
+    // 常時ループするアンビエントサウンドを再生する（唸り声・環境音など）
+    void SetupAmbientSound(const std::string& soundPath,
+                           float volume = 1.0f, bool loop = true);
+
+    // 常時表示のテキストビルボードを本体に直接つける（吹き出し等）
+    void SetupSpeechText(const std::string& text, const std::string& fontPath,
+                         const Vector3& color = Vector3::One);
 
     // 派生Prefab固有の毎フレーム処理（必要なものだけ override）
     virtual void OnUpdate(float /*deltaTime*/) {}

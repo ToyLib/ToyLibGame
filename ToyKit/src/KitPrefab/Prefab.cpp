@@ -7,6 +7,7 @@
 #include "Physics/GravityComponent.h"
 #include "Graphics/Sprite/GroundConformSpriteComponent.h"
 #include "Graphics/Billboard/TextBillboardComponent.h"
+#include "Audio/SoundComponent.h"
 
 namespace toy::kit {
 
@@ -86,6 +87,16 @@ const Quaternion& Prefab::GetRotation() const
 const Matrix4& Prefab::GetWorldTransform() const
 {
     return mActor->GetWorldTransform();
+}
+
+void Prefab::SetScale(float scale)
+{
+    mActor->SetScale(scale);
+}
+
+float Prefab::GetScale() const
+{
+    return mActor->GetScale();
 }
 
 void Prefab::TickFromActor(float deltaTime)
@@ -190,6 +201,32 @@ void Prefab::UpdateTargetSprites()
     {
         mLockedSigne->SetVisible(state == toy::TargetState::Locked);
     }
+}
+
+//=============================================================================
+// アンビエントサウンド / 常時表示テキスト
+//=============================================================================
+void Prefab::SetupAmbientSound(const std::string& soundPath, float volume, bool loop)
+{
+    if (soundPath.empty()) return;
+
+    auto* sound = mActor->CreateComponent<toy::SoundComponent>();
+    sound->SetSound(soundPath);
+    sound->SetVolume(volume);
+    sound->SetLoop(loop);
+    sound->Enable3DSound(true);
+    sound->Play();
+}
+
+void Prefab::SetupSpeechText(const std::string& text, const std::string& fontPath, const Vector3& color)
+{
+    if (text.empty()) return;
+
+    auto* board = mActor->CreateComponent<toy::TextBillboardComponent>(500);
+    board->SetFont(mApp->GetAssetManager()->GetFont(fontPath, 50));
+    board->SetColor(color);
+    board->SetText(text);
+    board->SetScale(0.01f);
 }
 
 } // namespace toy::kit

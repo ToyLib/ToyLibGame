@@ -43,6 +43,8 @@ Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
         SetupNameBoard(desc.displayName, desc.fontPath, desc.nameYOffset, desc.nameColor);
     }
     SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
+    SetupAmbientSound(desc.ambientSound, desc.ambientSoundVolume);
+    SetupSpeechText(desc.speechText, desc.speechFontPath, desc.speechColor);
 }
 
 //=============================================================================
@@ -136,7 +138,7 @@ void Humanoid::ReleaseTarget()
 //=============================================================================
 void Humanoid::SetupMesh(const HumanoidDesc& desc)
 {
-    mMesh = GetActor()->CreateComponent<toy::SkeletalMeshComponent>();
+    mMesh = GetActor()->CreateComponent<toy::SkeletalMeshComponent>(desc.meshDrawOrder);
 
     auto mesh = GetApp()->GetAssetManager()->GetMesh(desc.model);
     mMesh->SetMesh(mesh);

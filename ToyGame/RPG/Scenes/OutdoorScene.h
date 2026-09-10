@@ -3,6 +3,9 @@
 #include "ToyKit.h"
 #include "ToyLib.h"
 
+#include <memory>
+#include <vector>
+
 //=============================================================================
 // OutdoorScene
 //  RPG フィールドシーン。IScene を継承し GameFlow で管理される。
@@ -17,8 +20,8 @@
 class OutdoorScene : public toy::kit::IScene
 {
 public:
-    // Shiro は前方宣言のみのため、std::unique_ptr<Shiro> を完全型が見える
-    // OutdoorScene.cpp 側で暗黙生成させる（out-of-line constructor/destructor）
+    // Shiro/Wolf は前方宣言のみのため、それらの std::unique_ptr を完全型が
+    // 見える OutdoorScene.cpp 側で暗黙生成させる（out-of-line constructor/destructor）
     OutdoorScene();
     ~OutdoorScene() override;
 
@@ -58,5 +61,6 @@ private:
 
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
-    std::unique_ptr<class Shiro> mShiro;
+    std::unique_ptr<class Shiro>              mShiro;
+    std::vector<std::unique_ptr<class Wolf>>  mWolves;
 };
