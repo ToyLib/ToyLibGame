@@ -331,22 +331,15 @@ void FieldScene::DeployGround()
 
 void FieldScene::DeployBrick(Vector3 pos)
 {
-    auto actor = CreateActor<toy::Actor>();
-    actor->SetPosition(pos);
-    actor->SetScale(4.0f);
-    
-    //Quaternion q = Quaternion(Vector3::UnitZ, Math::ToRadians(20.0f));
-    Quaternion q = Quaternion(Vector3(1,0,0), Math::ToRadians(0.0f));
-    actor->SetRotation(q);
-    
-    auto mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Field/brick.glb"));
-    mesh->SetToonRender(false);
+    toy::kit::StaticObjectDesc desc;
+    desc.model         = "Field/brick.glb";
+    desc.toonRender    = false;
+    desc.actorScale    = 4.0f;
+    desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(GetApp()->GetAssetManager()->GetMesh("Field/brick.glb")->GetVertexArray());
-    
-    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+    auto brick = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
+    brick->SetPosition(pos);
+    mStaticObjects.push_back(std::move(brick));
 }
 
 void FieldScene::DeployFire(Vector3 pos)

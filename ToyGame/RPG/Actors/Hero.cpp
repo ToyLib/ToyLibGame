@@ -1,6 +1,4 @@
 #include "Hero.h"
-#include "MagicActor.h"
-#include "HealMagicActor.h"
 
 namespace {
 
@@ -42,10 +40,6 @@ Hero::Hero(toy::Application* app)
 {
     mBody.SetPosition(Vector3(0.0f, 30.0f, 0.0f));
     mBody.SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
-
-    // 魔法アクター（未移行。当面 Application に直接生成する元の挙動を維持）
-    mMagic = app->CreateActor<MagicActor>();
-    mHeal  = app->CreateActor<HealMagicActor>();
 }
 
 //-----------------------------------------------------------------------------
@@ -97,13 +91,13 @@ void Hero::OnAttackInput(const toy::InputState& state)
     {
         mBody.PlayAnimationOnce(H_Spin, H_Stand);
         mBody.SetMovable(false);
-        mHeal->Spawn(mBody.GetPosition());
+        mOnCastHeal.Emit(CastHealEvent{ mBody.GetPosition() });
     }
     else if (state.IsButtonPressed(toy::GameButton::Y))
     {
         mBody.PlayAnimationOnce(H_Stab, H_Stand);
         mBody.SetMovable(false);
-        mMagic->Spawn(mBody.GetPosition(), mBody.GetForward());
+        mOnCastMagic.Emit(CastMagicEvent{ mBody.GetPosition(), mBody.GetForward() });
     }
 }
 

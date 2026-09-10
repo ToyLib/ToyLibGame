@@ -33,4 +33,7 @@ private:
     // Scene 側で寿命を管理する）
     std::unique_ptr<class Player> mPlayer;
     std::vector<std::unique_ptr<class FieldMonster>> mMonsters;
+
+    // メッシュ+コライダーだけの静止物（設計方針の StaticObject Prefab）
+    std::vector<std::unique_ptr<toy::kit::StaticObject>> mStaticObjects;
 };

@@ -15,3 +15,7 @@
 #include "KitPrefab/Creature.h"
 #include "KitPrefab/HumanoidDesc.h"
 #include "KitPrefab/Humanoid.h"
+#include "KitPrefab/ProjectileDesc.h"
+#include "KitPrefab/Projectile.h"
+#include "KitPrefab/StaticObjectDesc.h"
+#include "KitPrefab/StaticObject.h"

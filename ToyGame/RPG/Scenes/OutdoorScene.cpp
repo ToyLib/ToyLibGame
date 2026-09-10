@@ -3,9 +3,11 @@
 #include "../Actors/Hero.h"
 #include "../Actors/Wolf.h"
 #include "../Actors/Shiro.h"
+#include "../Actors/MagicBolt.h"
+#include "../Actors/HealBurst.h"
 #include "../Actors/IslandActor.h"
-#include "../Actors/MagicActor.h"
-#include "../Actors/HealMagicActor.h"
+
+#include <vector>
 
 OutdoorScene::OutdoorScene()  = default;
 OutdoorScene::~OutdoorScene() = default;
@@ -15,17 +17,6 @@ OutdoorScene::~OutdoorScene() = default;
 //=============================================================================
 
 void OutdoorScene::InitScene()
-{
-    SetupEnvironment();
-    SetupProps();
-    SetupCharacters();
-    SetupUI();
-}
-
-//-----------------------------------------------------------------------------
-// SetupEnvironment — ポストエフェクト / 時間帯 / BGM / 地面 / 空
-//-----------------------------------------------------------------------------
-void OutdoorScene::SetupEnvironment()
 {
     // ポストエフェクト
     toy::PostEffectDesc effectDesc;
@@ -44,56 +35,23 @@ void OutdoorScene::SetupEnvironment()
     GetApp()->GetSoundMixer()->SetBgmVolume(0.5f);
     GetApp()->GetSoundMixer()->SetMasterVolume(0.8f);
 
-    // 地面 / 空
-    DeployGround();
-    DeploySky();
-}
+    InitField();
 
-//-----------------------------------------------------------------------------
-// SetupProps — 環境オブジェクト
-//-----------------------------------------------------------------------------
-void OutdoorScene::SetupProps()
-{
-    // 焚き火
-    DeployFire(Vector3::Zero);
-
-    // レンガ
-    for (int i = 0; i < 6; ++i)
-    {
-        DeployBrick(Vector3(0.0f, -1.0f + i * 5.0f, -15.0f + i * 5.0f));
-    }
-
-    // 島（レンガ状配置）
-    for (int i = 0; i < 8; ++i)
-    {
-        for (int j = 0; j < 5; ++j)
-        {
-            DeployIsland(Vector3(-100.0f + 20.0f * j / 2.0f + 10.0f * i * 2.0f,
-                                 20.0f,
-                                 20.0f + 5.0f * j * 2.0f));
-        }
-    }
-
-    // 家
-    DeployHouse(Vector3(-60.0f, 0.0f, 15.0f));
-
-    // 木
-    DeployTree(Vector3(20.0f, 4.5f, 0.0f));
-
-    // 鏡
-    DeployMirror(Vector3(-20.0f, 0.0f, 15.0f));
-
-    // IslandActor
-    CreateActor<IslandActor>();
-}
-
-//-----------------------------------------------------------------------------
-// SetupCharacters — プレイヤーと NPC
-//-----------------------------------------------------------------------------
-void OutdoorScene::SetupCharacters()
-{
     // プレイヤー（新方針: Humanoid Prefab を内包する Game Logic）
     mHero = std::make_unique<Hero>(GetApp());
+
+    // Hero が発動した魔法/回復を Scene 側でエフェクト化する
+    // （Hero 自身はエフェクトの生成・寿命管理を持たない）
+    mHero->OnCastMagic().Connect(
+        [this](const CastMagicEvent& e)
+        {
+            mMagicBolts.push_back(std::make_unique<MagicBolt>(GetApp(), e.position, e.forward));
+        });
+    mHero->OnCastHeal().Connect(
+        [this](const CastHealEvent& e)
+        {
+            mHealBursts.push_back(std::make_unique<HealBurst>(GetApp(), e.position));
+        });
 
     // Wolf x5（プレイヤーをターゲットに。新方針: Humanoid Prefab を内包する Game Logic）
     for (int i = 0; i < 5; ++i)
@@ -138,13 +96,7 @@ void OutdoorScene::SetupCharacters()
     stanMove->SetFollowSpeed(10.0f);
 
     stan->CreateComponent<toy::GravityComponent>();
-}
 
-//-----------------------------------------------------------------------------
-// SetupUI — HUD
-//-----------------------------------------------------------------------------
-void OutdoorScene::SetupUI()
-{
     // ヘルスバー
     auto* hbActor = CreateActor<toy::Actor>();
     hbActor->SetPosition(Vector3(0.0f, 680.0f, 0.0f));
@@ -194,6 +146,19 @@ void OutdoorScene::Update(float deltaTime)
         wolf->Update(deltaTime);
     }
 
+    // 一時エフェクト（魔法/回復）の更新 + 寿命切れの回収
+    for (auto& bolt : mMagicBolts)
+    {
+        bolt->Update(deltaTime);
+    }
+    std::erase_if(mMagicBolts, [](const auto& b) { return b->IsExpired(); });
+
+    for (auto& burst : mHealBursts)
+    {
+        burst->Update(deltaTime);
+    }
+    std::erase_if(mHealBursts, [](const auto& b) { return b->IsExpired(); });
+
     // 時刻表示
     if (mTextComp)
     {
@@ -231,8 +196,46 @@ void OutdoorScene::UnloadScene()
 }
 
 //=============================================================================
-// Props ヘルパー
+// InitField — 地面 / 空 / 焚き火 / レンガ / 島 / 家 / 木 / 鏡
 //=============================================================================
+
+void OutdoorScene::InitField()
+{
+    DeployGround();
+    DeploySky();
+
+    // 焚き火
+    DeployFire(Vector3::Zero);
+
+    // レンガ
+    for (int i = 0; i < 6; ++i)
+    {
+        DeployBrick(Vector3(0.0f, -1.0f + i * 5.0f, -15.0f + i * 5.0f));
+    }
+
+    // 島（レンガ状配置）
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 5; ++j)
+        {
+            DeployIsland(Vector3(-100.0f + 20.0f * j / 2.0f + 10.0f * i * 2.0f,
+                                 20.0f,
+                                 20.0f + 5.0f * j * 2.0f));
+        }
+    }
+
+    // 家
+    DeployHouse(Vector3(-60.0f, 0.0f, 15.0f));
+
+    // 木
+    DeployTree(Vector3(20.0f, 4.5f, 0.0f));
+
+    // 鏡
+    DeployMirror(Vector3(-20.0f, 0.0f, 15.0f));
+
+    // IslandActor
+    CreateActor<IslandActor>();
+}
 
 void OutdoorScene::DeployGround()
 {
@@ -302,51 +305,43 @@ void OutdoorScene::DeployFire(const Vector3& pos)
 
 void OutdoorScene::DeployBrick(const Vector3& pos)
 {
-    auto* actor = CreateActor<toy::Actor>();
-    actor->SetPosition(pos);
-    actor->SetScale(5.0f);
+    toy::kit::StaticObjectDesc desc;
+    desc.model         = "brick.x";
+    desc.actorScale    = 5.0f;
+    desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto* mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("brick.x"));
-
-    auto* coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(
-        GetApp()->GetAssetManager()->GetMesh("brick.x")->GetVertexArray());
-    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+    auto brick = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
+    brick->SetPosition(pos);
+    mStaticObjects.push_back(std::move(brick));
 }
 
 void OutdoorScene::DeployIsland(const Vector3& pos)
 {
-    auto* actor = CreateActor<toy::Actor>();
-    actor->SetPosition(pos);
+    toy::kit::StaticObjectDesc desc;
+    desc.model                     = "island.x";
+    desc.meshScale                  = 0.05f;
+    desc.colliderFromMeshComponent = true;
+    desc.colliderFlags             = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto* mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("island.x"));
-    mesh->SetLocalScale(0.05f);
-
-    auto* coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeFromMeshComponent(mesh);
-    coll->SetFlags(toy::C_GROUND | toy::C_WALL | toy::C_CEILING);
+    auto island = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
+    island->SetPosition(pos);
+    mStaticObjects.push_back(std::move(island));
 }
 
 void OutdoorScene::DeployHouse(const Vector3& pos)
 {
-    auto* actor = CreateActor<toy::Actor>();
-    actor->SetPosition(pos);
-    actor->SetScale(0.003f);
-    actor->SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(150.0f)));
+    toy::kit::StaticObjectDesc desc;
+    desc.model         = "house.x";
+    desc.actorScale    = 0.003f;
+    desc.colliderOffset = Vector3::Zero;
+    desc.colliderScale  = Vector3(0.9f, 0.9f, 0.9f);
+    desc.colliderFlags  = toy::C_WALL | toy::C_GROUND | toy::C_FOOT;
+    desc.useGravity     = true;
 
-    auto* mesh = actor->CreateComponent<toy::MeshComponent>();
-    mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("house.x"));
-
-    auto* coll = actor->CreateComponent<toy::ColliderComponent>();
-    coll->GetBoundingVolume()->ComputeBoundingVolume(
-        GetApp()->GetAssetManager()->GetMesh("house.x")->GetVertexArray());
-    coll->GetBoundingVolume()->AdjustBoundingBox(Vector3::Zero, Vector3(0.9f, 0.9f, 0.9f));
-    coll->SetFlags(toy::C_WALL | toy::C_GROUND | toy::C_FOOT);
-    coll->SetEnabled(true);
-
-    actor->CreateComponent<toy::GravityComponent>();
+    auto house = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
+    house->SetPosition(pos);
+    house->SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(150.0f)));
+    mStaticObjects.push_back(std::move(house));
 }
 
 void OutdoorScene::DeployTree(const Vector3& pos)
