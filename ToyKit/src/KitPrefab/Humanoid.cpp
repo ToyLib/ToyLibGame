@@ -88,6 +88,13 @@ void Humanoid::PlayAnimation(int clipIndex)
     if (mMesh) mMesh->GetAnimPlayer()->Play(clipIndex);
 }
 
+void Humanoid::PlayAnimationBlend(int clipIndex, float blendDuration)
+{
+    if (!mMesh) return;
+    auto* anim = mMesh->GetAnimPlayer();
+    anim->PlayBlend(anim->GetAnimID(), clipIndex, blendDuration);
+}
+
 void Humanoid::PlayAnimationOnce(int clipIndex, int returnClipIndex)
 {
     if (mMesh) mMesh->GetAnimPlayer()->PlayOnce(clipIndex, returnClipIndex);

@@ -27,6 +27,7 @@ public:
 
     // アニメーションを持たないため何もしない
     void PlayAnimation(int /*clipIndex*/) override {}
+    void PlayAnimationBlend(int /*clipIndex*/, float /*blendDuration*/) override {}
 
 private:
     toy::MeshComponent*     mMesh     = nullptr;

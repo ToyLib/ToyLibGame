@@ -32,6 +32,13 @@ void Creature::PlayAnimation(int clipIndex)
     if (mMesh) mMesh->GetAnimPlayer()->Play(clipIndex);
 }
 
+void Creature::PlayAnimationBlend(int clipIndex, float blendDuration)
+{
+    if (!mMesh) return;
+    auto* anim = mMesh->GetAnimPlayer();
+    anim->PlayBlend(anim->GetAnimID(), clipIndex, blendDuration);
+}
+
 void Creature::SetVisible(bool visible)
 {
     if (mMesh) mMesh->SetVisible(visible);

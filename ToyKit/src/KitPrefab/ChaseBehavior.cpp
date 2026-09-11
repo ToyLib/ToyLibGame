@@ -20,7 +20,7 @@ void ChaseBehavior::OnStart(Prefab& body)
                 mFSM.To(State::Chase);
             }
         },
-        /* onEnter */ [this] { mBody->PlayAnimation(mDesc.idleAnim); }
+        /* onEnter */ [this] { mBody->PlayAnimationBlend(mDesc.idleAnim, mDesc.animBlendSec); }
     );
 
     mFSM.Register(State::Chase,
@@ -33,7 +33,7 @@ void ChaseBehavior::OnStart(Prefab& body)
                 mFSM.To(State::Idle);
             }
         },
-        /* onEnter */ [this] { mBody->PlayAnimation(mDesc.chaseAnim); }
+        /* onEnter */ [this] { mBody->PlayAnimationBlend(mDesc.chaseAnim, mDesc.animBlendSec); }
     );
 
     mFSM.Start(State::Idle);

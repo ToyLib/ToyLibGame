@@ -24,6 +24,7 @@ public:
     // Interface（設計方針 6）
     //-------------------------------------------------------------------
     void PlayAnimation(int clipIndex) override;
+    void PlayAnimationBlend(int clipIndex, float blendDuration) override;
 
     void SetVisible(bool visible) override;
     void SetCollisionEnabled(bool enabled) override;

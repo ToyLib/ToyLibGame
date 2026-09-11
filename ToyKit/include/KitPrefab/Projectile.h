@@ -30,6 +30,7 @@ public:
 
     // クリップアニメーションを持たないため何もしない
     void PlayAnimation(int /*clipIndex*/) override {}
+    void PlayAnimationBlend(int /*clipIndex*/, float /*blendDuration*/) override {}
 
     //-------------------------------------------------------------------
     // 寿命

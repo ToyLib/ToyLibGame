@@ -53,7 +53,7 @@ void SnowScene::DefineWorld()
     for (int i = 0; i < 10; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(std::make_unique<Noriko>(GetApp(), pos));
+        mMonsters.push_back(MakeNoriko(GetApp(), pos));
     }
 
     // 鏡を出す

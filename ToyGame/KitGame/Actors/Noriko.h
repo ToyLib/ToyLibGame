@@ -2,24 +2,18 @@
 
 #include "ToyKit.h"
 
+#include <memory>
+
 //=============================================================================
 // Noriko
-//  旧 EnemyActor（KitActor 非依存の素の toy::Actor 継承）を、
-//  新方針（toy::kit::Prefab を内包する Game Logic クラス）で置き換えた版。
-//
-//  toy::Actor を継承せず、Creature Prefab をメンバとして持つ。
-//  Idle → Walk → Idle のアニメーション切換えだけを行う最小限の振る舞い。
+//  Creature Prefab + IBehavior（Idle/Walkをタイマーで切り替えるだけの
+//  最小限の振る舞い）を組み合わせた Agent。
+//  Idle → Walk → Idle のアニメーション切換えだけを行う。
 //=============================================================================
-class Noriko
+class Noriko : public toy::kit::Agent<toy::kit::Creature>
 {
 public:
-    Noriko(toy::Application* app, const Vector3& position);
-
-    void Update(float deltaTime);
-
-private:
-    enum class MonsterState { Idle, Walk };
-
-    toy::kit::Creature                      mBody;
-    toy::kit::KitStateMachine<MonsterState> mFSM;
+    using Agent::Agent;
 };
+
+std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& position);

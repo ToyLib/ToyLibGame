@@ -58,6 +58,10 @@ public:
     // アニメーションを持たない Prefab（StaticObject 等）は何もしない実装でよい。
     virtual void PlayAnimation(int clipIndex) = 0;
 
+    // 現在再生中のクリップから clipIndex へ blendDuration 秒かけてブレンドする。
+    // 「from」は Prefab 側が自分の再生中クリップから自動で拾う。
+    virtual void PlayAnimationBlend(int clipIndex, float blendDuration) = 0;
+
     //-------------------------------------------------------------------
     // Signal
     //-------------------------------------------------------------------

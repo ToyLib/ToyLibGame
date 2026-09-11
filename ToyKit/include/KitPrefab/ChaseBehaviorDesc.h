@@ -15,6 +15,8 @@ struct ChaseBehaviorDesc
 
     int idleAnim  = 0; // 索敵中に再生するアニメーションクリップ
     int chaseAnim = 0; // 追跡中に再生するアニメーションクリップ
+
+    float animBlendSec = 0.5f; // Idle/Chase切換え時のアニメーションブレンド時間
 };
 
 } // namespace toy::kit

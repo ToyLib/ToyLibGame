@@ -45,6 +45,7 @@ public:
     bool IsMovable() const { return mMovable; }
 
     void PlayAnimation(int clipIndex) override;
+    void PlayAnimationBlend(int clipIndex, float blendDuration) override;
     void PlayAnimationOnce(int clipIndex, int returnClipIndex);
     void SetAnimPlayRate(float rate);
 
