@@ -38,5 +38,5 @@ private:
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
     std::unique_ptr<class Player> mPlayer;
-    std::vector<std::unique_ptr<class FieldMonster>> mMonsters;
+    std::vector<std::unique_ptr<class Noriko>> mMonsters;
 };

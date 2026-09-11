@@ -1,4 +1,4 @@
-#include "FieldMonster.h"
+#include "Noriko.h"
 
 namespace {
 
@@ -25,7 +25,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
 } // namespace
 
 //-----------------------------------------------------------------------------
-FieldMonster::FieldMonster(toy::Application* app, const Vector3& position)
+Noriko::Noriko(toy::Application* app, const Vector3& position)
     : mBody(app, MakeNorikoDesc())
 {
     mBody.SetPosition(position);
@@ -48,7 +48,7 @@ FieldMonster::FieldMonster(toy::Application* app, const Vector3& position)
 }
 
 //-----------------------------------------------------------------------------
-void FieldMonster::Update(float deltaTime)
+void Noriko::Update(float deltaTime)
 {
     mFSM.Update(deltaTime);
 }

@@ -2,7 +2,7 @@
 #include "SnowScene.h"
 #include "ToyLib.h"
 #include "../Actors/Player.h"
-#include "../Actors/FieldMonster.h"
+#include "../Actors/Noriko.h"
 
 
 
@@ -53,7 +53,7 @@ void FieldScene::DefineWorld()
     for (int i = 0; i < 10; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(std::make_unique<FieldMonster>(GetApp(), pos));
+        mMonsters.push_back(std::make_unique<Noriko>(GetApp(), pos));
     }
 }
 
