@@ -47,7 +47,7 @@ void SnowScene::DefineWorld()
 {
     InitField();
 
-    mPlayer = std::make_unique<Player>(GetApp());
+    mPlayer = MakePlayer(GetApp());
 
     // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
@@ -177,13 +177,13 @@ void SnowScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayer->GetPosition();
+    Vector3 pos = mPlayer->GetBody().GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
 
 
-    mPlyCamera->SetPosition(mPlayer->GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
-    auto mat = mPlayer->GetWorldTransform();
+    mPlyCamera->SetPosition(mPlayer->GetBody().GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    auto mat = mPlayer->GetBody().GetWorldTransform();
     mat *= Matrix4::CreateRotationY(Math::ToRadians(180.0f));
     mPlyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
     

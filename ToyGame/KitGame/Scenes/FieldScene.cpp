@@ -47,7 +47,7 @@ void FieldScene::DefineWorld()
 {
     InitField();
 
-    mPlayer = std::make_unique<Player>(GetApp());
+    mPlayer = MakePlayer(GetApp());
 
     // エネミー（新方針: Creature Prefab を内包する FieldMonster）
     for (int i = 0; i < 10; ++i)
@@ -117,7 +117,7 @@ void FieldScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayer->GetPosition();
+    Vector3 pos = mPlayer->GetBody().GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
 }

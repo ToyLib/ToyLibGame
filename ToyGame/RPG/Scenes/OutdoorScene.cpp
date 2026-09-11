@@ -51,16 +51,16 @@ void OutdoorScene::DefineWorld()
     InitField();
 
     // プレイヤー（新方針: Humanoid Prefab を内包する Game Logic）
-    mHero = std::make_unique<Hero>(GetApp());
+    mHero = MakeHero(GetApp());
 
     // Hero が発動した魔法/回復を Scene 側でエフェクト化する
     // （Hero 自身はエフェクトの生成・寿命管理を持たない）
-    mHero->OnCastMagic().Connect(
+    mHero->GetControlBehavior().OnCastMagic().Connect(
         [this](const CastMagicEvent& e)
         {
             mMagicBolts.push_back(std::make_unique<MagicBolt>(GetApp(), e.position, e.forward));
         });
-    mHero->OnCastHeal().Connect(
+    mHero->GetControlBehavior().OnCastHeal().Connect(
         [this](const CastHealEvent& e)
         {
             mHealBursts.push_back(std::make_unique<HealBurst>(GetApp(), e.position));
@@ -82,7 +82,7 @@ void OutdoorScene::DefineWorld()
     // Hero 自体は toy::Actor を持たないため、FollowMoveComponent など
     // 「本物の Actor」をターゲットに要求するレガシー系のためだけに用意する。
     mHeroMarker = CreateActor<toy::Actor>();
-    mHeroMarker->SetPosition(mHero->GetPosition());
+    mHeroMarker->SetPosition(mHero->GetBody().GetPosition());
 
     // Stan（プレイヤー追従）
     auto* stan = CreateActor<toy::Actor>();
@@ -149,7 +149,7 @@ void OutdoorScene::Update(float deltaTime)
 
         if (mHeroMarker)
         {
-            mHeroMarker->SetPosition(mHero->GetPosition());
+            mHeroMarker->SetPosition(mHero->GetBody().GetPosition());
         }
     }
 

@@ -39,8 +39,18 @@ public:
         if (mBehavior) mBehavior->OnUpdate(mBody, deltaTime);
     }
 
+    void ProcessInput(const toy::InputState& state)
+    {
+        if (mBehavior) mBehavior->OnInput(mBody, state);
+    }
+
     TPrefab&       GetBody()       { return mBody; }
     const TPrefab& GetBody() const { return mBody; }
+
+    // 具体的な Behavior 型に触りたい場合（Signal を外から購読する等）用。
+    // 普段は不要——Behavior 固有の設定は Agent に渡す前に済ませておく。
+    IBehavior*       GetBehavior()       { return mBehavior.get(); }
+    const IBehavior* GetBehavior() const { return mBehavior.get(); }
 
 private:
     TPrefab                    mBody;

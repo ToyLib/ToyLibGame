@@ -2,6 +2,8 @@
 
 #include "KitSignal/Events.h"
 
+namespace toy { struct InputState; }
+
 namespace toy::kit {
 
 class Prefab;
@@ -29,6 +31,9 @@ public:
 
     // 毎フレーム呼ばれる
     virtual void OnUpdate(Prefab& body, float deltaTime) {}
+
+    // 入力処理が必要な振る舞い（プレイヤー操作等）だけ override する
+    virtual void OnInput(Prefab& body, const toy::InputState& state) {}
 
     // body 側で衝突が検知されたときに呼ばれる
     virtual void OnCollision(Prefab& body, const CollisionEvent& event) {}

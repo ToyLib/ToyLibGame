@@ -34,16 +34,16 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 
 } // namespace
 
-//-----------------------------------------------------------------------------
-Hero::Hero(toy::Application* app)
-    : mBody(app, MakeHeroDesc())
+//=============================================================================
+// HeroControlBehavior
+//=============================================================================
+void HeroControlBehavior::OnStart(toy::kit::Prefab& body)
 {
-    mBody.SetPosition(Vector3(0.0f, 30.0f, 0.0f));
-    mBody.SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
+    mBody = static_cast<toy::kit::Humanoid*>(&body);
 }
 
 //-----------------------------------------------------------------------------
-void Hero::ProcessInput(const toy::InputState& state)
+void HeroControlBehavior::OnInput(toy::kit::Prefab& /*body*/, const toy::InputState& state)
 {
     SelectTarget(state);
 
@@ -54,86 +54,97 @@ void Hero::ProcessInput(const toy::InputState& state)
 
     if (state.IsButtonPressed(toy::GameButton::B) && !state.IsButtonDown(toy::GameButton::L2))
     {
-        mBody.ReleaseTarget();
+        mBody->ReleaseTarget();
     }
 
     OnPlayerInput(state);
 }
 
 //-----------------------------------------------------------------------------
-void Hero::Update(float deltaTime)
+void HeroControlBehavior::OnUpdate(toy::kit::Prefab& /*body*/, float /*deltaTime*/)
 {
-    UpdatePlayerAnim(deltaTime);
+    UpdatePlayerAnim();
 }
 
 //-----------------------------------------------------------------------------
-void Hero::SelectTarget(const toy::InputState& state)
+void HeroControlBehavior::SelectTarget(const toy::InputState& state)
 {
-    if (state.IsButtonPressed(toy::GameButton::L1)) mBody.SelectPrevTarget();
-    if (state.IsButtonPressed(toy::GameButton::R1)) mBody.SelectNextTarget();
+    if (state.IsButtonPressed(toy::GameButton::L1)) mBody->SelectPrevTarget();
+    if (state.IsButtonPressed(toy::GameButton::R1)) mBody->SelectNextTarget();
 }
 
 //-----------------------------------------------------------------------------
 // OnAttackInput（L2 押下中に呼ばれる。Field/Battleどちらでも攻撃可 = 元仕様）
 //-----------------------------------------------------------------------------
-void Hero::OnAttackInput(const toy::InputState& state)
+void HeroControlBehavior::OnAttackInput(const toy::InputState& state)
 {
-    if (!mBody.IsMovable()) return;
+    if (!mBody->IsMovable()) return;
 
-    mBody.SetAnimPlayRate(1.5f);
+    mBody->SetAnimPlayRate(1.5f);
 
     if (state.IsButtonPressed(toy::GameButton::B))
     {
-        mBody.PlayAnimationOnce(H_Slash, H_Stand);
-        mBody.SetMovable(false);
+        mBody->PlayAnimationOnce(H_Slash, H_Stand);
+        mBody->SetMovable(false);
     }
     else if (state.IsButtonPressed(toy::GameButton::X))
     {
-        mBody.PlayAnimationOnce(H_Spin, H_Stand);
-        mBody.SetMovable(false);
-        mOnCastHeal.Emit(CastHealEvent{ mBody.GetPosition() });
+        mBody->PlayAnimationOnce(H_Spin, H_Stand);
+        mBody->SetMovable(false);
+        mOnCastHeal.Emit(CastHealEvent{ mBody->GetPosition() });
     }
     else if (state.IsButtonPressed(toy::GameButton::Y))
     {
-        mBody.PlayAnimationOnce(H_Stab, H_Stand);
-        mBody.SetMovable(false);
-        mOnCastMagic.Emit(CastMagicEvent{ mBody.GetPosition(), mBody.GetForward() });
+        mBody->PlayAnimationOnce(H_Stab, H_Stand);
+        mBody->SetMovable(false);
+        mOnCastMagic.Emit(CastMagicEvent{ mBody->GetPosition(), mBody->GetForward() });
     }
 }
 
 //-----------------------------------------------------------------------------
-void Hero::OnPlayerInput(const toy::InputState& state)
+void HeroControlBehavior::OnPlayerInput(const toy::InputState& state)
 {
-    if (!mBody.IsMovable()) return;
+    if (!mBody->IsMovable()) return;
 
     if (state.IsButtonPressed(toy::GameButton::A))
     {
-        mBody.Jump();
-        mBody.PlayAnimationOnce(H_Jump, H_Stand);
+        mBody->Jump();
+        mBody->PlayAnimationOnce(H_Jump, H_Stand);
     }
 }
 
 //-----------------------------------------------------------------------------
 // UpdatePlayerAnim（毎フレーム。攻撃中ロックからの復帰は Humanoid 側が自動で行う）
 //-----------------------------------------------------------------------------
-void Hero::UpdatePlayerAnim(float /*deltaTime*/)
+void HeroControlBehavior::UpdatePlayerAnim()
 {
-    mBody.SetAnimPlayRate(1.5f);
+    mBody->SetAnimPlayRate(1.5f);
 
-    if (!mBody.IsMovable()) return;
+    if (!mBody->IsMovable()) return;
 
-    if (mBody.GetVerticalVelocity() != 0.0f)
+    if (mBody->GetVerticalVelocity() != 0.0f)
     {
-        mBody.PlayAnimation(H_Jump);
+        mBody->PlayAnimation(H_Jump);
     }
-    else if (!mBody.IsMoving())
+    else if (!mBody->IsMoving())
     {
-        mBody.PlayAnimation(H_Stand);
+        mBody->PlayAnimation(H_Stand);
     }
     else
     {
         // バトルモード（ロックオン中）はストレイフ用アニメ
-        const int moveMotion = mBody.IsInBattle() ? H_WalkSS : H_Run;
-        mBody.PlayAnimation(moveMotion);
+        const int moveMotion = mBody->IsInBattle() ? H_WalkSS : H_Run;
+        mBody->PlayAnimation(moveMotion);
     }
+}
+
+//=============================================================================
+// Hero
+//=============================================================================
+std::unique_ptr<Hero> MakeHero(toy::Application* app)
+{
+    auto hero = std::make_unique<Hero>(app, std::make_unique<HeroControlBehavior>(), MakeHeroDesc());
+    hero->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
+    hero->GetBody().SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
+    return hero;
 }
