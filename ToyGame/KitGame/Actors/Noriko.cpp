@@ -70,7 +70,7 @@ public:
 private:
     enum class State { Idle, Walk };
 
-    static constexpr float kAnimBlendSec = 0.5f;
+    static constexpr float kAnimBlendSec = 0.2f;
 
     // XZ平面でランダムな方向を選び、その方向を向く
     void PickRandomDirection()
@@ -101,5 +101,7 @@ std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& positio
 {
     auto noriko = std::make_unique<Noriko>(app, std::make_unique<IdleWalkBehavior>(), MakeNorikoDesc());
     noriko->GetBody().SetPosition(position);
+    Quaternion rot = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(180.0f));
+    noriko->GetBody().SetRotation(rot);
     return noriko;
 }
