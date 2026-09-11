@@ -163,13 +163,13 @@ void FieldScene::InitField()
         Quaternion q = Quaternion(Vector3::UnitY, Math::ToRadians(45.0f));
         mirrorActor->SetRotation(q);
         auto capture = mirrorActor->CreateComponent<toy::SceneCaptureComponent>();
-        capture->Init({.width=512, .height=512 });
+        capture->Init({.width=512, .height=512, .updateHz = 30});
         capture->SetCaptureMode(toy::CaptureMode::Mirror);
 
         auto mirrorComp = mirrorActor->CreateComponent<toy::RenderSurfaceComponent>();
         mirrorComp->SetTexture(capture->GetColorTexture());
         mirrorComp->SetScale(10.0f, 10.0f);
-        capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f} );
+        capture->SetSurfaceInfo({ .scWidth=10.f, .scHeight=10.0f});
         mirrorComp->SetFlip(true, false);
         mirrorComp->SetSurfaceMode(toy::SurfaceMode::Mirror);
     }
