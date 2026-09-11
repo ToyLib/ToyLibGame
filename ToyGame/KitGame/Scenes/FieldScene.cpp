@@ -181,7 +181,7 @@ void FieldScene::InitField()
         Quaternion q = Quaternion(Vector3::UnitX, Math::ToRadians(90.0f));
         waterActor->SetRotation(q);
         auto waterCapture = waterActor->CreateComponent<toy::SceneCaptureComponent>();
-        waterCapture->Init({ .width = 512, .height = 512 });
+        waterCapture->Init({ .width = 512, .height = 512, .updateHz =  30});
         waterCapture->SetCaptureMode(toy::CaptureMode::Water);
 
         auto waterComp = waterActor->CreateComponent<toy::RenderSurfaceComponent>();
