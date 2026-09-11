@@ -14,7 +14,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
     desc.cancelRootTranslationBone = "Hip";
 
     desc.colliderOffset = Vector3(0.0f, 0.0f, 0.0f);
-    desc.colliderScale  = Vector3(0.5f, 1.0f, 0.3f);
+    desc.colliderScale  = Vector3(0.7f, 1.0f, 0.7f);
     desc.colliderFlags  = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                          | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
@@ -70,7 +70,7 @@ public:
 private:
     enum class State { Idle, Walk };
 
-    static constexpr float kAnimBlendSec = 0.2f;
+    static constexpr float kAnimBlendSec = 0.3f;
 
     // XZ平面でランダムな方向を選び、その方向を向く
     void PickRandomDirection()
@@ -91,7 +91,7 @@ private:
     toy::kit::Prefab*                mBody    = nullptr;
     toy::kit::KitStateMachine<State> mFSM;
     Vector3                          mMoveDir  = Vector3::UnitZ;
-    float                            mMoveSpeed = 3.0f;
+    float                            mMoveSpeed = 1.0f;
 };
 
 } // namespace

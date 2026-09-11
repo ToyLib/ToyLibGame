@@ -51,3 +51,6 @@ __pycache__/
 Thumbs.db
 ehthumbs.db
 Icon?
+
+# Obsidian
+.obsidian
