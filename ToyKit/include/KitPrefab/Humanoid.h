@@ -44,7 +44,7 @@ public:
     void SetMovable(bool movable) { mMovable = movable; }
     bool IsMovable() const { return mMovable; }
 
-    void PlayAnimation(int clipIndex);
+    void PlayAnimation(int clipIndex) override;
     void PlayAnimationOnce(int clipIndex, int returnClipIndex);
     void SetAnimPlayRate(float rate);
 

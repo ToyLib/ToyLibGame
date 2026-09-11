@@ -66,19 +66,17 @@ void OutdoorScene::DefineWorld()
             mHealBursts.push_back(std::make_unique<HealBurst>(GetApp(), e.position));
         });
 
-    // Wolf x5（プレイヤーをターゲットに。新方針: Humanoid Prefab を内包する Game Logic）
+    // Wolf x5（プレイヤーをターゲットに。Humanoid + ChaseBehavior の Agent）
     for (int i = 0; i < 5; ++i)
     {
-        auto wolf = std::make_unique<Wolf>(GetApp());
-        wolf->SetPosition(Vector3(-20.0f + i * 10.0f, 3.0f, -20.0f));
-        wolf->SetTarget(&mHero->GetBody());
+        auto wolf = MakeWolf(GetApp(), &mHero->GetBody());
+        wolf->GetBody().SetPosition(Vector3(-20.0f + i * 10.0f, 3.0f, -20.0f));
         mWolves.push_back(std::move(wolf));
     }
 
-    // Shiro（焚き火の向かい側。新方針: Humanoid Prefab を内包する Game Logic）
-    mShiro = std::make_unique<Shiro>(GetApp());
-    mShiro->SetPosition(Vector3(0.0f, 0.0f, -25.0f));
-    mShiro->SetTarget(&mHero->GetBody());
+    // Shiro（焚き火の向かい側。Humanoid + ChaseBehavior の Agent）
+    mShiro = MakeShiro(GetApp(), &mHero->GetBody());
+    mShiro->GetBody().SetPosition(Vector3(0.0f, 0.0f, -25.0f));
 
     // Hero の位置を毎フレーム反映するマーカー Actor。
     // Hero 自体は toy::Actor を持たないため、FollowMoveComponent など

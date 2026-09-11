@@ -1,7 +1,5 @@
 #include "Shiro.h"
 
-#include <cmath>
-
 namespace {
 
 toy::kit::HumanoidDesc MakeShiroDesc()
@@ -30,88 +28,25 @@ toy::kit::HumanoidDesc MakeShiroDesc()
     return desc;
 }
 
+toy::kit::ChaseBehaviorDesc MakeShiroChaseDesc()
+{
+    toy::kit::ChaseBehaviorDesc desc;
+    desc.detectRange = 40.0f;
+    desc.moveSpeed   = 6.0f;
+    desc.stopRange   = 4.0f;
+
+    desc.idleAnim  = 0; // ANIM_IDLE（Shiro.glb のクリップ順）
+    desc.chaseAnim = 2; // ANIM_RUN
+    return desc;
+}
+
 } // namespace
 
 //-----------------------------------------------------------------------------
-Shiro::Shiro(toy::Application* app)
-    : mBody(app, MakeShiroDesc())
+std::unique_ptr<Shiro> MakeShiro(toy::Application* app, toy::kit::Prefab* target)
 {
-    // Idle : 索敵して Chase へ
-    // Chase: 追跡。見失ったら Idle へ（ヒステリシス x1.5）
-    mFSM.Register(ShiroState::Idle,
-        /* onUpdate */ [this](float)
-        {
-            if (HasTarget() && GetDistanceToTarget() < mDetectRange)
-            {
-                mFSM.To(ShiroState::Chase);
-            }
-        },
-        /* onEnter */ [this] { mBody.PlayAnimation(ANIM_IDLE); }
-    );
+    auto behavior = std::make_unique<toy::kit::ChaseBehavior>(MakeShiroChaseDesc());
+    behavior->SetTarget(target);
 
-    mFSM.Register(ShiroState::Chase,
-        /* onUpdate */ [this](float dt)
-        {
-            MoveTowardTarget(mMoveSpeed, dt);
-            LookAtTarget();
-            if (!HasTarget() || GetDistanceToTarget() > mDetectRange * 1.5f)
-            {
-                mFSM.To(ShiroState::Idle);
-            }
-        },
-        /* onEnter */ [this] { mBody.PlayAnimation(ANIM_RUN); }
-    );
-
-    mFSM.Start(ShiroState::Idle);
-}
-
-//-----------------------------------------------------------------------------
-void Shiro::Update(float deltaTime)
-{
-    mFSM.Update(deltaTime);
-}
-
-//-----------------------------------------------------------------------------
-float Shiro::GetDistanceToTarget() const
-{
-    if (!mTarget) return 1.0e9f;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    return sqrtf(dx * dx + dz * dz);
-}
-
-//-----------------------------------------------------------------------------
-void Shiro::MoveTowardTarget(float speed, float dt)
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx   = target.x - self.x;
-    const float dz   = target.z - self.z;
-    const float dist = sqrtf(dx * dx + dz * dz);
-    if (dist < mStopRange) return;
-
-    const float step = speed * dt / dist;
-    mBody.SetPosition(Vector3(self.x + dx * step,
-                              self.y,               // Y は重力に任せる
-                              self.z + dz * step));
-}
-
-//-----------------------------------------------------------------------------
-void Shiro::LookAtTarget()
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    if (dx * dx + dz * dz < 0.01f) return;
-
-    const float angle = atan2f(-dx, -dz);
-    mBody.SetRotation(Quaternion(Vector3::UnitY, angle));
+    return std::make_unique<Shiro>(app, std::move(behavior), MakeShiroDesc());
 }

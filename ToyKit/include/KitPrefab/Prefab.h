@@ -54,6 +54,10 @@ public:
     virtual void SetVisible(bool visible)          = 0;
     virtual void SetCollisionEnabled(bool enabled) = 0;
 
+    // クリップ番号の意味づけ（何番が何のモーションか）はゲーム側が知っている。
+    // アニメーションを持たない Prefab（StaticObject 等）は何もしない実装でよい。
+    virtual void PlayAnimation(int clipIndex) = 0;
+
     //-------------------------------------------------------------------
     // Signal
     //-------------------------------------------------------------------

@@ -25,6 +25,9 @@ public:
     void SetVisible(bool visible) override;
     void SetCollisionEnabled(bool enabled) override;
 
+    // アニメーションを持たないため何もしない
+    void PlayAnimation(int /*clipIndex*/) override {}
+
 private:
     toy::MeshComponent*     mMesh     = nullptr;
     toy::ColliderComponent* mCollider = nullptr;

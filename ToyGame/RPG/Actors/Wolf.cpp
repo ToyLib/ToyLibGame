@@ -1,7 +1,5 @@
 #include "Wolf.h"
 
-#include <cmath>
-
 namespace {
 
 toy::kit::HumanoidDesc MakeWolfDesc()
@@ -26,90 +24,27 @@ toy::kit::HumanoidDesc MakeWolfDesc()
     return desc;
 }
 
+toy::kit::ChaseBehaviorDesc MakeWolfChaseDesc()
+{
+    toy::kit::ChaseBehaviorDesc desc;
+    desc.detectRange = 30.0f;
+    desc.moveSpeed   = 8.0f;
+    desc.stopRange   = 4.0f;
+
+    desc.idleAnim  = 2; // ANIM_IDLE（wolf.gltf のクリップ順）
+    desc.chaseAnim = 3; // ANIM_RUN
+    return desc;
+}
+
 } // namespace
 
 //-----------------------------------------------------------------------------
-Wolf::Wolf(toy::Application* app)
-    : mBody(app, MakeWolfDesc())
+std::unique_ptr<Wolf> MakeWolf(toy::Application* app, toy::kit::Prefab* target)
 {
-    mBody.SetScale(3.0f);
+    auto behavior = std::make_unique<toy::kit::ChaseBehavior>(MakeWolfChaseDesc());
+    behavior->SetTarget(target);
 
-    // Idle : 索敵して Chase へ
-    // Chase: 追跡。見失ったら Idle へ（ヒステリシス x1.5）
-    mFSM.Register(WolfState::Idle,
-        /* onUpdate */ [this](float)
-        {
-            if (HasTarget() && GetDistanceToTarget() < mDetectRange)
-            {
-                mFSM.To(WolfState::Chase);
-            }
-        },
-        /* onEnter */ [this] { mBody.PlayAnimation(ANIM_IDLE); }
-    );
-
-    mFSM.Register(WolfState::Chase,
-        /* onUpdate */ [this](float dt)
-        {
-            MoveTowardTarget(mMoveSpeed, dt);
-            LookAtTarget();
-            if (!HasTarget() || GetDistanceToTarget() > mDetectRange * 1.5f)
-            {
-                mFSM.To(WolfState::Idle);
-            }
-        },
-        /* onEnter */ [this] { mBody.PlayAnimation(ANIM_RUN); }
-    );
-
-    mFSM.Start(WolfState::Idle);
-}
-
-//-----------------------------------------------------------------------------
-void Wolf::Update(float deltaTime)
-{
-    mFSM.Update(deltaTime);
-}
-
-//-----------------------------------------------------------------------------
-float Wolf::GetDistanceToTarget() const
-{
-    if (!mTarget) return 1.0e9f;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    return sqrtf(dx * dx + dz * dz);
-}
-
-//-----------------------------------------------------------------------------
-void Wolf::MoveTowardTarget(float speed, float dt)
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx   = target.x - self.x;
-    const float dz   = target.z - self.z;
-    const float dist = sqrtf(dx * dx + dz * dz);
-    if (dist < mStopRange) return;
-
-    const float step = speed * dt / dist;
-    mBody.SetPosition(Vector3(self.x + dx * step,
-                              self.y,               // Y は重力に任せる
-                              self.z + dz * step));
-}
-
-//-----------------------------------------------------------------------------
-void Wolf::LookAtTarget()
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody.GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    if (dx * dx + dz * dz < 0.01f) return;
-
-    const float angle = atan2f(-dx, -dz);
-    mBody.SetRotation(Quaternion(Vector3::UnitY, angle));
+    auto wolf = std::make_unique<Wolf>(app, std::move(behavior), MakeWolfDesc());
+    wolf->GetBody().SetScale(3.0f);
+    return wolf;
 }

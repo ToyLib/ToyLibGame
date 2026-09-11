@@ -23,7 +23,7 @@ public:
     //-------------------------------------------------------------------
     // Interface（設計方針 6）
     //-------------------------------------------------------------------
-    void PlayAnimation(int clipIndex);
+    void PlayAnimation(int clipIndex) override;
 
     void SetVisible(bool visible) override;
     void SetCollisionEnabled(bool enabled) override;
