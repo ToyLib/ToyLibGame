@@ -181,7 +181,8 @@ void OutdoorScene::Update(float deltaTime)
     {
         auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
         auto m = GetApp()->GetTimeOfDaySystem()->GetMinute();
-        mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, m);
+        (void)m;
+        mTextComp->SetFormat("時刻 {:02} : {:02}  \n", h, 0);
     }
 }
 
