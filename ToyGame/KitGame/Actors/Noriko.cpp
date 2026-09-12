@@ -1,7 +1,5 @@
 #include "Noriko.h"
-
-#include <cmath>
-#include <cstdlib>
+#include "KitPrefab/MovementUtil.h"
 
 namespace {
 
@@ -72,20 +70,17 @@ private:
 
     static constexpr float kAnimBlendSec = 0.3f;
 
-    // XZ平面でランダムな方向を選び、その方向を向く
+    // XZ平面でランダムな方向を選び、その方向を向く（Random Walk）
     void PickRandomDirection()
     {
-        const float angle = (static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX))
-                           * 2.0f * 3.14159265f;
-        mMoveDir = Vector3(sinf(angle), 0.0f, cosf(angle));
-        mBody->SetRotation(Quaternion(Vector3::UnitY, angle));
+        mMoveDir = toy::kit::PickRandomDirectionXZ();
+        toy::kit::FaceDirectionXZ(*mBody, mMoveDir);
     }
 
     // Y は重力に任せ、XZ だけ現在の向きへ進める
     void MoveForward(float dt)
     {
-        const Vector3& pos = mBody->GetPosition();
-        mBody->SetPosition(pos + mMoveDir * mMoveSpeed * dt);
+        toy::kit::MoveInDirectionXZ(*mBody, mMoveDir, mMoveSpeed, dt);
     }
 
     toy::kit::Prefab*                mBody    = nullptr;

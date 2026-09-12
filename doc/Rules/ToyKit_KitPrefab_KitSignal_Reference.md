@@ -118,16 +118,45 @@ class Agent
 各 Desc（`CreatureDesc`/`HumanoidDesc`/`ProjectileDesc`/`StaticObjectDesc`）はプリミティブ型のみで構成される
 「構築情報」構造体（JSON化を見据えた形、実行時参照は持たない）。
 
+### 移動ユーティリティ
+
+#### `MovementUtil`（MovementUtil.h/.cpp）— Behavior が共有する移動の数式
+
+`IBehavior` ではなく、`Prefab&` を受け取るだけの素の free function 群。Walk/Run は速度（+アニメ）の
+パラメータ違い、Random/ToTarget は「向かう先の点」の決め方の違いでしかないという整理のもとに、
+`ChaseBehavior`/`FollowBehavior`（Stan）/`IdleWalkBehavior`（Noriko）で3重に重複していた移動の数式を
+1箇所へ集約したもの。壁避け等は行わない（呼び出し側の Behavior が必要なら判断する）。
+
+| 関数 | 用途 |
+|---|---|
+| `PickRandomDirectionXZ()` | ランダムな単位方向ベクトルを選ぶ（Random Walk/Run 用） |
+| `FaceDirectionXZ(body, dir)` | 指定方向を向く |
+| `MoveInDirectionXZ(body, dir, speed, dt)` | 指定方向へ一定速度で前進する（Yは重力任せ） |
+| `GetDistanceXZ(body, point)` | 対象点とのXZ距離 |
+| `FaceTowardPointXZ(body, point)` | 対象点の方を向く（ToTarget 用） |
+| `MoveTowardPointXZ(body, point, speed, dt, stopRange)` | 対象点へ接近する。`stopRange`以内なら止まる |
+
+**注意:** `FaceDirectionXZ` と `FaceTowardPointXZ` は回転角の符号の付け方がそれぞれ違う
+（前者は元の `IdleWalkBehavior`、後者は元の `ChaseBehavior`/`FollowBehavior` の式をそのまま抽出したもの）。
+どちらが「正しい」向きかはモデルごとの `yawOffsetDeg` との組み合わせで決まるため、見た目を確認せずに
+統一することはしていない。新しい呼び出し元を追加するときは、既存のどちらの流儀に合わせるべきかを
+実際に動かして確認すること。
+
 ### 汎用 Behavior
 
 #### `ChaseBehavior`（ChaseBehavior.h/.cpp） + `ChaseBehaviorDesc`
 
-- 索敵→追跡の汎用AI。`IBehavior` 実装。
+- 索敵→追跡の汎用AI。`IBehavior` 実装。内部の移動計算は `MovementUtil` に委譲している。
 - `SetTarget(Prefab*)` でターゲットを設定（位置だけを `Prefab` Interface 越しに参照、型を問わない）。
 - `KitStateMachine<State>`（`Idle`/`Chase`）で状態管理。`detectRange` 以内で追跡開始、
   `detectRange * loseRangeMultiplier` より離れると見失う（ヒステリシスで往復チャタリングを防止）。
 - 状態遷移の入口でのみ `PlayAnimationBlend(idleAnim/chaseAnim, animBlendSec)` を呼ぶ。
 - `Wolf`/`Shiro` はこの1つの `ChaseBehavior` を Desc の値違いだけで共有している。
+
+ゲーム側ローカルの `IdleWalkBehavior`（Noriko、Random Walk のみ）や `FollowBehavior`
+（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている
+（[ToyKit_Prefab_Manual.md](ToyKit_Prefab_Manual.md) 参照）。Attack 相当の汎用 Behavior はまだ無い
+（実際に攻撃してくる敵が出てから、その形を見て設計する）。
 
 ---
 

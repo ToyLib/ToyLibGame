@@ -1,6 +1,5 @@
 #include "Stan.h"
-
-#include <cmath>
+#include "KitPrefab/MovementUtil.h"
 
 namespace {
 
@@ -39,38 +38,11 @@ public:
     void OnUpdate(toy::kit::Prefab& /*body*/, float deltaTime) override
     {
         if (!mTarget) return;
-        MoveTowardTarget(deltaTime);
-        LookAtTarget();
+        toy::kit::MoveTowardPointXZ(*mBody, mTarget->GetPosition(), mMoveSpeed, deltaTime, mFollowDistance);
+        toy::kit::FaceTowardPointXZ(*mBody, mTarget->GetPosition());
     }
 
 private:
-    void MoveTowardTarget(float dt)
-    {
-        const Vector3& self   = mBody->GetPosition();
-        const Vector3& target = mTarget->GetPosition();
-        const float dx   = target.x - self.x;
-        const float dz   = target.z - self.z;
-        const float dist = sqrtf(dx * dx + dz * dz);
-        if (dist < mFollowDistance) return;
-
-        const float step = mMoveSpeed * dt / dist;
-        mBody->SetPosition(Vector3(self.x + dx * step,
-                                   self.y, // Y は重力に任せる
-                                   self.z + dz * step));
-    }
-
-    void LookAtTarget()
-    {
-        const Vector3& self   = mBody->GetPosition();
-        const Vector3& target = mTarget->GetPosition();
-        const float dx = target.x - self.x;
-        const float dz = target.z - self.z;
-        if (dx * dx + dz * dz < 0.01f) return;
-
-        const float angle = atan2f(-dx, -dz);
-        mBody->SetRotation(Quaternion(Vector3::UnitY, angle));
-    }
-
     toy::kit::Prefab* mBody   = nullptr;
     toy::kit::Prefab* mTarget = nullptr;
 

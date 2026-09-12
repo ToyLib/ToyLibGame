@@ -23,5 +23,6 @@
 // KitPrefab: 任意の振る舞いを差し込む仕組み
 #include "KitPrefab/IBehavior.h"
 #include "KitPrefab/Agent.h"
+#include "KitPrefab/MovementUtil.h"
 #include "KitPrefab/ChaseBehaviorDesc.h"
 #include "KitPrefab/ChaseBehavior.h"

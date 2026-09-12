@@ -1,7 +1,6 @@
 #include "KitPrefab/ChaseBehavior.h"
 #include "KitPrefab/Prefab.h"
-
-#include <cmath>
+#include "KitPrefab/MovementUtil.h"
 
 namespace toy::kit {
 
@@ -15,7 +14,7 @@ void ChaseBehavior::OnStart(Prefab& body)
     mFSM.Register(State::Idle,
         /* onUpdate */ [this](float)
         {
-            if (HasTarget() && GetDistanceToTarget() < mDesc.detectRange)
+            if (HasTarget() && GetDistanceXZ(*mBody, mTarget->GetPosition()) < mDesc.detectRange)
             {
                 mFSM.To(State::Chase);
             }
@@ -26,9 +25,12 @@ void ChaseBehavior::OnStart(Prefab& body)
     mFSM.Register(State::Chase,
         /* onUpdate */ [this](float dt)
         {
-            MoveTowardTarget(dt);
-            LookAtTarget();
-            if (!HasTarget() || GetDistanceToTarget() > mDesc.detectRange * mDesc.loseRangeMultiplier)
+            if (HasTarget())
+            {
+                MoveTowardPointXZ(*mBody, mTarget->GetPosition(), mDesc.moveSpeed, dt, mDesc.stopRange);
+                FaceTowardPointXZ(*mBody, mTarget->GetPosition());
+            }
+            if (!HasTarget() || GetDistanceXZ(*mBody, mTarget->GetPosition()) > mDesc.detectRange * mDesc.loseRangeMultiplier)
             {
                 mFSM.To(State::Idle);
             }
@@ -43,51 +45,6 @@ void ChaseBehavior::OnStart(Prefab& body)
 void ChaseBehavior::OnUpdate(Prefab& /*body*/, float deltaTime)
 {
     mFSM.Update(deltaTime);
-}
-
-//-----------------------------------------------------------------------------
-float ChaseBehavior::GetDistanceToTarget() const
-{
-    if (!mTarget) return 1.0e9f;
-
-    const Vector3& self   = mBody->GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    return sqrtf(dx * dx + dz * dz);
-}
-
-//-----------------------------------------------------------------------------
-void ChaseBehavior::MoveTowardTarget(float dt)
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody->GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx   = target.x - self.x;
-    const float dz   = target.z - self.z;
-    const float dist = sqrtf(dx * dx + dz * dz);
-    if (dist < mDesc.stopRange) return;
-
-    const float step = mDesc.moveSpeed * dt / dist;
-    mBody->SetPosition(Vector3(self.x + dx * step,
-                               self.y,               // Y は重力に任せる
-                               self.z + dz * step));
-}
-
-//-----------------------------------------------------------------------------
-void ChaseBehavior::LookAtTarget()
-{
-    if (!mTarget) return;
-
-    const Vector3& self   = mBody->GetPosition();
-    const Vector3& target = mTarget->GetPosition();
-    const float dx = target.x - self.x;
-    const float dz = target.z - self.z;
-    if (dx * dx + dz * dz < 0.01f) return;
-
-    const float angle = atan2f(-dx, -dz);
-    mBody->SetRotation(Quaternion(Vector3::UnitY, angle));
 }
 
 } // namespace toy::kit

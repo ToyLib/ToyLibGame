@@ -29,10 +29,7 @@ public:
 private:
     enum class State { Idle, Chase };
 
-    bool  HasTarget() const { return mTarget != nullptr; }
-    float GetDistanceToTarget() const; // XZ 平面距離
-    void  MoveTowardTarget(float dt);  // Y は GravityComponent に委譲
-    void  LookAtTarget();              // Y 軸回転のみ
+    bool HasTarget() const { return mTarget != nullptr; }
 
     ChaseBehaviorDesc mDesc;
 
