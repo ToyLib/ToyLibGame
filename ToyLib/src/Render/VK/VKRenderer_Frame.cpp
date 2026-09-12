@@ -82,6 +82,7 @@ bool VKRenderer::BeginFrame()
     // このframeIndexのGPU使用完了が保証されたので、その時点までに
     // 積まれていたテクスチャの遅延破棄をここで1世代分進める。
     FlushRetiredTextures(/*force=*/false);
+    FlushRetiredParticleGpu(/*force=*/false);
 
     //---------------------------------------------------------
     // acquire swapchain image

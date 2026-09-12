@@ -15,6 +15,7 @@
 
 #include "Engine/Core/Application.h"
 #include "Render/RenderBackendState.h"
+#include "Render/VK/Pipeline/VKComputePipeline.h"
 #include "Render/VK/Pipeline/VKPipelinePresets.h"
 #include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/VKUtil.h"
@@ -247,6 +248,7 @@ void VKRenderer::Shutdown()
 
     // vkDeviceWaitIdle済みなので、遅延中の破棄は全て即座に実行してよい。
     FlushRetiredTextures(/*force=*/true);
+    FlushRetiredParticleGpu(/*force=*/true);
 
     // コールバック解除（Texture デストラクタが Shutdown 後に走っても安全）
     RenderBackendState::Get().ClearTextureUnloadCallback();
@@ -465,6 +467,78 @@ void VKRenderer::FlushRetiredTextures(bool force)
             if (it->image) vkDestroyImage(mDevice, it->image, nullptr);
             if (it->mem) vkFreeMemory(mDevice, it->mem, nullptr);
             it = mRetiredTextures.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+//--------------------------------------------------------------
+// Particle compute pipeline/buffer: deferred destroy
+//--------------------------------------------------------------
+void VKRenderer::RetireParticleGpuResources(std::unique_ptr<VKComputePipeline> pipeline,
+                                             VkBuffer bufferA, VkDeviceMemory memoryA,
+                                             VkBuffer bufferB, VkDeviceMemory memoryB)
+{
+    if (!mDevice)
+    {
+        // deviceが既に無いなら遅延させる意味が無い（待つ相手が居ない）
+        pipeline.reset();
+        if (bufferA) vkDestroyBuffer(mDevice, bufferA, nullptr);
+        if (memoryA) vkFreeMemory(mDevice, memoryA, nullptr);
+        if (bufferB) vkDestroyBuffer(mDevice, bufferB, nullptr);
+        if (memoryB) vkFreeMemory(mDevice, memoryB, nullptr);
+        return;
+    }
+
+    RetiredParticleGpu r{};
+    r.pipeline = std::move(pipeline);
+    r.bufferA = bufferA;
+    r.memoryA = memoryA;
+    r.bufferB = bufferB;
+    r.memoryB = memoryB;
+    // mFrames.size()回分のBeginFrame()(=fence wait)を経れば、
+    // このハンドルが積まれた時点で記録されていたin-flightな
+    // コマンドバッファは全て完了していることが保証される。
+    r.framesRemaining = static_cast<uint32_t>(mFrames.size() > 0 ? mFrames.size() : 1);
+
+    mRetiredParticleGpu.push_back(std::move(r));
+}
+
+void VKRenderer::FlushRetiredParticleGpu(bool force)
+{
+    if (mRetiredParticleGpu.empty())
+    {
+        return;
+    }
+    if (!mDevice)
+    {
+        mRetiredParticleGpu.clear();
+        return;
+    }
+
+    for (auto it = mRetiredParticleGpu.begin(); it != mRetiredParticleGpu.end();)
+    {
+        bool ready = force;
+        if (!ready)
+        {
+            if (it->framesRemaining > 0)
+            {
+                --it->framesRemaining;
+            }
+            ready = (it->framesRemaining == 0);
+        }
+
+        if (ready)
+        {
+            it->pipeline.reset();
+            if (it->bufferA) vkDestroyBuffer(mDevice, it->bufferA, nullptr);
+            if (it->memoryA) vkFreeMemory(mDevice, it->memoryA, nullptr);
+            if (it->bufferB) vkDestroyBuffer(mDevice, it->bufferB, nullptr);
+            if (it->memoryB) vkFreeMemory(mDevice, it->memoryB, nullptr);
+            it = mRetiredParticleGpu.erase(it);
         }
         else
         {

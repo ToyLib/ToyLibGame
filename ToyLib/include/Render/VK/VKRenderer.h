@@ -38,6 +38,7 @@ namespace toy
 class Application;
 class Texture;
 class VKParticleBackend;
+class VKComputePipeline;
 
 struct ParticleComputeJob
 {
@@ -368,6 +369,35 @@ private:
 
     void RetireTextureHandles(VkSampler sampler, VkImageView view, VkImage image, VkDeviceMemory mem);
     void FlushRetiredTextures(bool force);
+
+public:
+    //==========================================================
+    // Particle compute pipeline/buffer(VKParticleBackend)の遅延破棄キュー
+    //  - Actor破棄やReset()でエフェクトが再構築されるたびにcompute update用
+    //    pipeline/ping-pong bufferが即destroyされていたが、in-flightな
+    //    別フレームのコマンドバッファがまだ参照している可能性があり、
+    //    device lostの原因となっていた（Validation Layerで実際に検出）。
+    //    テクスチャと同様、BeginFrame()を経由してmFrames.size()回分
+    //    待ってから実際に破棄することで、GPU使用完了を保証する。
+    //==========================================================
+    void RetireParticleGpuResources(std::unique_ptr<VKComputePipeline> pipeline,
+                                     VkBuffer bufferA, VkDeviceMemory memoryA,
+                                     VkBuffer bufferB, VkDeviceMemory memoryB);
+
+private:
+    struct RetiredParticleGpu
+    {
+        std::unique_ptr<VKComputePipeline> pipeline;
+        VkBuffer bufferA{VK_NULL_HANDLE};
+        VkDeviceMemory memoryA{VK_NULL_HANDLE};
+        VkBuffer bufferB{VK_NULL_HANDLE};
+        VkDeviceMemory memoryB{VK_NULL_HANDLE};
+        uint32_t framesRemaining{0};
+    };
+
+    std::vector<RetiredParticleGpu> mRetiredParticleGpu;
+
+    void FlushRetiredParticleGpu(bool force);
 
 private:
     //==========================================================

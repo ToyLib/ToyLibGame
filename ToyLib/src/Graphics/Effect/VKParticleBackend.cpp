@@ -396,15 +396,14 @@ void VKParticleBackend::ReleaseVK()
     renderer->DequeueParticleCompute(this);
 
     VkDevice device = renderer->GetVKDevice();
-    
-    
-    mUpdatePipeline.reset();
+
     mUpdateSetLayout = VK_NULL_HANDLE;
     mUpdateSetAtoB = VK_NULL_HANDLE;
     mUpdateSetBtoA = VK_NULL_HANDLE;
-    
+
     if (device == VK_NULL_HANDLE)
     {
+        mUpdatePipeline.reset();
         mParticleBufferA = VK_NULL_HANDLE;
         mParticleBufferB = VK_NULL_HANDLE;
         mParticleMemoryA = VK_NULL_HANDLE;
@@ -412,35 +411,21 @@ void VKParticleBackend::ReleaseVK()
         mInitialized = false;
         return;
     }
-    
-    if (mParticleBufferA != VK_NULL_HANDLE)
-    {
-        vkDestroyBuffer(device, mParticleBufferA, nullptr);
-        mParticleBufferA = VK_NULL_HANDLE;
-    }
-    if (mParticleMemoryA != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(device, mParticleMemoryA, nullptr);
-        mParticleMemoryA = VK_NULL_HANDLE;
-    }
-    
-    if (mParticleBufferB != VK_NULL_HANDLE)
-    {
-        vkDestroyBuffer(device, mParticleBufferB, nullptr);
-        mParticleBufferB = VK_NULL_HANDLE;
-    }
-    if (mParticleMemoryB != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(device, mParticleMemoryB, nullptr);
-        mParticleMemoryB = VK_NULL_HANDLE;
-    }
-    
-    mUpdatePipeline.reset();
-    mUpdateSetLayout = VK_NULL_HANDLE;
-    mUpdateSetAtoB   = VK_NULL_HANDLE;
-    mUpdateSetBtoA   = VK_NULL_HANDLE;
+
+    // ★pipeline/bufferはまだin-flightな別フレームのコマンドバッファから
+    //   参照されている可能性があるため、即destroyせずrendererの遅延破棄
+    //   キューに委ねる(GPU使用完了後にまとめて破棄される。device lost対策)。
+    renderer->RetireParticleGpuResources(std::move(mUpdatePipeline),
+                                         mParticleBufferA, mParticleMemoryA,
+                                         mParticleBufferB, mParticleMemoryB);
+
+    mParticleBufferA = VK_NULL_HANDLE;
+    mParticleMemoryA = VK_NULL_HANDLE;
+    mParticleBufferB = VK_NULL_HANDLE;
+    mParticleMemoryB = VK_NULL_HANDLE;
+
     mUseComputeUpdate = false;
-    
+
     mInitialized = false;
     mPingPong = false;
 }
@@ -475,26 +460,18 @@ void VKParticleBackend::InitParticleBuffers(bool warmStart)
 
     //----------------------------------------------------------
     // 既存バッファ破棄
+    //  ★in-flightな別フレームのコマンドバッファがまだ参照している
+    //    可能性があるため、即destroyせずrendererの遅延破棄キューに
+    //    委ねる(device lost対策。ReleaseVK()と同じ理由)。
     //----------------------------------------------------------
-    if (mParticleBufferA != VK_NULL_HANDLE)
+    if (mParticleBufferA != VK_NULL_HANDLE || mParticleBufferB != VK_NULL_HANDLE)
     {
-        vkDestroyBuffer(device, mParticleBufferA, nullptr);
+        backend->RetireParticleGpuResources(nullptr,
+                                            mParticleBufferA, mParticleMemoryA,
+                                            mParticleBufferB, mParticleMemoryB);
         mParticleBufferA = VK_NULL_HANDLE;
-    }
-    if (mParticleMemoryA != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(device, mParticleMemoryA, nullptr);
         mParticleMemoryA = VK_NULL_HANDLE;
-    }
-
-    if (mParticleBufferB != VK_NULL_HANDLE)
-    {
-        vkDestroyBuffer(device, mParticleBufferB, nullptr);
         mParticleBufferB = VK_NULL_HANDLE;
-    }
-    if (mParticleMemoryB != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(device, mParticleMemoryB, nullptr);
         mParticleMemoryB = VK_NULL_HANDLE;
     }
 
