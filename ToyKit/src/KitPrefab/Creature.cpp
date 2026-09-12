@@ -22,6 +22,11 @@ Creature::Creature(toy::Application* app, const CreatureDesc& desc)
         SetupNameBoard(desc.displayName, desc.fontPath, desc.nameYOffset, desc.nameColor);
     }
     SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
+
+    if (desc.enableSensor)
+    {
+        SetupSensor(desc.sensorFovDeg, desc.sensorMaxDist, desc.sensorTargetMask, desc.sensorRequireLOS);
+    }
 }
 
 //=============================================================================

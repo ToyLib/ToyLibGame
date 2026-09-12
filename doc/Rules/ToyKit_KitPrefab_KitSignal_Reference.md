@@ -61,12 +61,20 @@ Prefab が Emit する「事実」のペイロード構造体。
 - 派生クラスが実装する純粋仮想 Interface: `SetVisible`, `SetCollisionEnabled`,
   `PlayAnimation(int)`, `PlayAnimationBlend(int, float)`。
 - 提供する Signal: `OnCollision()`, `OnGrounded()`（`TickFromActor` の中で毎フレーム自動検出・Emit）。
+- 公開の視界クエリ: `HasSensorHit()` — `SetupSensor()` 済みなら、`targetMask` に該当するコライダーが
+  視野角/距離（+任意でLOS）内にあるかどうかを返す（無ければ常に false）。中身は Humanoid の
+  ロックオン索敵と同じ `toy::SensorComponent`。Behavior 側からは `Prefab&` 越しにこれを呼ぶだけでよい。
 - 派生クラスが使う protected ヘルパー:
   - `TrackCollider` / `TrackGravity` — 登録すると毎フレームの Signal 自動検出対象になる。
   - `SetupNameBoard` — 頭上の名前ビルボード（追従する別Actorを内部生成）。
   - `SetupTargetSprites` — ロックオン候補/ロック中の足元スプライト（`TrackCollider` 済み前提）。
   - `SetupAmbientSound` — 常時ループする3Dサウンド（唸り声等）。
   - `SetupSpeechText` — 本体に直接つく常時表示テキート（吹き出し等）。
+  - `SetupSensor(fovDeg, maxDist, targetMask, requireLOS=false)` — `HasSensorHit()` を有効にする。
+    Humanoid は元々ロックオン索敵用に自前で `toy::SensorComponent` を持っていたが（そちらは
+    候補一覧・画面ソート等ロックオン固有のロジックを含む、Humanoid内で完結した実装のまま）、
+    「センサーを持つ」という部分だけを2人目の利用者（Creature/Noriko）のために Prefab 基底へ
+    昇格した。Humanoid 側の実装自体は変更していない。
   - `OnUpdate(float)` — 派生 Prefab 固有の毎フレーム処理（仮想、既定は何もしない）。
 - ゲーム的な意味（HP・AI等）は一切持たない。装飾ヘルパーは呼ばなければ生成コストゼロ。
 
@@ -130,6 +138,7 @@ class Agent
 | 関数 | 用途 |
 |---|---|
 | `PickRandomDirectionXZ()` | ランダムな単位方向ベクトルを選ぶ（Random Walk/Run 用） |
+| `DirectionAwayFromPointXZ(body, point)` | 対象点と反対方向への単位ベクトルを求める（Flee 用） |
 | `FaceDirectionXZ(body, dir)` | 指定方向を向く |
 | `MoveInDirectionXZ(body, dir, speed, dt)` | 指定方向へ一定速度で前進する（Yは重力任せ） |
 | `GetDistanceXZ(body, point)` | 対象点とのXZ距離 |
@@ -153,8 +162,8 @@ class Agent
 - 状態遷移の入口でのみ `PlayAnimationBlend(idleAnim/chaseAnim, animBlendSec)` を呼ぶ。
 - `Wolf`/`Shiro` はこの1つの `ChaseBehavior` を Desc の値違いだけで共有している。
 
-ゲーム側ローカルの `IdleWalkBehavior`（Noriko、Random Walk のみ）や `FollowBehavior`
-（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている
+ゲーム側ローカルの `FleeBehavior`（Noriko、`HasSensorHit()` で検知・距離で見失う。ChaseBehaviorの
+「逆」）や `FollowBehavior`（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている
 （[ToyKit_Prefab_Manual.md](ToyKit_Prefab_Manual.md) 参照）。Attack 相当の汎用 Behavior はまだ無い
 （実際に攻撃してくる敵が出てから、その形を見て設計する）。
 

@@ -5,6 +5,7 @@
 #include "Asset/AssetManager.h"
 #include "Physics/ColliderComponent.h"
 #include "Physics/GravityComponent.h"
+#include "Physics/SensorComponent.h"
 #include "Graphics/Sprite/GroundConformSpriteComponent.h"
 #include "Graphics/Billboard/TextBillboardComponent.h"
 #include "Audio/SoundComponent.h"
@@ -232,6 +233,25 @@ void Prefab::SetupSpeechText(const std::string& text, const std::string& fontPat
     board->SetColor(color);
     board->SetText(text);
     board->SetScale(0.01f);
+}
+
+//=============================================================================
+// 視界センサー
+//=============================================================================
+void Prefab::SetupSensor(float fovDeg, float maxDist, uint32_t targetMask, bool requireLOS)
+{
+    toy::SensorComponent::Desc desc;
+    desc.fovRad     = Math::ToRadians(fovDeg);
+    desc.maxDist    = maxDist;
+    desc.targetMask = targetMask;
+    desc.requireLOS = requireLOS;
+
+    mSensor = mActor->CreateComponent<toy::SensorComponent>(desc);
+}
+
+bool Prefab::HasSensorHit() const
+{
+    return mSensor && !mSensor->GetHits().empty();
 }
 
 } // namespace toy::kit

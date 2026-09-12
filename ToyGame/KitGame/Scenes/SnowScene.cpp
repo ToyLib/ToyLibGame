@@ -49,11 +49,11 @@ void SnowScene::DefineWorld()
 
     mPlayer = MakePlayer(GetApp());
 
-    // エネミー（新方針: Creature Prefab を内包する FieldMonster）
+    // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
     for (int i = 0; i < 10; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(MakeNoriko(GetApp(), pos));
+        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
     }
 
     // 鏡を出す

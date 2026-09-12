@@ -17,6 +17,10 @@ namespace {
 //    - colliderOffset/Scale/Flags   : 当たり判定の形と種別フラグ
 //    - displayName                  : 頭上の名前ビルボード（空文字なら非表示）
 //    - candidateTexture/lockedTexture : ロックオン候補/ロック中の足元スプライト
+//    - enableSensor/sensorFovDeg/sensorMaxDist/sensorTargetMask
+//        : 視界センサー（Humanoid のロックオン索敵と同じ toy::SensorComponent）。
+//          sensorTargetMask で「何を見るか」を指定する——ここでは Player の
+//          コライダーが持つ toy::C_PLAYER_TEAM を指定し、Player を検知対象にする。
 //=============================================================================
 toy::kit::CreatureDesc MakeNorikoDesc()
 {
@@ -37,13 +41,26 @@ toy::kit::CreatureDesc MakeNorikoDesc()
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";
 
+    desc.enableSensor     = true;
+    desc.sensorFovDeg     = 100.0f;
+    desc.sensorMaxDist    = 15.0f;
+    desc.sensorTargetMask = toy::C_PLAYER_TEAM;
+
     return desc;
 }
 
 //=============================================================================
-// IdleWalkBehavior — IBehavior の実例
-//  Idle（静止）→Walk（ランダムな方向へ移動）→Idle をタイマーで切り替える
-//  最小限の振る舞い。Walkに入るたびに新しいランダム方向を選び直す。
+// FleeBehavior — IBehavior の実例
+//  基本は Idle（静止）。ターゲット（Player）を Sensor で視認したら
+//  Flee（ターゲットと反対方向へ歩く）に切り替わり、
+//  一定距離より離れたら Idle に戻る。
+//
+//  検知（Idle→Flee）に Prefab::HasSensorHit() を使い、見失い（Flee→Idle）は
+//  単純な距離判定にしているのは意図的：Flee 中は反対方向を向いて歩く
+//  ので、前方視野の Sensor では追ってくる相手がすぐ視野外＝
+//  HasSensorHit()==false になってしまい、見失い判定に使うと
+//  Idle⇄Flee を毎フレーム往復してしまう。「見つけるのは視界、
+//  諦めるのは距離」という非対称な組み合わせが実用上ちょうどよい。
 //
 //  IBehavior は OnStart/OnUpdate/OnInput/OnCollision の4つのフックを持つ
 //  （どれも既定は空実装。使うものだけ override すればよい）。Noriko は
@@ -52,18 +69,23 @@ toy::kit::CreatureDesc MakeNorikoDesc()
 //
 //  Behavior は Prefab（Creature/Humanoid等）の型を知らなくてよい設計に
 //  なっている——ここで触っているのは Prefab の共通 Interface
-//  （PlayAnimationBlend/SetPosition/SetRotation 等）だけで、Creature 固有の
-//  メソッドは一切呼んでいない。そのため、このクラスをそのまま
-//  Humanoid にも使い回せる（Prefab& を受け取る関数として書けているのが
-//  ポイント）。
+//  （PlayAnimationBlend/GetPosition/HasSensorHit 等）と MovementUtil の
+//  free function だけで、Creature 固有のメソッドは一切呼んでいない。
+//  そのため、このクラスをそのまま Humanoid にも使い回せる（Prefab& を
+//  受け取る関数として書けているのがポイント）。
 //
 //  今のところ Noriko 専用（他の Creature/Humanoid でも使うようになったら
 //  ToyKit 側の汎用 Behavior に昇格する。ChaseBehavior と同じ流れ。
 //  「2人目の利用者が現れてから昇格する」というこのプロジェクトの方針）。
 //=============================================================================
-class IdleWalkBehavior : public toy::kit::IBehavior
+class FleeBehavior : public toy::kit::IBehavior
 {
 public:
+    // 「視界に入ったら」の相手（Player の Prefab）を設定する。
+    // ChaseBehavior::SetTarget と同じく、位置だけを Prefab Interface 越しに
+    // 参照する（Prefab の具体型を問わない）。
+    void SetTarget(toy::kit::Prefab* target) { mTarget = target; }
+
     // Agent 生成直後に一度だけ呼ばれる。ここで KitStateMachine の状態と
     // 遷移条件を登録し、初期状態へ入る（＝ゲームループの外で1回だけ行う
     // セットアップ）。
@@ -73,28 +95,41 @@ public:
 
         // KitStateMachine<State>::Register(状態, 毎フレーム呼ばれる関数)
         //  - mFSM.IsEnterFrame() : その状態に入った最初のフレームだけ true
-        //    （アニメーションブレンドや方向決定など「入った瞬間に1回だけ
-        //    やりたいこと」はここに書く。毎フレーム書くと毎フレーム
-        //    やり直しになってしまう）
-        //  - mFSM.GetTimer()     : その状態に入ってからの経過秒数
+        //    （アニメーションブレンドなど「入った瞬間に1回だけやりたいこと」
+        //    はここに書く。毎フレーム書くと毎フレームやり直しになる）
         //  - mFSM.To(state)      : 指定した状態へ遷移する
         mFSM.Register(State::Idle,
             [this](float)
             {
                 if (mFSM.IsEnterFrame()) mBody->PlayAnimationBlend(0, kAnimBlendSec);
-                if (mFSM.GetTimer() > 10.0f) mFSM.To(State::Walk);
+
+                // 検知: Sensor（視界）に Player が入ったかどうか
+                if (HasTarget() && mBody->HasSensorHit())
+                {
+                    mFSM.To(State::Flee);
+                }
             });
 
-        mFSM.Register(State::Walk,
+        mFSM.Register(State::Flee,
             [this](float dt)
             {
-                if (mFSM.IsEnterFrame())
+                if (mFSM.IsEnterFrame()) mBody->PlayAnimationBlend(1, kAnimBlendSec);
+
+                if (HasTarget())
                 {
-                    mBody->PlayAnimationBlend(1, kAnimBlendSec);
-                    PickRandomDirection();
+                    // ToTarget（ChaseBehavior/FollowBehavior）の逆＝ターゲットの
+                    // 反対方向を向いて進む
+                    const Vector3 dir = toy::kit::DirectionAwayFromPointXZ(*mBody, mTarget->GetPosition());
+                    toy::kit::FaceDirectionXZ(*mBody, dir);
+                    toy::kit::MoveInDirectionXZ(*mBody, dir, mMoveSpeed, dt);
                 }
-                MoveForward(dt);
-                if (mFSM.GetTimer() > 5.0f) mFSM.To(State::Idle);
+
+                // 見失い: こちらは距離だけで判定（Flee中は背を向けているので
+                // Sensor では判定しない。理由はクラスコメント参照）
+                if (!HasTarget() || toy::kit::GetDistanceXZ(*mBody, mTarget->GetPosition()) > mLoseDistance)
+                {
+                    mFSM.To(State::Idle);
+                }
             });
 
         mFSM.Start(State::Idle);
@@ -109,31 +144,20 @@ public:
     }
 
 private:
-    enum class State { Idle, Walk };
+    enum class State { Idle, Flee };
+
+    bool HasTarget() const { return mTarget != nullptr; }
 
     static constexpr float kAnimBlendSec = 0.3f;
 
-    // XZ平面でランダムな方向を選び、その方向を向く（Random Walk）。
-    // 実際の計算は KitPrefab/MovementUtil.h の free function に委譲している
-    // ——Walk/Run（速度の違い）・Random/ToTarget（向かう先の決め方の違い）
-    // で共有できるよう切り出された移動ユーティリティ（ChaseBehavior/
-    // Stan の FollowBehavior も同じものを使う）。
-    void PickRandomDirection()
-    {
-        mMoveDir = toy::kit::PickRandomDirectionXZ();
-        toy::kit::FaceDirectionXZ(*mBody, mMoveDir);
-    }
-
-    // Y は重力（GravityComponent）に任せ、XZ だけ現在の向きへ進める
-    void MoveForward(float dt)
-    {
-        toy::kit::MoveInDirectionXZ(*mBody, mMoveDir, mMoveSpeed, dt);
-    }
-
-    toy::kit::Prefab*                mBody    = nullptr;
+    toy::kit::Prefab*                mBody   = nullptr;
+    toy::kit::Prefab*                mTarget = nullptr;
     toy::kit::KitStateMachine<State> mFSM;
-    Vector3                          mMoveDir  = Vector3::UnitZ;
-    float                            mMoveSpeed = 1.0f;
+
+    // Flee中にこの距離より離れたら見失ってIdleに戻る（Sensorの検知距離
+    // ＝MakeNorikoDesc の sensorMaxDist より少し大きめにしてヒステリシスを持たせる）
+    float mLoseDistance = 22.0f;
+    float mMoveSpeed     = 4.0f;
 };
 
 } // namespace
@@ -148,9 +172,12 @@ private:
 //  内部の Prefab（Creature）を直接触りたいときは GetBody() 経由で行う
 //  （SetPosition/SetRotation は Prefab の Interface、Agent 自体は持たない）。
 //-----------------------------------------------------------------------------
-std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& position)
+std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& position, toy::kit::Prefab* target)
 {
-    auto noriko = std::make_unique<Noriko>(app, std::make_unique<IdleWalkBehavior>(), MakeNorikoDesc());
+    auto behavior = std::make_unique<FleeBehavior>();
+    behavior->SetTarget(target);
+
+    auto noriko = std::make_unique<Noriko>(app, std::move(behavior), MakeNorikoDesc());
     noriko->GetBody().SetPosition(position);
     Quaternion rot = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(180.0f));
     noriko->GetBody().SetRotation(rot);

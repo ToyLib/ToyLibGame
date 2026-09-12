@@ -43,6 +43,13 @@ struct CreatureDesc
     // ターゲット表示スプライト（空文字なら非表示）
     std::string candidateTexture;
     std::string lockedTexture;
+
+    // 視界センサー（索敵/視認判定。任意。Humanoidのロックオン用センサーと同じ仕組み）
+    bool     enableSensor     = false;
+    float    sensorFovDeg     = 90.0f;
+    float    sensorMaxDist    = 15.0f;
+    uint32_t sensorTargetMask = 0; // 例: C_PLAYER_TEAM。見るべき対象のフラグを指定する
+    bool     sensorRequireLOS = false;
 };
 
 } // namespace toy::kit

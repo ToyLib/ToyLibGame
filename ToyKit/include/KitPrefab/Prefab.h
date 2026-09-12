@@ -4,6 +4,7 @@
 #include "KitSignal/Events.h"
 #include "Utils/MathUtil.h"
 
+#include <cstdint>
 #include <string>
 
 namespace toy {
@@ -12,6 +13,7 @@ class Actor;
 class ColliderComponent;
 class GravityComponent;
 class GroundConformSpriteComponent;
+class SensorComponent;
 } // namespace toy
 
 namespace toy::kit {
@@ -68,6 +70,13 @@ public:
     Signal<CollisionEvent>& OnCollision() { return mOnCollision; }
     Signal<GroundedEvent>&  OnGrounded()  { return mOnGrounded; }
 
+    // SetupSensor() 済みなら、視界（fovDeg/maxDist、requireLOSなら遮蔽も考慮）に
+    // targetMask 該当のコライダーが入っているかどうか。SetupSensor 未使用なら常に false。
+    // Humanoid のロックオン索敵と同じ toy::SensorComponent を使っている
+    // （どのコライダーを「見る」対象にするかは targetMask で決める。設計方針8:
+    //  検出した「事実」だけを返し、それをどう使うかは Behavior 側が決める）。
+    bool HasSensorHit() const;
+
 protected:
     explicit Prefab(toy::Application* app);
 
@@ -102,6 +111,12 @@ protected:
     void SetupSpeechText(const std::string& text, const std::string& fontPath,
                          const Vector3& color = Vector3::One);
 
+    // 視界センサーを追加する（任意。索敵/視認判定に使う）。
+    // targetMask に一致するコライダーが fovDeg/maxDist 以内にあれば
+    // HasSensorHit() が true になる。requireLOS=true なら losBlock相当の壁
+    // 等に遮られている場合は検出しない（既定 false ＝壁越しでも検出する）。
+    void SetupSensor(float fovDeg, float maxDist, uint32_t targetMask, bool requireLOS = false);
+
     // 派生Prefab固有の毎フレーム処理（必要なものだけ override）
     virtual void OnUpdate(float /*deltaTime*/) {}
 
@@ -124,6 +139,7 @@ private:
 
     toy::ColliderComponent* mCollider = nullptr;
     toy::GravityComponent*  mGravity  = nullptr;
+    toy::SensorComponent*   mSensor   = nullptr;
 
     Signal<CollisionEvent> mOnCollision;
     Signal<GroundedEvent>  mOnGrounded;

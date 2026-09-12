@@ -17,6 +17,11 @@ class Prefab;
 // XZ平面でランダムな単位方向ベクトルを1つ選ぶ（Random Walk/Run 用）
 Vector3 PickRandomDirectionXZ();
 
+// targetPos から見て body が離れていく方向（＝body から見て targetPos と反対側）の
+// 単位方向ベクトル（XZ）。距離がほぼ0で方向が定まらない場合は Vector3::UnitZ を返す
+// （Flee=ToTargetの逆、として使う）
+Vector3 DirectionAwayFromPointXZ(const Prefab& body, const Vector3& targetPos);
+
 // 指定方向（XZ）を向く。正規化は不要
 void FaceDirectionXZ(Prefab& body, const Vector3& directionXZ);
 
