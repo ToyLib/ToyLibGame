@@ -147,7 +147,7 @@ void Humanoid::SetupMesh(const HumanoidDesc& desc)
 {
     mMesh = GetActor()->CreateComponent<toy::SkeletalMeshComponent>(desc.meshDrawOrder);
 
-    auto mesh = GetApp()->GetAssetManager()->GetMesh(desc.model);
+    auto mesh = GetApp()->GetAssetManager()->GetMesh(desc.model, desc.isRightHanded);
     mMesh->SetMesh(mesh);
 
     if (!desc.cancelRootTranslationBone.empty())

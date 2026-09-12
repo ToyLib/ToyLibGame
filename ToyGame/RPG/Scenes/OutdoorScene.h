@@ -16,7 +16,7 @@
 class OutdoorScene : public toy::kit::IScene
 {
 public:
-    // Hero/Shiro/Wolf/MagicBolt/HealBurst は前方宣言のみのため、それらの
+    // Hero/Shiro/Wolf/Stan/MagicBolt/HealBurst は前方宣言のみのため、それらの
     // std::unique_ptr を完全型が見える OutdoorScene.cpp 側で暗黙生成させる
     // （out-of-line constructor/destructor）
     OutdoorScene();
@@ -56,15 +56,12 @@ private:
     std::unique_ptr<class Hero>                mHero;
     std::unique_ptr<class Shiro>               mShiro;
     std::vector<std::unique_ptr<class Wolf>>   mWolves;
+    std::unique_ptr<class Stan>                mStan;
 
     // Hero が発動した魔法/回復エフェクト。Hero の Signal を受けて Scene が
     // 生成し、寿命切れ（IsExpired）を毎フレーム回収する。
     std::vector<std::unique_ptr<class MagicBolt>> mMagicBolts;
     std::vector<std::unique_ptr<class HealBurst>> mHealBursts;
-
-    // Hero の位置を毎フレーム反映するマーカー Actor（FollowMoveComponent 等、
-    // 本物の toy::Actor を要求するレガシー系との橋渡し用）
-    toy::Actor* mHeroMarker = nullptr;
 
     // メッシュ+コライダーだけの静止物（設計方針の StaticObject Prefab）
     std::vector<std::unique_ptr<toy::kit::StaticObject>> mStaticObjects;

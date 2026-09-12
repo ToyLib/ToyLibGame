@@ -3,6 +3,7 @@
 #include "../Actors/Hero.h"
 #include "../Actors/Wolf.h"
 #include "../Actors/Shiro.h"
+#include "../Actors/Stan.h"
 #include "../Actors/MagicBolt.h"
 #include "../Actors/HealBurst.h"
 #include "../Actors/IslandActor.h"
@@ -78,35 +79,9 @@ void OutdoorScene::DefineWorld()
     mShiro = MakeShiro(GetApp(), &mHero->GetBody());
     mShiro->GetBody().SetPosition(Vector3(0.0f, 0.0f, -25.0f));
 
-    // Hero の位置を毎フレーム反映するマーカー Actor。
-    // Hero 自体は toy::Actor を持たないため、FollowMoveComponent など
-    // 「本物の Actor」をターゲットに要求するレガシー系のためだけに用意する。
-    mHeroMarker = CreateActor<toy::Actor>();
-    mHeroMarker->SetPosition(mHero->GetBody().GetPosition());
-
-    // Stan（プレイヤー追従）
-    auto* stan = CreateActor<toy::Actor>();
-    stan->SetPosition(Vector3(-3.0f, 0.0f, 10.0f));
-    stan->SetScale(0.5f);
-    stan->SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(-30.0f)));
-
-    auto* stanMesh = stan->CreateComponent<toy::SkeletalMeshComponent>();
-    stanMesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("stan.gltf", true));
-    stanMesh->SetToonRender(true);
-
-    auto* stanColl = stan->CreateComponent<toy::ColliderComponent>();
-    stanColl->GetBoundingVolume()->ComputeBoundingVolume(
-        GetApp()->GetAssetManager()->GetMesh("stan.gltf")->GetVertexArray());
-    stanColl->GetBoundingVolume()->AdjustBoundingBox(Vector3::Zero, Vector3(0.5f, 1.0f, 0.6f));
-    stanColl->GetBoundingVolume()->CreateVArray();
-    stanColl->SetFlags(toy::C_WALL | toy::C_ENEMY_TEAM | toy::C_HURTBOX | toy::C_FOOT | toy::C_GROUND);
-    stanColl->SetEnabled(true);
-
-    auto* stanMove = stan->CreateComponent<toy::FollowMoveComponent>();
-    stanMove->SetTarget(mHeroMarker);
-    stanMove->SetFollowSpeed(10.0f);
-
-    stan->CreateComponent<toy::GravityComponent>();
+    // Stan（プレイヤーに付いて歩くお供NPC。Humanoid + FollowBehavior の Agent。
+    // Behavior のテストベットも兼ねる）
+    mStan = MakeStan(GetApp(), &mHero->GetBody());
 }
 
 //-----------------------------------------------------------------------------
@@ -146,16 +121,16 @@ void OutdoorScene::Update(float deltaTime)
     if (mHero)
     {
         mHero->Update(deltaTime);
-
-        if (mHeroMarker)
-        {
-            mHeroMarker->SetPosition(mHero->GetBody().GetPosition());
-        }
     }
 
     if (mShiro)
     {
         mShiro->Update(deltaTime);
+    }
+
+    if (mStan)
+    {
+        mStan->Update(deltaTime);
     }
 
     for (auto& wolf : mWolves)

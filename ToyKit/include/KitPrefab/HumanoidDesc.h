@@ -15,6 +15,7 @@ struct HumanoidDesc
 {
     // メッシュ
     std::string model;
+    bool        isRightHanded = false; // 右手座標系モデル対応（GetMesh に渡す）
     int         meshDrawOrder = 100;
     float       scale         = 1.0f;
     float       yawOffsetDeg  = 0.0f;
