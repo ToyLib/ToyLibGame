@@ -228,8 +228,15 @@ void Application::RunLoop()
             // ns →msに変換（double→float）
             double renderMs = (renderEnd - renderBegin) * 1000.0
             / static_cast<double>(SDL_GetPerformanceFrequency());
-            
-            mDebugStats.RenderTimeMs = static_cast<float>(renderMs);
+
+            // ★Draw()の中にはBeginFrame()でのGPU/Vsync待ち(vkWaitForFences /
+            //   vkAcquireNextImageKHR)が含まれており、これをRenderTimeMsに
+            //   混ぜると実際の描画コストが見えなくなる。待ち時間だけを
+            //   RenderWaitTimeMsとして分離し、RenderTimeMsからは除外する。
+            float waitMs = mRenderer ? mRenderer->GetFrameWaitTimeMs() : 0.0f;
+
+            mDebugStats.RenderWaitTimeMs = waitMs;
+            mDebugStats.RenderTimeMs     = static_cast<float>(renderMs) - waitMs;
         }
     }
 }

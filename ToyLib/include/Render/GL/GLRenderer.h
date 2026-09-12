@@ -22,6 +22,8 @@ public:
     
     void OnWindowResized(int pixelW, int pixelH) override;
 
+    void SetVSync(bool enable) override;
+
     std::shared_ptr<class GLShader> GetShader(const std::string& name);
 
     PipelineHandle GetPipelineHandle(const std::string& name) override;

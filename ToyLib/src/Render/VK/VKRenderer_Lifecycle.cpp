@@ -399,6 +399,22 @@ void VKRenderer::OnWindowResized(int width, int height)
 }
 
 //--------------------------------------------------------------
+// SetVSync
+//  PresentModeはスワップチェーン作成時に固定されるため、
+//  フラグを更新した上でスワップチェーンを作り直す。
+//--------------------------------------------------------------
+void VKRenderer::SetVSync(bool enable)
+{
+    if (mVSync == enable)
+    {
+        return;
+    }
+
+    mVSync = enable;
+    mNeedRecreateSwapchain = true;
+}
+
+//--------------------------------------------------------------
 // OnTextureUnloaded
 //  Texture::Unload() → RenderBackendState 経由で呼ばれる
 //  BaseMapSetCache からそのテクスチャのエントリを除去する

@@ -95,6 +95,8 @@ void DebugOverlayActor::RefreshOverlayText()
     text += StringUtil::Format("DrawCalls    : <<\n",     stats.DrawCallCount);
     text += StringUtil::Format("RTTCalls     : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("RenderTime   : << ms\n",  stats.RenderTimeMs);
+    text += StringUtil::Format("RenderWait   : << ms\n",  stats.RenderWaitTimeMs);
+    text += StringUtil::Format("VSync(F2)    : <<\n",     GetApp()->GetRenderer()->IsVSyncEnavle() ? "ON" : "OFF");
     text += StringUtil::Format("UpdateTTL    : << ms\n",  stats.UpdateTotalTimeMs);
     text += "-------------\n";
     text += StringUtil::Format("UpdateGame   : << ms\n",  stats.UpdateGameTimeMs);
@@ -156,6 +158,15 @@ void DebugOverlayActor::ActorInput(const InputState& state)
     if (state.Keyboard.GetKeyState(SDL_SCANCODE_F4) == EPressed)
     {
         SetWireVisible(!mWireVisible);
+    }
+
+    if (state.Keyboard.GetKeyState(SDL_SCANCODE_F2) == EPressed)
+    {
+        auto* renderer = GetApp()->GetRenderer();
+        if (renderer)
+        {
+            renderer->SetVSync(!renderer->IsVSyncEnavle());
+        }
     }
 }
 

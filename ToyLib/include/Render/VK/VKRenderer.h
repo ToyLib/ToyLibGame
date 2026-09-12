@@ -67,6 +67,8 @@ public:
 
     void OnWindowResized(int pixelW, int pixelH) override;
 
+    void SetVSync(bool enable) override;
+
     // Texture アンロード時にキャッシュから該当エントリを除去
     void OnTextureUnloaded(const class Texture* tex);
 

@@ -167,11 +167,16 @@ public:
     void AddDrawCall() { ++mDebugActiveScreen->drawCallCount; }
     unsigned int GetDrawCallCount() const { return mDebugOnScreen.drawCallCount; }
     unsigned int GetRTTDrawCallCount() const { return mDebugRTT.drawCallCount; }
+
+    // BeginFrame()内でGPU/Vsync待ちに費やした時間(ms)。
+    // Application側でRenderTimeMsからこの時間を差し引くことで、
+    // Vsync待ちを含まない実描画コストを算出できる。
+    float GetFrameWaitTimeMs() const { return mFrameWaitTimeMs; }
     
     //--------------------------------------------------------------------------
     // Vsync
     //--------------------------------------------------------------------------
-    void SetVSync(bool enable);
+    virtual void SetVSync(bool enable) { mVSync = enable; }
     bool IsVSyncEnavle() const { return mVSync; }
 
     //--------------------------------------------------------------------------
@@ -416,6 +421,8 @@ protected:
     DebugInfo  mDebugOnScreen {};
     DebugInfo  mDebugRTT {};
     DebugInfo* mDebugActiveScreen = &mDebugOnScreen;
+
+    float mFrameWaitTimeMs { 0.0f };
 
     void ChangeDebugOnScreen() { mDebugActiveScreen = &mDebugOnScreen; }
     void ChangeDebugRTT()      { mDebugActiveScreen = &mDebugRTT; }

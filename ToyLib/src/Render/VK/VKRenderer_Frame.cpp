@@ -19,6 +19,7 @@
 #include "Render/VK/VKSceneRenderTarget.h"
 #include "Render/VK/VKUtil.h"
 
+#include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
 
@@ -67,7 +68,13 @@ bool VKRenderer::BeginFrame()
     // wait previous frame
     //  ★UINT64_MAX(無限待ち)ではなく有限タイムアウトにし、fenceが
     //    二度とsignalされない状態になっても即座に検知できるようにする。
+    //
+    //  ★この区間(fence待ち〜image acquire完了)はVsync待ちを含むため、
+    //    Application側のRenderTimeMs計測から除外できるよう、
+    //    かかった時間をmFrameWaitTimeMsに記録しておく。
     //---------------------------------------------------------
+    Uint64 waitBegin = SDL_GetPerformanceCounter();
+
     constexpr uint64_t kFenceTimeoutNs = 5'000'000'000ULL; // 5秒
     VkResult wr = vkWaitForFences(mDevice, 1, &frame.inFlight, VK_TRUE, kFenceTimeoutNs);
 
@@ -123,6 +130,10 @@ bool VKRenderer::BeginFrame()
     {
         mImagesInFlight[mImageIndex] = frame.inFlight;
     }
+
+    Uint64 waitEnd = SDL_GetPerformanceCounter();
+    mFrameWaitTimeMs = static_cast<float>((waitEnd - waitBegin) * 1000.0
+                        / static_cast<double>(SDL_GetPerformanceFrequency()));
 
     //---------------------------------------------------------
     // reset command buffer
@@ -314,7 +325,18 @@ void VKRenderer::EndFrame()
     pi.pSwapchains = &mSwapchain;
     pi.pImageIndices = &mImageIndex;
 
+    // ★MoltenVK(Vulkan on Metal)では画像取得(vkAcquireNextImageKHR)は
+    //   ほぼ形式的で、実際のディスプレイ同期(Vsync待ち)はこの
+    //   vkQueuePresentKHR呼び出し自体で発生する。BeginFrame()側の待ちと
+    //   合算してmFrameWaitTimeMsに記録し、Application側でRenderTimeMsから
+    //   除外できるようにする。
+    Uint64 presentBegin = SDL_GetPerformanceCounter();
+
     VkResult pr = vkQueuePresentKHR(mQueuePresent, &pi);
+
+    Uint64 presentEnd = SDL_GetPerformanceCounter();
+    mFrameWaitTimeMs += static_cast<float>((presentEnd - presentBegin) * 1000.0
+                        / static_cast<double>(SDL_GetPerformanceFrequency()));
 
     if (pr == VK_ERROR_OUT_OF_DATE_KHR || pr == VK_SUBOPTIMAL_KHR)
     {

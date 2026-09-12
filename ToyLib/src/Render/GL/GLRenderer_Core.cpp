@@ -231,6 +231,12 @@ void GLRenderer::OnWindowResized(int pixelW, int pixelH)
     }
 }
 
+void GLRenderer::SetVSync(bool enable)
+{
+    mVSync = enable;
+    SDL_GL_SetSwapInterval(mVSync ? 1 : 0);
+}
+
 bool GLRenderer::InitializeShadowMapping()
 {
     glGenFramebuffers(kShadowCascadeCount, mShadowFBO);
