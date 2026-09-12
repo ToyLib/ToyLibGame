@@ -18,12 +18,12 @@ public:
     void ProcessInput(const struct toy::InputState& input) override;
     void Update(float deltaTime) override;
 protected:
-    void InitScene() override;
+    // IScene の4フェーズ（Environment / World / SpawnCharacters / UI）
+    void DefineEnvironment() override;
+    void DefineWorld() override;
+    void SpawnCharacters() override;
+    void DefineUI() override;
 private:
-    // InitScene() の構成（Environment / World / UI を宣言する場所を分ける）
-    void DefineEnvironment();
-    void DefineWorld();
-    void DefineUI();
 
     void InitField();
     void DeployGround();

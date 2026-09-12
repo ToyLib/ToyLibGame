@@ -11,8 +11,8 @@ public:
     void Update(float delatTime) override;
     void ProcessInput(const struct toy::InputState& input) override;
 protected:
-    void InitScene() override;
-    
+    void DefineWorld() override;
+
 private:
     class toy::MessageBoxActor* mMsgActor;
     void ChangeScene();

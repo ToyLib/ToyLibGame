@@ -131,6 +131,17 @@ class Agent
 各 Desc（`CreatureDesc`/`HumanoidDesc`/`ProjectileDesc`/`StaticObjectDesc`）はプリミティブ型のみで構成される
 「構築情報」構造体（JSON化を見据えた形、実行時参照は持たない）。
 
+#### `StaticObjectPlacement`（StaticObjectPlacement.h/.cpp）— Scene構築のDesc化の単位
+
+`StaticObjectDesc` + `position`/`rotation` をまとめただけの、これもプリミティブのみの構造体。
+Scene 側は「procedural に1体ずつ`new`する」代わりに、この構造体を要素とする
+`std::vector<StaticObjectPlacement>`（データ）を組み立てて、
+`MakeStaticObjects(app, placements)` に渡すだけで良い（1件だけなら `MakeStaticObject`）。
+`FieldScene`/`OutdoorScene` のレンガ・島・家の配置がこの形になっている
+（[ToyKit_Prefab_Manual.md](ToyKit_Prefab_Manual.md) 参照）。Creature/Humanoid の配置はまだこの形に
+なっていない——`target`（追跡/逃走対象への実行時ポインタ）を伴うため、名前解決の仕組みを
+先に設計する必要があり、意図的に後回しにしている。
+
 ### 移動ユーティリティ
 
 #### `MovementUtil`（MovementUtil.h/.cpp）— Behavior が共有する移動の数式

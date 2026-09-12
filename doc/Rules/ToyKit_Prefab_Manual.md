@@ -58,25 +58,56 @@ Game Logic クラス（Wolf / Noriko / Player / Hero など）
 
 ## 3. パターンA: 静止物を置くだけ（StaticObject）
 
-Behavior もラッパークラスも不要。Scene のメソッド内で直接構築する。
+Behavior もラッパークラスも不要。**1体だけなら** `StaticObjectPlacement` を組み立てて
+`toy::kit::MakeStaticObject()` に渡すだけ（`StaticObjectPlacement.h`）。
+
+```cpp
+// OutdoorScene.cpp
+void OutdoorScene::DeployHouse(const Vector3& pos)
+{
+    toy::kit::StaticObjectPlacement placement;
+    placement.desc.model         = "house.x";
+    placement.desc.actorScale    = 0.003f;
+    placement.desc.colliderFlags = toy::C_WALL | toy::C_GROUND | toy::C_FOOT;
+    placement.position = pos;
+    placement.rotation  = Quaternion(Vector3::UnitY, Math::ToRadians(150.0f));
+
+    mStaticObjects.push_back(toy::kit::MakeStaticObject(GetApp(), placement));
+}
+```
+
+**複数体まとめて置く場合**は、procedural に1体ずつ`DeployXxx(pos)`を呼ぶループにせず、
+`StaticObjectPlacement` の配列（＝データ）を組み立ててから `MakeStaticObjects()` に一括で渡す
+（Scene構築のDesc化。設計方針16）。こうしておくと、この配列を後からJSON化したときに
+Scene側のコードを一切変えずに済む。
 
 ```cpp
 // FieldScene.cpp
-void FieldScene::DeployBrick(Vector3 pos)
+void FieldScene::DeployBricks()
 {
-    toy::kit::StaticObjectDesc desc;
-    desc.model         = "Field/brick.glb";
-    desc.actorScale    = 4.0f;
-    desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
+    toy::kit::StaticObjectDesc brickDesc;
+    brickDesc.model         = "Field/brick.glb";
+    brickDesc.actorScale    = 4.0f;
+    brickDesc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto brick = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
-    brick->SetPosition(pos);
-    mStaticObjects.push_back(std::move(brick));
+    std::vector<toy::kit::StaticObjectPlacement> placements;
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 5; ++j)
+            placements.push_back({ brickDesc, Vector3(-80 + 15 * j / 2 + 10 * i * 1.5, 20, 20 + 5 * j * 1.5) });
+
+    for (auto& obj : toy::kit::MakeStaticObjects(GetApp(), placements))
+    {
+        mStaticObjects.push_back(std::move(obj));
+    }
 }
 ```
 
 Scene 側は `std::vector<std::unique_ptr<toy::kit::StaticObject>> mStaticObjects;` として保持するだけで、
 `Update()` を呼ぶ必要もない（動かないので）。
+
+**現状のスコープ:** Desc化しているのは StaticObject の配置だけ。Creature/Humanoid の配置
+（Noriko/Wolf/Shiro等）は `target`（追跡/逃走対象への実行時ポインタ）を伴うため、Descだけの
+プリミティブなデータにはまだできていない（名前解決の仕組みが必要、未着手）。
 
 ---
 
@@ -332,6 +363,29 @@ Behavior が Scene に何かを伝える必要があるか（Signal を外に出
 
 ---
 
+## 6.5. Scene の4フェーズ（IScene）
+
+`toy::kit::IScene` は `Init()` から呼ばれる4つのフェーズを持つ（`IScene.h`/`IScene.cpp`）。
+必要なものだけ override すればよい（既定は何もしない）。
+
+```
+IScene::InitScene()  ※非virtual・固定の呼び出し順
+  → DefineEnvironment()  … ポストエフェクト/時刻/BGM等、見た目・雰囲気
+  → DefineWorld()        … 地形・StaticObject の配置など、動かない世界
+  → SpawnCharacters()    … Player/NPC（Agent<TPrefab>）のスポーン
+  → DefineUI()           … UI Actor
+```
+
+以前は各 Scene が自分で `InitScene()` を override して4つを手で呼んでいたが、
+3つの Scene（FieldScene/SnowScene/OutdoorScene）が同じ形をしていたので `IScene` 側に
+昇格した（2人目・3人目の利用者が現れてから昇格、というこのプロジェクトの一貫した方針）。
+
+「いつ・なぜスポーンするか」（時間経過・シナリオ進行・主人公の状態などの条件）は
+汎用フレームワーク化せず、各 Scene 固有の C++ コードとして書く
+（`SpawnCharacters()` は「どうスポーンするか」の置き場所を決めるだけ）。
+
+---
+
 ## 7. Scene への組み込み
 
 Scene（`IScene`）は Prefab/Agent を所有する Game Logic オブジェクトの寿命を自分で管理する。
@@ -344,7 +398,7 @@ std::vector<std::unique_ptr<toy::kit::StaticObject>> mStaticObjects;
 ```
 
 ```cpp
-// FieldScene.cpp — DefineWorld()
+// FieldScene.cpp — SpawnCharacters()（地形/StaticObjectはDefineWorld()側）
 mPlayer = MakePlayer(GetApp());
 for (int i = 0; i < 10; ++i)
     mMonsters.push_back(MakeNoriko(GetApp(), pos));
@@ -390,6 +444,6 @@ FieldScene::~FieldScene() = default;
    - ない → `Agent<TPrefab>` の薄いサブクラス + `.cpp` ローカル Behavior（Player方式）
    - ある（Signal購読等） → Behavior を名前付きでヘッダ公開 + `GetBehavior()`/専用アクセサ（Hero方式）
 5. `MakeXxx(app, ...)` ファクトリ関数を書き、初期位置等をここで設定する。
-6. Scene 側に `unique_ptr`/`vector<unique_ptr>` メンバを追加し、`DefineWorld()` で生成、
+6. Scene 側に `unique_ptr`/`vector<unique_ptr>` メンバを追加し、`SpawnCharacters()` で生成、
    `ProcessInput()`/`Update()` で呼び出す。
 7. ビルドして警告ゼロを確認する。

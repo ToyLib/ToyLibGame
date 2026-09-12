@@ -1,7 +1,7 @@
 #include "StoryScene.h"
 #include "FieldScene.h"
 
-void StoryScene::InitScene()
+void StoryScene::DefineWorld()
 {
     auto a = CreateActor<toy::Actor>();
     auto mesh = a->CreateComponent<toy::SkeletalMeshComponent>();

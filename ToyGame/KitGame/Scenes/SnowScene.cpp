@@ -13,13 +13,6 @@ SnowScene::SnowScene()
 
 SnowScene::~SnowScene() = default;
 
-void SnowScene::InitScene()
-{
-    DefineEnvironment();
-    DefineWorld();
-    DefineUI();
-}
-
 //-----------------------------------------------------------------------------
 // DefineEnvironment — ポストエフェクト / 時間帯 / BGM
 //-----------------------------------------------------------------------------
@@ -41,20 +34,11 @@ void SnowScene::DefineEnvironment()
 }
 
 //-----------------------------------------------------------------------------
-// DefineWorld — 地形/プロップ（InitField）+ プレイヤー + エネミー + 鏡 + 雪
+// DefineWorld — 地形/プロップ（InitField）+ 鏡 + 主人公視点カメラ + 雪
 //-----------------------------------------------------------------------------
 void SnowScene::DefineWorld()
 {
     InitField();
-
-    mPlayer = MakePlayer(GetApp());
-
-    // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
-    for (int i = 0; i < 10; ++i)
-    {
-        Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
-    }
 
     // 鏡を出す
     auto mirrorActor = CreateActor<toy::Actor>();
@@ -116,6 +100,21 @@ void SnowScene::DefineWorld()
 
     snow->Init(snowDesc);
     snow->Start();
+}
+
+//-----------------------------------------------------------------------------
+// SpawnCharacters — プレイヤー + エネミー
+//-----------------------------------------------------------------------------
+void SnowScene::SpawnCharacters()
+{
+    mPlayer = MakePlayer(GetApp());
+
+    // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
+    for (int i = 0; i < 10; ++i)
+    {
+        Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
+        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
+    }
 }
 
 //-----------------------------------------------------------------------------

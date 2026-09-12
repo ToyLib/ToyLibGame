@@ -68,7 +68,19 @@ protected:
         if (mRequestChange) mRequestChange(std::move(next));
     }
     
-    virtual void InitScene() {};
+    // シーン構築の4フェーズ（この順で呼ばれる。IScene::Init() → InitScene() が呼び出す）。
+    // 必要なものだけ override すればよい（既定は何もしない）。
+    //   DefineEnvironment : ポストエフェクト/時刻/BGM等、見た目・雰囲気の設定
+    //   DefineWorld       : 地形・StaticObject の配置など、動かない世界の構築
+    //   SpawnCharacters   : Player/NPC（Agent<TPrefab>）のスポーン
+    //   DefineUI          : UI Actor の構築
+    // 「いつ・なぜスポーンするか」（時間経過・シナリオ進行等の条件）は各Scene固有の
+    // C++コードとして書く（汎用的なスポーン条件フレームワークは今のところ用意しない）。
+    virtual void DefineEnvironment() {}
+    virtual void DefineWorld() {}
+    virtual void SpawnCharacters() {}
+    virtual void DefineUI() {}
+
     virtual void UnloadScene() {}
 
     
@@ -80,6 +92,10 @@ private:
     toy::Application* mApp = nullptr;
     // Scene が生成した Actor 一覧
     std::vector<Actor*> mActors;
+
+    // シーン開始時に4フェーズを順番に呼ぶ（Init() から呼ばれる。派生Sceneは
+    // このメソッド自体ではなく、上記の4フェーズを override する）
+    void InitScene();
 
     // Scene 終了時の一括破棄
     void DestroyAllActors();

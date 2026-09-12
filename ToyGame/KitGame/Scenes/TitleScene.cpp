@@ -10,7 +10,7 @@ TitleScene::TitleScene()
     
 }
 
-void TitleScene::InitScene()
+void TitleScene::DefineWorld()
 {
     std::cout << "[TitleScene] Enter\n";
     

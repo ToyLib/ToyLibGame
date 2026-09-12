@@ -13,7 +13,7 @@ public:
     void ProcessInput(const struct toy::InputState& input) override;
     void Update(float deltaTime) override;
 protected:
-    void InitScene() override;
+    void DefineWorld() override;
     void UnloadScene() override;
 private:
     toy::MeshComponent* mLogoMesh;

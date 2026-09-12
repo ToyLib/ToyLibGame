@@ -13,13 +13,6 @@ FieldScene::FieldScene()
 
 FieldScene::~FieldScene() = default;
 
-void FieldScene::InitScene()
-{
-    DefineEnvironment();
-    DefineWorld();
-    DefineUI();
-}
-
 //-----------------------------------------------------------------------------
 // DefineEnvironment — ポストエフェクト / 時間帯 / BGM
 //-----------------------------------------------------------------------------
@@ -41,12 +34,18 @@ void FieldScene::DefineEnvironment()
 }
 
 //-----------------------------------------------------------------------------
-// DefineWorld — 地形/プロップ（InitField）+ プレイヤー + エネミー
+// DefineWorld — 地形/プロップ（InitField）
 //-----------------------------------------------------------------------------
 void FieldScene::DefineWorld()
 {
     InitField();
+}
 
+//-----------------------------------------------------------------------------
+// SpawnCharacters — プレイヤー + エネミー
+//-----------------------------------------------------------------------------
+void FieldScene::SpawnCharacters()
+{
     mPlayer = MakePlayer(GetApp());
 
     // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
@@ -127,21 +126,7 @@ void FieldScene::InitField()
     DeployGround();
     DeploySky();
     DeployFire(Vector3::Zero);
-
-    // レンガ
-    for (int i = 0; i < 8; ++i)
-    {
-        for (int j = 0; j < 5; ++j)
-        {
-            DeployBrick(Vector3(-80 + 15 * j / 2 + 10 * i * 1.5, 20, 20 + 5 * j * 1.5));
-        }
-    }
-
-    for (int i = 0; i < 12; ++i)
-    {
-        DeployBrick(Vector3(0, -3 + i * 2, -20 + i * 4));
-
-    }
+    DeployBricks();
 
     // 木（ビルボード）
     auto treeActor = CreateActor<toy::Actor>();
@@ -232,17 +217,37 @@ void FieldScene::DeployGround()
     }
 }
 
-void FieldScene::DeployBrick(Vector3 pos)
+//-----------------------------------------------------------------------------
+// DeployBricks — レンガの配置を Desc化されたデータ（StaticObjectPlacement の
+// 配列）として組み立て、まとめて生成する（設計方針16: Scene構築のDesc化）。
+//-----------------------------------------------------------------------------
+void FieldScene::DeployBricks()
 {
-    toy::kit::StaticObjectDesc desc;
-    desc.model         = "Field/brick.glb";
-    desc.toonRender    = false;
-    desc.actorScale    = 4.0f;
-    desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
+    toy::kit::StaticObjectDesc brickDesc;
+    brickDesc.model         = "Field/brick.glb";
+    brickDesc.toonRender    = false;
+    brickDesc.actorScale    = 4.0f;
+    brickDesc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto brick = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
-    brick->SetPosition(pos);
-    mStaticObjects.push_back(std::move(brick));
+    std::vector<toy::kit::StaticObjectPlacement> placements;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 5; ++j)
+        {
+            placements.push_back({ brickDesc, Vector3(-80 + 15 * j / 2 + 10 * i * 1.5, 20, 20 + 5 * j * 1.5) });
+        }
+    }
+
+    for (int i = 0; i < 12; ++i)
+    {
+        placements.push_back({ brickDesc, Vector3(0, -3 + i * 2, -20 + i * 4) });
+    }
+
+    for (auto& obj : toy::kit::MakeStaticObjects(GetApp(), placements))
+    {
+        mStaticObjects.push_back(std::move(obj));
+    }
 }
 
 void FieldScene::DeployFire(Vector3 pos)

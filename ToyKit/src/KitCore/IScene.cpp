@@ -12,6 +12,18 @@ void IScene::Init(const SceneContext& ctx)
 }
 
 //============================================================
+// InitScene
+//  4フェーズをこの順で呼ぶ。派生Sceneは各フェーズだけを override する。
+//============================================================
+void IScene::InitScene()
+{
+    DefineEnvironment();
+    DefineWorld();
+    SpawnCharacters();
+    DefineUI();
+}
+
+//============================================================
 // Unload
 //============================================================
 void IScene::Unload()

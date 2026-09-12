@@ -19,6 +19,7 @@
 #include "KitPrefab/Projectile.h"
 #include "KitPrefab/StaticObjectDesc.h"
 #include "KitPrefab/StaticObject.h"
+#include "KitPrefab/StaticObjectPlacement.h"
 
 // KitPrefab: 任意の振る舞いを差し込む仕組み
 #include "KitPrefab/IBehavior.h"

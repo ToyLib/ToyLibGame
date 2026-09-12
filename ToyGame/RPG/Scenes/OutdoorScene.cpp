@@ -13,17 +13,6 @@
 OutdoorScene::OutdoorScene()  = default;
 OutdoorScene::~OutdoorScene() = default;
 
-//=============================================================================
-// InitScene
-//=============================================================================
-
-void OutdoorScene::InitScene()
-{
-    DefineEnvironment();
-    DefineWorld();
-    DefineUI();
-}
-
 //-----------------------------------------------------------------------------
 // DefineEnvironment — ポストエフェクト / 時間帯 / BGM
 //-----------------------------------------------------------------------------
@@ -45,12 +34,18 @@ void OutdoorScene::DefineEnvironment()
 }
 
 //-----------------------------------------------------------------------------
-// DefineWorld — 地形/プロップ（InitField）+ Hero/Wolf/Shiro/Stan
+// DefineWorld — 地形/プロップ（InitField）
 //-----------------------------------------------------------------------------
 void OutdoorScene::DefineWorld()
 {
     InitField();
+}
 
+//-----------------------------------------------------------------------------
+// SpawnCharacters — Hero/Wolf/Shiro/Stan
+//-----------------------------------------------------------------------------
+void OutdoorScene::SpawnCharacters()
+{
     // プレイヤー（新方針: Humanoid Prefab を内包する Game Logic）
     mHero = MakeHero(GetApp());
 
@@ -201,21 +196,10 @@ void OutdoorScene::InitField()
     DeployFire(Vector3::Zero);
 
     // レンガ
-    for (int i = 0; i < 6; ++i)
-    {
-        DeployBrick(Vector3(0.0f, -1.0f + i * 5.0f, -15.0f + i * 5.0f));
-    }
+    DeployBricks();
 
     // 島（レンガ状配置）
-    for (int i = 0; i < 8; ++i)
-    {
-        for (int j = 0; j < 5; ++j)
-        {
-            DeployIsland(Vector3(-100.0f + 20.0f * j / 2.0f + 10.0f * i * 2.0f,
-                                 20.0f,
-                                 20.0f + 5.0f * j * 2.0f));
-        }
-    }
+    DeployIslands();
 
     // 家
     DeployHouse(Vector3(-60.0f, 0.0f, 15.0f));
@@ -296,45 +280,67 @@ void OutdoorScene::DeployFire(const Vector3& pos)
     particle->Start();
 }
 
-void OutdoorScene::DeployBrick(const Vector3& pos)
+//-----------------------------------------------------------------------------
+// DeployBricks / DeployIslands — Desc化されたデータ（StaticObjectPlacement の
+// 配列）として配置を組み立て、まとめて生成する（設計方針16: Scene構築のDesc化）。
+//-----------------------------------------------------------------------------
+void OutdoorScene::DeployBricks()
 {
-    toy::kit::StaticObjectDesc desc;
-    desc.model         = "brick.x";
-    desc.actorScale    = 5.0f;
-    desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
+    toy::kit::StaticObjectDesc brickDesc;
+    brickDesc.model         = "brick.x";
+    brickDesc.actorScale    = 5.0f;
+    brickDesc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto brick = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
-    brick->SetPosition(pos);
-    mStaticObjects.push_back(std::move(brick));
+    std::vector<toy::kit::StaticObjectPlacement> placements;
+    for (int i = 0; i < 6; ++i)
+    {
+        placements.push_back({ brickDesc, Vector3(0.0f, -1.0f + i * 5.0f, -15.0f + i * 5.0f) });
+    }
+
+    for (auto& obj : toy::kit::MakeStaticObjects(GetApp(), placements))
+    {
+        mStaticObjects.push_back(std::move(obj));
+    }
 }
 
-void OutdoorScene::DeployIsland(const Vector3& pos)
+void OutdoorScene::DeployIslands()
 {
-    toy::kit::StaticObjectDesc desc;
-    desc.model                     = "island.x";
-    desc.meshScale                  = 0.05f;
-    desc.colliderFromMeshComponent = true;
-    desc.colliderFlags             = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
+    toy::kit::StaticObjectDesc islandDesc;
+    islandDesc.model                     = "island.x";
+    islandDesc.meshScale                  = 0.05f;
+    islandDesc.colliderFromMeshComponent = true;
+    islandDesc.colliderFlags             = toy::C_GROUND | toy::C_WALL | toy::C_CEILING;
 
-    auto island = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
-    island->SetPosition(pos);
-    mStaticObjects.push_back(std::move(island));
+    std::vector<toy::kit::StaticObjectPlacement> placements;
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 5; ++j)
+        {
+            placements.push_back({ islandDesc, Vector3(-100.0f + 20.0f * j / 2.0f + 10.0f * i * 2.0f,
+                                                        20.0f,
+                                                        20.0f + 5.0f * j * 2.0f) });
+        }
+    }
+
+    for (auto& obj : toy::kit::MakeStaticObjects(GetApp(), placements))
+    {
+        mStaticObjects.push_back(std::move(obj));
+    }
 }
 
 void OutdoorScene::DeployHouse(const Vector3& pos)
 {
-    toy::kit::StaticObjectDesc desc;
-    desc.model         = "house.x";
-    desc.actorScale    = 0.003f;
-    desc.colliderOffset = Vector3::Zero;
-    desc.colliderScale  = Vector3(0.9f, 0.9f, 0.9f);
-    desc.colliderFlags  = toy::C_WALL | toy::C_GROUND | toy::C_FOOT;
-    desc.useGravity     = true;
+    toy::kit::StaticObjectPlacement placement;
+    placement.desc.model          = "house.x";
+    placement.desc.actorScale     = 0.003f;
+    placement.desc.colliderOffset = Vector3::Zero;
+    placement.desc.colliderScale  = Vector3(0.9f, 0.9f, 0.9f);
+    placement.desc.colliderFlags  = toy::C_WALL | toy::C_GROUND | toy::C_FOOT;
+    placement.desc.useGravity     = true;
+    placement.position = pos;
+    placement.rotation = Quaternion(Vector3::UnitY, Math::ToRadians(150.0f));
 
-    auto house = std::make_unique<toy::kit::StaticObject>(GetApp(), desc);
-    house->SetPosition(pos);
-    house->SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(150.0f)));
-    mStaticObjects.push_back(std::move(house));
+    mStaticObjects.push_back(toy::kit::MakeStaticObject(GetApp(), placement));
 }
 
 void OutdoorScene::DeployTree(const Vector3& pos)
