@@ -17,9 +17,9 @@ namespace {
 //    - colliderOffset/Scale/Flags   : 当たり判定の形と種別フラグ
 //    - displayName                  : 頭上の名前ビルボード（空文字なら非表示）
 //    - candidateTexture/lockedTexture : ロックオン候補/ロック中の足元スプライト
-//    - enableSensor/sensorFovDeg/sensorMaxDist/sensorTargetMask
+//    - enableVision/visionFovDeg/visionMaxDist/visionTargetMask
 //        : 視界センサー（Humanoid のロックオン索敵と同じ toy::SensorComponent）。
-//          sensorTargetMask で「何を見るか」を指定する——ここでは Player の
+//          visionTargetMask で「何を見るか」を指定する——ここでは Player の
 //          コライダーが持つ toy::C_PLAYER_TEAM を指定し、Player を検知対象にする。
 //=============================================================================
 toy::kit::CreatureDesc MakeNorikoDesc()
@@ -41,10 +41,10 @@ toy::kit::CreatureDesc MakeNorikoDesc()
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";
 
-    desc.enableSensor     = true;
-    desc.sensorFovDeg     = 100.0f;
-    desc.sensorMaxDist    = 15.0f;
-    desc.sensorTargetMask = toy::C_PLAYER_TEAM;
+    desc.enableVision     = true;
+    desc.visionFovDeg     = 100.0f;
+    desc.visionMaxDist    = 15.0f;
+    desc.visionTargetMask = toy::C_PLAYER_TEAM;
 
     return desc;
 }
@@ -167,7 +167,7 @@ private:
     toy::kit::KitStateMachine<State> mFSM;
 
     // Flee中にこの距離より離れたら見失ってIdleに戻る（Sensorの検知距離
-    // ＝MakeNorikoDesc の sensorMaxDist より少し大きめにしてヒステリシスを持たせる）
+    // ＝MakeNorikoDesc の visionMaxDist より少し大きめにしてヒステリシスを持たせる）
     float mLoseDistance = 22.0f;
     float mMoveSpeed     = 4.0f;
 };

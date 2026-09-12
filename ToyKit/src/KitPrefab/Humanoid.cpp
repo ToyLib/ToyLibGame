@@ -33,7 +33,14 @@ Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
     {
         SetupMove();
         SetupCamera(desc);
-        SetupSensor(desc);
+        SetupCombatSensor(desc);
+    }
+
+    if (desc.enableVision)
+    {
+        // Prefab 基底の汎用センサー（Creature と同じ SetupSensor/HasSensorHit）。
+        // 上のロックオン用センサー（enableLockOnCombat）とは別の SensorComponent。
+        SetupSensor(desc.visionFovDeg, desc.visionMaxDist, desc.visionTargetMask, desc.visionRequireLOS);
     }
 
     SetupFootstep(desc);
@@ -210,7 +217,7 @@ void Humanoid::SetupCamera(const HumanoidDesc& desc)
     mFollowCamera->SetFreezeYInAir(desc.freezeCameraYInAir);
 }
 
-void Humanoid::SetupSensor(const HumanoidDesc& desc)
+void Humanoid::SetupCombatSensor(const HumanoidDesc& desc)
 {
     toy::SensorComponent::Desc sensorDesc;
     sensorDesc.fovRad                 = Math::ToRadians(desc.sensorFovDeg);

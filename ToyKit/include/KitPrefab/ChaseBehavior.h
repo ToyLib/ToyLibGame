@@ -9,8 +9,11 @@ namespace toy::kit {
 //=============================================================================
 // ChaseBehavior
 //  索敵→追跡の汎用 AI（IBehavior）。
-//  ターゲットが detectRange 以内に入ったら追いかけ、
-//  detectRange * loseRangeMultiplier より離れたら見失う（ヒステリシス）。
+//  ターゲットを body の視界センサー（Prefab::HasSensorHit。HumanoidDesc/
+//  CreatureDesc の enableVision で有効化する）で捉えたら追いかける。
+//  近づきすぎ（stopRange以内）か、detectRange * loseRangeMultiplier より
+//  離れたら Idle に戻る（近づいた後どうするかは今のところ決めておらず、
+//  Idle に戻すだけ。実際に攻撃してくる敵が出てから Attack 相当を設計する）。
 //
 //  同じ「近づいたら追いかけてくる」敵（Wolf/Shiro 等）は、体の Prefab
 //  Desc とこの ChaseBehaviorDesc の値だけを変えて使い回せる。

@@ -71,10 +71,15 @@ Prefab が Emit する「事実」のペイロード構造体。
   - `SetupAmbientSound` — 常時ループする3Dサウンド（唸り声等）。
   - `SetupSpeechText` — 本体に直接つく常時表示テキート（吹き出し等）。
   - `SetupSensor(fovDeg, maxDist, targetMask, requireLOS=false)` — `HasSensorHit()` を有効にする。
-    Humanoid は元々ロックオン索敵用に自前で `toy::SensorComponent` を持っていたが（そちらは
-    候補一覧・画面ソート等ロックオン固有のロジックを含む、Humanoid内で完結した実装のまま）、
-    「センサーを持つ」という部分だけを2人目の利用者（Creature/Noriko）のために Prefab 基底へ
-    昇格した。Humanoid 側の実装自体は変更していない。
+    Humanoid は元々ロックオン索敵用に自前で `toy::SensorComponent`（`Humanoid::SetupCombatSensor`、
+    候補一覧・画面ソート等ロックオン固有のロジックを含む、Humanoid内で完結した実装のまま）を
+    持っていたが、「センサーを持つ」という部分だけを2人目の利用者（Creature/Noriko）のために
+    Prefab 基底へ昇格した。`Humanoid` は `enableLockOnCombat`（ロックオン専用センサー、Player用）と
+    `enableVision`（この汎用センサー、NPC が Player 等を見つける用）の両方を独立に持てる——
+    `CreatureDesc`/`HumanoidDesc` はどちらも `enableVision`/`visionFovDeg`/`visionMaxDist`/
+    `visionTargetMask`/`visionRequireLOS` という同じ名前のフィールドでこれを設定する
+    （`HumanoidDesc` 側は既存の `sensorFovDeg` 等＝ロックオン専用センサーの設定と名前が
+    衝突しないよう、あえて `sensor` ではなく `vision` を接頭辞にしている）。
   - `OnUpdate(float)` — 派生 Prefab 固有の毎フレーム処理（仮想、既定は何もしない）。
 - ゲーム的な意味（HP・AI等）は一切持たない。装飾ヘルパーは呼ばなければ生成コストゼロ。
 
@@ -157,10 +162,19 @@ class Agent
 
 - 索敵→追跡の汎用AI。`IBehavior` 実装。内部の移動計算は `MovementUtil` に委譲している。
 - `SetTarget(Prefab*)` でターゲットを設定（位置だけを `Prefab` Interface 越しに参照、型を問わない）。
-- `KitStateMachine<State>`（`Idle`/`Chase`）で状態管理。`detectRange` 以内で追跡開始、
-  `detectRange * loseRangeMultiplier` より離れると見失う（ヒステリシスで往復チャタリングを防止）。
+- `KitStateMachine<State>`（`Idle`/`Chase`）で状態管理。
+  - Idle→Chase: body の `HasSensorHit()`（視界。body 側で `enableVision` が必要）が true、かつ
+    `stopRange` より離れている場合。`stopRange` のガードが無いと、Chase→Idle
+    （下記）で近づきすぎて Idle に戻った直後、まだ視界に入ったままなので即座に
+    Chase に戻ってしまい、Idle⇔Chase を毎フレーム往復する。
+  - Chase→Idle: `stopRange` 以内に近づいた（＝とりあえず待機。Attack相当は未実装）か、
+    `detectRange * loseRangeMultiplier` より離れて見失った場合（こちらは既存のまま距離判定。
+    Chase中はターゲットの方を向き続けるので視界で見失うことはほぼ無いが、あえて
+    センサー化はしていない＝要求されていない変更はしない、という方針）。
 - 状態遷移の入口でのみ `PlayAnimationBlend(idleAnim/chaseAnim, animBlendSec)` を呼ぶ。
-- `Wolf`/`Shiro` はこの1つの `ChaseBehavior` を Desc の値違いだけで共有している。
+- `Wolf`/`Shiro` はこの1つの `ChaseBehavior` を Desc の値違いだけで共有している
+  （挙動を変えるときは両方に影響する。片方だけ変えたい場合は `FleeBehavior` のように
+  ローカルな別 Behavior へ分ける）。
 
 ゲーム側ローカルの `FleeBehavior`（Noriko、`HasSensorHit()` で検知・距離で見失う。ChaseBehaviorの
 「逆」）や `FollowBehavior`（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている

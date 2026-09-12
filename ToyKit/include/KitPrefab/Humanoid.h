@@ -66,7 +66,7 @@ private:
     void SetupGravity(const HumanoidDesc& desc);
     void SetupMove();
     void SetupCamera(const HumanoidDesc& desc);
-    void SetupSensor(const HumanoidDesc& desc);
+    void SetupCombatSensor(const HumanoidDesc& desc);
     void SetupFootstep(const HumanoidDesc& desc);
 
     void SearchTarget(float deltaTime);

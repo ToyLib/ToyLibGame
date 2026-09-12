@@ -25,6 +25,12 @@ toy::kit::HumanoidDesc MakeShiroDesc()
     desc.candidateTexture = "candidate.png";
     desc.lockedTexture    = "lockon.png";
 
+    // 視界に Player が入ったら ChaseBehavior が追跡を始める
+    desc.enableVision     = true;
+    desc.visionFovDeg     = 100.0f;
+    desc.visionMaxDist    = 40.0f;
+    desc.visionTargetMask = toy::C_PLAYER_TEAM;
+
     return desc;
 }
 

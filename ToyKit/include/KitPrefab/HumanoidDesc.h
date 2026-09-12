@@ -76,6 +76,15 @@ struct HumanoidDesc
     std::string speechText;
     std::string speechFontPath = "Font/rounded-mplus-1c-bold.ttf";
     Vector3     speechColor    = Vector3(1.0f, 1.0f, 1.0f);
+
+    // 視界センサー（索敵/視認判定。任意。Prefab::SetupSensor/HasSensorHit の設定値。
+    // 上の enableLockOnCombat 用センサー（Player 専用のロックオン索敵）とは別物——
+    // こちらは NPC が Player 等を見つけるための汎用センサー。CreatureDesc と同じ形）
+    bool     enableVision     = false;
+    float    visionFovDeg     = 90.0f;
+    float    visionMaxDist    = 30.0f;
+    uint32_t visionTargetMask = 0; // 例: C_PLAYER_TEAM。見るべき対象のフラグを指定する
+    bool     visionRequireLOS = false;
 };
 
 } // namespace toy::kit

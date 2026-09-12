@@ -23,9 +23,9 @@ Creature::Creature(toy::Application* app, const CreatureDesc& desc)
     }
     SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
 
-    if (desc.enableSensor)
+    if (desc.enableVision)
     {
-        SetupSensor(desc.sensorFovDeg, desc.sensorMaxDist, desc.sensorTargetMask, desc.sensorRequireLOS);
+        SetupSensor(desc.visionFovDeg, desc.visionMaxDist, desc.visionTargetMask, desc.visionRequireLOS);
     }
 }
 

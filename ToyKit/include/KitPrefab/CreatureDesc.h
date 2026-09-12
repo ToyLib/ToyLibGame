@@ -44,12 +44,13 @@ struct CreatureDesc
     std::string candidateTexture;
     std::string lockedTexture;
 
-    // 視界センサー（索敵/視認判定。任意。Humanoidのロックオン用センサーと同じ仕組み）
-    bool     enableSensor     = false;
-    float    sensorFovDeg     = 90.0f;
-    float    sensorMaxDist    = 15.0f;
-    uint32_t sensorTargetMask = 0; // 例: C_PLAYER_TEAM。見るべき対象のフラグを指定する
-    bool     sensorRequireLOS = false;
+    // 視界センサー（索敵/視認判定。任意。Prefab::SetupSensor/HasSensorHit の設定値。
+    // HumanoidDesc の enableLockOnCombat 用センサー（Player のロックオン索敵専用）とは別物）
+    bool     enableVision     = false;
+    float    visionFovDeg     = 90.0f;
+    float    visionMaxDist    = 15.0f;
+    uint32_t visionTargetMask = 0; // 例: C_PLAYER_TEAM。見るべき対象のフラグを指定する
+    bool     visionRequireLOS = false;
 };
 
 } // namespace toy::kit
