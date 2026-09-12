@@ -32,6 +32,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
                          | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
     desc.displayName = "海苔子";
+    desc.nameYOffset = 3.0f;
 
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";
