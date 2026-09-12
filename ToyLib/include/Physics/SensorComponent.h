@@ -13,13 +13,13 @@ class SensorComponent : public Component
 public:
     struct Desc
     {
-        float    fovRad      { Math::ToRadians(90.0f) };
-        float    maxDist     { 50.0f };
+        float    fovRad      { Math::ToRadians(60.0f) };
+        float    maxDist     { 30.0f };
         uint32_t targetMask  { C_ENEMY_TEAM | C_HURTBOX };
         uint32_t losBlock    { C_WALL | C_GROUND };
         bool     requireLOS  { false };
         
-        float    nearOverrideDist { 8.0f };
+        float    nearOverrideDist { 4.0f };
         bool     nearOverrideRequireLOS { false };
     };
     
