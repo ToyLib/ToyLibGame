@@ -9,6 +9,7 @@ toy::kit::HumanoidDesc MakeStanDesc()
     toy::kit::HumanoidDesc desc;
 
     desc.model         = "stan.gltf";
+    desc.yawOffsetDeg  = 180.0f;
     desc.isRightHanded = true;
     desc.toonRender    = true;
 
