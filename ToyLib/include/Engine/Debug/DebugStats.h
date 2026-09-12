@@ -16,7 +16,6 @@ struct DebugStats
     
     float PhysicsTimeMs      { 0.0f };
     float RenderTimeMs       { 0.0f };
-    float RenderWaitTimeMs   { 0.0f };
     
     float UpdateGameTimeMs   { 0.0f };
     float ActorUpdateTimeMs  { 0.0f };

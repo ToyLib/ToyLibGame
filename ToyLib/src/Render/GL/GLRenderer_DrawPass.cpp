@@ -258,7 +258,16 @@ bool GLRenderer::BeginFrame()
 
 void GLRenderer::EndFrame()
 {
+    // ★Vsync待ちはSDL_GL_SwapWindow()内で発生する(SDL_GL_SetSwapInterval(1)時)。
+    //   VKRenderer同様、待ち時間をmFrameWaitTimeMsに記録し、Application側で
+    //   RenderTimeMsから除外できるようにする。
+    Uint64 swapBegin = SDL_GetPerformanceCounter();
+
     SDL_GL_SwapWindow(mWindow);
+
+    Uint64 swapEnd = SDL_GetPerformanceCounter();
+    mFrameWaitTimeMs = static_cast<float>((swapEnd - swapBegin) * 1000.0
+                        / static_cast<double>(SDL_GetPerformanceFrequency()));
 }
 
 //==============================================================================

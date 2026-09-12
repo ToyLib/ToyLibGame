@@ -95,7 +95,6 @@ void DebugOverlayActor::RefreshOverlayText()
     text += StringUtil::Format("DrawCalls    : <<\n",     stats.DrawCallCount);
     text += StringUtil::Format("RTTCalls     : <<\n",     stats.OffDrawCallCount);
     text += StringUtil::Format("RenderTime   : << ms\n",  stats.RenderTimeMs);
-    text += StringUtil::Format("RenderWait   : << ms\n",  stats.RenderWaitTimeMs);
     text += StringUtil::Format("VSync(F2)    : <<\n",     GetApp()->GetRenderer()->IsVSyncEnavle() ? "ON" : "OFF");
     text += StringUtil::Format("UpdateTTL    : << ms\n",  stats.UpdateTotalTimeMs);
     text += "-------------\n";
