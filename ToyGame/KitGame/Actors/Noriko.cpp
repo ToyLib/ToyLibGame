@@ -101,7 +101,19 @@ public:
         mFSM.Register(State::Idle,
             [this](float)
             {
-                if (mFSM.IsEnterFrame()) mBody->PlayAnimationBlend(0, kAnimBlendSec);
+                if (mFSM.IsEnterFrame())
+                {
+                    mBody->PlayAnimationBlend(0, kAnimBlendSec);
+
+                    // Idle に入った瞬間、Player の方を向く（見失って落ち着く動作）。
+                    // FaceDirectionXZ と組み合わせる向き（DirectionAwayFromPointXZの逆）を使う
+                    // ——FaceTowardPointXZ とは符号規約が違うので、こちらは使わない。
+                    if (HasTarget())
+                    {
+                        const Vector3 dir = toy::kit::DirectionTowardPointXZ(*mBody, mTarget->GetPosition());
+                        toy::kit::FaceDirectionXZ(*mBody, dir);
+                    }
+                }
 
                 // 検知: Sensor（視界）に Player が入ったかどうか
                 if (HasTarget() && mBody->HasSensorHit())

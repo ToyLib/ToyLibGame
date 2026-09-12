@@ -28,6 +28,19 @@ Vector3 DirectionAwayFromPointXZ(const Prefab& body, const Vector3& targetPos)
 }
 
 //-----------------------------------------------------------------------------
+Vector3 DirectionTowardPointXZ(const Prefab& body, const Vector3& targetPos)
+{
+    const Vector3& self = body.GetPosition();
+    const float dx = targetPos.x - self.x;
+    const float dz = targetPos.z - self.z;
+    const float lenSq = dx * dx + dz * dz;
+    if (lenSq < 1.0e-6f) return Vector3::UnitZ; // 距離ゼロで方向が定まらない場合の既定値
+
+    const float invLen = 1.0f / sqrtf(lenSq);
+    return Vector3(dx * invLen, 0.0f, dz * invLen);
+}
+
+//-----------------------------------------------------------------------------
 void FaceDirectionXZ(Prefab& body, const Vector3& directionXZ)
 {
     const float angle = atan2f(directionXZ.x, directionXZ.z);
