@@ -58,32 +58,15 @@ toy::kit::ChaseBehaviorDesc MakeNinjaChaseDesc()
 //-----------------------------------------------------------------------------
 // MakeNinja — Factory 関数
 //  behaviorType で Noriko の FleeBehavior と Wolf/Shiro の ChaseBehavior の
-//  どちらを使うかを選ぶ。Behavior 本体はどちらも ToyKit 側の汎用実装で、
-//  ここでは Desc の組み立てと SetTarget だけを行う。
+//  どちらを使うかを選ぶ。中身は Ninja用の Desc を組み立てて MakeSkirmisher()
+//  に渡すだけ（Skirmisher 自体は Ninja のことを一切知らない）。
 //-----------------------------------------------------------------------------
-std::unique_ptr<Ninja> MakeNinja(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
-                                  Ninja::BehaviorType behaviorType)
+std::unique_ptr<Skirmisher> MakeNinja(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
+                                       NinjaBehaviorType behaviorType)
 {
-    std::unique_ptr<toy::kit::IBehavior> behavior;
-    switch (behaviorType)
+    if (behaviorType == NinjaBehaviorType::Chase)
     {
-    case Ninja::BehaviorType::Flee:
-    {
-        auto flee = std::make_unique<toy::kit::FleeBehavior>(MakeNinjaFleeDesc());
-        flee->SetTarget(target);
-        behavior = std::move(flee);
-        break;
+        return MakeSkirmisher(app, position, target, MakeNinjaDesc(), MakeNinjaChaseDesc());
     }
-    case Ninja::BehaviorType::Chase:
-    {
-        auto chase = std::make_unique<toy::kit::ChaseBehavior>(MakeNinjaChaseDesc());
-        chase->SetTarget(target);
-        behavior = std::move(chase);
-        break;
-    }
-    }
-
-    auto ninja = std::make_unique<Ninja>(app, std::move(behavior), MakeNinjaDesc());
-    ninja->GetBody().SetPosition(position);
-    return ninja;
+    return MakeSkirmisher(app, position, target, MakeNinjaDesc(), MakeNinjaFleeDesc());
 }

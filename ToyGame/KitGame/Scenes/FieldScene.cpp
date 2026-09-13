@@ -4,6 +4,7 @@
 #include "../Actors/Player.h"
 #include "../Actors/Noriko.h"
 #include "../Actors/Ninja.h"
+#include "../Actors/Bunny.h"
 
 
 
@@ -59,10 +60,16 @@ void FieldScene::SpawnCharacters()
     // Ninja（Humanoid + Flee/ChaseBehavior の Agent。個体ごとに Behavior を選択できる）
     {
         Vector3 fleePos(-10.0f, 3.0f, 20.0f);
-        mNinjas.push_back(MakeNinja(GetApp(), fleePos, &mPlayer->GetBody(), Ninja::BehaviorType::Flee));
+        mNinjas.push_back(MakeNinja(GetApp(), fleePos, &mPlayer->GetBody(), NinjaBehaviorType::Flee));
 
         Vector3 chasePos(10.0f, 3.0f, 20.0f);
-        mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), Ninja::BehaviorType::Chase));
+        mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), NinjaBehaviorType::Chase));
+    }
+
+    // Bunny（Ninjaと同じSkirmisherにモデルだけ差し替えたお試しキャラ。Flee固定）
+    {
+        Vector3 pos(0.0f, 3.0f, 30.0f);
+        mBunnies.push_back(MakeBunny(GetApp(), pos, &mPlayer->GetBody()));
     }
 }
 
@@ -116,6 +123,11 @@ void FieldScene::Update(float deltaTime)
     for (auto& ninja : mNinjas)
     {
         ninja->Update(deltaTime);
+    }
+
+    for (auto& bunny : mBunnies)
+    {
+        bunny->Update(deltaTime);
     }
 
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();
