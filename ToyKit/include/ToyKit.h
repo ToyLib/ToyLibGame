@@ -27,3 +27,5 @@
 #include "KitPrefab/MovementUtil.h"
 #include "KitPrefab/ChaseBehaviorDesc.h"
 #include "KitPrefab/ChaseBehavior.h"
+#include "KitPrefab/FleeBehaviorDesc.h"
+#include "KitPrefab/FleeBehavior.h"

@@ -3,6 +3,7 @@
 #include "ToyLib.h"
 #include "../Actors/Player.h"
 #include "../Actors/Noriko.h"
+#include "../Actors/Ninja.h"
 
 
 
@@ -49,10 +50,19 @@ void FieldScene::SpawnCharacters()
     mPlayer = MakePlayer(GetApp());
 
     // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
         mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
+    }
+
+    // Ninja（Humanoid + Flee/ChaseBehavior の Agent。個体ごとに Behavior を選択できる）
+    {
+        Vector3 fleePos(-10.0f, 3.0f, 20.0f);
+        mNinjas.push_back(MakeNinja(GetApp(), fleePos, &mPlayer->GetBody(), Ninja::BehaviorType::Flee));
+
+        Vector3 chasePos(10.0f, 3.0f, 20.0f);
+        mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), Ninja::BehaviorType::Chase));
     }
 }
 
@@ -101,6 +111,11 @@ void FieldScene::Update(float deltaTime)
     for (auto& monster : mMonsters)
     {
         monster->Update(deltaTime);
+    }
+
+    for (auto& ninja : mNinjas)
+    {
+        ninja->Update(deltaTime);
     }
 
     auto h = GetApp()->GetTimeOfDaySystem()->GetHour();

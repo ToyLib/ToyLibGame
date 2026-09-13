@@ -14,12 +14,14 @@
 //  ゲーム側のキャラクラス（この Noriko）は toy::Actor を継承しない。
 //  代わりに、
 //    体   = toy::kit::Creature（Prefab派生。見た目・当たり判定だけを持つ）
-//    行動 = toy::kit::IBehavior（後述の FleeBehavior。Noriko.cpp 参照）
+//    行動 = toy::kit::IBehavior（toy::kit::FleeBehavior。Noriko.cpp では
+//        FleeBehaviorDesc の組み立てだけを行う）
 //  の2つを toy::kit::Agent<TPrefab> というテンプレートで束ねる。
 //  「体」と「行動」を分けておくことで、同じ Creature/Humanoid に別の
-//  行動を差し替えたり（Wolf/Shiro は Humanoid+ChaseBehavior）、逆に同じ
-//  行動を別の体に使い回したり（ChaseBehavior は Humanoid 専用ではない）
-//  できる。
+//  行動を差し替えたり（Wolf/Shiro は Humanoid+ChaseBehavior、Ninja は
+//  Humanoid+FleeBehavior/ChaseBehavior を選択）、逆に同じ行動を別の体に
+//  使い回したり（FleeBehavior/ChaseBehavior は Creature/Humanoid のどちらか
+//  専用ではない）できる。
 //
 //  Noriko クラス自体は Agent<Creature> の「using Agent::Agent;」だけの
 //  薄いサブクラス（＝Agent のコンストラクタをそのまま使う）。これは
