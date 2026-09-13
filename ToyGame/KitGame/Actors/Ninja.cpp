@@ -18,6 +18,9 @@ toy::kit::HumanoidDesc MakeNinjaDesc()
     desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                         | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
+    desc.displayName = "忍者";
+    desc.nameYOffset = 3.0f;
+    
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";
 

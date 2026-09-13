@@ -22,7 +22,7 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
 
     mTextComp = CreateComponent<TextSpriteComponent>(1000, VisualLayer::UI);
 
-    auto debugFont = app->mSystemAssetManager->GetFont("Hermit-Bold.otf", 20);
+    auto debugFont = app->mSystemAssetManager->GetFont("Hermit-Bold.otf", 18);
     mTextComp->SetFont(debugFont);
     mTextComp->SetColor(mTextColor);
 
