@@ -138,6 +138,7 @@ toy::kit::HumanoidDesc MakeWolfDesc()
 {
     toy::kit::HumanoidDesc desc;
     desc.model          = "Enemy/wolf.gltf";
+    desc.yawOffsetDeg   = 180.0f; // モデルはBlenderで正面向きに作られているため、見た目をGetForward()に揃える補正（新規Descには常に設定する）
     desc.colliderFlags  = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                          | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
     desc.ambientSound       = "growling.wav";
@@ -148,7 +149,7 @@ toy::kit::HumanoidDesc MakeWolfDesc()
 toy::kit::ChaseBehaviorDesc MakeWolfChaseDesc()
 {
     toy::kit::ChaseBehaviorDesc desc;
-    desc.detectRange = 30.0f;
+    desc.loseDistance = 30.0f;
     desc.moveSpeed   = 8.0f;
     desc.idleAnim    = 2;
     desc.chaseAnim   = 3;

@@ -161,11 +161,20 @@ Scene 側は「procedural に1体ずつ`new`する」代わりに、この構造
 | `FaceTowardPointXZ(body, point)` | 対象点の方を向く（ToTarget 用） |
 | `MoveTowardPointXZ(body, point, speed, dt, stopRange)` | 対象点へ接近する。`stopRange`以内なら止まる |
 
-**注意:** `FaceDirectionXZ` と `FaceTowardPointXZ` は回転角の符号の付け方がそれぞれ違う
-（前者は元の `IdleWalkBehavior`、後者は元の `ChaseBehavior`/`FollowBehavior` の式をそのまま抽出したもの）。
-どちらが「正しい」向きかはモデルごとの `yawOffsetDeg` との組み合わせで決まるため、見た目を確認せずに
-統一することはしていない。新しい呼び出し元を追加するときは、既存のどちらの流儀に合わせるべきかを
-実際に動かして確認すること。
+**モデルの前方向の規約:** キャラクターモデルは Blender で正面を向けてモデリング・エクスポート
+したものをそのまま使っている。この前方向は `toy::Actor::GetForward()`
+（`Vector3::Transform(Vector3::UnitZ, mRotation)`、ローカル+Z）とは逆向き（ローカル-Z）になる。
+`SensorComponent` の視界コーン（`q.forward = GetOwner()->GetForward()`）や `MovementUtil` の
+`Face*`系関数はすべて「`GetForward()` = 見た目の正面」を前提に書かれているため、**新しい
+Creature/Humanoid の Desc には必ず `yawOffsetDeg = 180.0f` を設定し、見た目をエンジン側の
+前方向規約に合わせること**（`Noriko`/`Wolf`/`Shiro`/`Ninja` はすべてこの規約で統一済み）。
+
+以前は `FaceDirectionXZ`（Flee系）と `FaceTowardPointXZ`（Chase系）とで回転角の符号を逆に
+実装し、Behavior側で見た目のズレを吸収していた時期があったが、これは「センサーの向きだけ
+GetForward()のまま＝見た目と食い違う」というバグの温床だった。現在は `yawOffsetDeg=180` を
+モデル側の標準補正とし、`FaceDirectionXZ`/`FaceTowardPointXZ` はどちらも同じ規約
+（引数の方向がそのまま `GetForward()` になる）で統一されている。**見た目の向きがおかしいときは
+Behavior側の符号をいじって帳尻を合わせるのではなく、まず Desc の `yawOffsetDeg` を疑うこと。**
 
 ### 汎用 Behavior
 
@@ -179,16 +188,18 @@ Scene 側は「procedural に1体ずつ`new`する」代わりに、この構造
     （下記）で近づきすぎて Idle に戻った直後、まだ視界に入ったままなので即座に
     Chase に戻ってしまい、Idle⇔Chase を毎フレーム往復する。
   - Chase→Idle: `stopRange` 以内に近づいた（＝とりあえず待機。Attack相当は未実装）か、
-    `detectRange * loseRangeMultiplier` より離れて見失った場合（こちらは既存のまま距離判定。
+    `loseDistance * loseRangeMultiplier` より離れて見失った場合（こちらは既存のまま距離判定。
     Chase中はターゲットの方を向き続けるので視界で見失うことはほぼ無いが、あえて
-    センサー化はしていない＝要求されていない変更はしない、という方針）。
+    センサー化はしていない＝要求されていない変更はしない、という方針）。検知（Idle→Chase）は
+    body側の視界センサーが担当するため、`loseDistance` は検知距離ではなく見失い判定専用
+    （検知距離を変えたいときは `HumanoidDesc`/`CreatureDesc` の `visionMaxDist` を変える）。
 - 状態遷移の入口でのみ `PlayAnimationBlend(idleAnim/chaseAnim, animBlendSec)` を呼ぶ。
-- `Wolf`/`Shiro` はこの1つの `ChaseBehavior` を Desc の値違いだけで共有している
-  （挙動を変えるときは両方に影響する。片方だけ変えたい場合は `FleeBehavior` のように
-  ローカルな別 Behavior へ分ける）。
+- `Wolf`/`Shiro`/`Ninja`（Chase選択時）はこの1つの `ChaseBehavior` を Desc の値違いだけで
+  共有している（挙動を変えるときは全員に影響する）。
 
-ゲーム側ローカルの `FleeBehavior`（Noriko、`HasSensorHit()` で検知・距離で見失う。ChaseBehaviorの
-「逆」）や `FollowBehavior`（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている
+`toy::kit::FleeBehavior`（元は Noriko 専用のローカル実装だったが、Ninja が2人目の利用者に
+なった時点で ToyKit 側へ昇格。`HasSensorHit()` で検知・距離で見失う。ChaseBehaviorの「逆」）や
+`FollowBehavior`（Stan、ToTarget のみ・索敵/見失いなし）も同じ `MovementUtil` を使っている
 （[ToyKit_Prefab_Manual.md](ToyKit_Prefab_Manual.md) 参照）。Attack 相当の汎用 Behavior はまだ無い
 （実際に攻撃してくる敵が出てから、その形を見て設計する）。
 
