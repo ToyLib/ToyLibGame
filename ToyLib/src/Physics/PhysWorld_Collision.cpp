@@ -15,6 +15,55 @@
 namespace toy {
 
 //=============================================================================
+// 押し出し優先度判定: フレーム間の位置差分で「動いているか」を判定する
+//  ・DirMoveComponent/TryMoveWithRayCheck のような速度ベース移動だけでなく、
+//    ToyKit の Behavior（FleeBehavior/ChaseBehavior 等）が MovementUtil 経由で
+//    Actor::SetPosition を直接叩く移動（MoveComponent を一切経由しない）も
+//    ここで検知できるよう、実際の座標の変化量で判定する。
+//=============================================================================
+void PhysWorld::UpdateMovementTracking()
+{
+    constexpr float kMoveEpsSq = 1e-6f;
+
+    // 前フレームの判定結果をクリア（mLastActorPositions は履歴として残す）
+    mIsMovingThisFrame.clear();
+
+    for (auto* c : mColliders)
+    {
+        if (!c) continue;
+
+        Actor* actor = c->GetOwner();
+        if (!actor) continue;
+
+        // 同じ Actor が複数 Collider を持つ場合は一度だけ判定する
+        if (mIsMovingThisFrame.find(actor) != mIsMovingThisFrame.end())
+        {
+            continue;
+        }
+
+        const Vector3 pos = actor->GetPosition();
+
+        bool moving = false;
+        auto it = mLastActorPositions.find(actor);
+        if (it != mLastActorPositions.end())
+        {
+            moving = (pos - it->second).LengthSq() > kMoveEpsSq;
+        }
+
+        mIsMovingThisFrame[actor] = moving;
+        mLastActorPositions[actor] = pos;
+    }
+}
+
+bool PhysWorld::IsActorMoving(const Actor* actor) const
+{
+    if (!actor) return false;
+
+    auto it = mIsMovingThisFrame.find(actor);
+    return it != mIsMovingThisFrame.end() && it->second;
+}
+
+//=============================================================================
 // Collider 管理
 //=============================================================================
 void PhysWorld::AddCollider(ColliderComponent* c)
@@ -35,9 +84,26 @@ void PhysWorld::RemoveCollider(ColliderComponent* c)
     }
 
     auto it = std::find(mColliders.begin(), mColliders.end(), c);
-    if (it != mColliders.end())
+    if (it == mColliders.end())
     {
-        mColliders.erase(it);
+        return;
+    }
+
+    Actor* owner = c->GetOwner();
+    mColliders.erase(it);
+
+    // 他の Collider がまだ同じ Actor を参照していなければ、
+    // 移動判定キャッシュ（ダングリングポインタ化を防ぐ）も破棄する
+    if (owner)
+    {
+        const bool stillReferenced = std::any_of(mColliders.begin(), mColliders.end(),
+            [owner](const ColliderComponent* other) { return other && other->GetOwner() == owner; });
+
+        if (!stillReferenced)
+        {
+            mLastActorPositions.erase(owner);
+            mIsMovingThisFrame.erase(owner);
+        }
     }
 }
 
@@ -136,6 +202,14 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
             if (!doPushBack) continue;
             if (c1->IsTrigger() || c2->IsTrigger()) continue;
 
+            // 静止側(ownerA)へ移動中の相手(ownerB)がぶつかってきた場合は、
+            // 静止側を動かさない。押し出しは ownerB 側のパス
+            // (ownerB が flagA として処理される側)に任せる。
+            if (!IsActorMoving(ownerA) && IsActorMoving(ownerB))
+            {
+                continue;
+            }
+
             Vector3 push = ComputePushBackDirection(c1, c2, allowY);
             if (!allowY) push.y = 0.0f;
 
@@ -170,6 +244,9 @@ void PhysWorld::CollideAndCallback(uint32_t flagA,
 //=============================================================================
 void PhysWorld::Test()
 {
+    // 押し出し優先度判定用: 前フレームからの移動量を更新
+    UpdateMovementTracking();
+
     // 前フレームの衝突情報をクリア
     for (auto* c : mColliders)
     {

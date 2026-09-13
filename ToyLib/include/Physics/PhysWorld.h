@@ -9,6 +9,7 @@
 
 #include <cfloat>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace toy {
@@ -362,12 +363,24 @@ private:
                                   float cosMaxSlope,
                                   GroundHit& outHit) const;
 
+    //=============================================================
+    // 押し出し優先度判定用: フレーム間の位置差分から「動いているか」を判定
+    //  ・DirMoveComponent 等の速度ベース移動だけでなく、Behavior 系が
+    //    Actor::SetPosition を直接叩く移動（MoveComponent を経由しない）
+    //    にも対応できるよう、実位置の差分で判定する。
+    //=============================================================
+    void UpdateMovementTracking();
+    bool IsActorMoving(const Actor* actor) const;
+
 private:
     std::vector<Polygon> mTerrainPolygons;
     TerrainGrid          mTerrainGrid{};
-    
+
     std::vector<ColliderComponent*> mColliders;
-    
+
+    std::unordered_map<const Actor*, Vector3> mLastActorPositions;
+    std::unordered_map<const Actor*, bool>    mIsMovingThisFrame;
+
     //=============================================================
     // Tunables (NEW)
     //=============================================================
