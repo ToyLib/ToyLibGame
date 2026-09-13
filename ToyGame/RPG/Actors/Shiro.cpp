@@ -8,6 +8,7 @@ toy::kit::HumanoidDesc MakeShiroDesc()
 
     desc.model                     = "Enemy/Shiro.glb";
     desc.scale                     = 3.0f;
+    desc.yawOffsetDeg              = 180.0f; // モデルの正面がローカル-Z向きで作られているため、+Z(GetForward)に揃える補正
     desc.toonRender                = true;
     desc.contourColor              = Vector3(0.3f, 0.3f, 0.35f);
     desc.meshOffset                = Vector3(0.0f, 0.0f, 0.8f);
@@ -37,7 +38,7 @@ toy::kit::HumanoidDesc MakeShiroDesc()
 toy::kit::ChaseBehaviorDesc MakeShiroChaseDesc()
 {
     toy::kit::ChaseBehaviorDesc desc;
-    desc.detectRange = 40.0f;
+    desc.loseDistance = 40.0f;
     desc.moveSpeed   = 6.0f;
     desc.stopRange   = 4.0f;
 

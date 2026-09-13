@@ -11,7 +11,7 @@ namespace toy::kit {
 //  索敵→追跡の汎用 AI（IBehavior）。
 //  ターゲットを body の視界センサー（Prefab::HasSensorHit。HumanoidDesc/
 //  CreatureDesc の enableVision で有効化する）で捉えたら追いかける。
-//  近づきすぎ（stopRange以内）か、detectRange * loseRangeMultiplier より
+//  近づきすぎ（stopRange以内）か、loseDistance * loseRangeMultiplier より
 //  離れたら Idle に戻る（近づいた後どうするかは今のところ決めておらず、
 //  Idle に戻すだけ。実際に攻撃してくる敵が出てから Attack 相当を設計する）。
 //

@@ -14,7 +14,7 @@ void ChaseBehavior::OnStart(Prefab& body)
     //        「近づいたので Idle に戻った」直後は、向きを変えていなければ
     //        まだ視界に入ったままなので、これが無いと Idle⇔Chase を毎フレーム
     //        往復してしまう。
-    // Chase: 追跡。見失ったら（detectRange*loseRangeMultiplierより離れたら）
+    // Chase: 追跡。見失ったら（loseDistance*loseRangeMultiplierより離れたら）
     //        か、近づきすぎたら（stopRange以内）Idle へ戻る。
     //        近づいた後どうするか（攻撃 等）は今のところ決めていないため、
     //        とりあえず Idle に戻すだけにしている。
@@ -40,7 +40,7 @@ void ChaseBehavior::OnStart(Prefab& body)
                 FaceTowardPointXZ(*mBody, mTarget->GetPosition());
 
                 const float dist = GetDistanceXZ(*mBody, mTarget->GetPosition());
-                if (dist <= mDesc.stopRange || dist > mDesc.detectRange * mDesc.loseRangeMultiplier)
+                if (dist <= mDesc.stopRange || dist > mDesc.loseDistance * mDesc.loseRangeMultiplier)
                 {
                     mFSM.To(State::Idle);
                 }

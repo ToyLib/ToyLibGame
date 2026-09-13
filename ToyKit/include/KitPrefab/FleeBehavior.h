@@ -9,9 +9,14 @@ namespace toy::kit {
 //=============================================================================
 // FleeBehavior
 //  索敵→逃走の汎用 AI（IBehavior）。ChaseBehavior の逆で、ターゲットを
-//  body の視界センサー（Prefab::HasSensorHit）で捉えたら反対方向へ逃げる。
-//  loseDistance より離れたら Idle に戻る（Noriko で最初に使われ、Ninja が
-//  2人目の利用者になったためここへ昇格した。ChaseBehavior と同じ流れ）。
+//  body の視界センサー（Prefab::HasSensorHit）で捉えたら反対方向を向いて
+//  走って逃げる。loseDistance より離れたら Idle に戻る（Noriko で最初に
+//  使われ、Ninja が2人目の利用者になったためここへ昇格した。ChaseBehavior
+//  と同じ流れ）。
+//
+//  モデルの正面がローカル-Z向きで作られている前提で、各キャラの Desc の
+//  yawOffsetDeg=180 で見た目を GetForward() に揃える（Face*/Move* 関数は
+//  向き補正を意識せず素直に書ける）。
 //
 //  同じ「見つかったら逃げる」相手（Noriko/Ninja 等）は、体の Prefab Desc と
 //  この FleeBehaviorDesc の値だけを変えて使い回せる。

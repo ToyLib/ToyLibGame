@@ -8,6 +8,7 @@ toy::kit::HumanoidDesc MakeWolfDesc()
 
     desc.model         = "Enemy/wolf.gltf";
     desc.meshDrawOrder = 1000;
+    desc.yawOffsetDeg  = 180.0f; // モデルの正面がローカル-Z向きで作られているため、+Z(GetForward)に揃える補正
 
     desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                         | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
@@ -33,7 +34,7 @@ toy::kit::HumanoidDesc MakeWolfDesc()
 toy::kit::ChaseBehaviorDesc MakeWolfChaseDesc()
 {
     toy::kit::ChaseBehaviorDesc desc;
-    desc.detectRange = 30.0f;
+    desc.loseDistance = 30.0f;
     desc.moveSpeed   = 8.0f;
     desc.stopRange   = 4.0f;
 

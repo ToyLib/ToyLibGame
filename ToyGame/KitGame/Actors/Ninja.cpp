@@ -11,8 +11,9 @@ namespace {
 toy::kit::HumanoidDesc MakeNinjaDesc()
 {
     toy::kit::HumanoidDesc desc;
-    desc.model = "Monsters/Big/Ninja.gltf";
-    desc.scale = 1.0f;
+    desc.model        = "Monsters/Big/Ninja.gltf";
+    desc.scale        = 1.0f;
+    desc.yawOffsetDeg = 180.0f; // モデルの正面がローカル-Z向きで作られているため、+Z(GetForward)に揃える補正
 
     desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                         | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
@@ -22,8 +23,8 @@ toy::kit::HumanoidDesc MakeNinjaDesc()
 
     // 視界に Player が入ったら選択された Behavior（Flee/Chase）が動き出す
     desc.enableVision     = true;
-    desc.visionFovDeg     = 100.0f;
-    desc.visionMaxDist    = 25.0f;
+    desc.visionFovDeg     = 60.0f;
+    desc.visionMaxDist    = 15.0f;
     desc.visionTargetMask = toy::C_PLAYER_TEAM;
 
     return desc;
@@ -44,7 +45,7 @@ toy::kit::FleeBehaviorDesc MakeNinjaFleeDesc()
 toy::kit::ChaseBehaviorDesc MakeNinjaChaseDesc()
 {
     toy::kit::ChaseBehaviorDesc desc;
-    desc.detectRange = 25.0f;
+    desc.loseDistance = 25.0f;
     desc.moveSpeed   = 8.0f;
     desc.stopRange   = 4.0f;
     desc.idleAnim    = 3; // Idle
@@ -84,7 +85,5 @@ std::unique_ptr<Ninja> MakeNinja(toy::Application* app, const Vector3& position,
 
     auto ninja = std::make_unique<Ninja>(app, std::move(behavior), MakeNinjaDesc());
     ninja->GetBody().SetPosition(position);
-    Quaternion rot = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(180.0f));
-    ninja->GetBody().SetRotation(rot);
     return ninja;
 }

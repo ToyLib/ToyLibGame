@@ -24,8 +24,7 @@ Vector3 DirectionAwayFromPointXZ(const Prefab& body, const Vector3& targetPos);
 
 // body から targetPos へ向かう方向の単位方向ベクトル（XZ）。距離がほぼ0で方向が
 // 定まらない場合は Vector3::UnitZ を返す。DirectionAwayFromPointXZ のちょうど逆。
-// FaceTowardPointXZ とは向きの符号規約が異なる点に注意
-// （こちらは FaceDirectionXZ/MoveInDirectionXZ と組み合わせる用）。
+// FaceDirectionXZ/MoveInDirectionXZ と組み合わせる用。
 Vector3 DirectionTowardPointXZ(const Prefab& body, const Vector3& targetPos);
 
 // 指定方向（XZ）を向く。正規化は不要
@@ -37,7 +36,10 @@ void MoveInDirectionXZ(Prefab& body, const Vector3& directionXZ, float speed, fl
 // body と targetPos の XZ 距離
 float GetDistanceXZ(const Prefab& body, const Vector3& targetPos);
 
-// targetPos の方を向く（XZ平面）。距離がほぼ0なら何もしない（ToTarget 用）
+// targetPos の方を向く（XZ平面）。距離がほぼ0なら何もしない（ToTarget 用）。
+// FaceDirectionXZ(DirectionTowardPointXZ(...)) と同じ規約
+// （GetForward() がそのまま targetPos の方向を向く。モデルの見た目補正は
+// 各キャラの Desc の yawOffsetDeg で行う前提）。
 void FaceTowardPointXZ(Prefab& body, const Vector3& targetPos);
 
 // targetPos へ向かって進む。stopRange 以内なら何もしない（ToTarget 用）

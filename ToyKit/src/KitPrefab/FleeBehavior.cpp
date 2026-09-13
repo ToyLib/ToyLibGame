@@ -11,9 +11,10 @@ void FleeBehavior::OnStart(Prefab& body)
 
     // Idle : body の視界センサー（HasSensorHit）に捉えたら Flee へ。
     //        入った瞬間、ターゲットの方を向く（見失って落ち着く動作）。
-    // Flee : ターゲットと反対方向を向いて進む。loseDistance より離れたら
-    //        Idle へ戻る（Flee 中は背を向けているので Sensor では判定しない。
-    //        クラスコメント参照）。
+    // Flee : ターゲットと反対方向を向いて、その方向へ前進する（振り返って走って
+    //        逃げる）。loseDistance より離れたら Idle へ戻る（Flee 中は背を向けて
+    //        いるため、前方視野の Sensor では見失い判定ができない——距離のみで
+    //        判定する。クラスコメント参照）。
     mFSM.Register(State::Idle,
         /* onUpdate */ [this](float)
         {

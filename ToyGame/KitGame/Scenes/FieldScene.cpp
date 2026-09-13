@@ -132,7 +132,7 @@ void FieldScene::Update(float deltaTime)
 
     
     Vector3 pos = mPlayer->GetBody().GetPosition();
-    toy::DebugDraw::Sphere(pos, 5.0f, 32);
+    toy::DebugDraw::Sphere(pos, 4.0f, 32);
     //toy::DebugDraw::Box(min, max);
 }
 

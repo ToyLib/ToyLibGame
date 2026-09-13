@@ -71,7 +71,10 @@ void FaceTowardPointXZ(Prefab& body, const Vector3& targetPos)
     const float dz = targetPos.z - self.z;
     if (dx * dx + dz * dz < 0.01f) return;
 
-    const float angle = atan2f(-dx, -dz);
+    // FaceDirectionXZ と同じ規約（GetForward() がそのまま targetPos の方向を向く）。
+    // モデル側の見た目補正は yawOffsetDeg で行う前提なので、ここで符号を反転させて
+    // 帳尻を合わせる必要はない。
+    const float angle = atan2f(dx, dz);
     body.SetRotation(Quaternion(Vector3::UnitY, angle));
 }
 

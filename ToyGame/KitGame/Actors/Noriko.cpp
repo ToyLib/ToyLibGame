@@ -26,7 +26,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
     toy::kit::CreatureDesc desc;
     desc.model                     = "Field/noriko.glb";
     desc.scale                     = 3.0f;
-    desc.yawOffsetDeg              = 180.0f;
+    desc.yawOffsetDeg              = 180.0f; // モデルの正面がローカル-Z向きで作られているため、+Z(GetForward)に揃える補正
     desc.cancelRootTranslationBone = "Hip";
 
     desc.colliderOffset = Vector3(0.0f, 0.0f, 0.0f);
@@ -41,8 +41,8 @@ toy::kit::CreatureDesc MakeNorikoDesc()
     desc.lockedTexture    = "UI/lockon.png";
 
     desc.enableVision     = true;
-    desc.visionFovDeg     = 100.0f;
-    desc.visionMaxDist    = 15.0f;
+    desc.visionFovDeg     = 60.0f;
+    desc.visionMaxDist    = 10.0f;
     desc.visionTargetMask = toy::C_PLAYER_TEAM;
 
     return desc;
@@ -87,7 +87,5 @@ std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& positio
 
     auto noriko = std::make_unique<Noriko>(app, std::move(behavior), MakeNorikoDesc());
     noriko->GetBody().SetPosition(position);
-    Quaternion rot = Quaternion(Vector3(0.0f, 1.0f, 0.0f), Math::ToRadians(180.0f));
-    noriko->GetBody().SetRotation(rot);
     return noriko;
 }
