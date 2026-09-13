@@ -47,11 +47,11 @@ Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
 
     if (!desc.displayName.empty())
     {
-        SetupNameBoard(desc.displayName, desc.fontPath, desc.nameYOffset, desc.nameColor);
+        SetupNameBoard(desc.displayName, desc.fontPath, desc.fontSize, desc.nameYOffset, desc.nameColor);
     }
     SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
     SetupAmbientSound(desc.ambientSound, desc.ambientSoundVolume);
-    SetupSpeechText(desc.speechText, desc.speechFontPath, desc.speechColor);
+    SetupSpeechText(desc.speechText, desc.speechFontPath, desc.speechFontSize, desc.speechColor);
 }
 
 //=============================================================================

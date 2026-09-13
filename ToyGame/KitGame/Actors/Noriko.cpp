@@ -35,6 +35,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
                          | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
     desc.displayName = "海苔子";
+    desc.fontPath    = "Font/rounded-mplus-1c-bold.ttf";
     desc.nameYOffset = 3.0f;
 
     desc.candidateTexture = "UI/candidate.png";

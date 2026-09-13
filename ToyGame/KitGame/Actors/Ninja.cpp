@@ -19,7 +19,8 @@ toy::kit::HumanoidDesc MakeNinjaDesc()
                         | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
     desc.displayName = "忍者";
-    desc.nameYOffset = 3.0f;
+    desc.fontPath    = "Font/rounded-mplus-1c-bold.ttf";
+    desc.nameYOffset = 4.0f;
     
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";

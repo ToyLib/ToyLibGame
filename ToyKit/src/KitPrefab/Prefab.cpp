@@ -140,7 +140,7 @@ void Prefab::DetectGroundedEvent()
 // 名前ビルボード
 //=============================================================================
 void Prefab::SetupNameBoard(const std::string& name, const std::string& fontPath,
-                            float yOffset, const Vector3& color)
+                            int fontSize, float yOffset, const Vector3& color)
 {
     mNameYOffset = yOffset;
 
@@ -149,7 +149,7 @@ void Prefab::SetupNameBoard(const std::string& name, const std::string& fontPath
     mNameActor = mApp->CreateActor<toy::Actor>();
 
     auto* board = mNameActor->CreateComponent<toy::TextBillboardComponent>(101);
-    auto  font  = mApp->GetAssetManager()->GetFont(fontPath, 40);
+    auto  font  = mApp->GetAssetManager()->GetFont(fontPath, fontSize);
     board->SetFont(font);
     board->SetFormat(name);
     board->SetScale(0.01f);
@@ -224,12 +224,13 @@ void Prefab::SetupAmbientSound(const std::string& soundPath, float volume, bool 
     sound->Play();
 }
 
-void Prefab::SetupSpeechText(const std::string& text, const std::string& fontPath, const Vector3& color)
+void Prefab::SetupSpeechText(const std::string& text, const std::string& fontPath,
+                              int fontSize, const Vector3& color)
 {
     if (text.empty()) return;
 
     auto* board = mActor->CreateComponent<toy::TextBillboardComponent>(500);
-    board->SetFont(mApp->GetAssetManager()->GetFont(fontPath, 50));
+    board->SetFont(mApp->GetAssetManager()->GetFont(fontPath, fontSize));
     board->SetColor(color);
     board->SetText(text);
     board->SetScale(0.01f);

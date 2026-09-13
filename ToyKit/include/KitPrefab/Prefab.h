@@ -95,6 +95,7 @@ protected:
 
     // 頭上に名前ビルボードを表示する（別 Actor を内部生成し、追従させる）
     void SetupNameBoard(const std::string& name, const std::string& fontPath,
+                        int fontSize = 40,
                         float yOffset = 4.0f,
                         const Vector3& color = Vector3(1.0f, 0.0f, 0.0f));
 
@@ -109,6 +110,7 @@ protected:
 
     // 常時表示のテキストビルボードを本体に直接つける（吹き出し等）
     void SetupSpeechText(const std::string& text, const std::string& fontPath,
+                         int fontSize = 50,
                          const Vector3& color = Vector3::One);
 
     // 視界センサーを追加する（任意。索敵/視認判定に使う）。

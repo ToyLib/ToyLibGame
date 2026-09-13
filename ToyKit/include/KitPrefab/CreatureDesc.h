@@ -34,9 +34,10 @@ struct CreatureDesc
     bool useGravity       = true;
     bool enableGroundPose = true;
 
-    // 名前ビルボード（空文字なら非表示）
+    // 名前ビルボード（空文字なら非表示。fontPath はゲーム側アセットなので必ず指定する）
     std::string displayName;
-    std::string fontPath    = "Font/rounded-mplus-1c-bold.ttf";
+    std::string fontPath    = "";
+    int         fontSize    = 40;
     float       nameYOffset = 4.0f;
     Vector3     nameColor   = Vector3(1.0f, 0.0f, 0.0f);
 

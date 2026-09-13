@@ -58,9 +58,10 @@ struct HumanoidDesc
     std::string footstepSound;
     float       footstepVolume = 1.0f;
 
-    // 名前ビルボード（空文字なら非表示）
+    // 名前ビルボード（空文字なら非表示。fontPath はゲーム側アセットなので必ず指定する）
     std::string displayName;
-    std::string fontPath    = "Font/rounded-mplus-1c-bold.ttf";
+    std::string fontPath    = "";
+    int         fontSize    = 40;
     float       nameYOffset = 4.0f;
     Vector3     nameColor   = Vector3(1.0f, 0.0f, 0.0f);
 
@@ -72,9 +73,10 @@ struct HumanoidDesc
     std::string ambientSound;
     float       ambientSoundVolume = 1.0f;
 
-    // 常時表示テキスト（空文字なら非表示。吹き出し等）
+    // 常時表示テキスト（空文字なら非表示。吹き出し等。speechFontPath はゲーム側アセットなので必ず指定する）
     std::string speechText;
-    std::string speechFontPath = "Font/rounded-mplus-1c-bold.ttf";
+    std::string speechFontPath = "";
+    int         speechFontSize = 50;
     Vector3     speechColor    = Vector3(1.0f, 1.0f, 1.0f);
 
     // 視界センサー（索敵/視認判定。任意。Prefab::SetupSensor/HasSensorHit の設定値。

@@ -19,7 +19,7 @@ Creature::Creature(toy::Application* app, const CreatureDesc& desc)
 
     if (!desc.displayName.empty())
     {
-        SetupNameBoard(desc.displayName, desc.fontPath, desc.nameYOffset, desc.nameColor);
+        SetupNameBoard(desc.displayName, desc.fontPath, desc.fontSize, desc.nameYOffset, desc.nameColor);
     }
     SetupTargetSprites(desc.candidateTexture, desc.lockedTexture);
 
