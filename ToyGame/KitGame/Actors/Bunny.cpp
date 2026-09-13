@@ -33,6 +33,7 @@ toy::kit::HumanoidDesc MakeBunnyDesc()
     return desc;
 }
 
+// Noriko と同じ FleeBehavior（見つかったら逃げる）用パラメータ
 toy::kit::FleeBehaviorDesc MakeBunnyFleeDesc()
 {
     toy::kit::FleeBehaviorDesc desc;
@@ -43,10 +44,27 @@ toy::kit::FleeBehaviorDesc MakeBunnyFleeDesc()
     return desc;
 }
 
+// Wolf/Shiro と同じ ChaseBehavior（見つかったら追いかける）用パラメータ
+toy::kit::ChaseBehaviorDesc MakeBunnyChaseDesc()
+{
+    toy::kit::ChaseBehaviorDesc desc;
+    desc.loseDistance = 25.0f;
+    desc.moveSpeed    = 8.0f;
+    desc.stopRange    = 4.0f;
+    desc.idleAnim     = 3; // Idle
+    desc.chaseAnim    = 9; // Run
+    return desc;
+}
+
 } // namespace
 
 //-----------------------------------------------------------------------------
-std::unique_ptr<Skirmisher> MakeBunny(toy::Application* app, const Vector3& position, toy::kit::Prefab* target)
+std::unique_ptr<Skirmisher> MakeBunny(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
+                                       BunnyBehaviorType behaviorType)
 {
+    if (behaviorType == BunnyBehaviorType::Chase)
+    {
+        return MakeSkirmisher(app, position, target, MakeBunnyDesc(), MakeBunnyChaseDesc());
+    }
     return MakeSkirmisher(app, position, target, MakeBunnyDesc(), MakeBunnyFleeDesc());
 }

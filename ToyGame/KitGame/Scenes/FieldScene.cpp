@@ -66,10 +66,13 @@ void FieldScene::SpawnCharacters()
         mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), NinjaBehaviorType::Chase));
     }
 
-    // Bunny（Ninjaと同じSkirmisherにモデルだけ差し替えたお試しキャラ。Flee固定）
+    // Bunny（Ninjaと同じSkirmisherにモデルだけ差し替えたキャラ。個体ごとにBehaviorを選択できる）
     {
-        Vector3 pos(0.0f, 3.0f, 30.0f);
-        mBunnies.push_back(MakeBunny(GetApp(), pos, &mPlayer->GetBody()));
+        Vector3 fleePos(-10.0f, 3.0f, 30.0f);
+        mBunnies.push_back(MakeBunny(GetApp(), fleePos, &mPlayer->GetBody(), BunnyBehaviorType::Flee));
+
+        Vector3 chasePos(10.0f, 3.0f, 30.0f);
+        mBunnies.push_back(MakeBunny(GetApp(), chasePos, &mPlayer->GetBody(), BunnyBehaviorType::Chase));
     }
 }
 
