@@ -50,6 +50,11 @@ public:
     void SetAnimPlayRate(float rate);
 
     void TakeDamage(int amount) override;
+    bool IsDefeated() const override { return mDesc.maxHp > 0 && mHp <= 0; }
+
+    // HP（HumanoidDesc::maxHp が0のままなら常に0）
+    int GetHp()    const { return mHp; }
+    int GetMaxHp() const { return mDesc.maxHp; }
 
     // 近接攻撃用コライダーの有効/無効切り替え（攻撃モーション中だけ true にする想定）
     void SetAttackColliderActive(bool active);
@@ -117,6 +122,8 @@ private:
     enum class PlayMode { Field, Battle };
     PlayMode mPlayMode = PlayMode::Field;
     bool     mMovable  = true;
+
+    int mHp = 0;
 };
 
 } // namespace toy::kit

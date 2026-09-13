@@ -15,6 +15,35 @@
   `ToyGame/KitGame/Actors/Player.cpp`。
   ダメージ量はまだ固定値(`1`)、`TakeDamage`の中身も検知確認用のprintfのみ。HP等の実際の処理は未着手。
 
+- **2026-09-14 続き: ダメージ量をDesc経由に変更・動作確認済み。**
+  当初`HandleCollision`内で`TakeDamage(mDesc.attackDamage)`としていたが、これは
+  **被弾した側自身のDesc**を見てしまうバグ（ダメージ量は攻撃側が持つべき値）。
+  修正として、ダメージ量は`ColliderComponent`自体に持たせることにした
+  （`ColliderComponent::SetDamage(int)/GetDamage()`を新設。`ColliderFlags`と同じ「意味づけは
+  Game Logic側」という考え方の延長）。`Humanoid::SetupAttackCollider()`が
+  `HumanoidDesc::attackDamage`(新設フィールド、既定値1)を攻撃コライダーにセットし、
+  `HandleCollision()`側は`other->GetDamage()`（＝攻撃してきた側のコライダーが持つ値）を
+  `TakeDamage()`に渡す形に修正。Player側は`attackDamage = 10`に設定。ビルド確認済み。
+  - **未確定のまま残る点**: 攻撃種別（Slash/Spin/Stab等）ごとにダメージ量を変えたい場合は、
+    今の「Humanoid単位で1種類のみ」では表現できない。前段の「攻撃バリエーションはDescで表現」
+    (`MeleeAttackDesc`)の話と合流させる必要があるが、今回はまだそこまで手を広げていない。
+
+- **2026-09-14 続き: HPを実装しTakeDamageを意味あるものにした・実機動作確認済み。**
+  `HumanoidDesc::maxHp`(既定0="HPを持たない"扱い)を新設し、`Humanoid`は`mHp`を
+  コンストラクタで`desc.maxHp`から初期化。`TakeDamage(int amount)`は
+  `maxHp<=0`ならこれまで通り検知ログのみ、`maxHp>0`なら`mHp`を減算(0未満にはならない)し、
+  0になったら"defeated"とログに出す（実際の撃破処理・Actor削除等はまだ無い、ログのみ）。
+  `GetHp()/GetMaxHp()`も追加（将来のHPバーUI等向け）。
+  動作確認用にBunny/Ninjaへ`maxHp = 30`を設定（`ToyGame/KitGame/Actors/Bunny.cpp`, `Ninja.cpp`）。
+  Player 10ダメージ×3発でHP 0/defeatedログが出ることを実機確認済み。
+
+- **2026-09-14 続き: `IsDefeated()`を追加（ビルド確認済み、まだ利用箇所なし）。**
+  `Prefab::IsDefeated() const`(仮想関数、既定`false`)を追加し、`Humanoid`は
+  `mDesc.maxHp > 0 && mHp <= 0`をoverride。`TakeDamage`と同じ「Prefabの仮想関数」方針に沿う形。
+  現時点ではまだこれを見て何かする側（撃破時にActorを消す・Behaviorが停止する等）は無く、
+  クエリだけ用意した状態。次にBehavior側（`ChaseBehavior`のAttackステート追加）に進むか、
+  ここを消費する処理（撃破時の振る舞い）を先に作るかは要検討。
+
 ## 背景・目的
 
 Playerが持つLockon機構を発展させ、Behavior（AI制御キャラクター、例: Bunny）側からも

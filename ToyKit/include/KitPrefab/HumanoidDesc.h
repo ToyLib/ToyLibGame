@@ -36,6 +36,11 @@ struct HumanoidDesc
     bool    enableAttackCollider = false;
     Vector3 attackColliderOffset = Vector3::Zero;
     Vector3 attackColliderScale  = Vector3::One;
+    int     attackDamage         = 1; // TakeDamage(amount) に渡すダメージ量
+                                       // （攻撃種別ごとの差はまだ無く、Humanoid単位で1種類のみ）
+
+    // HP（0のままなら「HPを持たない」扱い。TakeDamage は検知ログのみになる）
+    int maxHp = 0;
 
     // 重力（GravityComponent 自体の既定値と揃えてある）
     bool  useGravity       = true;

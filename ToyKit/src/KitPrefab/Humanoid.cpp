@@ -16,6 +16,7 @@
 #include "Camera/FollowCameraComponent.h"
 #include "Audio/SoundComponent.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
@@ -25,6 +26,7 @@ namespace toy::kit {
 Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
     : Prefab(app)
     , mDesc(desc)
+    , mHp(desc.maxHp)
 {
     SetupMesh(desc);
     SetupCollider(desc);
@@ -123,9 +125,18 @@ void Humanoid::SetAnimPlayRate(float rate)
 
 void Humanoid::TakeDamage(int amount)
 {
-    // 最小実装（検知確認用）: 実際のHP等の扱いはゲーム側で今後拡張する。
-    printf("[Humanoid] %s took %d damage\n",
-           mDesc.displayName.empty() ? "(unnamed)" : mDesc.displayName.c_str(), amount);
+    const char* name = mDesc.displayName.empty() ? "(unnamed)" : mDesc.displayName.c_str();
+
+    if (mDesc.maxHp <= 0)
+    {
+        // HP未設定のキャラは検知確認用ログのみ（従来動作のまま）
+        printf("[Humanoid] %s took %d damage\n", name, amount);
+        return;
+    }
+
+    mHp = std::max(0, mHp - amount);
+    printf("[Humanoid] %s took %d damage (HP %d/%d)%s\n",
+           name, amount, mHp, mDesc.maxHp, mHp == 0 ? " - defeated" : "");
 }
 
 void Humanoid::SetAttackColliderActive(bool active)
@@ -213,6 +224,7 @@ void Humanoid::SetupAttackCollider(const HumanoidDesc& desc)
     // HandleCollision 側でチームフラグを見て行う。
     const uint32_t team = desc.colliderFlags & (toy::C_PLAYER_TEAM | toy::C_ENEMY_TEAM);
     mAttackCollider->SetFlags(team | toy::C_HITBOX);
+    mAttackCollider->SetDamage(desc.attackDamage);
 
     // 攻撃モーション中だけ SetAttackColliderActive(true) で有効化する
     mAttackCollider->SetEnabled(false);
@@ -464,7 +476,7 @@ void Humanoid::HandleCollision(const CollisionEvent& event)
     const uint32_t selfTeam = mCollider->GetFlags() & (toy::C_PLAYER_TEAM | toy::C_ENEMY_TEAM);
     if (selfTeam != 0 && other->HasAnyFlag(selfTeam)) return; // 同じチームからの攻撃は無視
 
-    TakeDamage(1); // 攻撃側のダメージ量はまだ持たせていない（今後の課題）
+    TakeDamage(other->GetDamage());
 }
 
 void Humanoid::UpdateFootstepSound()

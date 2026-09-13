@@ -21,6 +21,7 @@ toy::kit::HumanoidDesc MakeHeroDesc()
     desc.enableAttackCollider = true;
     desc.attackColliderOffset = Vector3(0.0f, 0.0f, 1.0f);
     desc.attackColliderScale  = Vector3(0.6f, 1.0f, 0.6f);
+    desc.attackDamage         = 10;
 
     desc.enableGroundPose = false; // アニメは自前で制御
 

@@ -18,6 +18,8 @@ toy::kit::HumanoidDesc MakeBunnyDesc()
     desc.colliderFlags = toy::C_GROUND | toy::C_WALL | toy::C_FOOT
                         | toy::C_HURTBOX | toy::C_ENEMY_TEAM;
 
+    desc.maxHp = 30; // 動作確認用の仮値
+
     desc.displayName = "ウサギ団";
     desc.fontPath    = "Font/rounded-mplus-1c-bold.ttf";
     desc.nameYOffset = 4.0f;

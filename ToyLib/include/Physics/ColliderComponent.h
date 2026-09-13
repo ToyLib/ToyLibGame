@@ -64,7 +64,12 @@ public:
     }
 
     uint32_t GetFlags() const { return mFlags; }
-    
+
+    // 攻撃コライダー(C_HITBOX)が与えるダメージ量。フラグと同様、意味づけは
+    // Game Logic側（衝突相手の TakeDamage 呼び出し側）が行う。
+    void SetDamage(int damage) { mDamage = damage; }
+    int  GetDamage() const     { return mDamage; }
+
     //--------------------------------------------------------------------------
     // 衝突情報
     //--------------------------------------------------------------------------
@@ -115,6 +120,9 @@ private:
     
     // 自分のコライダー種別（ビットフラグ）
     uint32_t mFlags     { C_NONE };
+
+    // 攻撃コライダーが与えるダメージ量（C_HITBOX以外では未使用）
+    int mDamage         { 0 };
     
     // このフレーム中に衝突した相手の一覧
     std::vector<ColliderComponent*> mTargetColliders;
