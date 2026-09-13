@@ -1,6 +1,6 @@
-#include "KitPrefab/ChaseBehavior.h"
+#include "KitBehavior/ChaseBehavior.h"
 #include "KitPrefab/Prefab.h"
-#include "KitPrefab/MovementUtil.h"
+#include "KitBehavior/MovementUtil.h"
 
 namespace toy::kit {
 

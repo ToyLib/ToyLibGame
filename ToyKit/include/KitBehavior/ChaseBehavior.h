@@ -1,7 +1,7 @@
 #pragma once
 
-#include "KitPrefab/IBehavior.h"
-#include "KitPrefab/ChaseBehaviorDesc.h"
+#include "KitBehavior/IBehavior.h"
+#include "KitBehavior/ChaseBehaviorDesc.h"
 #include "KitCore/KitStateMachine.h"
 
 namespace toy::kit {

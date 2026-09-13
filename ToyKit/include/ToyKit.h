@@ -21,11 +21,11 @@
 #include "KitPrefab/StaticObject.h"
 #include "KitPrefab/StaticObjectPlacement.h"
 
-// KitPrefab: 任意の振る舞いを差し込む仕組み
-#include "KitPrefab/IBehavior.h"
-#include "KitPrefab/Agent.h"
-#include "KitPrefab/MovementUtil.h"
-#include "KitPrefab/ChaseBehaviorDesc.h"
-#include "KitPrefab/ChaseBehavior.h"
-#include "KitPrefab/FleeBehaviorDesc.h"
-#include "KitPrefab/FleeBehavior.h"
+// KitBehavior: 任意の振る舞いを差し込む仕組み
+#include "KitBehavior/IBehavior.h"
+#include "KitBehavior/Agent.h"
+#include "KitBehavior/MovementUtil.h"
+#include "KitBehavior/ChaseBehaviorDesc.h"
+#include "KitBehavior/ChaseBehavior.h"
+#include "KitBehavior/FleeBehaviorDesc.h"
+#include "KitBehavior/FleeBehavior.h"

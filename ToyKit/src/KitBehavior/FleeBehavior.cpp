@@ -1,6 +1,6 @@
-#include "KitPrefab/FleeBehavior.h"
+#include "KitBehavior/FleeBehavior.h"
 #include "KitPrefab/Prefab.h"
-#include "KitPrefab/MovementUtil.h"
+#include "KitBehavior/MovementUtil.h"
 
 namespace toy::kit {
 

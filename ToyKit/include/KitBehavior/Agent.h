@@ -1,7 +1,7 @@
 #pragma once
 
 #include "KitPrefab/Prefab.h"
-#include "KitPrefab/IBehavior.h"
+#include "KitBehavior/IBehavior.h"
 
 #include <memory>
 #include <utility>
