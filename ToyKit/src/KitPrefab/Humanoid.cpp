@@ -17,6 +17,7 @@
 #include "Audio/SoundComponent.h"
 
 #include <cmath>
+#include <cstdio>
 
 namespace toy::kit {
 
@@ -27,6 +28,14 @@ Humanoid::Humanoid(toy::Application* app, const HumanoidDesc& desc)
 {
     SetupMesh(desc);
     SetupCollider(desc);
+
+    if (desc.enableAttackCollider)
+    {
+        SetupAttackCollider(desc);
+    }
+
+    OnCollision().Connect([this](const CollisionEvent& e) { HandleCollision(e); });
+
     SetupGravity(desc);
 
     if (desc.enableLockOnCombat)
@@ -112,6 +121,18 @@ void Humanoid::SetAnimPlayRate(float rate)
     if (mMesh) mMesh->GetAnimPlayer()->SetPlayRate(rate);
 }
 
+void Humanoid::TakeDamage(int amount)
+{
+    // 最小実装（検知確認用）: 実際のHP等の扱いはゲーム側で今後拡張する。
+    printf("[Humanoid] %s took %d damage\n",
+           mDesc.displayName.empty() ? "(unnamed)" : mDesc.displayName.c_str(), amount);
+}
+
+void Humanoid::SetAttackColliderActive(bool active)
+{
+    if (mAttackCollider) mAttackCollider->SetEnabled(active);
+}
+
 void Humanoid::SelectNextTarget() // R1: 右へ
 {
     if (mCandidates.empty()) return;
@@ -180,6 +201,21 @@ void Humanoid::SetupCollider(const HumanoidDesc& desc)
     mCollider->SetEnabled(true);
 
     TrackCollider(mCollider);
+}
+
+void Humanoid::SetupAttackCollider(const HumanoidDesc& desc)
+{
+    mAttackCollider = GetActor()->CreateComponent<toy::ColliderComponent>();
+    mAttackCollider->GetBoundingVolume()->ComputeFromMeshComponent(mMesh);
+    mAttackCollider->GetBoundingVolume()->AdjustBoundingBox(desc.attackColliderOffset, desc.attackColliderScale);
+
+    // 本体と同じチームフラグ + C_HITBOX。相手の識別（フレンドリーファイア防止）は
+    // HandleCollision 側でチームフラグを見て行う。
+    const uint32_t team = desc.colliderFlags & (toy::C_PLAYER_TEAM | toy::C_ENEMY_TEAM);
+    mAttackCollider->SetFlags(team | toy::C_HITBOX);
+
+    // 攻撃モーション中だけ SetAttackColliderActive(true) で有効化する
+    mAttackCollider->SetEnabled(false);
 }
 
 void Humanoid::SetupGravity(const HumanoidDesc& desc)
@@ -409,7 +445,26 @@ void Humanoid::UpdateMovableRecovery()
     if (anim->IsLooping() || anim->IsFinished())
     {
         mMovable = true;
+        SetAttackColliderActive(false);
     }
+}
+
+//-----------------------------------------------------------------------------
+// HandleCollision
+//  自分の本体コライダーが C_HITBOX（他者の攻撃コライダー）と接触したら、
+//  チームが異なる場合だけ TakeDamage を呼ぶ。フレンドリーファイア防止は
+//  colliderFlags のチームビット（C_PLAYER_TEAM/C_ENEMY_TEAM）で判定する。
+//-----------------------------------------------------------------------------
+void Humanoid::HandleCollision(const CollisionEvent& event)
+{
+    toy::ColliderComponent* other = event.other;
+    if (!other || !mCollider) return;
+    if (!other->HasFlag(toy::C_HITBOX)) return;
+
+    const uint32_t selfTeam = mCollider->GetFlags() & (toy::C_PLAYER_TEAM | toy::C_ENEMY_TEAM);
+    if (selfTeam != 0 && other->HasAnyFlag(selfTeam)) return; // 同じチームからの攻撃は無視
+
+    TakeDamage(1); // 攻撃側のダメージ量はまだ持たせていない（今後の課題）
 }
 
 void Humanoid::UpdateFootstepSound()

@@ -49,6 +49,11 @@ public:
     void PlayAnimationOnce(int clipIndex, int returnClipIndex);
     void SetAnimPlayRate(float rate);
 
+    void TakeDamage(int amount) override;
+
+    // 近接攻撃用コライダーの有効/無効切り替え（攻撃モーション中だけ true にする想定）
+    void SetAttackColliderActive(bool active);
+
     // ロックオン戦闘（L1/R1/B 相当）
     void SelectNextTarget();
     void SelectPrevTarget();
@@ -63,11 +68,14 @@ protected:
 private:
     void SetupMesh(const HumanoidDesc& desc);
     void SetupCollider(const HumanoidDesc& desc);
+    void SetupAttackCollider(const HumanoidDesc& desc);
     void SetupGravity(const HumanoidDesc& desc);
     void SetupMove();
     void SetupCamera(const HumanoidDesc& desc);
     void SetupCombatSensor(const HumanoidDesc& desc);
     void SetupFootstep(const HumanoidDesc& desc);
+
+    void HandleCollision(const CollisionEvent& event);
 
     void SearchTarget(float deltaTime);
     void CommitSelectedTarget();
@@ -78,9 +86,10 @@ private:
 
     HumanoidDesc mDesc;
 
-    toy::SkeletalMeshComponent* mMesh     = nullptr;
-    toy::ColliderComponent*     mCollider = nullptr;
-    toy::GravityComponent*      mGravity  = nullptr;
+    toy::SkeletalMeshComponent* mMesh           = nullptr;
+    toy::ColliderComponent*     mCollider       = nullptr;
+    toy::ColliderComponent*     mAttackCollider = nullptr;
+    toy::GravityComponent*      mGravity        = nullptr;
 
     toy::DirMoveComponent*   mDirMove    = nullptr;
     toy::OrbitMoveComponent* mOrbitMove  = nullptr;

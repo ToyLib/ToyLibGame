@@ -32,6 +32,11 @@ struct HumanoidDesc
     Vector3  colliderScale  = Vector3::One;
     uint32_t colliderFlags  = 0;
 
+    // 近接攻撃用コライダー（本体コライダーとは別。使うキャラ（Player等）だけ true にする）
+    bool    enableAttackCollider = false;
+    Vector3 attackColliderOffset = Vector3::Zero;
+    Vector3 attackColliderScale  = Vector3::One;
+
     // 重力（GravityComponent 自体の既定値と揃えてある）
     bool  useGravity       = true;
     bool  enableGroundPose = false;

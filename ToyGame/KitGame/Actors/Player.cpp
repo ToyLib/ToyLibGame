@@ -17,6 +17,11 @@ toy::kit::HumanoidDesc MakeHeroDesc()
     desc.colliderScale  = Vector3(0.5f, 1.0f, 0.4f);
     desc.colliderFlags  = toy::C_FOOT | toy::C_BODY | toy::C_PLAYER_TEAM;
 
+    // 近接攻撃用コライダー（本体の少し前方。値は検知確認用の仮値、要調整）
+    desc.enableAttackCollider = true;
+    desc.attackColliderOffset = Vector3(0.0f, 0.0f, 1.0f);
+    desc.attackColliderScale  = Vector3(0.6f, 1.0f, 0.6f);
+
     desc.enableGroundPose = false; // アニメは自前で制御
 
     desc.enableLockOnCombat = true; // プレイヤー操作: Field/Battle切換え・カメラ・索敵を有効化
@@ -115,16 +120,19 @@ private:
         {
             mBody->PlayAnimationOnce(H_Slash, H_Stand);
             mBody->SetMovable(false);
+            mBody->SetAttackColliderActive(true);
         }
         else if (state.IsButtonPressed(toy::GameButton::X))
         {
             mBody->PlayAnimationOnce(H_Spin, H_Stand);
             mBody->SetMovable(false);
+            mBody->SetAttackColliderActive(true);
         }
         else if (state.IsButtonPressed(toy::GameButton::Y))
         {
             mBody->PlayAnimationOnce(H_Stab, H_Stand);
             mBody->SetMovable(false);
+            mBody->SetAttackColliderActive(true);
         }
     }
 
