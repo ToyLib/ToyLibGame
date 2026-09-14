@@ -44,6 +44,64 @@
   クエリだけ用意した状態。次にBehavior側（`ChaseBehavior`のAttackステート追加）に進むか、
   ここを消費する処理（撃破時の振る舞い）を先に作るかは要検討。
 
+## Behavior側の実装（NPCが攻撃してくる）
+
+- **設計方針**: `ChaseBehavior`(ToyKit、汎用)を直接拡張せず、攻撃可能な敵専用の
+  `ChaseAttackBehavior`をゲーム層(`ToyGame/KitGame/Actors/`)に新設する方針にした。
+  理由: `ChaseBehavior`はWolf/Shiro等の非戦闘の追跡NPC(RPG側)にも使われる汎用クラスで、
+  ここに攻撃ロジックを混ぜると無関係な利用先にも影響するため。`KitStateMachine<TStateEnum>`
+  (`ToyKit/include/KitCore/KitStateMachine.h`)や`MovementUtil`はそのまま部品として使い回す。
+- **「Lockon状態」を別ステートにする案は不要と判明**: `ChaseBehavior`のChaseステートは、
+  Idle→Chase遷移の瞬間だけセンサー(`HasSensorHit()`)を見て、以降は距離だけで
+  追跡継続/断念を判定する（センサーを再チェックしない）——これ自体が既に
+  「一度検知したらセンサーに関係なく追いかけ続ける」というLockon的な振る舞いになっている。
+  そのため「Idle→Chase→Locked→Attack」ではなく、**「Idle→Chase→Attack」の3ステートで十分**という結論。
+  Player側の`OrbitMoveComponent`(旋回移動)を流用する案も検討したが、`Prefab`が自分/相手の
+  `Actor`を公開していないため難しく、かつ`enableLockOnCombat`はカメラ切替とセットなので
+  NPCに使うとカメラを奪ってしまう問題があり見送った。実際に必要だったのは
+  「ターゲットが動いても向き続け、攻撃範囲まで距離を詰める」だけで、これは既存の
+  `FaceTowardPointXZ`/`MoveTowardPointXZ`（stopRangeの代わりにattackRangeを使う）で足りた。
+- **2026-09-14: `ChaseAttackBehavior`実装・ビルド確認済み（実機動作は未確認）。**
+  新規ファイル:
+  - `ToyGame/KitGame/Actors/ChaseAttackBehaviorDesc.h`
+    (`loseDistance`/`moveSpeed`/`loseRangeMultiplier`/`attackRange`/`idleAnim`/`chaseAnim`/`attackAnim`/`animBlendSec`)
+  - `ToyGame/KitGame/Actors/ChaseAttackBehavior.h/.cpp`
+    (`IBehavior`実装。`KitStateMachine<State>`で`Idle→Chase→Attack`を管理。
+    `HasTarget()`は`mTarget->IsDefeated()`もチェック——`IsDefeated()`の初めての利用箇所。
+    Attack突入時に`SetMovable(false)`+`PlayAnimationOnce`+`SetAttackColliderActive(true)`、
+    `IsMovable()`復帰(`Humanoid::UpdateMovableRecovery`が自動処理)で
+    攻撃コライダー無効化して`Chase`に戻る)
+  - `Skirmisher.h/.cpp`に`ChaseAttackBehaviorDesc`を受けるファクトリのオーバーロードを追加
+  - `Ninja.h/.cpp`に`NinjaBehaviorType::ChaseAttack`を追加(Punchアニメ=8を使用。
+    攻撃コライダー付きの専用Body Desc `MakeNinjaChaseAttackBodyDesc()`を用意)
+  - `FieldScene::SpawnCharacters()`に`ChaseAttack`のNinjaを1体追加(既存のFlee/Chase個体は維持)
+  - **未確認の細部**: Playerの本体コライダーには`C_HURTBOX`フラグが付いていない
+    (`C_FOOT | C_BODY | C_PLAYER_TEAM`のみ)。`Humanoid::HandleCollision`は
+    自分の`C_HURTBOX`の有無をチェックしていないため、現状は動作に支障ないが
+    （Player の`maxHp`が0なので検知ログのみ）、将来的にPlayerがHPを持つ場合は
+    `C_HURTBOX`の付与とチェックの追加が必要になる可能性がある。
+
+- **2026-09-14 続き: 不具合修正3件・実機動作確認済み（Chase→Attack移行/クールダウン/合間Idle表示すべてOK）。**
+  1. **Chase→Attackに移行しない不具合**: `attackRange`の初期値(2.0f)が、
+     コライダー同士の物理的な押し返しで実際に近づける距離より小さく、
+     `dist <= attackRange`が永久に成立しなかったことが原因と推測。
+     動作確認済みの`ChaseBehaviorDesc::stopRange`(4.0f)と同じ値に変更
+     (`Ninja.cpp`の`MakeNinjaChaseAttackDesc()`、`ChaseAttackBehaviorDesc.h`のデフォルト値も同様に変更)。
+  2. **攻撃直後に再攻撃したい/合間はIdleアニメにしたい、という2つの要望**への対応:
+     - `ChaseAttackBehaviorDesc::attackCooldownSec`(既定1.0秒)を追加。
+       `KitStateMachine::GetTimer()`(Chaseに入ってからの経過時間、Attack→Chase再突入で0リセット)を
+       使い、「Chaseに入ってからこの秒数経つまでAttackへ再突入しない」という形でクールダウンを実現
+       （新しいステートは増やしていない）。
+     - Chase中、間合い内で待機中(クールダウン待ち)はIdleアニメ、間合い外(接近中)はChaseアニメを
+       再生するよう変更。ただし毎フレーム`PlayAnimationBlend`を呼ぶとブレンドが途切れるため、
+       `mWasInAttackRange`(bool、新規メンバ)で前フレームと比較し、状態が変わった時だけ呼ぶようにした。
+  3. **攻撃終了後もRunアニメのままになる不具合**: `Attack`ステートの`onEnter`で
+     `PlayAnimationOnce(attackAnim, chaseAnim)`としており、攻撃アニメ終了時の戻り先が
+     `chaseAnim`(Run)になっていた。これだと攻撃終了の瞬間に`AnimPlayer`が自動でRunへ切り替わり、
+     `Chase`側の間合い判定が反映されるまでの間（あるいはそれ以降も）Runのままになっていた。
+     戻り先を`idleAnim`に変更して解決。実機で「間合い内で待機中はIdle、攻撃後1秒のクールダウンを
+     挟んで再攻撃」が意図通り動くことを確認済み。
+
 ## 背景・目的
 
 Playerが持つLockon機構を発展させ、Behavior（AI制御キャラクター、例: Bunny）側からも

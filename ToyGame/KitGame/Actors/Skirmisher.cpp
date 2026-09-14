@@ -1,4 +1,5 @@
 #include "Skirmisher.h"
+#include "ChaseAttackBehavior.h"
 
 namespace {
 
@@ -29,6 +30,16 @@ std::unique_ptr<Skirmisher> MakeSkirmisher(toy::Application* app, const Vector3&
                                             const toy::kit::ChaseBehaviorDesc& behaviorDesc)
 {
     auto behavior = std::make_unique<toy::kit::ChaseBehavior>(behaviorDesc);
+    behavior->SetTarget(target);
+    return MakeSkirmisherWithBehavior(app, position, bodyDesc, std::move(behavior));
+}
+
+//-----------------------------------------------------------------------------
+std::unique_ptr<Skirmisher> MakeSkirmisher(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
+                                            const toy::kit::HumanoidDesc& bodyDesc,
+                                            const ChaseAttackBehaviorDesc& behaviorDesc)
+{
+    auto behavior = std::make_unique<ChaseAttackBehavior>(behaviorDesc);
     behavior->SetTarget(target);
     return MakeSkirmisherWithBehavior(app, position, bodyDesc, std::move(behavior));
 }

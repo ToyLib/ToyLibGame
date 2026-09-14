@@ -59,6 +59,30 @@ toy::kit::ChaseBehaviorDesc MakeNinjaChaseDesc()
     return desc;
 }
 
+// ChaseAttackBehavior（見つかったら追いかけ、近づいたら攻撃してくる）用パラメータ
+ChaseAttackBehaviorDesc MakeNinjaChaseAttackDesc()
+{
+    ChaseAttackBehaviorDesc desc;
+    desc.loseDistance = 25.0f;
+    desc.moveSpeed    = 8.0f;
+    desc.attackRange  = 4.0f; // ChaseBehaviorのstopRange(4.0f)と同じ値。物理コライダーで近づける実測距離に合わせる
+    desc.idleAnim     = 3; // Idle
+    desc.chaseAnim    = 9; // Run
+    desc.attackAnim   = 8; // Punch
+    return desc;
+}
+
+// 攻撃する版のNinjaだけ、本体Descに攻撃コライダーを追加したものを使う
+toy::kit::HumanoidDesc MakeNinjaChaseAttackBodyDesc()
+{
+    toy::kit::HumanoidDesc desc = MakeNinjaDesc();
+    desc.enableAttackCollider = true;
+    desc.attackColliderOffset = Vector3(0.0f, 0.0f, 1.0f);
+    desc.attackColliderScale  = Vector3(0.6f, 1.0f, 0.6f);
+    desc.attackDamage         = 10;
+    return desc;
+}
+
 } // namespace
 
 //-----------------------------------------------------------------------------
@@ -70,6 +94,10 @@ toy::kit::ChaseBehaviorDesc MakeNinjaChaseDesc()
 std::unique_ptr<Skirmisher> MakeNinja(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
                                        NinjaBehaviorType behaviorType)
 {
+    if (behaviorType == NinjaBehaviorType::ChaseAttack)
+    {
+        return MakeSkirmisher(app, position, target, MakeNinjaChaseAttackBodyDesc(), MakeNinjaChaseAttackDesc());
+    }
     if (behaviorType == NinjaBehaviorType::Chase)
     {
         return MakeSkirmisher(app, position, target, MakeNinjaDesc(), MakeNinjaChaseDesc());

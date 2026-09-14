@@ -11,8 +11,9 @@
 //=============================================================================
 enum class NinjaBehaviorType
 {
-    Flee,  // Noriko と同じ FleeBehavior（見つかったら逃げる）
-    Chase, // Wolf/Shiro と同じ ChaseBehavior（見つかったら追いかける）
+    Flee,       // Noriko と同じ FleeBehavior（見つかったら逃げる）
+    Chase,      // Wolf/Shiro と同じ ChaseBehavior（見つかったら追いかける。攻撃はしない）
+    ChaseAttack // ChaseAttackBehavior（見つかったら追いかけ、近づいたら攻撃してくる）
 };
 
 std::unique_ptr<Skirmisher> MakeNinja(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,

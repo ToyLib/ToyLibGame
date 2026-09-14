@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ToyKit.h"
+#include "ChaseAttackBehaviorDesc.h"
 #include <memory>
 
 //=============================================================================
@@ -29,3 +30,7 @@ std::unique_ptr<Skirmisher> MakeSkirmisher(toy::Application* app, const Vector3&
 std::unique_ptr<Skirmisher> MakeSkirmisher(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
                                             const toy::kit::HumanoidDesc& bodyDesc,
                                             const toy::kit::ChaseBehaviorDesc& behaviorDesc);
+
+std::unique_ptr<Skirmisher> MakeSkirmisher(toy::Application* app, const Vector3& position, toy::kit::Prefab* target,
+                                            const toy::kit::HumanoidDesc& bodyDesc,
+                                            const ChaseAttackBehaviorDesc& behaviorDesc);

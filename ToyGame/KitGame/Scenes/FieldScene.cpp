@@ -64,6 +64,9 @@ void FieldScene::SpawnCharacters()
 
         Vector3 chasePos(10.0f, 3.0f, 20.0f);
         mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), NinjaBehaviorType::Chase));
+
+        Vector3 chaseAttackPos(0.0f, 3.0f, 25.0f);
+        mNinjas.push_back(MakeNinja(GetApp(), chaseAttackPos, &mPlayer->GetBody(), NinjaBehaviorType::ChaseAttack));
     }
 
     // Bunny（Ninjaと同じSkirmisherにモデルだけ差し替えたキャラ。個体ごとにBehaviorを選択できる）
