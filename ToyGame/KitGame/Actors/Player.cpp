@@ -70,9 +70,15 @@ public:
         mBody->OnPlayModeChanged().Connect(
             [this](const toy::kit::PlayModeEvent& e)
             {
-                mApp->GetCameraManager()->SetActiveCamera(
-                    e.locked ? static_cast<toy::CameraComponent*>(mBody->GetFollowCamera())
-                             : static_cast<toy::CameraComponent*>(mBody->GetOrbitCamera()));
+                if (e.locked /* && 切り替えたい条件 */)
+                {
+                    //mApp->GetCameraManager()->SetActiveCamera(mBody->GetFollowCamera());
+                }
+                else if (!e.locked)
+                {
+                    mApp->GetCameraManager()->SetActiveCamera(mBody->GetOrbitCamera());
+                }
+                // 条件を満たさずロックした場合はカメラそのまま（何もしない）
             });
     }
 
