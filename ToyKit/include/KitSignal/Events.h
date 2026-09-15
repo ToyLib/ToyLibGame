@@ -1,6 +1,8 @@
 #pragma once
 
-namespace toy { class ColliderComponent; }
+namespace toy {
+class ColliderComponent;
+} // namespace toy
 
 namespace toy::kit {
 
@@ -22,6 +24,20 @@ struct CollisionEvent
 struct GroundedEvent
 {
     bool grounded = false;
+};
+
+//=============================================================================
+// PlayModeEvent
+//  ロックオン機能の Free/Locked（ターゲットをロックしているか）モードが
+//  切り替わった「事実」だけを通知する（設計方針 7）。Humanoid はこれが
+//  「カメラ切換え」を意味することを知らない——「どのカメラを有効化するか」の
+//  対応付けと実行（CameraManager::SetActiveCamera）は Game Logic 側の判断・
+//  責務とする。バトルの有無を問わないゲームでも通用するよう、状態名は
+//  「戦闘中か」ではなく「ターゲットをロックしているか」で表す。
+//=============================================================================
+struct PlayModeEvent
+{
+    bool locked = false;
 };
 
 } // namespace toy::kit

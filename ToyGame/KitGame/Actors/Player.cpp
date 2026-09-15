@@ -25,7 +25,7 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 
     desc.enableGroundPose = false; // アニメは自前で制御
 
-    desc.enableLockOnCombat = true; // プレイヤー操作: Field/Battle切換え・カメラ・索敵を有効化
+    desc.enableLockOnCombat = true; // プレイヤー操作: Free/Locked切換え・カメラ・索敵を有効化
 
     desc.sensorFovDeg           = 60.0f;
     desc.sensorMaxDist          = 40.0f;
@@ -45,8 +45,14 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 // PlayerControlBehavior
 //  プレイヤーの入力（IBehavior::OnInput）を受けて、どのアニメーションを
 //  再生するか（ゲーム固有の意味づけ）だけを担当する。
-//  移動/カメラ切換え/ロックオンの選択・解除ロジックそのものは Humanoid が持つ
+//  移動/ロックオンの選択・解除ロジックそのものは Humanoid が持つ
 //  （Humanoid::OnUpdate 経由で自動的に処理される）ため、OnUpdate は不要。
+//
+//  カメラの実際の切換え（CameraManager::SetActiveCamera）だけは、
+//  Humanoid が Player/NPC 共通の Prefab であるため Humanoid 自身では行わず、
+//  OnPlayModeChanged() Signal（ターゲットをロックしたかどうかの事実のみ）を
+//  受けて「どちらのカメラを有効化するか」を判断した上でここで実行する
+//  （設計方針 7/9）。
 //
 //  Humanoid 固有のメソッド（SelectNextTarget 等）を使うため、Prefab& を
 //  Humanoid& へ static_cast する。ChaseBehavior のような「どの Prefab でも
@@ -55,14 +61,24 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 class PlayerControlBehavior : public toy::kit::IBehavior
 {
 public:
+    explicit PlayerControlBehavior(toy::Application* app) : mApp(app) {}
+
     void OnStart(toy::kit::Prefab& body) override
     {
         mBody = static_cast<toy::kit::Humanoid*>(&body);
+
+        mBody->OnPlayModeChanged().Connect(
+            [this](const toy::kit::PlayModeEvent& e)
+            {
+                mApp->GetCameraManager()->SetActiveCamera(
+                    e.locked ? static_cast<toy::CameraComponent*>(mBody->GetFollowCamera())
+                             : static_cast<toy::CameraComponent*>(mBody->GetOrbitCamera()));
+            });
     }
 
     void OnInput(toy::kit::Prefab& /*body*/, const toy::InputState& state) override
     {
-        const int moveMotion = mBody->IsInBattle() ? H_WalkSS : H_Run;
+        const int moveMotion = mBody->IsTargetLocked() ? H_WalkSS : H_Run;
         UpdateMovementAnimation(state, moveMotion);
 
         SelectTarget(state);
@@ -112,7 +128,7 @@ private:
 
     void InputAttack(const toy::InputState& state)
     {
-        if (!mBody->IsInBattle()) return;
+        if (!mBody->IsTargetLocked()) return;
         if (!mBody->IsMovable())  return;
 
         mBody->SetAnimPlayRate(1.5f);
@@ -171,6 +187,7 @@ private:
     }
 
     toy::kit::Humanoid* mBody = nullptr;
+    toy::Application*   mApp  = nullptr;
 };
 
 } // namespace
@@ -178,7 +195,7 @@ private:
 //-----------------------------------------------------------------------------
 std::unique_ptr<Player> MakePlayer(toy::Application* app)
 {
-    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(), MakeHeroDesc());
+    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(app), MakeHeroDesc());
     player->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
     player->GetBody().SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
     return player;

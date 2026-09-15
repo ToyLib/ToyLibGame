@@ -14,7 +14,7 @@ namespace toy::kit {
 //  Player/NPC で Prefab を分けない（設計方針 4）ため、同じ Humanoid を
 //  プレイヤーにも NPC にも使う。
 //
-//  desc.enableLockOnCombat = true のときだけ、Field/Battle 切換え・
+//  desc.enableLockOnCombat = true のときだけ、Free/Locked 切換え・
 //  追従カメラ・ロックオン（索敵/選択/解除）・足音自動再生が有効になる
 //  （プレイヤーが操作する Humanoid 用）。false（既定）の NPC 用途では
 //  メッシュ/コライダー/重力・名前表示・ターゲット表示スプライトだけを持ち、
@@ -64,8 +64,20 @@ public:
     void SelectPrevTarget();
     void ReleaseTarget();
 
-    bool IsInBattle()      const { return mPlayMode == PlayMode::Battle; }
+    bool IsTargetLocked()  const { return mPlayMode == PlayMode::Locked; }
     bool HasLockedTarget() const { return mTargetCollider != nullptr; }
+
+    // Free/Lockedモードが切り替わった事実の通知。これが「カメラ切換え」を
+    // 意味することは Humanoid は知らない——どのカメラを有効化するかの対応付けと
+    // 実行（CameraManager::SetActiveCamera）は Game Logic 側の責務とする
+    // （Player/NPC 共通の Humanoid にカメラの知識を持たせすぎないため）。
+    Signal<PlayModeEvent>& OnPlayModeChanged() { return mOnPlayModeChanged; }
+
+    // Game Logic がカメラ切換えを判断する際に使う、Humanoid 自身が所有する
+    // カメラ Component へのアクセス（生成できるのは Actor を持つ Prefab 側だけ
+    // のため、Component の所有自体は Humanoid に残す）。
+    toy::OrbitCameraComponent*  GetOrbitCamera()  const { return mOrbitCamera; }
+    toy::FollowCameraComponent* GetFollowCamera() const { return mFollowCamera; }
 
 protected:
     void OnUpdate(float deltaTime) override;
@@ -84,8 +96,8 @@ private:
 
     void SearchTarget(float deltaTime);
     void CommitSelectedTarget();
-    void EnterFieldMode();
-    void UpdateModeAndCamera();
+    void EnterFreeMode();
+    void UpdateMode();
     void UpdateMovableRecovery();
     void UpdateFootstepSound();
 
@@ -119,9 +131,13 @@ private:
     int                     mSelectedTarget = NO_TARGET;
     float                   mLockLostTime   = 0.0f;
 
-    enum class PlayMode { Field, Battle };
-    PlayMode mPlayMode = PlayMode::Field;
+    enum class PlayMode { Free, Locked };
+    PlayMode mPlayMode = PlayMode::Free;
     bool     mMovable  = true;
+
+    Signal<PlayModeEvent> mOnPlayModeChanged;
+    bool                  mWasLocked            = false;
+    bool                  mPlayModeEventEmitted = false; // 初回は値に関わらず必ず1回通知する
 
     int mHp = 0;
 };

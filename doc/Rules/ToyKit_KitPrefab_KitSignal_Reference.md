@@ -29,7 +29,7 @@ class Signal
 - 複数箇所から `Connect` されうる想定（`mHandlers` は `vector`）。`Disconnect` は無い＝一度つないだら
   そのオブジェクトの生存期間中はつなぎっぱなしになる設計。
 
-### `CollisionEvent` / `GroundedEvent`（Events.h）
+### `CollisionEvent` / `GroundedEvent` / `PlayModeEvent`（Events.h）
 
 Prefab が Emit する「事実」のペイロード構造体。
 
@@ -37,10 +37,18 @@ Prefab が Emit する「事実」のペイロード構造体。
 |---|---|---|
 | `CollisionEvent` | `toy::ColliderComponent* other` | 何と接触したか（そのフラグを見て攻撃/障害物等を Game Logic 側が判断） |
 | `GroundedEvent` | `bool grounded` | 接地状態が変化した（立ち上がり/立ち下がりの瞬間だけ発火） |
+| `PlayModeEvent` | `bool locked` | `Humanoid` のロックオン索敵がターゲットを Free⇔Locked（ロック中）へ切り替えた（立ち上がり/立ち下がりの瞬間だけ発火） |
 
-新しい Signal ペイロードが必要になったら、この2つと同じ形（意味づけを含まないプレーンな事実データ）で
+新しい Signal ペイロードが必要になったら、この3つと同じ形（意味づけを含まないプレーンな事実データ）で
 同じ `KitSignal/Events.h` に足すか、あるいは `CastMagicEvent`（`Hero.h`）のように
 ゲーム側ヘッダにローカルに置く（Scene連携用の一回性イベントは ToyKit に昇格させない）。
+
+`PlayModeEvent` は「事実データの設計自体が Prefab にどこまで知識を持たせるかの選択になる」という
+好例：当初案は `CameraSwitchEvent{ toy::CameraComponent* camera }`（どのカメラに切り替えるべきかまで
+Humanoid が決めて渡す）だったが、それだと Humanoid が「カメラ切換え」という概念自体を知ってしまう。
+最終的に `bool locked` という純粋な事実のみに絞り、「ロックしたら Follow カメラ、していなければ Orbit
+カメラ」という**対応付け自体を Game Logic 側（`PlayerControlBehavior`/`HeroControlBehavior`）に移した**
+（詳細は Humanoid の項を参照）。
 
 ---
 
@@ -124,12 +132,30 @@ class Agent
 | クラス | Desc | 特徴 |
 |---|---|---|
 | `Creature`（Creature.h/.cpp） | `CreatureDesc` | 4足・簡易骨格アニメ動体。`SkeletalMeshComponent`+`ColliderComponent`+重力。`PlayAnimation`/`PlayAnimationBlend` 実装あり。 |
-| `Humanoid`（Humanoid.h/.cpp） | `HumanoidDesc` | 二足歩行キャラ。Player/NPC を型で分けない共通クラス。`enableLockOnCombat` で以下を丸ごとON/OFF：Field/Battle切換え、追従カメラ、索敵（`SensorComponent`）、ロックオン選択/解除、足音自動再生。ジャンプ・移動判定・`PlayAnimationOnce`（1回再生して指定クリップへ戻る）・`SetMovable`（攻撃中などの移動ロック）を提供。 |
+| `Humanoid`（Humanoid.h/.cpp） | `HumanoidDesc` | 二足歩行キャラ。Player/NPC を型で分けない共通クラス。`enableLockOnCombat` で以下を丸ごとON/OFF：Free/Locked切換え、索敵（`SensorComponent`）、ロックオン選択/解除、足音自動再生。ジャンプ・移動判定・`PlayAnimationOnce`（1回再生して指定クリップへ戻る）・`SetMovable`（攻撃中などの移動ロック）を提供。 |
 | `Projectile`（Projectile.h/.cpp） | `ProjectileDesc` | パーティクル+ポイントライトのみの一時エフェクト。コライダー・アニメーションは持たない（no-op実装）。`IsExpired()`で寿命切れを外部に伝えるだけで、破棄判断はGame Logic/Scene側。 |
 | `StaticObject`（StaticObject.h/.cpp） | `StaticObjectDesc` | メッシュ+コライダー（+任意で重力）のみ。行動ロジックなし。建物・岩・家具・障害物用。 |
 
 各 Desc（`CreatureDesc`/`HumanoidDesc`/`ProjectileDesc`/`StaticObjectDesc`）はプリミティブ型のみで構成される
 「構築情報」構造体（JSON化を見据えた形、実行時参照は持たない）。
+
+#### `Humanoid` のカメラ切換え —「事実の通知」と「実行」の分離
+
+`Humanoid` は `enableLockOnCombat` 時、`OrbitCameraComponent`（Free時）と `FollowCameraComponent`
+（Locked時）の2つを自前で生成・保有する（`Actor::CreateComponent` を呼べるのは Prefab 側だけなので、
+Component の所有自体は Humanoid から動かせない）。しかし、**どちらを `CameraManager::SetActiveCamera()`
+で実際にアクティブにするかは Humanoid 自身では判断・実行しない**——Player/NPC 共通の Prefab に
+「カメラ切換え」という概念そのものを持たせないため。
+
+- `Humanoid::OnPlayModeChanged()` — `Signal<PlayModeEvent>`。Free⇔Locked が切り替わった事実のみを通知。
+- `Humanoid::GetOrbitCamera()` / `GetFollowCamera()` — Game Logic がカメラ切換えを判断する際に使う、
+  Humanoid が所有する Component への読み取り専用アクセス。
+
+Game Logic（`PlayerControlBehavior`/`HeroControlBehavior`）側が `OnStart` で `OnPlayModeChanged()` を
+`Connect` し、`e.locked ? GetFollowCamera() : GetOrbitCamera()` を選んで `SetActiveCamera()` を呼ぶ、
+という形で実際の切換えを行う（`Player.cpp`/`Hero.cpp` 参照）。この形にしたことで、例えば「戦闘用の
+ロックはカメラそのまま・会話用のロックは Follow に切り替える」のような、Humanoid が関知しない文脈での
+カメラ制御も Game Logic 側だけの変更で実現できる。
 
 #### `StaticObjectPlacement`（StaticObjectPlacement.h/.cpp）— Scene構築のDesc化の単位
 

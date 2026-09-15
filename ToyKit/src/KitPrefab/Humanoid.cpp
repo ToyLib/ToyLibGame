@@ -5,7 +5,6 @@
 #include "Asset/AssetManager.h"
 #include "Render/IRenderer.h"
 #include "Render/LightingManager.h"
-#include "Camera/CameraManager.h"
 #include "Graphics/Mesh/SkeletalMeshComponent.h"
 #include "Physics/ColliderComponent.h"
 #include "Physics/GravityComponent.h"
@@ -176,7 +175,7 @@ void Humanoid::SelectPrevTarget() // L1: 左へ
 
 void Humanoid::ReleaseTarget()
 {
-    EnterFieldMode();
+    EnterFreeMode();
 }
 
 //=============================================================================
@@ -257,12 +256,11 @@ void Humanoid::SetupCamera(const HumanoidDesc& desc)
     mFollowCamera = GetActor()->CreateComponent<toy::FollowCameraComponent>();
     mOrbitCamera  = GetActor()->CreateComponent<toy::OrbitCameraComponent>();
 
-    GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
-    mOrbitCamera->SetIsEnabled(true);
     mOrbitCamera->SetFreezeYInAir(desc.freezeCameraYInAir);
-
-    mFollowCamera->SetIsEnabled(false);
     mFollowCamera->SetFreezeYInAir(desc.freezeCameraYInAir);
+
+    // どちらをアクティブにするかは Game Logic が OnPlayModeChanged() を
+    // 受けて判断・実行する（Humanoid はカメラ切換えの実行責務を持たない）。
 }
 
 void Humanoid::SetupCombatSensor(const HumanoidDesc& desc)
@@ -295,7 +293,7 @@ void Humanoid::OnUpdate(float deltaTime)
     if (mDesc.enableLockOnCombat)
     {
         SearchTarget(deltaTime);
-        UpdateModeAndCamera();
+        UpdateMode();
     }
     UpdateMovableRecovery();
     UpdateFootstepSound();
@@ -376,7 +374,7 @@ void Humanoid::SearchTarget(float deltaTime)
 
     if (tooFar || (!inAttackLock && mLockLostTime > mDesc.lockLostGraceSec))
     {
-        EnterFieldMode();
+        EnterFreeMode();
         mLockLostTime = 0.0f;
     }
 }
@@ -396,41 +394,41 @@ void Humanoid::CommitSelectedTarget()
         mTargetCollider->SetTargetState(toy::TargetState::Locked);
     }
 
-    mPlayMode     = PlayMode::Battle;
+    mPlayMode     = PlayMode::Locked;
     mLockLostTime = 0.0f;
 }
 
-void Humanoid::EnterFieldMode()
+void Humanoid::EnterFreeMode()
 {
-    if (mPlayMode == PlayMode::Battle && mTargetCollider)
+    if (mPlayMode == PlayMode::Locked && mTargetCollider)
     {
         mTargetCollider->SetTargetState(toy::TargetState::Candidate);
         mTargetCollider = nullptr;
         mSelectedTarget = NO_TARGET;
-        mPlayMode       = PlayMode::Field;
+        mPlayMode       = PlayMode::Free;
         mLockLostTime   = 0.0f;
     }
 }
 
 //-----------------------------------------------------------------------------
-// UpdateModeAndCamera
-//  Battle中かつターゲットありのときだけロックオン移動＋追従カメラ。
-//  それ以外は Field へ戻す（元仕様のまま）。
-//  攻撃中ロック(mMovable)は、アクティブな MoveComponent 側にだけ反映する。
+// UpdateMode
+//  Locked中かつターゲットありのときだけロックオン移動。それ以外は Free へ
+//  戻す（元仕様のまま）。攻撃中ロック(mMovable)は、アクティブな
+//  MoveComponent 側にだけ反映する。
+//  Free/Locked が実際に「何を意味するか」（カメラ切換え等）は関知せず、
+//  モードが変わった事実だけを OnPlayModeChanged() で通知する。
 //-----------------------------------------------------------------------------
-void Humanoid::UpdateModeAndCamera()
+void Humanoid::UpdateMode()
 {
-    if (mPlayMode == PlayMode::Battle && mTargetCollider)
+    const bool locked = (mPlayMode == PlayMode::Locked && mTargetCollider != nullptr);
+
+    if (locked)
     {
         mDirMove->SetIsMovable(false);
 
         mOrbitMove->SetCenterActor(mTargetCollider->GetOwner());
         mOrbitMove->SetIsMovable(mMovable);
         mActiveMove = mOrbitMove;
-
-        GetApp()->GetCameraManager()->SetActiveCamera(mFollowCamera);
-        mOrbitCamera->SetIsEnabled(false);
-        mFollowCamera->SetIsEnabled(true);
     }
     else
     {
@@ -438,14 +436,17 @@ void Humanoid::UpdateModeAndCamera()
         mDirMove->SetIsMovable(mMovable);
 
         mActiveMove     = mDirMove;
-        mPlayMode       = PlayMode::Field;
+        mPlayMode       = PlayMode::Free;
         mTargetCollider = nullptr;
         mSelectedTarget = NO_TARGET;
         mLockLostTime   = 0.0f;
+    }
 
-        GetApp()->GetCameraManager()->SetActiveCamera(mOrbitCamera);
-        mOrbitCamera->SetIsEnabled(true);
-        mFollowCamera->SetIsEnabled(false);
+    if (locked != mWasLocked || !mPlayModeEventEmitted)
+    {
+        mWasLocked            = locked;
+        mPlayModeEventEmitted = true;
+        mOnPlayModeChanged.Emit(PlayModeEvent{ locked });
     }
 }
 

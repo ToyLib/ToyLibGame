@@ -37,7 +37,7 @@ Game Logic クラス（Wolf / Noriko / Player / Hero など）
 | Prefab | 用途 | Desc |
 |---|---|---|
 | `Creature` | 4足・簡易メッシュ等、Humanoid ほど複雑でない動体 | `CreatureDesc` |
-| `Humanoid` | 二足歩行キャラ。ロックオン戦闘・Field/Battle切換え・索敵はオプトイン | `HumanoidDesc` |
+| `Humanoid` | 二足歩行キャラ。ロックオン戦闘・Free/Locked切換え・索敵はオプトイン | `HumanoidDesc` |
 | `Projectile` | 魔法弾・回復エフェクト等、寿命付きの一発エフェクト | `ProjectileDesc` |
 | `StaticObject` | 建物・岩・家具など、メッシュ+コライダーだけの動かない物 | `StaticObjectDesc` |
 
@@ -270,9 +270,21 @@ toy::kit::HumanoidDesc MakeHeroDesc() { /* ... enableLockOnCombat = true ... */ 
 class PlayerControlBehavior : public toy::kit::IBehavior
 {
 public:
+    explicit PlayerControlBehavior(toy::Application* app) : mApp(app) {}
+
     void OnStart(toy::kit::Prefab& body) override
     {
         mBody = static_cast<toy::kit::Humanoid*>(&body); // Humanoid固有メソッドが必要なので static_cast
+
+        // Humanoid は「ロック中かどうか」の事実だけを通知する（カメラという概念は知らない）。
+        // どちらのカメラを有効化するかは Game Logic 側の判断・実行。
+        mBody->OnPlayModeChanged().Connect(
+            [this](const toy::kit::PlayModeEvent& e)
+            {
+                mApp->GetCameraManager()->SetActiveCamera(
+                    e.locked ? static_cast<toy::CameraComponent*>(mBody->GetFollowCamera())
+                             : static_cast<toy::CameraComponent*>(mBody->GetOrbitCamera()));
+            });
     }
     void OnInput(toy::kit::Prefab& /*body*/, const toy::InputState& state) override
     {
@@ -283,13 +295,14 @@ public:
     void OnUpdate(toy::kit::Prefab& /*body*/, float /*dt*/) override { UpdateMovementAnimation(); }
 private:
     toy::kit::Humanoid* mBody = nullptr;
+    toy::Application*   mApp  = nullptr;
     // ...
 };
 } // namespace
 
 std::unique_ptr<Player> MakePlayer(toy::Application* app)
 {
-    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(), MakeHeroDesc());
+    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(app), MakeHeroDesc());
     player->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
     return player;
 }

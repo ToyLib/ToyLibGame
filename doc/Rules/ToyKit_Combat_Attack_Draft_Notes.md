@@ -58,7 +58,15 @@
   そのため「Idle→Chase→Locked→Attack」ではなく、**「Idle→Chase→Attack」の3ステートで十分**という結論。
   Player側の`OrbitMoveComponent`(旋回移動)を流用する案も検討したが、`Prefab`が自分/相手の
   `Actor`を公開していないため難しく、かつ`enableLockOnCombat`はカメラ切替とセットなので
-  NPCに使うとカメラを奪ってしまう問題があり見送った。実際に必要だったのは
+  NPCに使うとカメラを奪ってしまう問題があり見送った
+  （**2026-09-15追記**: このカメラ結合自体はその後解消した——`Humanoid`はもう
+  `CameraManager::SetActiveCamera()`を自分で呼ばず、`OnPlayModeChanged()`で
+  Free/Lockedが切り替わった事実だけを通知し、実際にどのカメラを有効化するかは
+  Game Logic側の判断・実行になった。詳細は
+  [ToyKit_KitPrefab_KitSignal_Reference.md](ToyKit_KitPrefab_KitSignal_Reference.md)の
+  「`Humanoid` のカメラ切換え」参照。ただし`OrbitMoveComponent`流用が難しい理由の前半
+  — `Actor`非公開のため — はまだ解消していないので、この節の結論自体は変わらない）。
+  実際に必要だったのは
   「ターゲットが動いても向き続け、攻撃範囲まで距離を詰める」だけで、これは既存の
   `FaceTowardPointXZ`/`MoveTowardPointXZ`（stopRangeの代わりにattackRangeを使う）で足りた。
 - **2026-09-14: `ChaseAttackBehavior`実装・ビルド確認済み（実機動作は未確認）。**

@@ -17,7 +17,7 @@ enum HeroMotion
     H_Run     = 11,
     H_Stand   = 17,
     H_Walk    = 18,
-    H_WalkSS  = 19,   // バトルモード（ロックオン）ストレイフ
+    H_WalkSS  = 19,   // ロック中のストレイフ
     H_Slash   = 13,
     H_Spin    = 14,
     H_Stab    = 15
@@ -46,12 +46,16 @@ struct CastHealEvent
 //  Hero の入力処理（IBehavior::OnInput）とアニメーション選択（OnUpdate）。
 //
 //  Humanoid が担当するもの（ここでは書かない）:
-//    - Field / Battle モード切換え・カメラ切換え・索敵（enableLockOnCombat）
+//    - Free / Locked モード切換え・索敵（enableLockOnCombat）
 //    - 攻撃中の移動ロック（SetMovable）とその自動復帰
 //
 //  ここが担当するもの:
 //    - Slash / Spin / Stab の攻撃トリガー（魔法/回復は Signal で通知するのみ）
 //    - Stand / Run / WalkSS / Jump のアニメーション選択
+//    - カメラの実際の切換え（Humanoid::OnPlayModeChanged() でターゲットを
+//      ロックしたかどうかの事実を受け、どちらのカメラを有効化するか判断して
+//      CameraManager::SetActiveCamera() を呼ぶ。Player/NPC 共通の Humanoid
+//      には持たせない責務のため）
 //
 //  Humanoid 固有のメソッドを使うため、Prefab& を Humanoid& へ static_cast する
 //  （PlayerControlBehavior と同じ考え方）。
@@ -59,6 +63,8 @@ struct CastHealEvent
 class HeroControlBehavior : public toy::kit::IBehavior
 {
 public:
+    explicit HeroControlBehavior(toy::Application* app) : mApp(app) {}
+
     void OnStart(toy::kit::Prefab& body) override;
     void OnInput(toy::kit::Prefab& body, const toy::InputState& state) override;
     void OnUpdate(toy::kit::Prefab& body, float deltaTime) override;
@@ -74,6 +80,7 @@ private:
     void UpdatePlayerAnim();
 
     toy::kit::Humanoid* mBody = nullptr;
+    toy::Application*   mApp  = nullptr;
 
     toy::kit::Signal<CastMagicEvent> mOnCastMagic;
     toy::kit::Signal<CastHealEvent>  mOnCastHeal;

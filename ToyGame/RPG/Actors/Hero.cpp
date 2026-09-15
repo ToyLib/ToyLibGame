@@ -40,6 +40,14 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 void HeroControlBehavior::OnStart(toy::kit::Prefab& body)
 {
     mBody = static_cast<toy::kit::Humanoid*>(&body);
+
+    mBody->OnPlayModeChanged().Connect(
+        [this](const toy::kit::PlayModeEvent& e)
+        {
+            mApp->GetCameraManager()->SetActiveCamera(
+                e.locked ? static_cast<toy::CameraComponent*>(mBody->GetFollowCamera())
+                         : static_cast<toy::CameraComponent*>(mBody->GetOrbitCamera()));
+        });
 }
 
 //-----------------------------------------------------------------------------
@@ -74,7 +82,7 @@ void HeroControlBehavior::SelectTarget(const toy::InputState& state)
 }
 
 //-----------------------------------------------------------------------------
-// OnAttackInput（L2 押下中に呼ばれる。Field/Battleどちらでも攻撃可 = 元仕様）
+// OnAttackInput（L2 押下中に呼ばれる。Free/Lockedどちらでも攻撃可 = 元仕様）
 //-----------------------------------------------------------------------------
 void HeroControlBehavior::OnAttackInput(const toy::InputState& state)
 {
@@ -132,8 +140,8 @@ void HeroControlBehavior::UpdatePlayerAnim()
     }
     else
     {
-        // バトルモード（ロックオン中）はストレイフ用アニメ
-        const int moveMotion = mBody->IsInBattle() ? H_WalkSS : H_Run;
+        // ロック中はストレイフ用アニメ
+        const int moveMotion = mBody->IsTargetLocked() ? H_WalkSS : H_Run;
         mBody->PlayAnimation(moveMotion);
     }
 }
@@ -143,7 +151,7 @@ void HeroControlBehavior::UpdatePlayerAnim()
 //=============================================================================
 std::unique_ptr<Hero> MakeHero(toy::Application* app)
 {
-    auto hero = std::make_unique<Hero>(app, std::make_unique<HeroControlBehavior>(), MakeHeroDesc());
+    auto hero = std::make_unique<Hero>(app, std::make_unique<HeroControlBehavior>(app), MakeHeroDesc());
     hero->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
     hero->GetBody().SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
     return hero;
