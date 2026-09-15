@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 namespace toy::kit {
 
@@ -129,13 +128,12 @@ void Humanoid::TakeDamage(int amount)
     if (mDesc.maxHp <= 0)
     {
         // HP未設定のキャラは検知確認用ログのみ（従来動作のまま）
-        printf("[Humanoid] %s took %d damage\n", name, amount);
+		std::cout << "[Humanoid] " << name << " took " << amount << " damage" << std::endl;
         return;
     }
 
     mHp = std::max(0, mHp - amount);
-    printf("[Humanoid] %s took %d damage (HP %d/%d)%s\n",
-           name, amount, mHp, mDesc.maxHp, mHp == 0 ? " - defeated" : "");
+	std::cout << "[Humanoid] " << name << " took " << amount << " damage (HP " << mHp << "/" << mDesc.maxHp << ")" << (mHp == 0 ? " - defeated" : "") << std::endl;
 }
 
 void Humanoid::SetAttackColliderActive(bool active)
