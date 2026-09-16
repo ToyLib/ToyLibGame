@@ -18,8 +18,8 @@ namespace {
 //    - candidateTexture/lockedTexture : ロックオン候補/ロック中の足元スプライト
 //    - enableVision/visionFovDeg/visionMaxDist/visionTargetMask
 //        : 視界センサー（Humanoid のロックオン索敵と同じ toy::SensorComponent）。
-//          visionTargetMask で「何を見るか」を指定する——ここでは Player の
-//          コライダーが持つ toy::C_PLAYER_TEAM を指定し、Player を検知対象にする。
+//          visionTargetMask で「何を見るか」を指定する——ここでは Toby の
+//          コライダーが持つ toy::C_PLAYER_TEAM を指定し、Toby を検知対象にする。
 //=============================================================================
 toy::kit::CreatureDesc MakeNorikoDesc()
 {
@@ -51,7 +51,7 @@ toy::kit::CreatureDesc MakeNorikoDesc()
 
 //=============================================================================
 // FleeBehaviorDesc — FleeBehavior（ToyKit 汎用）の構築情報
-//  基本は Idle（静止）。ターゲット（Player）を Sensor で視認したら
+//  基本は Idle（静止）。ターゲット（Toby）を Sensor で視認したら
 //  Flee（ターゲットと反対方向へ歩く）に切り替わり、一定距離より離れたら
 //  Idle に戻る。ロジック本体は toy::kit::FleeBehavior（ChaseBehavior と同じ
 //  位置付けの汎用 IBehavior）。元々は Noriko 専用のローカルクラスだったが、

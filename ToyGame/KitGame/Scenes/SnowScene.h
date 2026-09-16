@@ -11,7 +11,7 @@ class SnowScene : public toy::kit::IScene
 public:
     explicit SnowScene();
 
-    // Player/FieldMonster は前方宣言のみのため、それらの std::unique_ptr を
+    // Toby/FieldMonster は前方宣言のみのため、それらの std::unique_ptr を
     // 完全型が見える SnowScene.cpp 側で暗黙生成させる（out-of-line destructor）
     ~SnowScene() override;
 
@@ -33,10 +33,10 @@ private:
 
     class toy::TextSpriteComponent* mTextComp;
 
-    toy::Actor* mPlyCamera;
+    toy::Actor* mTobyCamera;
 
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
-    std::unique_ptr<class Player> mPlayer;
+    std::unique_ptr<class Toby> mToby;
     std::vector<std::unique_ptr<class Noriko>> mMonsters;
 };

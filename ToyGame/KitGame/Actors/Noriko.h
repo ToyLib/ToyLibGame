@@ -39,6 +39,6 @@ public:
 // （FleeBehavior）の生成・初期位置の設定など、構築に必要な手順を
 // 1箇所にまとめておくため。呼び出し側（Scene）は中身を知らなくてよい。
 //
-// target には、視界に入ったら逃げ出す相手（Player の Prefab）を渡す
+// target には、視界に入ったら逃げ出す相手（Toby の Prefab）を渡す
 // （Wolf/Shiro が MakeWolf/MakeShiro に target を渡すのと同じ形）。
 std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& position, toy::kit::Prefab* target);

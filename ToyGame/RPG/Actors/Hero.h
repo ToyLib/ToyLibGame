@@ -58,7 +58,7 @@ struct CastHealEvent
 //      には持たせない責務のため）
 //
 //  Humanoid 固有のメソッドを使うため、Prefab& を Humanoid& へ static_cast する
-//  （PlayerControlBehavior と同じ考え方）。
+//  （TobyControlBehavior と同じ考え方）。
 //=============================================================================
 class HeroControlBehavior : public toy::kit::IBehavior
 {

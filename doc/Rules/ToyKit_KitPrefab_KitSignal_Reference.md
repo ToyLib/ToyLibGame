@@ -47,7 +47,7 @@ Prefab が Emit する「事実」のペイロード構造体。
 好例：当初案は `CameraSwitchEvent{ toy::CameraComponent* camera }`（どのカメラに切り替えるべきかまで
 Humanoid が決めて渡す）だったが、それだと Humanoid が「カメラ切換え」という概念自体を知ってしまう。
 最終的に `bool locked` という純粋な事実のみに絞り、「ロックしたら Follow カメラ、していなければ Orbit
-カメラ」という**対応付け自体を Game Logic 側（`PlayerControlBehavior`/`HeroControlBehavior`）に移した**
+カメラ」という**対応付け自体を Game Logic 側（`TobyControlBehavior`/`HeroControlBehavior`）に移した**
 （詳細は Humanoid の項を参照）。
 
 ---
@@ -106,7 +106,7 @@ class IBehavior
 - 全フック既定は空実装。使うものだけ override すればよい。
 - Prefab の型を新設せずに、同じ体（Humanoid等）を使う複数キャラの「行動だけ」を差し替えるための仕組み。
 - 1体しかいない・複雑な一回性の処理は無理に `IBehavior` 化せず専用 Game Logic クラスでもよい
-  （`Hero`/`Player` はこの形で `IBehavior` を使っている＝両立する）。
+  （`Hero`/`Toby` はこの形で `IBehavior` を使っている＝両立する）。
 
 #### `Agent<TPrefab>`（Agent.h）— Prefab + IBehavior を束ねる汎用ラッパー
 
@@ -123,7 +123,7 @@ class Agent
 ```
 
 - コンストラクタで `mBody.OnCollision()` を自動的に `mBehavior->OnCollision` へ配線し、`OnStart` を1回呼ぶ。
-- `Wolf`/`Shiro`/`Noriko`/`Player`/`Hero` は全てこの `Agent<T>` の薄いサブクラス（`using Agent::Agent;` のみ）。
+- `Wolf`/`Shiro`/`Noriko`/`Toby`/`Hero` は全てこの `Agent<T>` の薄いサブクラス（`using Agent::Agent;` のみ）。
 - `GetBehavior()` は普段は不要。`Hero` のように Behavior の Signal を外部（Scene）から購読する必要があるときだけ、
   派生クラス側に `GetControlBehavior()` のような型付きアクセサを追加して使う。
 
@@ -151,9 +151,9 @@ Component の所有自体は Humanoid から動かせない）。しかし、**�
 - `Humanoid::GetOrbitCamera()` / `GetFollowCamera()` — Game Logic がカメラ切換えを判断する際に使う、
   Humanoid が所有する Component への読み取り専用アクセス。
 
-Game Logic（`PlayerControlBehavior`/`HeroControlBehavior`）側が `OnStart` で `OnPlayModeChanged()` を
+Game Logic（`TobyControlBehavior`/`HeroControlBehavior`）側が `OnStart` で `OnPlayModeChanged()` を
 `Connect` し、`e.locked ? GetFollowCamera() : GetOrbitCamera()` を選んで `SetActiveCamera()` を呼ぶ、
-という形で実際の切換えを行う（`Player.cpp`/`Hero.cpp` 参照）。この形にしたことで、例えば「戦闘用の
+という形で実際の切換えを行う（`Toby.cpp`/`Hero.cpp` 参照）。この形にしたことで、例えば「戦闘用の
 ロックはカメラそのまま・会話用のロックは Follow に切り替える」のような、Humanoid が関知しない文脈での
 カメラ制御も Game Logic 側だけの変更で実現できる。
 
@@ -238,9 +238,9 @@ KitSignal（Signal / Events）
       ↑
 KitPrefab/Prefab ← Creature / Humanoid / Projectile / StaticObject
       ↑
-KitPrefab/IBehavior ← ChaseBehavior（ToyKit汎用） / ゲーム側ローカルBehavior（PlayerControlBehavior等）
+KitPrefab/IBehavior ← ChaseBehavior（ToyKit汎用） / ゲーム側ローカルBehavior（TobyControlBehavior等）
       ↑
-KitPrefab/Agent<TPrefab>  ← ゲーム側 Game Logic クラス（Wolf/Noriko/Player/Hero等）
+KitPrefab/Agent<TPrefab>  ← ゲーム側 Game Logic クラス（Wolf/Noriko/Toby/Hero等）
 ```
 
 `KitSignal` は他の何にも依存しない最下層。`Prefab` は `KitSignal` にのみ依存し `IBehavior`/`Agent` を知らない。

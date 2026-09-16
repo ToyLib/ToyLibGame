@@ -27,7 +27,7 @@ toy::kit::HumanoidDesc MakeNinjaDesc()
     desc.candidateTexture = "UI/candidate.png";
     desc.lockedTexture    = "UI/lockon.png";
 
-    // 視界に Player が入ったら選択された Behavior（Flee/Chase）が動き出す
+    // 視界に Toby が入ったら選択された Behavior（Flee/Chase）が動き出す
     desc.enableVision     = true;
     desc.visionFovDeg     = 60.0f;
     desc.visionMaxDist    = 15.0f;

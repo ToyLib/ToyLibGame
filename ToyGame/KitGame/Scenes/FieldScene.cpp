@@ -1,7 +1,7 @@
 #include "FieldScene.h"
 #include "SnowScene.h"
 #include "ToyLib.h"
-#include "../Actors/Player.h"
+#include "../Actors/Toby.h"
 #include "../Actors/Noriko.h"
 #include "../Actors/Ninja.h"
 #include "../Actors/Bunny.h"
@@ -48,34 +48,34 @@ void FieldScene::DefineWorld()
 //-----------------------------------------------------------------------------
 void FieldScene::SpawnCharacters()
 {
-    mPlayer = MakePlayer(GetApp());
+    mToby = MakeToby(GetApp());
 
     // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
     for (int i = 0; i < 2; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
+        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mToby->GetBody()));
     }
 
     // Ninja（Humanoid + Flee/ChaseBehavior の Agent。個体ごとに Behavior を選択できる）
     {
         Vector3 fleePos(-10.0f, 3.0f, 20.0f);
-        mNinjas.push_back(MakeNinja(GetApp(), fleePos, &mPlayer->GetBody(), NinjaBehaviorType::Flee));
+        mNinjas.push_back(MakeNinja(GetApp(), fleePos, &mToby->GetBody(), NinjaBehaviorType::Flee));
 
         Vector3 chasePos(10.0f, 3.0f, 20.0f);
-        mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mPlayer->GetBody(), NinjaBehaviorType::Chase));
+        mNinjas.push_back(MakeNinja(GetApp(), chasePos, &mToby->GetBody(), NinjaBehaviorType::Chase));
 
         Vector3 chaseAttackPos(0.0f, 3.0f, 25.0f);
-        mNinjas.push_back(MakeNinja(GetApp(), chaseAttackPos, &mPlayer->GetBody(), NinjaBehaviorType::ChaseAttack));
+        mNinjas.push_back(MakeNinja(GetApp(), chaseAttackPos, &mToby->GetBody(), NinjaBehaviorType::ChaseAttack));
     }
 
     // Bunny（Ninjaと同じSkirmisherにモデルだけ差し替えたキャラ。個体ごとにBehaviorを選択できる）
     {
         Vector3 fleePos(-10.0f, 3.0f, 30.0f);
-        mBunnies.push_back(MakeBunny(GetApp(), fleePos, &mPlayer->GetBody(), BunnyBehaviorType::Flee));
+        mBunnies.push_back(MakeBunny(GetApp(), fleePos, &mToby->GetBody(), BunnyBehaviorType::Flee));
 
         Vector3 chasePos(10.0f, 3.0f, 30.0f);
-        mBunnies.push_back(MakeBunny(GetApp(), chasePos, &mPlayer->GetBody(), BunnyBehaviorType::Chase));
+        mBunnies.push_back(MakeBunny(GetApp(), chasePos, &mToby->GetBody(), BunnyBehaviorType::Chase));
     }
 }
 
@@ -97,9 +97,9 @@ void FieldScene::DefineUI()
 
 void FieldScene::ProcessInput(const struct toy::InputState &input)
 {
-    if (mPlayer)
+    if (mToby)
     {
-        mPlayer->ProcessInput(input);
+        mToby->ProcessInput(input);
     }
 
     if (input.IsButtonPressed(toy::GameButton::Start))
@@ -116,9 +116,9 @@ void FieldScene::Update(float deltaTime)
         mWeather->Update(deltaTime);
     }
 
-    if (mPlayer)
+    if (mToby)
     {
-        mPlayer->Update(deltaTime);
+        mToby->Update(deltaTime);
     }
 
     for (auto& monster : mMonsters)
@@ -149,7 +149,7 @@ void FieldScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayer->GetBody().GetPosition();
+    Vector3 pos = mToby->GetBody().GetPosition();
     toy::DebugDraw::Sphere(pos, 4.0f, 32);
     //toy::DebugDraw::Box(min, max);
 }

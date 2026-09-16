@@ -9,7 +9,7 @@
 ## 1. 全体像
 
 ```
-Game Logic クラス（Wolf / Noriko / Player / Hero など）
+Game Logic クラス（Wolf / Noriko / Toby / Hero など）
   ├─ Prefab（Creature / Humanoid / Projectile / StaticObject）… 見た目・当たり判定・Interface
   └─ IBehavior（省略可）… 毎フレームの振る舞い・入力処理
 ```
@@ -243,34 +243,34 @@ std::unique_ptr<Noriko> MakeNoriko(toy::Application* app, const Vector3& positio
 
 ---
 
-## 6. パターンD: 入力操作するキャラ（Player / Hero の例）
+## 6. パターンD: 入力操作するキャラ（Toby / Hero の例）
 
 プレイヤー操作は `IBehavior::OnInput(Prefab&, const InputState&)` を使う。
 `Agent<TPrefab>::ProcessInput(state)` が `OnInput` に委譲する。
 
-### 6-1. 外部に Signal を公開しない場合（Player）
+### 6-1. 外部に Signal を公開しない場合（Toby）
 
 Scene から Behavior の中身を触る必要がなければ、`.cpp` の無名namespaceに隠せる。
 
 ```cpp
-// Player.h
-class Player : public toy::kit::Agent<toy::kit::Humanoid>
+// Toby.h
+class Toby : public toy::kit::Agent<toy::kit::Humanoid>
 {
 public:
     using Agent::Agent;
 };
-std::unique_ptr<Player> MakePlayer(toy::Application* app);
+std::unique_ptr<Toby> MakeToby(toy::Application* app);
 ```
 
 ```cpp
-// Player.cpp
+// Toby.cpp
 namespace {
-toy::kit::HumanoidDesc MakeHeroDesc() { /* ... enableLockOnCombat = true ... */ }
+toy::kit::HumanoidDesc MakeTobyDesc() { /* ... enableLockOnCombat = true ... */ }
 
-class PlayerControlBehavior : public toy::kit::IBehavior
+class TobyControlBehavior : public toy::kit::IBehavior
 {
 public:
-    explicit PlayerControlBehavior(toy::Application* app) : mApp(app) {}
+    explicit TobyControlBehavior(toy::Application* app) : mApp(app) {}
 
     void OnStart(toy::kit::Prefab& body) override
     {
@@ -300,11 +300,11 @@ private:
 };
 } // namespace
 
-std::unique_ptr<Player> MakePlayer(toy::Application* app)
+std::unique_ptr<Toby> MakeToby(toy::Application* app)
 {
-    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(app), MakeHeroDesc());
-    player->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
-    return player;
+    auto toby = std::make_unique<Toby>(app, std::make_unique<TobyControlBehavior>(app), MakeTobyDesc());
+    toby->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
+    return toby;
 }
 ```
 
@@ -371,9 +371,9 @@ mHero->GetControlBehavior().OnCastMagic().Connect(
     });
 ```
 
-**Player と Hero、どちらの形にするかの判断基準はこれだけ**:
+**Toby と Hero、どちらの形にするかの判断基準はこれだけ**:
 Behavior が Scene に何かを伝える必要があるか（Signal を外に出す必要があるか）どうか。
-必要なければ `.cpp` に隠す（Player方式）、必要なら公開する（Hero方式）。
+必要なければ `.cpp` に隠す（Toby方式）、必要なら公開する（Hero方式）。
 
 ---
 
@@ -406,22 +406,22 @@ Scene（`IScene`）は Prefab/Agent を所有する Game Logic オブジェク�
 
 ```cpp
 // FieldScene.h
-std::unique_ptr<class Player> mPlayer;
+std::unique_ptr<class Toby> mToby;
 std::vector<std::unique_ptr<class Noriko>> mMonsters;
 std::vector<std::unique_ptr<toy::kit::StaticObject>> mStaticObjects;
 ```
 
 ```cpp
 // FieldScene.cpp — SpawnCharacters()（地形/StaticObjectはDefineWorld()側）
-mPlayer = MakePlayer(GetApp());
+mToby = MakeToby(GetApp());
 for (int i = 0; i < 10; ++i)
     mMonsters.push_back(MakeNoriko(GetApp(), pos));
 
 // ProcessInput() — 入力が必要なものだけ
-mPlayer->ProcessInput(input);
+mToby->ProcessInput(input);
 
 // Update() — 毎フレーム
-mPlayer->Update(deltaTime);
+mToby->Update(deltaTime);
 for (auto& monster : mMonsters) monster->Update(deltaTime);
 ```
 
@@ -430,7 +430,7 @@ for (auto& monster : mMonsters) monster->Update(deltaTime);
 
 ### 前方宣言だけで `unique_ptr` メンバを持つ場合の注意
 
-ヘッダで `class Player;` のように前方宣言し `std::unique_ptr<Player> mPlayer;` を持つ場合、
+ヘッダで `class Toby;` のように前方宣言し `std::unique_ptr<Toby> mToby;` を持つ場合、
 **コンストラクタ・デストラクタは必ず `.cpp` 側で out-of-line 定義する**
 （ヘッダにインラインで `= default;` と書くと、他の翻訳単位が暗黙にデストラクタを実体化しようとして
 「incomplete type」エラーになる）。
@@ -440,7 +440,7 @@ for (auto& monster : mMonsters) monster->Update(deltaTime);
 FieldScene();
 ~FieldScene() override; // 宣言のみ
 
-// FieldScene.cpp（Player等の完全な型が見える場所）
+// FieldScene.cpp（Toby等の完全な型が見える場所）
 FieldScene::FieldScene() {}
 FieldScene::~FieldScene() = default;
 ```
@@ -455,7 +455,7 @@ FieldScene::~FieldScene() = default;
    - 他のキャラでも使う可能性が高いなら ToyKit 側（`KitPrefab/`）へ。
    - 1体専用なら `.cpp` の無名namespace に留める。
 4. Scene から Behavior の中身に触る必要があるか？
-   - ない → `Agent<TPrefab>` の薄いサブクラス + `.cpp` ローカル Behavior（Player方式）
+   - ない → `Agent<TPrefab>` の薄いサブクラス + `.cpp` ローカル Behavior（Toby方式）
    - ある（Signal購読等） → Behavior を名前付きでヘッダ公開 + `GetBehavior()`/専用アクセサ（Hero方式）
 5. `MakeXxx(app, ...)` ファクトリ関数を書き、初期位置等をここで設定する。
 6. Scene 側に `unique_ptr`/`vector<unique_ptr>` メンバを追加し、`SpawnCharacters()` で生成、

@@ -79,10 +79,10 @@ Scene がスポーンした各キャラは `toy::kit::Agent<TPrefab>`（体=Pref
 
 ```cpp
 // ProcessInput() — 入力が必要なものだけ
-mPlayer->ProcessInput(input);
+mToby->ProcessInput(input);
 
 // Update() — 毎フレーム
-mPlayer->Update(deltaTime);
+mToby->Update(deltaTime);
 for (auto& monster : mMonsters) monster->Update(deltaTime);
 ```
 

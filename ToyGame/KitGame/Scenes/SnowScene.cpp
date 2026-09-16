@@ -1,7 +1,7 @@
 #include "SnowScene.h"
 #include "FieldScene.h"
 #include "ToyLib.h"
-#include "../Actors/Player.h"
+#include "../Actors/Toby.h"
 #include "../Actors/Noriko.h"
 
 
@@ -57,17 +57,17 @@ void SnowScene::DefineWorld()
     mirrorComp->SetSurfaceMode(toy::SurfaceMode::Monitor);
 
     // 主人公視点（画面右上のミニカメラ）
-    mPlyCamera = CreateActor<toy::Actor>();
-    mPlyCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
-    auto plyCapture = mPlyCamera->CreateComponent<toy::SceneCaptureComponent>();
-    plyCapture->Init({ .width = 320, .height = 240 });
-    plyCapture->SetCaptureMode(toy::CaptureMode::Fixed);
-    plyCapture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
+    mTobyCamera = CreateActor<toy::Actor>();
+    mTobyCamera->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    auto tobyCapture = mTobyCamera->CreateComponent<toy::SceneCaptureComponent>();
+    tobyCapture->Init({ .width = 320, .height = 240 });
+    tobyCapture->SetCaptureMode(toy::CaptureMode::Fixed);
+    tobyCapture->SetSurfaceInfo({ .scWidth = 10.f, .scHeight = 10.0f });
 
-    auto plyCameraDisplay = CreateActor<toy::Actor>();
-    plyCameraDisplay->SetPosition(Vector3(800, 400, 0));
-    auto plyCameraSprite = plyCameraDisplay->CreateComponent<toy::SpriteComponent>();
-    plyCameraSprite->SetTexture(plyCapture->GetColorTexture());
+    auto tobyCameraDisplay = CreateActor<toy::Actor>();
+    tobyCameraDisplay->SetPosition(Vector3(800, 400, 0));
+    auto tobyCameraSprite = tobyCameraDisplay->CreateComponent<toy::SpriteComponent>();
+    tobyCameraSprite->SetTexture(tobyCapture->GetColorTexture());
 
     // 雪
     auto snowActor = CreateActor<toy::Actor>();
@@ -107,13 +107,13 @@ void SnowScene::DefineWorld()
 //-----------------------------------------------------------------------------
 void SnowScene::SpawnCharacters()
 {
-    mPlayer = MakePlayer(GetApp());
+    mToby = MakeToby(GetApp());
 
     // Noriko（プレイヤーが視界に入ったら逃げる。Creature + FleeBehavior の Agent）
     for (int i = 0; i < 10; ++i)
     {
         Vector3 pos(-30.0f + static_cast<float>(i * 10), 3.0f, 10.0f);
-        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mPlayer->GetBody()));
+        mMonsters.push_back(MakeNoriko(GetApp(), pos, &mToby->GetBody()));
     }
 }
 
@@ -135,9 +135,9 @@ void SnowScene::DefineUI()
 
 void SnowScene::ProcessInput(const struct toy::InputState &input)
 {
-    if (mPlayer)
+    if (mToby)
     {
-        mPlayer->ProcessInput(input);
+        mToby->ProcessInput(input);
     }
 
     if (input.IsButtonPressed(toy::GameButton::Start))
@@ -153,9 +153,9 @@ void SnowScene::Update(float deltaTime)
         mWeather->Update(deltaTime);
     }
 
-    if (mPlayer)
+    if (mToby)
     {
-        mPlayer->Update(deltaTime);
+        mToby->Update(deltaTime);
     }
 
     for (auto& monster : mMonsters)
@@ -176,15 +176,15 @@ void SnowScene::Update(float deltaTime)
     toy::DebugDraw::Ray(Vector3(-100,5,0), Vector3::UnitX, 200.0f);
 
     
-    Vector3 pos = mPlayer->GetBody().GetPosition();
+    Vector3 pos = mToby->GetBody().GetPosition();
     toy::DebugDraw::Sphere(pos, 5.0f, 32);
     //toy::DebugDraw::Box(min, max);
 
 
-    mPlyCamera->SetPosition(mPlayer->GetBody().GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
-    auto mat = mPlayer->GetBody().GetWorldTransform();
+    mTobyCamera->SetPosition(mToby->GetBody().GetPosition() + Vector3(0.0f, 3.0f, 0.0f));
+    auto mat = mToby->GetBody().GetWorldTransform();
     mat *= Matrix4::CreateRotationY(Math::ToRadians(180.0f));
-    mPlyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
+    mTobyCamera->SetRotation(Quaternion::CreateFromMatrix(mat));
     
    }
 

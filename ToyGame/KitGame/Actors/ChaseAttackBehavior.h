@@ -15,7 +15,7 @@
 //  関係なく追いかけ続ける）。
 //
 //  Humanoid 固有のメソッド（SetAttackColliderActive 等）を使うため、
-//  PlayerControlBehavior と同様 Prefab& を Humanoid& にキャストする前提。
+//  TobyControlBehavior と同様 Prefab& を Humanoid& にキャストする前提。
 //=============================================================================
 class ChaseAttackBehavior : public toy::kit::IBehavior
 {

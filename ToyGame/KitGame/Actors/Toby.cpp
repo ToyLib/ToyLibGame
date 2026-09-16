@@ -1,8 +1,8 @@
-#include "Player.h"
+#include "Toby.h"
 
 namespace {
 
-toy::kit::HumanoidDesc MakeHeroDesc()
+toy::kit::HumanoidDesc MakeTobyDesc()
 {
     toy::kit::HumanoidDesc desc;
 
@@ -42,26 +42,26 @@ toy::kit::HumanoidDesc MakeHeroDesc()
 }
 
 //=============================================================================
-// PlayerControlBehavior
+// TobyControlBehavior
 //  プレイヤーの入力（IBehavior::OnInput）を受けて、どのアニメーションを
 //  再生するか（ゲーム固有の意味づけ）だけを担当する。
 //  移動/ロックオンの選択・解除ロジックそのものは Humanoid が持つ
 //  （Humanoid::OnUpdate 経由で自動的に処理される）ため、OnUpdate は不要。
 //
 //  カメラの実際の切換え（CameraManager::SetActiveCamera）だけは、
-//  Humanoid が Player/NPC 共通の Prefab であるため Humanoid 自身では行わず、
+//  Humanoid が Toby/NPC 共通の Prefab であるため Humanoid 自身では行わず、
 //  OnPlayModeChanged() Signal（ターゲットをロックしたかどうかの事実のみ）を
 //  受けて「どちらのカメラを有効化するか」を判断した上でここで実行する
 //  （設計方針 7/9）。
 //
 //  Humanoid 固有のメソッド（SelectNextTarget 等）を使うため、Prefab& を
 //  Humanoid& へ static_cast する。ChaseBehavior のような「どの Prefab でも
-//  動く」汎用性は無いが、そもそも Player 用の振る舞いは Humanoid 専用でよい。
+//  動く」汎用性は無いが、そもそも Toby 用の振る舞いは Humanoid 専用でよい。
 //=============================================================================
-class PlayerControlBehavior : public toy::kit::IBehavior
+class TobyControlBehavior : public toy::kit::IBehavior
 {
 public:
-    explicit PlayerControlBehavior(toy::Application* app) : mApp(app) {}
+    explicit TobyControlBehavior(toy::Application* app) : mApp(app) {}
 
     void OnStart(toy::kit::Prefab& body) override
     {
@@ -102,8 +102,8 @@ public:
     }
 
 private:
-    // アニメーションID（Hero/hero_f.gltf に対応。旧 PlayerMotion）
-    enum PlayerMotion
+    // アニメーションID（Hero/hero_f.gltf に対応）
+    enum TobyMotion
     {
         H_Dead     = 0,
         H_Guard    = 1,
@@ -199,10 +199,10 @@ private:
 } // namespace
 
 //-----------------------------------------------------------------------------
-std::unique_ptr<Player> MakePlayer(toy::Application* app)
+std::unique_ptr<Toby> MakeToby(toy::Application* app)
 {
-    auto player = std::make_unique<Player>(app, std::make_unique<PlayerControlBehavior>(app), MakeHeroDesc());
-    player->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
-    player->GetBody().SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
-    return player;
+    auto toby = std::make_unique<Toby>(app, std::make_unique<TobyControlBehavior>(app), MakeTobyDesc());
+    toby->GetBody().SetPosition(Vector3(0.0f, 30.0f, 0.0f));
+    toby->GetBody().SetRotation(Quaternion(Vector3::UnitY, Math::ToRadians(180.0f)));
+    return toby;
 }
