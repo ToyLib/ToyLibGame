@@ -17,6 +17,10 @@ toy::kit::HumanoidDesc MakeTobyDesc()
     desc.colliderScale  = Vector3(0.5f, 1.0f, 0.4f);
     desc.colliderFlags  = toy::C_FOOT | toy::C_BODY | toy::C_PLAYER_TEAM;
 
+    desc.displayName = "Toby";
+    desc.fontPath    = "Font/rounded-mplus-1c-bold.ttf";
+    desc.nameYOffset = 3.5f; // モデル実寸(scale 0.1fで頭頂高さ約2.7m)+他NPCと同程度の余白を見た仮値、要調整
+
     // 近接攻撃用コライダー（本体の少し前方。値は検知確認用の仮値、要調整）
     desc.enableAttackCollider = true;
     desc.attackColliderOffset = Vector3(0.0f, 0.0f, 1.0f);
