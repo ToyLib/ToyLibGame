@@ -1,7 +1,7 @@
 {
   "title": "ToyGame",
   "asset_path": "ToyLib/Assets/",
-  "renderer_backend": "GL",
+  "renderer_backend": "VK",
   "screen": {
     "screen_width": 1280,
     "screen_height": 720,
@@ -10,7 +10,7 @@
   },
   "target_fps": 0,
   "sound": {
-    "master_volume": 0.0
+    "master_volume": 0.5
   },
   "debug": {
     "enabled": true
