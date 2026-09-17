@@ -1,6 +1,7 @@
 #include "Engine/Core/Application.h"
 #include "Utils/JsonHelper.h"
 #include "Render/RenderBackendState.h"
+#include "Audio/SoundMixer.h"
 #include <iostream>
 
 namespace toy {
@@ -79,7 +80,20 @@ bool Application::LoadSettings(const std::string& defaultPath, const std::string
     //   "target_fps": 60 (0=Unlimited)
     //---------------------------------------------------------
     JsonHelper::GetInt(data, "target_fps", mTargetFPS);
-    
+
+    //---------------------------------------------------------
+    // サウンド
+    //   "sound": {
+    //       "master_volume": 1.0
+    //   }
+    //---------------------------------------------------------
+    if (data.contains("sound"))
+    {
+        float masterVolume = mSoundMixer->GetMasterVolume();
+        JsonHelper::GetFloat(data["sound"], "master_volume", masterVolume);
+        mSoundMixer->SetMasterVolume(masterVolume);
+    }
+
     //---------------------------------------------------------
     // デバッグ
     //   "debug": true/false

@@ -9,6 +9,9 @@
     "fullscreen_use_setting_resolution": true
   },
   "target_fps": 0,
+  "sound": {
+    "master_volume": 0.0
+  },
   "debug": {
     "enabled": true
   }

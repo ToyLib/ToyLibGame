@@ -381,6 +381,9 @@ APPLICATION_FIELDS = [
         (("screen", "fullscreen"), "フルスクリーン", "bool", {}),
         (("screen", "fullscreen_use_setting_resolution"), "フルスクリーン時もこの解像度を使う", "bool", {}),
     ]),
+    ("サウンド", [
+        (("sound", "master_volume"), "マスターボリューム", "float", {}),
+    ]),
     ("デバッグ", [
         (("debug", "enabled"), "デバッグ機能を有効化", "bool", {}),
     ]),

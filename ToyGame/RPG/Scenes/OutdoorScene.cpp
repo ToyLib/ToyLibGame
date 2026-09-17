@@ -30,7 +30,6 @@ void OutdoorScene::DefineEnvironment()
     GetApp()->GetSoundMixer()->LoadBGM("MusMus-BGM-112.ogg");
     GetApp()->GetSoundMixer()->PlayBGM();
     GetApp()->GetSoundMixer()->SetBgmVolume(0.5f);
-    GetApp()->GetSoundMixer()->SetMasterVolume(0.8f);
 }
 
 //-----------------------------------------------------------------------------
