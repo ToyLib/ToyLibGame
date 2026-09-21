@@ -122,7 +122,7 @@ void IRenderer::Draw()
     DrawWorldPass();
     DrawOverlayScreenPass();
 
-    if (mPost.type != PostEffectType::None)
+    if (mPost.stage0.type != PostEffectType::None || mPost.stage1.type != PostEffectType::None)
     {
         DrawPostEffectPass();
     }

@@ -22,8 +22,8 @@ void TitleScene::DefineWorld()
     mLogoActor->SetScale(0.05f);
 
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::CRT;
-    effectDesc.intensity = 1.0f;
+    effectDesc.stage0.type = toy::PostEffectType::CRT;
+    effectDesc.stage0.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     // テスト用スプライト
@@ -56,8 +56,8 @@ void TitleScene::Update(float dt)
         if (mIntensity < 0.0f) mIntensity = 0.0f;
 	}
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::CRT;
-    effectDesc.intensity = mIntensity;
+    effectDesc.stage0.type = toy::PostEffectType::CRT;
+    effectDesc.stage0.intensity = mIntensity;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
 }

@@ -19,8 +19,8 @@ SnowScene::~SnowScene() = default;
 void SnowScene::DefineEnvironment()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type      = toy::PostEffectType::FeilyLand;
-    effectDesc.intensity = 1.0f;
+    effectDesc.stage0.type      = toy::PostEffectType::FeilyLand;
+    effectDesc.stage0.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(3000.0f);

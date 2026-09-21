@@ -218,7 +218,8 @@ void GLRenderer::DrawItem(const RenderItem& it, RenderPass pass, int cascadeInde
 
 bool GLRenderer::BeginFrame()
 {
-    const bool usePost = (mPost.type != PostEffectType::None);
+    const bool usePost = (mPost.stage0.type != PostEffectType::None) ||
+                          (mPost.stage1.type != PostEffectType::None);
 
     if (usePost)
     {
@@ -589,65 +590,77 @@ void GLRenderer::DrawPostEffectPass()
     auto sceneTex = mSceneRT->GetColorTexture();
     if (!sceneTex) return;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
-
-    glDisable(GL_BLEND);
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
+    // 有効なステージだけを順番に並べる（最大2段）
+    const PostEffectStage* stages[2] = { nullptr, nullptr };
+    int stageCount = 0;
+    if (mPost.stage0.type != PostEffectType::None) stages[stageCount++] = &mPost.stage0;
+    if (mPost.stage1.type != PostEffectType::None) stages[stageCount++] = &mPost.stage1;
+    if (stageCount == 0) return;
 
     auto sh = GetShader("PostEffect");
-    if (!sh)
-    {
-        glDepthMask(GL_TRUE);
-        glEnable(GL_DEPTH_TEST);
-        return;
-    }
+    if (!sh) return;
+
+    if (!mFullScreenQuad) return;
 
     using namespace toy::glsl;
 
-    sh->SetActive();
-
-    // input texture
-    sceneTex->SetActive(0);
-    sh->SetTextureUniform(Post::SceneTex, 0);
-
     const float timeSec = (float)SDL_GetTicks() * 0.001f;
 
-    switch (mPost.type)
+    std::shared_ptr<Texture> input = sceneTex;
+
+    for (int i = 0; i < stageCount; ++i)
     {
-        case PostEffectType::None:
-        case PostEffectType::Sepia:
-        case PostEffectType::Grayscale:
-        case PostEffectType::Monochrome:
-        case PostEffectType::CRT:
-        case PostEffectType::Noisy:
-        case PostEffectType::Watercolor:
-        case PostEffectType::OldFilm:
+        const bool isLast = (i == stageCount - 1);
+
+        if (isLast)
         {
-            sh->SetIntUniform  (Post::PostType,   (int)mPost.type);
-            sh->SetFloatUniform(Post::Intensity,  mPost.intensity);
-            sh->SetFloatUniform(Post::Time,       timeSec);
-            sh->SetIntUniform  (Post::FlipY,      0);
-            break;
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, (GLsizei)mScreenWidth, (GLsizei)mScreenHeight);
+        }
+        else
+        {
+            // 2段目の入力となる中間RenderTarget
+            if (!mPostMidRT ||
+                mPostMidRT->GetWidth()  != (int)mScreenWidth ||
+                mPostMidRT->GetHeight() != (int)mScreenHeight)
+            {
+                if (mPostMidRT)
+                {
+                    mPostMidRT->Unload();
+                }
+                mPostMidRT = std::make_shared<GLRenderTarget>();
+                if (!mPostMidRT->Create((int)mScreenWidth, (int)mScreenHeight))
+                {
+                    std::cerr << "[GLRenderer] DrawPostEffectPass: mid RT create failed\n";
+                    mPostMidRT.reset();
+                    return;
+                }
+            }
+            mPostMidRT->Bind();
         }
 
-        case PostEffectType::FeilyLand:
+        glDisable(GL_BLEND);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
+        sh->SetActive();
+
+        input->SetActive(0);
+        sh->SetTextureUniform(Post::SceneTex, 0);
+
+        sh->SetIntUniform  (Post::PostType,   (int)stages[i]->type);
+        sh->SetFloatUniform(Post::Intensity,  stages[i]->intensity);
+        sh->SetFloatUniform(Post::Time,       timeSec);
+        sh->SetIntUniform  (Post::FlipY,      0);
+
+        mFullScreenQuad->SetActive();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
+        if (!isLast)
         {
-            sh->SetIntUniform  (Post::PostType,   3);
-            sh->SetFloatUniform(Post::Intensity,  1.0f);
-            sh->SetFloatUniform(Post::Time,       timeSec);
-            sh->SetIntUniform  (Post::FlipY,      0);
-            break;
+            input = mPostMidRT->GetColorTexture();
         }
     }
-
-    if (!mFullScreenQuad)
-    {
-        return;
-    }
-    mFullScreenQuad->SetActive();
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);

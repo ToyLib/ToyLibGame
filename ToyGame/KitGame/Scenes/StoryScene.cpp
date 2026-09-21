@@ -10,8 +10,8 @@ void StoryScene::DefineWorld()
     mesh->GetAnimPlayer()->Play(17);
 
     toy::PostEffectDesc effectDesc;
-    effectDesc.type = toy::PostEffectType::Sepia;
-    effectDesc.intensity = 1.0f;
+    effectDesc.stage0.type = toy::PostEffectType::Sepia;
+    effectDesc.stage0.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 20);

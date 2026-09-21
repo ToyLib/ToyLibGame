@@ -176,6 +176,10 @@ void GLRenderer::UnloadData()
     {
         mSceneRT->Unload();
     }
+    if (mPostMidRT)
+    {
+        mPostMidRT->Unload();
+    }
 }
 
 //=============================================================

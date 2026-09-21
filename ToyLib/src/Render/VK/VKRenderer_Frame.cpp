@@ -206,7 +206,8 @@ bool VKRenderer::BeginFrame()
     //---------------------------------------------------------
     // SceneRT check
     //---------------------------------------------------------
-    mRenderToSceneRTThisFrame = (mPost.type != PostEffectType::None);
+    mRenderToSceneRTThisFrame = (mPost.stage0.type != PostEffectType::None ||
+                                  mPost.stage1.type != PostEffectType::None);
 
     if (mRenderToSceneRTThisFrame)
     {
