@@ -21,7 +21,7 @@ FieldScene::~FieldScene() = default;
 void FieldScene::DefineEnvironment()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type      = toy::PostEffectType::FeilyLand;
+    effectDesc.type      = toy::PostEffectType::OldFilm;
     effectDesc.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
