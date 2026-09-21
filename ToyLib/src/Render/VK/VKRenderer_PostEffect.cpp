@@ -118,7 +118,7 @@ bool VKRenderer::CreatePostEffectDescriptorSets()
 //--------------------------------------------------------------
 // UpdatePostEffectDescriptorSet
 //--------------------------------------------------------------
-void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Texture* sceneTex, const Texture* paperTex)
+void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Texture* sceneTex)
 {
     if (mDevice == VK_NULL_HANDLE)
     {
@@ -136,10 +136,7 @@ void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Textur
         return;
     }
 
-    const Texture* paperTexResolved = paperTex ? paperTex : sceneTex;
-
     const auto* sceneGPU = dynamic_cast<const VKTextureGPU*>(sceneTex->GetGPU());
-    const auto* paperGPU = dynamic_cast<const VKTextureGPU*>(paperTexResolved->GetGPU());
 
     if (!sceneGPU)
     {
@@ -147,27 +144,12 @@ void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Textur
         return;
     }
 
-    if (!paperGPU)
-    {
-        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: paperGPU null\n";
-        return;
-    }
-
     const VkSampler sceneSampler = sceneGPU->GetSampler();
     const VkImageView sceneView = sceneGPU->GetImageView();
-
-    const VkSampler paperSampler = paperGPU->GetSampler();
-    const VkImageView paperView = paperGPU->GetImageView();
 
     if (sceneSampler == VK_NULL_HANDLE || sceneView == VK_NULL_HANDLE)
     {
         std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: scene sampler/view null\n";
-        return;
-    }
-
-    if (paperSampler == VK_NULL_HANDLE || paperView == VK_NULL_HANDLE)
-    {
-        std::cerr << "[VKRenderer] UpdatePostEffectDescriptorSet: paper sampler/view null\n";
         return;
     }
 
@@ -184,12 +166,7 @@ void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Textur
     sceneII.imageView = sceneView;
     sceneII.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkDescriptorImageInfo paperII{};
-    paperII.sampler = paperSampler;
-    paperII.imageView = paperView;
-    paperII.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet writes[2]{};
+    VkWriteDescriptorSet writes[1]{};
 
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[0].dstSet = ds;
@@ -199,15 +176,7 @@ void VKRenderer::UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Textur
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[0].pImageInfo = &sceneII;
 
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = ds;
-    writes[1].dstBinding = 1;
-    writes[1].dstArrayElement = 0;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].pImageInfo = &paperII;
-
-    vkUpdateDescriptorSets(mDevice, 2, writes, 0, nullptr);
+    vkUpdateDescriptorSets(mDevice, 1, writes, 0, nullptr);
 }
 
 //--------------------------------------------------------------
@@ -279,7 +248,7 @@ void VKRenderer::DrawPostEffectPass()
         return;
     }
 
-    UpdatePostEffectDescriptorSet(mFrameIndex, sceneTex.get(), mPost.paperTex.get());
+    UpdatePostEffectDescriptorSet(mFrameIndex, sceneTex.get());
 
     VkDescriptorSet postSet = mPostEffectSets[mFrameIndex];
     if (postSet == VK_NULL_HANDLE)
@@ -298,11 +267,6 @@ void VKRenderer::DrawPostEffectPass()
     pc.params0[1] = mPost.intensity;
     pc.params0[2] = static_cast<float>(SDL_GetTicks()) * 0.001f;
     pc.params0[3] = 1.0f; // flipY (VK SceneRT -> fullscreen sample)
-
-    pc.params1[0] = (mPost.paperTex != nullptr) ? 1.0f : 0.0f;
-    pc.params1[1] = 0.0f;
-    pc.params1[2] = 0.0f;
-    pc.params1[3] = 0.0f;
 
     vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(VKPostEffectPC), &pc);
 

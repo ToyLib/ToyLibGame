@@ -21,9 +21,8 @@ FieldScene::~FieldScene() = default;
 void FieldScene::DefineEnvironment()
 {
     toy::PostEffectDesc effectDesc;
-    effectDesc.type      = toy::PostEffectType::None;
-    effectDesc.intensity = 1.0f;
-    effectDesc.paperTex  = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
+    effectDesc.type      = toy::PostEffectType::Watercolor;
+    effectDesc.intensity = 0.8f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(1000.0f);

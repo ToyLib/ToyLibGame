@@ -483,13 +483,6 @@ static void AddSet0_PostEffectTextures(VKPipelineDesc& d)
         .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
     });
 
-    set0.bindings.push_back({
-        .binding = 1,
-        .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .count   = 1,
-        .stages  = VK_SHADER_STAGE_FRAGMENT_BIT
-    });
-
     d.setLayouts.push_back(set0);
 }
 
@@ -498,7 +491,7 @@ static void AddPC_PostEffect(VKPipelineDesc& d)
     VKPushConstantDesc pc{};
     pc.stages = VK_SHADER_STAGE_FRAGMENT_BIT;
     pc.offset = 0;
-    pc.size   = 32;
+    pc.size   = 16;
     d.pushConstants.push_back(pc);
 }
 

@@ -621,12 +621,13 @@ void GLRenderer::DrawPostEffectPass()
         case PostEffectType::Grayscale:
         case PostEffectType::Monochrome:
         case PostEffectType::CRT:
+        case PostEffectType::Noisy:
+        case PostEffectType::Watercolor:
         {
             sh->SetIntUniform  (Post::PostType,   (int)mPost.type);
             sh->SetFloatUniform(Post::Intensity,  mPost.intensity);
             sh->SetFloatUniform(Post::Time,       timeSec);
             sh->SetIntUniform  (Post::FlipY,      0);
-            sh->SetIntUniform  (Post::UsePaperTex,0);
             break;
         }
 
@@ -636,27 +637,6 @@ void GLRenderer::DrawPostEffectPass()
             sh->SetFloatUniform(Post::Intensity,  1.0f);
             sh->SetFloatUniform(Post::Time,       timeSec);
             sh->SetIntUniform  (Post::FlipY,      0);
-            sh->SetIntUniform  (Post::UsePaperTex,0);
-            break;
-        }
-
-        case PostEffectType::Watercolor:
-        {
-            sh->SetIntUniform  (Post::PostType,   4);
-            sh->SetFloatUniform(Post::Intensity,  1.0f);
-            sh->SetFloatUniform(Post::Time,       timeSec);
-            sh->SetIntUniform  (Post::FlipY,      0);
-
-            sh->SetIntUniform(Post::UsePaperTex, 1);
-            if (mPost.paperTex)
-            {
-                mPost.paperTex->SetActive(1);
-                sh->SetTextureUniform(Post::PaperTex, 1);
-            }
-            else
-            {
-                sh->SetTextureUniform(Post::PaperTex, 0);
-            }
             break;
         }
     }

@@ -254,7 +254,6 @@ void VKRenderer::Shutdown()
     RenderBackendState::Get().ClearTextureUnloadCallback();
     RenderBackendState::Get().ClearGpuHandleRetireCallback();
 
-    mPost.paperTex.reset();
     DestroyShadowResources();
     if (mSceneRT)
     {

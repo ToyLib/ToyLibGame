@@ -21,7 +21,6 @@ void SnowScene::DefineEnvironment()
     toy::PostEffectDesc effectDesc;
     effectDesc.type      = toy::PostEffectType::FeilyLand;
     effectDesc.intensity = 1.0f;
-    effectDesc.paperTex  = GetApp()->GetAssetManager()->GetTexture("Texture/camvas.jpg");
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     GetApp()->GetTimeOfDaySystem()->SetTimeScale(3000.0f);

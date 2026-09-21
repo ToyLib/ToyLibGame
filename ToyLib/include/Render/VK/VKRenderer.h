@@ -554,39 +554,9 @@ private:
     VkDescriptorSetLayout mPostEffectSetLayout{VK_NULL_HANDLE};
 
     bool CreatePostEffectDescriptorSets();
-    void UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Texture* sceneTex, const Texture* paperTex);
+    void UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Texture* sceneTex);
 
     bool mRenderToSceneRTThisFrame{false};
-
-    struct PostEffectSetKey
-    {
-        uint32_t frame = 0;
-        const Texture* sceneTex = nullptr;
-        const Texture* paperTex = nullptr;
-
-        bool operator==(const PostEffectSetKey& o) const
-        {
-            return frame == o.frame && sceneTex == o.sceneTex && paperTex == o.paperTex;
-        }
-    };
-
-    struct PostEffectSetKeyHash
-    {
-        size_t operator()(const PostEffectSetKey& k) const noexcept
-        {
-            size_t h = 1469598103934665603ull;
-            auto mix = [&](size_t v)
-            {
-                h ^= v;
-                h *= 1099511628211ull;
-            };
-
-            mix(std::hash<uint32_t>{}(k.frame));
-            mix(std::hash<const void*>{}(k.sceneTex));
-            mix(std::hash<const void*>{}(k.paperTex));
-            return h;
-        }
-    };
 
 public:
     void EnqueueParticleCompute(VKParticleBackend* backend, float deltaTime);

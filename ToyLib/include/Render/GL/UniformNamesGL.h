@@ -64,8 +64,6 @@ inline constexpr const char* PostType     = "uPostType";
 inline constexpr const char* Intensity    = "uIntensity";
 inline constexpr const char* Time         = "uTime";
 inline constexpr const char* FlipY        = "uFlipY";
-inline constexpr const char* UsePaperTex  = "uUsePaperTex";
-inline constexpr const char* PaperTex     = "uPaperTex";
 }
 
 //============================================================

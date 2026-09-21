@@ -59,7 +59,6 @@ struct VKSurfacePC
 struct VKPostEffectPC
 {
     float params0[4]; // x=postType, y=intensity, z=time, w=flipY
-    float params1[4]; // x=usePaperTex, y/z/w=reserved
 };
 
 struct VKParticlePC

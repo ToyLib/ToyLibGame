@@ -6,10 +6,8 @@ layout(location = 0) out vec4 outColor;
 //======================================================================
 // Textures
 //  set=0, binding=0 : scene color
-//  set=0, binding=1 : optional paper texture
 //======================================================================
 layout(set = 0, binding = 0) uniform sampler2D uSceneTex;
-layout(set = 0, binding = 1) uniform sampler2D uPaperTex;
 
 //======================================================================
 // Push Constants
@@ -17,13 +15,10 @@ layout(set = 0, binding = 1) uniform sampler2D uPaperTex;
 //  y = intensity
 //  z = time
 //  w = flipY
-//
-//  params1.x = usePaperTex
 //======================================================================
 layout(push_constant) uniform PostPC
 {
     vec4 params0; // x=postType, y=intensity, z=time, w=flipY
-    vec4 params1; // x=usePaperTex
 } pc;
 
 // ------------------------------------------------------------
@@ -100,7 +95,6 @@ void main()
     float uIntensity   = pc.params0.y;
     float uTime        = pc.params0.z;
     int   uFlipY       = int(pc.params0.w + 0.5);
-    int   uUsePaperTex = int(pc.params1.x + 0.5);
 
     vec2 uv = ApplyFlip(fxUV, uFlipY);
 
@@ -214,32 +208,19 @@ void main()
     }
 
     // ------------------------------------------------------------
-    // Watercolor
+    // Noisy: pure procedural noise overlay, strength = uIntensity
     // ------------------------------------------------------------
     if (uPostType == 4)
     {
         vec3 c = texture(uSceneTex, uv).rgb;
 
-        c = adjustSaturation(c, mix(1.0, 0.95, I));
-        c = pow(c, vec3(mix(1.0, 0.90, I)));
-        c = clamp(c, 0.0, 1.0);
+        float p = paperNoise(fxUV, uTime);
 
-        float p = 1.0;
-        if (uUsePaperTex != 0)
-        {
-            vec3 pt = texture(uPaperTex, uv).rgb;
-            p = dot(pt, vec3(0.3333333));
-        }
-        else
-        {
-            p = paperNoise(fxUV, uTime);
-        }
-
-        float grainStrength = 0.5 * I;
+        float grainStrength = 0.8 * I;
         c *= mix(1.0, p + 0.15, grainStrength);
 
         float n = hash12(fxUV * vec2(700.0, 500.0) + uTime * 0.2) - 0.5;
-        c += n * (0.03 * I);
+        c += n * (0.14 * I);
 
         outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
         return;
@@ -283,6 +264,62 @@ void main()
         outColor = vec4(outRgb, 1.0);
         return;
     }
+
+    // ------------------------------------------------------------
+    // Watercolor: edge-pooled pigment + wet-on-wet bleed + flat washes
+    //   (no paper texture input — everything is derived from uSceneTex)
+    // ------------------------------------------------------------
+    if (uPostType == 7)
+    {
+        // I=0 でエフェクト完全オフになるよう、内部は常に「フル強度」で計算し
+        // 最後に元画像と I でクロスフェードする(内部係数を I で個別に薄めない)
+        vec3 orig = texture(uSceneTex, uv).rgb;
+
+        vec2 texel = 1.0 / vec2(textureSize(uSceneTex, 0));
+
+        // --- wet-on-wet bleed: warp the sample UV with slow low-freq noise ---
+        float wn1 = hash12(fxUV * 5.0 + uTime * 0.05) - 0.5;
+        float wn2 = hash12(fxUV * 11.0 - uTime * 0.07) - 0.5;
+        vec2 warpUV = uv + vec2(wn1, wn2) * (4.0 * texel);
+
+        // --- soft multi-tap sample: emulate pigment diffusion in wet paper ---
+        vec3 c  = texture(uSceneTex, warpUV).rgb * 0.4;
+        c += texture(uSceneTex, warpUV + vec2( texel.x,  texel.y) * 1.5).rgb * 0.15;
+        c += texture(uSceneTex, warpUV + vec2(-texel.x,  texel.y) * 1.5).rgb * 0.15;
+        c += texture(uSceneTex, warpUV + vec2( texel.x, -texel.y) * 1.5).rgb * 0.15;
+        c += texture(uSceneTex, warpUV + vec2(-texel.x, -texel.y) * 1.5).rgb * 0.15;
+
+        // --- edge detect on the un-warped scene: pigment pools at boundaries ---
+        float lL = dot(texture(uSceneTex, uv - vec2(texel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+        float lR = dot(texture(uSceneTex, uv + vec2(texel.x, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+        float lU = dot(texture(uSceneTex, uv - vec2(0.0, texel.y)).rgb, vec3(0.299, 0.587, 0.114));
+        float lD = dot(texture(uSceneTex, uv + vec2(0.0, texel.y)).rgb, vec3(0.299, 0.587, 0.114));
+        float edge = smoothstep(0.03, 0.30, abs(lL - lR) + abs(lU - lD));
+
+        c *= mix(1.0, 0.55, edge);
+
+        // --- gentle color shaping ---
+        c = adjustSaturation(c, 0.90);
+        c = pow(c, vec3(0.92));
+        c = clamp(c, 0.0, 1.0);
+
+        // --- posterize into flat pigment washes ---
+        c = floor(c * 12.0 + 0.5) / 12.0;
+
+        // --- procedural granulation (pigment settling, no paper photo needed) ---
+        float grain = paperNoise(fxUV, uTime);
+        c *= (0.90 + 0.20 * grain);
+
+        // --- fine dry-brush speckle ---
+        float speck = hash12(fxUV * vec2(760.0, 620.0) + uTime * 0.15) - 0.5;
+        c += speck * 0.02;
+
+        c = clamp(c, 0.0, 1.0);
+
+        outColor = vec4(mix(orig, c, I), 1.0);
+        return;
+    }
+
     // fallback
     outColor = texture(uSceneTex, uv);
 }
