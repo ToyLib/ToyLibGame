@@ -352,7 +352,7 @@ void main()
         float scratchX = hash12(vec2(frame, 11.0));
         float scratchDist = abs(fxUV.x - scratchX);
         float scratchOn = step(0.85, hash12(vec2(frame, 22.0)));
-        c *= mix(1.0, 0.1, smoothstep(0.0015, 0.0, scratchDist) * scratchOn);
+        c *= mix(1.0, 0.1, smoothstep(0.0006, 0.0, scratchDist) * scratchOn);
 
         // --- film grain (re-seeded per frame) ---
         float grain = hash12(fxUV * vec2(800.0, 600.0) + frame * 13.0) - 0.5;
