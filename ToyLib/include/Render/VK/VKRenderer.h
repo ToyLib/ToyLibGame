@@ -548,13 +548,23 @@ private:
 private:
     //==========================================================
     // PostEffect
-    //  - descriptor は per-frame 固定
+    //  - descriptor は per-frame × per-stage 固定
+    //    (2段チェーンをレコード中に同じセットを書き換えると、
+    //     GPU実行時に両ステージが最後の書き込み内容を見てしまうため、
+    //     ステージごとに別のdescriptor setを使う)
     //==========================================================
-    std::vector<VkDescriptorSet> mPostEffectSets;
+    static constexpr uint32_t kPostStageSlots = 2;
+
+    std::vector<VkDescriptorSet> mPostEffectSets; // size = frameCount * kPostStageSlots
     VkDescriptorSetLayout mPostEffectSetLayout{VK_NULL_HANDLE};
 
     bool CreatePostEffectDescriptorSets();
-    void UpdatePostEffectDescriptorSet(uint32_t frameIndex, const Texture* sceneTex);
+    void UpdatePostEffectDescriptorSet(uint32_t setIndex, const Texture* inputTex);
+
+    // 2段目用の中間オフスクリーンターゲット(mPostMidRTを使う) + 専用パイプライン(color-only render pass)
+    bool mPostMidPipelineReady{false};
+    bool EnsurePostMidPipeline();
+    bool EnsurePostMidTarget();
 
     bool mRenderToSceneRTThisFrame{false};
 

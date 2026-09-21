@@ -478,6 +478,9 @@ protected:
     // メインシーン（ポスト用）RenderTarget
     std::shared_ptr<IRenderTarget> mSceneRT;
 
+    // 2段ポストエフェクト用の中間RenderTarget（stage0の出力 / stage1の入力）
+    std::shared_ptr<IRenderTarget> mPostMidRT;
+
     // ポスト設定
     PostEffectDesc mPost {};
 

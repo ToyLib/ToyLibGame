@@ -285,6 +285,10 @@ bool VKRenderer::BuildDefaultPipelines()
     mPostEffectSets.clear();
     mPostEffectSetLayout = VK_NULL_HANDLE;
 
+    // "PostEffectMid"(2段目用パイプライン)も mPipelines.DestroyAll() で消えるため、
+    // 次回 DrawPostEffectPass() で作り直させる
+    mPostMidPipelineReady = false;
+
     //==========================================================
     // 1) Swapchain(RenderPass/Extent) 用パイプライン
     //==========================================================

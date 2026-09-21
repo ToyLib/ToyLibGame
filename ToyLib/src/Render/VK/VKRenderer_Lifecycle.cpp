@@ -260,6 +260,12 @@ void VKRenderer::Shutdown()
         mSceneRT->Unload();
         mSceneRT.reset();
     }
+    if (mPostMidRT)
+    {
+        mPostMidRT->Unload();
+        mPostMidRT.reset();
+    }
+    mPostMidPipelineReady = false;
 
     //==========================================================
     // Descriptors (must be destroyed before VkDevice)
