@@ -60,7 +60,7 @@ out vec4 outColor;
 
 uniform sampler2D uSceneTex;
 
-uniform int   uPostType;    // 0=None 1=Sepia 2=CRT 3=FairyLand 4=Noisy 5=Grayscale 6=Monochrome 7=Watercolor
+uniform int   uPostType;    // 0=None 1=Sepia 2=CRT 3=FairyLand 4=Noisy 5=Grayscale 6=Monochrome 7=Watercolor 8=OldFilm
 uniform float uIntensity;   // 0..1
 uniform float uTime;        // seconds (optional but recommended)
 uniform int   uFlipY;       // 0/1
@@ -388,6 +388,47 @@ void main()
         c = clamp(c, 0.0, 1.0);
 
         outColor = vec4(mix(orig, c, I), 1.0);
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // OldFilm: sepia tint + flicker + vertical scratch + grain + vignette
+    // ------------------------------------------------------------
+    if (uPostType == 8)
+    {
+        vec3 orig = texture(uSceneTex, uv).rgb;
+
+        // 低フレームレート風に時間を量子化(スクラッチ/グレインが「コマ落ち」する)
+        float frame = floor(uTime * 12.0);
+
+        vec3 c = orig;
+
+        // --- aged sepia tint ---
+        c = mix(c, applySepia(c), 0.6);
+        c = adjustSaturation(c, 0.7);
+
+        // --- global brightness flicker ---
+        float flicker = 0.90 + 0.10 * hash12(vec2(frame, 3.7));
+        c *= flicker;
+
+        // --- vertical scratch: a thin line that jumps every "frame" ---
+        float scratchX = hash12(vec2(frame, 11.0));
+        float scratchDist = abs(uv.x - scratchX);
+        float scratchOn = step(0.85, hash12(vec2(frame, 22.0)));
+        c *= mix(1.0, 0.1, smoothstep(0.0015, 0.0, scratchDist) * scratchOn);
+
+        // --- film grain (re-seeded per frame) ---
+        float grain = hash12(uv * vec2(800.0, 600.0) + frame * 13.0) - 0.5;
+        c += grain * 0.12;
+
+        // --- vignette ---
+        c *= mix(0.55, 1.0, softVignette(uv));
+
+        // --- slight contrast lift ---
+        c = clamp(c, 0.0, 1.0);
+        c = mix(c, pow(c, vec3(1.15)), 0.4);
+
+        outColor = vec4(mix(orig, clamp(c, 0.0, 1.0), I), 1.0);
         return;
     }
 

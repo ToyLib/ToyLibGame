@@ -11,7 +11,8 @@ enum class PostEffectType
     Noisy,
     Grayscale,
     Monochrome,
-    Watercolor
+    Watercolor,
+    OldFilm
 };
 
 struct PostEffectDesc

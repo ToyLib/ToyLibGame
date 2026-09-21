@@ -623,6 +623,7 @@ void GLRenderer::DrawPostEffectPass()
         case PostEffectType::CRT:
         case PostEffectType::Noisy:
         case PostEffectType::Watercolor:
+        case PostEffectType::OldFilm:
         {
             sh->SetIntUniform  (Post::PostType,   (int)mPost.type);
             sh->SetFloatUniform(Post::Intensity,  mPost.intensity);

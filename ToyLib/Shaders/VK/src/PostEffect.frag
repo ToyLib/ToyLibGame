@@ -60,6 +60,14 @@ vec3 adjustSaturation(vec3 c, float s)
     return mix(vec3(l), c, s);
 }
 
+float softVignette(vec2 uv)
+{
+    // center=1, edge=0 (smooth)
+    vec2 p = uv * 2.0 - 1.0;
+    float r = length(p);
+    return smoothstep(1.0, 0.25, r);
+}
+
 vec2 dreamyWarp(vec2 uv, float t, float strength)
 {
     float w = sin(t * 0.003 + uv.y * 0.06);
@@ -317,6 +325,47 @@ void main()
         c = clamp(c, 0.0, 1.0);
 
         outColor = vec4(mix(orig, c, I), 1.0);
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // OldFilm: sepia tint + flicker + vertical scratch + grain + vignette
+    // ------------------------------------------------------------
+    if (uPostType == 8)
+    {
+        vec3 orig = texture(uSceneTex, uv).rgb;
+
+        // 低フレームレート風に時間を量子化(スクラッチ/グレインが「コマ落ち」する)
+        float frame = floor(uTime * 12.0);
+
+        vec3 c = orig;
+
+        // --- aged sepia tint ---
+        c = mix(c, applySepia(c), 0.6);
+        c = adjustSaturation(c, 0.7);
+
+        // --- global brightness flicker ---
+        float flicker = 0.90 + 0.10 * hash12(vec2(frame, 3.7));
+        c *= flicker;
+
+        // --- vertical scratch: a thin line that jumps every "frame" ---
+        float scratchX = hash12(vec2(frame, 11.0));
+        float scratchDist = abs(fxUV.x - scratchX);
+        float scratchOn = step(0.85, hash12(vec2(frame, 22.0)));
+        c *= mix(1.0, 0.1, smoothstep(0.0015, 0.0, scratchDist) * scratchOn);
+
+        // --- film grain (re-seeded per frame) ---
+        float grain = hash12(fxUV * vec2(800.0, 600.0) + frame * 13.0) - 0.5;
+        c += grain * 0.12;
+
+        // --- vignette ---
+        c *= mix(0.55, 1.0, softVignette(fxUV));
+
+        // --- slight contrast lift ---
+        c = clamp(c, 0.0, 1.0);
+        c = mix(c, pow(c, vec3(1.15)), 0.4);
+
+        outColor = vec4(mix(orig, clamp(c, 0.0, 1.0), I), 1.0);
         return;
     }
 
