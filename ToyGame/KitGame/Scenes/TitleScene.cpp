@@ -24,6 +24,8 @@ void TitleScene::DefineWorld()
     toy::PostEffectDesc effectDesc;
     effectDesc.stage0.type = toy::PostEffectType::CRT;
     effectDesc.stage0.intensity = 1.0f;
+    effectDesc.stage1.type = toy::PostEffectType::Grayscale;
+    effectDesc.stage1.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     // テスト用スプライト
@@ -58,6 +60,8 @@ void TitleScene::Update(float dt)
     toy::PostEffectDesc effectDesc;
     effectDesc.stage0.type = toy::PostEffectType::CRT;
     effectDesc.stage0.intensity = mIntensity;
+    effectDesc.stage1.type = toy::PostEffectType::Grayscale;
+    effectDesc.stage1.intensity = mIntensity;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
 }

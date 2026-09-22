@@ -139,11 +139,10 @@ void main()
         // 効果計算は非反転 UV で行う
         vec2 warpedFX = barrelDistort(fxUV, 0.10 * I);
 
-        if (warpedFX.x < 0.0 || warpedFX.x > 1.0 || warpedFX.y < 0.0 || warpedFX.y > 1.0)
-        {
-            outColor = vec4(0.0, 0.0, 0.0, 1.0);
-            return;
-        }
+        // 範囲外は縁のピクセルに丸める（黒で打ち切らない）。
+        // 四隅の見た目は下の rounded corners マスクだけに任せることで、
+        // 低intensity時にここでうっすら四角く切れて見える問題を防ぐ。
+        warpedFX = clamp(warpedFX, 0.0, 1.0);
 
         // サンプル用 UV のみ flip を適用
         vec2 warped = ApplyFlip(warpedFX, uFlipY);
@@ -163,15 +162,28 @@ void main()
         float mask = 0.90 + 0.10 * sin(warpedFX.x * 1200.0);
         c *= mix(1.0, mask, 0.6 * I);
 
-        vec2 p = warpedFX * 2.0 - 1.0;
-        float vig = 1.0 - 0.35 * I * dot(p, p);
-        c *= clamp(vig, 0.0, 1.0);
-
         float n = hash12(warpedFX * vec2(640.0, 360.0) + uTime * 10.0);
         c += (n - 0.5) * 0.06 * I;
 
         c = clamp(c, 0.0, 1.0);
         c = mix(c, pow(c, vec3(1.05)), 0.35 * I);
+
+        // rounded corners（四隅を丸める。アスペクト比補正して真円に近い丸みにする）
+        //    上下左右の縁がうっすら暗くなる一般的なvignetteは廃止し、
+        //    暗くなるのは丸角の範囲だけにする。
+        //    ここより前で加算されるgrainノイズなどが黒い縁の外にはみ出て
+        //    「色が流れて見える」ことがないよう、最後に一番最後に掛ける。
+        vec2 crtRes    = vec2(textureSize(uSceneTex, 0));
+        float crtAspect = crtRes.x / max(crtRes.y, 1.0);
+        // 上下左右にも黒縁がちゃんと出るよう、四隅だけでなく全辺を内側に寄せる
+        vec2 cornerHalf = vec2(0.5 * crtAspect, 0.5) - 0.05;
+        float cornerRad = 0.09;
+        vec2 cp = (warpedFX - 0.5) * vec2(crtAspect, 1.0);
+        vec2 cq = abs(cp) - cornerHalf + vec2(cornerRad);
+        float cornerDist = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - cornerRad;
+        // 縁の手前からなだらかにフェードさせる（0.01幅だと硬い黒縁になって濃く見えるため）
+        float cornerMask = 1.0 - smoothstep(-0.03, 0.02, cornerDist);
+        c *= mix(1.0, cornerMask, I);
 
         outColor = vec4(c, 1.0);
         return;

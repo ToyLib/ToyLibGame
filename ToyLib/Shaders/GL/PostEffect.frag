@@ -175,13 +175,11 @@ void main()
     {
         // 1) warp
         vec2 warped = barrelDistort(uv, 0.10 * I);
-        
-        // 画面外は黒（簡易）
-        if (warped.x < 0.0 || warped.x > 1.0 || warped.y < 0.0 || warped.y > 1.0)
-        {
-            outColor = vec4(0.0, 0.0, 0.0, 1.0);
-            return;
-        }
+
+        // 範囲外は縁のピクセルに丸める（黒で打ち切らない）。
+        // 四隅の見た目は下の rounded corners マスクだけに任せることで、
+        // 低intensity時にここでうっすら四角く切れて見える問題を防ぐ。
+        warped = clamp(warped, 0.0, 1.0);
 
         // 2) subtle horizontal jitter
         float jitter = (hash12(vec2(floor(warped.y * 240.0), uTime)) - 0.5) * 0.0025 * I;
@@ -202,18 +200,30 @@ void main()
         float mask = 0.90 + 0.10 * sin(warped.x * 1200.0);
         c *= mix(1.0, mask, 0.6 * I);
 
-        // 6) vignette
-        vec2 p = warped * 2.0 - 1.0;
-        float vig = 1.0 - 0.35 * I * dot(p, p);
-        c *= clamp(vig, 0.0, 1.0);
-
-        // 7) noise / grain
+        // 6) noise / grain
         float n = hash12(warped * vec2(640.0, 360.0) + uTime * 10.0);
         c += (n - 0.5) * 0.06 * I;
 
-        // 8) slight gamma / contrast
+        // 7) slight gamma / contrast
         c = clamp(c, 0.0, 1.0);
         c = mix(c, pow(c, vec3(1.05)), 0.35 * I);
+
+        // 8) rounded corners（四隅を丸める。アスペクト比補正して真円に近い丸みにする）
+        //    上下左右の縁がうっすら暗くなる一般的なvignetteは廃止し、
+        //    暗くなるのは丸角の範囲だけにする。
+        //    ここより前で加算されるgrainノイズなどが黒い縁の外にはみ出て
+        //    「色が流れて見える」ことがないよう、最後に一番最後に掛ける。
+        vec2 crtRes    = vec2(textureSize(uSceneTex, 0));
+        float crtAspect = crtRes.x / max(crtRes.y, 1.0);
+        // 上下左右にも黒縁がちゃんと出るよう、四隅だけでなく全辺を内側に寄せる
+        vec2 cornerHalf = vec2(0.5 * crtAspect, 0.5) - 0.05;
+        float cornerRad = 0.09;
+        vec2 cp = (warped - 0.5) * vec2(crtAspect, 1.0);
+        vec2 cq = abs(cp) - cornerHalf + vec2(cornerRad);
+        float cornerDist = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - cornerRad;
+        // 縁の手前からなだらかにフェードさせる（0.01幅だと硬い黒縁になって濃く見えるため）
+        float cornerMask = 1.0 - smoothstep(-0.03, 0.02, cornerDist);
+        c *= mix(1.0, cornerMask, I);
 
         outColor = vec4(c, 1.0);
         return;
