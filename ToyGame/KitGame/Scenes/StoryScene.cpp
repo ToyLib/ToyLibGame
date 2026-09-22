@@ -7,11 +7,16 @@ void StoryScene::DefineWorld()
     auto mesh = a->CreateComponent<toy::SkeletalMeshComponent>();
     mesh->SetMesh(GetApp()->GetAssetManager()->GetMesh("Hero/hero_m.fbx"));
     a->SetScale(0.001f);
+    a->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+    Quaternion q = Quaternion::Identity;
+    a->SetRotation(q);
     mesh->GetAnimPlayer()->Play(17);
 
     toy::PostEffectDesc effectDesc;
     effectDesc.stage0.type = toy::PostEffectType::Sepia;
     effectDesc.stage0.intensity = 1.0f;
+    effectDesc.stage1.type = toy::PostEffectType::OldFilm;
+    effectDesc.stage1.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 20);
