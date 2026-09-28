@@ -32,6 +32,9 @@ toy::kit::HumanoidDesc MakeBunnyDesc()
     desc.visionMaxDist    = 15.0f;
     desc.visionTargetMask = toy::C_PLAYER_TEAM;
 
+    desc.toonRender = true;
+    desc.contourFactor = 1.001f;
+
     return desc;
 }
 
