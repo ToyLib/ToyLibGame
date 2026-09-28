@@ -27,7 +27,7 @@ void FieldScene::DefineEnvironment()
     effectDesc.stage1.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
-    GetApp()->GetTimeOfDaySystem()->SetTimeScale(1000.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
     GetApp()->GetTimeOfDaySystem()->SetTime(10.0f, 0.0f);
 
     GetApp()->GetSoundMixer()->LoadBGM("BGM/MusMus-BGM-112.ogg");
