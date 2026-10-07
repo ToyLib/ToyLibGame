@@ -9,6 +9,7 @@ GameRPG::GameRPG()
     GetAssetManager()->SetAssetsPath("ToyGame/Assets/RPG/");
 }
 
+
 void GameRPG::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
