@@ -22,6 +22,12 @@ void TitleScene::DefineWorld()
     mLogoMesh->SetContourFactor(1.05f);
     mLogoActor->SetScale(0.05f);
 
+    // 定点カメラ（Renderer のデフォルトビューと同じアングル）
+    auto cameraActor = CreateActor<toy::Actor>();
+    auto cameraComp = cameraActor->CreateComponent<toy::FixedCameraComponent>();
+    cameraComp->LookAt(Vector3(0.0f, 0.5f, -3.0f), Vector3(0.0f, 0.0f, 10.0f));
+    GetApp()->GetCameraManager()->SetActiveCamera(cameraComp);
+
     toy::PostEffectDesc effectDesc;
     effectDesc.stage0.type = toy::PostEffectType::CRT;
     effectDesc.stage0.intensity = 1.0f;
