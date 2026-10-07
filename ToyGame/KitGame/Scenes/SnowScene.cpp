@@ -5,10 +5,9 @@
 #include "../Actors/Noriko.h"
 
 
-
 SnowScene::SnowScene()
 {
-
+    
 }
 
 SnowScene::~SnowScene() = default;
