@@ -16,5 +16,4 @@ protected:
 private:
     class toy::MessageBoxActor* mMsgActor;
     void ChangeScene();
-
 };

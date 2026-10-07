@@ -8,10 +8,11 @@
 
 SnowScene::SnowScene()
 {
-
+    
 }
 
 SnowScene::~SnowScene() = default;
+
 
 //-----------------------------------------------------------------------------
 // DefineEnvironment — ポストエフェクト / 時間帯 / BGM

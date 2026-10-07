@@ -46,6 +46,13 @@ void StoryScene::DefineWorld()
     auto sp = ac->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     ac->SetPosition(Vector3(100.0f, 100.0f, 0));
+
+    // 定点カメラ
+    auto cameraActor = CreateActor<toy::Actor>();
+    auto cameraComp = cameraActor->CreateComponent<toy::FixedCameraComponent>();
+    cameraComp->LookAt(Vector3(0.0f, 1.5f, -3.0f), Vector3(0.0f, 1.5f, 0.0f));
+    GetApp()->GetCameraManager()->SetActiveCamera(cameraComp);
+    
 }
 
 void StoryScene::Update(float delatTime)

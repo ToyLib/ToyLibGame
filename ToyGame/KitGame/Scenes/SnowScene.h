@@ -39,4 +39,6 @@ private:
     // Scene 側で寿命を管理する）
     std::unique_ptr<class Toby> mToby;
     std::vector<std::unique_ptr<class Noriko>> mMonsters;
+
+
 };
