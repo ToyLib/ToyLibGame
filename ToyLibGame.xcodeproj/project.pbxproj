@@ -363,6 +363,7 @@
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openal-soft/lib",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				OTHER_LDFLAGS = (
 					"-lSDL3",
 					"-lSDL3_image",
@@ -397,6 +398,7 @@
 					/opt/homebrew/lib,
 					"/opt/homebrew/opt/openal-soft/lib",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				OTHER_LDFLAGS = (
 					"-lSDL3",
 					"-lSDL3_image",
