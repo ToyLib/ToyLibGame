@@ -46,6 +46,7 @@ void StoryScene::DefineWorld()
     auto sp = ac->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     ac->SetPosition(Vector3(100.0f, 100.0f, 0));
+    
 }
 
 void StoryScene::Update(float delatTime)
