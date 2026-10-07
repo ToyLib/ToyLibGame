@@ -137,6 +137,40 @@ float paperNoise(vec2 uv, float t)
     return 0.6 * n1 + 0.4 * n2;
 }
 
+// FairyLand sparkle: 4-point star
+//   uv: 非反転 UV, aspect: width/height
+vec3 fairySparkle(vec2 uv, float t, float sky, float I, float aspect)
+{
+    vec3  col = vec3(0.0);
+    vec2  a   = vec2(uv.x * aspect, uv.y);       // 正方形セル用の座標
+
+    // --- 4-point star ---
+    {
+        float grid = 48.0;
+        vec2  cell = floor(a * grid);
+        vec2  f    = fract(a * grid) - 0.5;
+        float rnd  = hash12(cell);
+        if (rnd > 0.92)
+        {
+            vec2  ofs = (vec2(hash12(cell + 7.1), hash12(cell + 3.7)) - 0.5) * 0.4;
+            float ang = (hash12(cell + 1.3) - 0.5) * 0.9;
+            float s   = mix(0.6, 1.3, hash12(cell + 5.9));      // サイズのばらつき
+            mat2  rot = mat2(cos(ang), -sin(ang), sin(ang), cos(ang));
+            vec2  q   = rot * (f - ofs) / s;
+
+            float core = exp(-dot(q, q) * 400.0);
+            float rayH = exp(-abs(q.y) * 120.0) * exp(-abs(q.x) * 9.0);
+            float rayV = exp(-abs(q.x) * 120.0) * exp(-abs(q.y) * 9.0);
+            float star = core + 0.6 * (rayH + rayV);
+
+            float tw = 0.5 + 0.5 * sin(t * (1.5 + 3.5 * rnd) + rnd * 6.2831);
+            col += star * tw * tw * vec3(1.0, 0.95, 0.85) * (0.9 * I * mix(0.25, 1.0, sky));
+        }
+    }
+
+    return col;
+}
+
 void main()
 {
     vec2 uv = vTex;
@@ -230,58 +264,64 @@ void main()
     }
 
     // ------------------------------------------------------------
-    // FairyLand (A): pastel + sky-fog (top weighted) + gentle dreamy warp
+    // FairyLand (B): strong pastel + glow + split tone + sky-fog + sparkle
+    //   I=0.3 前後で従来(A)程度、I=1.0 でかなり極端
     // ------------------------------------------------------------
     if (uPostType == 3)
     {
-        // base uv (no CRT warp)
         vec2 uv2 = uv;
 
-        // --------------------------------------------
-        // 1) "sky fog" factor (top weighted)
-        // --------------------------------------------
-        float sky = smoothstep(0.35, 0.85, uv2.y);
+        // 1) sky factor (top weighted)
+        float sky = smoothstep(0.20, 0.90, uv2.y);
+        sky = pow(sky, 1.2);
 
-        // さらに「空の上ほど濃い」感じに
-        sky = pow(sky, 1.35);
-
-        // --------------------------------------------
-        // 2) dreamy warp (weaken on ground)
-        // --------------------------------------------
-        float warpStrength = I * mix(0.25, 1.0, sky);
+        // 2) dreamy warp (stronger, still weaker on ground)
+        float warpStrength = I * mix(0.8, 3.0, sky);
         uv2 = dreamyWarp(uv2, uTime, warpStrength);
 
-        vec3 c = texture(uSceneTex, uv2).rgb;
+        vec3 base = texture(uSceneTex, uv2).rgb;
 
-        // --------------------------------------------
-        // 3) pastel lift (global but gentle)
-        // --------------------------------------------
-        c = pow(c, vec3(mix(1.0, 0.88, I)));
+        // 3) soft glow: 2 rings x 8 taps, bright part only
+        vec3 glow = vec3(0.0);
+        float rad = 0.006 * I;
+        for (int i = 0; i < 8; ++i)
+        {
+            float a = float(i) * 0.785398;
+            vec2  d = vec2(cos(a), sin(a));
+            glow += texture(uSceneTex, uv2 + d * rad).rgb;
+            glow += texture(uSceneTex, uv2 + d * rad * 2.5).rgb;
+        }
+        glow /= 16.0;
+        vec3 bright = max(glow - 0.45, 0.0) / 0.55;
+        vec3 c = mix(base, glow, 0.35 * I);          // 全体を少しソフトフォーカス
+        c += bright * vec3(1.0, 0.85, 0.95) * (0.9 * I);
 
-        // 彩度は少しだけ上げて「おとぎ感」
-        c = adjustSaturation(c, mix(1.0, 1.15, I));
+        // 4) pastel lift + saturation
+        c = pow(c, vec3(mix(1.0, 0.72, I)));
+        c = adjustSaturation(c, mix(1.0, 1.45, I));
+        c = mix(c, vec3(1.0, 0.96, 1.0), 0.12 * I);   // 黒を浮かせてパステルに
 
-        // --------------------------------------------
-        // 4) sky fog color (top only)
-        // --------------------------------------------
-        vec3 fogTint = vec3(0.85, 0.80, 0.90);
-        float fogAmt = (0.10 + 0.40 * sky) * I;
+        // 5) split tone: shadows=mint/blue, highlights=pink/peach
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        vec3 shadowTint    = vec3(0.70, 0.95, 1.00);
+        vec3 highlightTint = vec3(1.00, 0.82, 0.92);
+        vec3 tone = mix(shadowTint, highlightTint, smoothstep(0.2, 0.8, l));
+        c = mix(c, c * tone * 1.15, 0.6 * I);
 
+        // 6) sky fog
+        vec3 fogTint = vec3(0.92, 0.82, 0.98);
+        float fogAmt = (0.12 + 0.55 * sky) * I;
         c = mix(c, fogTint, fogAmt);
 
-        // --------------------------------------------
-        // 5) vignette: keep it very mild
-        // --------------------------------------------
+        // 7) edge glow (lavender haze instead of darkening)
         vec2 p = uv2 * 2.0 - 1.0;
-        float r2 = dot(p, p);
-        float vig = 1.0 - (0.10 * I) * r2;
-        c *= clamp(vig, 0.0, 1.0);
+        float edge = smoothstep(0.35, 1.6, dot(p, p));
+        c = mix(c, vec3(0.95, 0.85, 1.0), edge * 0.55 * I);
 
-        // --------------------------------------------
-        // 6) subtle sparkle (mostly in the sky)
-        // --------------------------------------------
-        float sp = step(0.987, hash12(uv2 * vec2(520.0, 300.0) + uTime * 0.6));
-        c += sp * vec3(1.0, 0.95, 0.85) * (0.08 * I * sky);
+        // 8) sparkle (4-point star)
+        vec2  ts     = vec2(textureSize(uSceneTex, 0));
+        float aspect = ts.x / max(ts.y, 1.0);
+        c += fairySparkle(uv2, uTime, sky, I, aspect);
 
         outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
         return;
