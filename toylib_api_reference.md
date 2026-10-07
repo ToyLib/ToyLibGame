@@ -18,6 +18,7 @@
 3. [Camera](#3-camera)
    - [CameraComponent](#cameracomponent)
    - [FollowCameraComponent](#followcameracomponent)
+   - [FixedCameraComponent](#fixedcameracomponent)
 4. [Graphics](#4-graphics)
    - [MeshComponent](#meshcomponent)
    - [SkeletalMeshComponent](#skeletalmeshcomponent)
@@ -475,6 +476,25 @@ void PlayerActor::PlayerActor(toy::Application* app) : toy::Actor(app)
     cam->SetSpringSettings({ 150.0f, 1.0f });
     cam->SetFreezeYInAir(true);
 }
+```
+
+### FixedCameraComponent
+
+`#include "Camera/FixedCameraComponent.h"`
+
+位置と注視点を手動でセットするだけの定点カメラ。追従・入力処理はしない。Scene の固定アングルやイベントシーン向け。
+
+```cpp
+void LookAt(const Vector3& eye, const Vector3& target);
+void SetEyePosition(const Vector3& eye);
+void SetTarget(const Vector3& target);
+void SetUpVector(const Vector3& up);   // デフォルト UnitY
+```
+
+```cpp
+auto* cam = cameraActor->CreateComponent<toy::FixedCameraComponent>();
+cam->LookAt(toy::Vector3(0, 1.5f, -10), toy::Vector3(0, 1.5f, 0));
+GetApp()->GetCameraManager()->SetActiveCamera(cam);
 ```
 
 ---
