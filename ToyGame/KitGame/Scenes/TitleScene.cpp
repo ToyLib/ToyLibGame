@@ -3,6 +3,7 @@
 #include "FieldScene.h"
 #include "StoryScene.h"
 
+
 TitleScene::TitleScene()
     : toy::kit::IScene()
     , mColor(0.0f)
