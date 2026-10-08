@@ -54,6 +54,8 @@ void StoryScene::DefineWorld()
     cameraComp->LookAt(Vector3(0.0f, 1.5f, -3.0f), Vector3(0.0f, 1.5f, 0.0f));
     GetApp()->GetCameraManager()->SetActiveCamera(cameraComp);
     
+    DeploySky();
+    
 }
 
 void StoryScene::Update(float delatTime)
@@ -68,4 +70,22 @@ void StoryScene::ProcessInput(const toy::InputState &input)
             RequestChange(std::make_unique<FieldScene>());
         }
     }
+}
+
+
+void StoryScene::DeploySky()
+{
+    // スカイドーム
+    auto skyActor = CreateActor<toy::Actor>();
+    auto dome = skyActor->CreateComponent<toy::WeatherDomeComponent>();
+    // オーバーレイ
+    auto overlay = skyActor->CreateComponent<toy::WeatherOverlayComponent>();
+
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(000.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(21.0f, 0.0f);
+    
+    mWeather = std::make_unique<toy::WeatherManager>();
+    mWeather->SetWeatherDome(dome);
+    mWeather->SetWeatherOverlay(overlay);
+    mWeather->ChangeWeather(toy::WeatherType::STORM);
 }

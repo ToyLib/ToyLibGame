@@ -3,6 +3,7 @@
 #include "KitCore/IScene.h"
 #include "ToyLib.h"
 #include <iostream>
+#include <memory>
 
 class StoryScene : public toy::kit::IScene
 {
@@ -16,4 +17,6 @@ protected:
 private:
     class toy::MessageBoxActor* mMsgActor;
     void ChangeScene();
+    void DeploySky();
+    std::unique_ptr<class toy::WeatherManager> mWeather;
 };
