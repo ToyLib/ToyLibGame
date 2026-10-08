@@ -19,6 +19,7 @@ void StoryScene::DefineWorld()
     effectDesc.stage1.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
 
+    
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 20);
     // メッセージボックス生成
     toy::MessageBoxActor::Desc d;
