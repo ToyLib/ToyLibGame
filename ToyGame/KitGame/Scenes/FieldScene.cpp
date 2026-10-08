@@ -19,7 +19,7 @@ void FieldScene::DefineEnvironment()
 {
     toy::PostEffectDesc effectDesc;
     effectDesc.stage0.type = toy::PostEffectType::FeilyLand;
-    effectDesc.stage0.intensity = 0.5f;
+    effectDesc.stage0.intensity = 1.0f;
     effectDesc.stage1.type = toy::PostEffectType::None;
     effectDesc.stage1.intensity = 1.0f;
     GetApp()->GetRenderer()->SetPostEffect(effectDesc);
