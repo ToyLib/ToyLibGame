@@ -14,7 +14,6 @@ enum class FlowState
 };
 
 
-
 class GameFlow
 {
 public:
