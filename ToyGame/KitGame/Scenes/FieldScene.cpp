@@ -8,6 +8,7 @@
 
 FieldScene::FieldScene()
 {
+    
 }
 
 FieldScene::~FieldScene() = default;
