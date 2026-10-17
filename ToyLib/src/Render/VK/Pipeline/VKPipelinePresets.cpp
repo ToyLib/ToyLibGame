@@ -141,6 +141,16 @@ static void AddPC_WorldTintAlpha(VKPipelineDesc& d)
     d.pushConstants.push_back(pc);
 }
 
+// Sprite：world(64) + tint/alpha(16) + uvRect(16)
+static void AddPC_Sprite(VKPipelineDesc& d)
+{
+    VKPushConstantDesc pc{};
+    pc.stages = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pc.offset = 0;
+    pc.size   = sizeof(VKSpritePC);
+    d.pushConstants.push_back(pc);
+}
+
 static void AddPC_DebugWorldColor(VKPipelineDesc& d)
 {
     VKPushConstantDesc pc{};
@@ -189,7 +199,7 @@ VKPipelineDesc MakeSprite(const std::string& base)
 
     AddSet0_SceneUBO(d);
     AddSet1_BaseMap(d);
-    AddPC_WorldTintAlpha(d);
+    AddPC_Sprite(d);
     return d;
 }
 

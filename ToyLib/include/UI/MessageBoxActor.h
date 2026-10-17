@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UI/UIScreen.h"
+#include "UI/UIFrame.h"
 #include "Utils/MathUtil.h"
 
 #include <functional>
@@ -9,14 +10,13 @@
 
 namespace toy {
 
-class SpriteComponent;
 class TextSpriteComponent;
 class MessageTextComponent;
 class TextFont;
 
 //==============================================================
 // MessageBoxActor
-//  - 背景(Sprite) + 本文(MessageTextComponent) を束ねた UI Actor
+//  - 背景・枠線(UIFrame) + 本文(MessageTextComponent) + 送りインジケータを束ねた UI Actor
 //  - Desc で初期設定をまとめて渡す（Scene 側の Set〇〇 連打を減らす）
 //  - Open で UIStack に積み、Close で外す（表示中は Modal として入力を占有）
 //==============================================================
@@ -35,8 +35,7 @@ public:
         // ----------------------------
         // 見た目
         // ----------------------------
-        Vector3 bgColor   { Vector3(0.05f, 0.05f, 0.08f) };
-        float   bgAlpha   { 0.5f };
+        UIFrameStyle frame { DefaultFrame() };   // 背景 + 枠線（角丸）
         
         Vector3 textColor { Vector3(1.0f, 1.0f, 1.0f) };
         int     lineGapPx { 2 };
@@ -61,6 +60,13 @@ public:
         // 入力（必要なら無効化できるように）
         // ----------------------------
         bool enableBToClose { true };
+
+        static UIFrameStyle DefaultFrame()
+        {
+            UIFrameStyle f;
+            f.bgAlpha = 0.5f;
+            return f;
+        }
 
         static UILayout DefaultLayout()
         {
@@ -100,7 +106,7 @@ private:
 private:
     Desc mDesc;
     
-    SpriteComponent*      mBg   { nullptr };
+    UIFrame               mFrame;
     MessageTextComponent* mText { nullptr };
     TextSpriteComponent*  mIndicator { nullptr };
     

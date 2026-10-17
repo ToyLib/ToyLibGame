@@ -175,6 +175,13 @@ void GLShader::SetVector2Uniform(const char* name, const Vector2& vector)
     glUniform2fv(loc, 1, vector.GetAsFloatPtr());
 }
 
+// vec4 を uniform に送る
+void GLShader::SetVector4Uniform(const char* name, float x, float y, float z, float w)
+{
+    GLint loc = glGetUniformLocation(mShaderProgramID, name);
+    glUniform4f(loc, x, y, z, w);
+}
+
 // float を uniform に送る
 void GLShader::SetFloatUniform(const char* name, float value)
 {

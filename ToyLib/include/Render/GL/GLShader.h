@@ -64,6 +64,9 @@ public:
     // 2D ベクトル
     void SetVector2Uniform(const char* name, const Vector2& vector);
     
+    // 4D ベクトル
+    void SetVector4Uniform(const char* name, float x, float y, float z, float w);
+    
     // float
     void SetFloatUniform(const char* name, float value);
     

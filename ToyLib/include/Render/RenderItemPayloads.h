@@ -14,6 +14,11 @@ struct SpritePayload
 {
     Vector3 color { 1.0f, 1.0f, 1.0f };
     float   alpha { 1.0f };
+
+    // テクスチャの描画範囲（UV、左上原点）：uv = quadUV * uvScale + uvOffset
+    // 既定はテクスチャ全体。9-slice やアトラスの一部を貼るときに使う
+    Vector2 uvOffset { 0.0f, 0.0f };
+    Vector2 uvScale  { 1.0f, 1.0f };
 };
 
 //==============================

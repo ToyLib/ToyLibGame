@@ -9,6 +9,7 @@ layout(push_constant) uniform PC
 {
     layout(row_major) mat4 world;     // offset 0 (64 bytes)
     vec4 colorAlpha;                  // offset 64
+    vec4 uvRect;                      // offset 80 (xy = offset, zw = scale)
 } pc;
 
 layout(location=0) in vec3 inPosition;
@@ -23,6 +24,6 @@ void main()
     // ★順番は変えない（row-vector）
     gl_Position = vec4(inPosition, 1.0) * pc.world * uScene.viewProj;
 
-    vUV         = inTexCoord;
+    vUV         = inTexCoord * pc.uvRect.zw + pc.uvRect.xy;
     vColorAlpha = pc.colorAlpha;
 }

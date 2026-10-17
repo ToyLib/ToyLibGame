@@ -50,6 +50,15 @@ public:
     std::shared_ptr<class Texture> GetWhite1x1Texture();
 
     //=========================================================
+    // 角丸矩形テクスチャ生成（白、アンチエイリアス付き）
+    //  - UI の 9-slice 用。色は描画側（Tint）で付ける
+    //  - lineWidth == 0 : 塗りつぶし
+    //    lineWidth >  0 : 枠線のみ（太さ lineWidth px）
+    //  - サイズは (radius * 2 + 4) 四方。9-slice の角は radius px
+    //=========================================================
+    std::shared_ptr<class Texture> GetRoundedRectTexture(int radius, int lineWidth = 0);
+
+    //=========================================================
     // 効果音（SE）
     //=========================================================
     std::shared_ptr<class SoundEffect> GetSoundEffect(const std::string& fileName);

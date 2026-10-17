@@ -6,13 +6,14 @@
 #include "Asset/Font/TextFont.h"
 #include "Asset/Material/Texture.h"
 
-#include "Graphics/Sprite/SpriteComponent.h"
+#include "Graphics/Sprite/NineSliceSpriteComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
 
 namespace toy {
 
 namespace {
 constexpr int kBgDrawOrder     = 900;
+constexpr int kLineDrawOrder   = 901;
 constexpr int kCursorDrawOrder = 950;
 constexpr int kTextDrawOrder   = 1000;
 }
@@ -23,17 +24,23 @@ ChoiceListActor::ChoiceListActor(Application* app, const Desc& desc)
 {
     SetActorID("ChoiceList");
 
-    auto white = app->GetAssetManager()->GetWhite1x1Texture();
+    auto* assets = app->GetAssetManager();
 
-    // 背景
-    mBg = CreateComponent<SpriteComponent>(kBgDrawOrder, VisualLayer::UI);
-    mBg->SetTexture(white);
-    mBg->SetColor(mDesc.bgColor);
-    mBg->SetAlpha(mDesc.bgAlpha);
+    // 背景 + 枠線
+    mFrame.Create(this, kBgDrawOrder, kLineDrawOrder);
+    mFrame.ApplyStyle(mDesc.frame);
 
-    // カーソル帯
-    mCursor = CreateComponent<SpriteComponent>(kCursorDrawOrder, VisualLayer::UI);
-    mCursor->SetTexture(white);
+    // カーソル帯（角丸）
+    mCursor = CreateComponent<NineSliceSpriteComponent>(kCursorDrawOrder, VisualLayer::UI);
+    if (mDesc.cursorRadius > 0)
+    {
+        mCursor->SetTexture(assets->GetRoundedRectTexture(mDesc.cursorRadius));
+        mCursor->SetBorder(mDesc.cursorRadius);
+    }
+    else
+    {
+        mCursor->SetTexture(assets->GetWhite1x1Texture());
+    }
     mCursor->SetColor(mDesc.cursorColor);
     mCursor->SetAlpha(mDesc.cursorAlpha);
 
@@ -192,12 +199,14 @@ UILayout ChoiceListActor::ComputeLayout() const
 
 void ChoiceListActor::OnLayoutChanged(const UIRect& rect)
 {
-    if (!mBg || !mCursor) return;
+    if (!mCursor) return;
 
-    mBg->SetScale(rect.size.x, rect.size.y);
+    mFrame.SetRect(GetLocalRect());
 
     // 項目は内側の矩形に上から並べる（ローカル座標）
-    const UIRect inner = GetLocalRect().Inset(Vector2(0.0f, mDesc.padding.y));
+    // カーソル帯が枠線に重ならないよう、左右も少し内側へ
+    const float sideInset = static_cast<float>(mDesc.frame.lineWidth) + 4.0f;
+    const UIRect inner = GetLocalRect().Inset(Vector2(sideInset, mDesc.padding.y));
 
     for (size_t i = 0; i < mItems.size(); ++i)
     {
@@ -212,12 +221,12 @@ void ChoiceListActor::OnLayoutChanged(const UIRect& rect)
         }
         const float y = rowTop + (mDesc.itemHeight - textH) * 0.5f;
 
-        text->SetOffset(Vector3(inner.Left() + mDesc.padding.x, y, 0.0f));
+        text->SetOffset(Vector3(GetLocalRect().Left() + mDesc.padding.x, y, 0.0f));
     }
 
     // カーソル帯：選択行いっぱい
     const float cursorTop = inner.Top() + mDesc.itemHeight * static_cast<float>(mSelected);
-    mCursor->SetScale(inner.size.x, mDesc.itemHeight);
+    mCursor->SetSize(Vector2(inner.size.x, mDesc.itemHeight));
     mCursor->SetOffset(Vector3(inner.Left(), cursorTop, 0.0f));
 }
 
@@ -234,7 +243,7 @@ void ChoiceListActor::SetVisible(bool visible)
 {
     const bool hasItems = !mItems.empty();
 
-    if (mBg)     mBg->SetVisible(visible);
+    mFrame.SetVisible(visible);
     if (mCursor) mCursor->SetVisible(visible && hasItems);
 
     for (size_t i = 0; i < mItemTexts.size(); ++i)

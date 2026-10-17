@@ -7,7 +7,6 @@
 
 #include "Asset/Material/Texture.h"
 
-#include "Graphics/Sprite/SpriteComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "UI/MessageTextComponent.h"
 
@@ -22,10 +21,8 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     SetActorID("MessageBox");
 
     // 背景
-    mBg = CreateComponent<SpriteComponent>(900, VisualLayer::UI);
-    mBg->SetTexture(app->GetAssetManager()->GetWhite1x1Texture());
-    mBg->SetColor(mDesc.bgColor);
-    mBg->SetAlpha(mDesc.bgAlpha);
+    mFrame.Create(this, 900, 901);
+    mFrame.ApplyStyle(mDesc.frame);
 
     // 本文
     mText = CreateComponent<MessageTextComponent>(9001, VisualLayer::UI);
@@ -61,12 +58,8 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
 {
     mDesc = desc;
 
-    if (mBg)
-    {
-        mBg->SetColor(mDesc.bgColor);
-        mBg->SetAlpha(mDesc.bgAlpha);
-        // drawOrder/layer変更は再生成が必要なのでここでは触らない（必要なら作り直し関数を用意）
-    }
+    // drawOrder/layer変更は再生成が必要なのでここでは触らない（必要なら作り直し関数を用意）
+    mFrame.ApplyStyle(mDesc.frame);
 
     if (mText)
     {
@@ -92,7 +85,7 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
 void MessageBoxActor::SetEnabled(bool enabled)
 {
     mEnabled = enabled;
-    if (mBg)   mBg->SetVisible(enabled);
+    mFrame.SetVisible(enabled);
     if (mText) mText->SetVisible(enabled);
     if (mIndicator) mIndicator->SetVisible(false);   // 表示は UpdateIndicator が決める
 }
@@ -192,10 +185,10 @@ void MessageBoxActor::UpdateIndicator(float dt)
 
 void MessageBoxActor::OnLayoutChanged(const UIRect& rect)
 {
-    if (!mBg || !mText) return;
+    if (!mText) return;
 
     // 背景サイズ（Actor 位置 = 矩形の左上）
-    mBg->SetScale(rect.size.x, rect.size.y);
+    mFrame.SetRect(GetLocalRect());
 
     // 本文の折り返し条件
     mText->SetTextBoxSize(rect.size);

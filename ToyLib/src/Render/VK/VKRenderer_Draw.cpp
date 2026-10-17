@@ -626,11 +626,15 @@ void VKRenderer::DrawItem_Sprite(VkCommandBuffer cmd, const RenderItem& it, VkDe
 
     Vector3 color(1, 1, 1);
     float alpha = 1.0f;
+    Vector2 uvOffset(0.0f, 0.0f);
+    Vector2 uvScale (1.0f, 1.0f);
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         const SpritePayload& sp = GetSpritePayload(it.payloadIndex);
-        color = sp.color;
-        alpha = sp.alpha;
+        color    = sp.color;
+        alpha    = sp.alpha;
+        uvOffset = sp.uvOffset;
+        uvScale  = sp.uvScale;
     }
 
     VKSpritePC pc{};
@@ -639,6 +643,10 @@ void VKRenderer::DrawItem_Sprite(VkCommandBuffer cmd, const RenderItem& it, VkDe
     pc.colorAlpha[1] = color.y;
     pc.colorAlpha[2] = color.z;
     pc.colorAlpha[3] = alpha;
+    pc.uvRect[0] = uvOffset.x;
+    pc.uvRect[1] = uvOffset.y;
+    pc.uvRect[2] = uvScale.x;
+    pc.uvRect[3] = uvScale.y;
 
     vkCmdPushConstants(cmd, pipe->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                        sizeof(VKSpritePC), &pc);

@@ -81,6 +81,7 @@
 #include "Graphics/Sprite/SpriteComponent.h"
 #include "Graphics/Billboard/BillboardComponent.h"
 #include "Graphics/Sprite/TextSpriteComponent.h"
+#include "Graphics/Sprite/NineSliceSpriteComponent.h"
 #include "Graphics/Billboard/TextBillboardComponent.h"
 #include "Graphics/Sprite/FootSpriteComponent.h"
 #include "Graphics/Sprite/GroundConformSpriteComponent.h"
@@ -136,6 +137,7 @@
 //======================================
 #include "UI/UILayout.h"
 #include "UI/UIScreen.h"
+#include "UI/UIFrame.h"
 #include "UI/UIStack.h"
 #include "UI/MessageBoxActor.h"
 #include "UI/ChoiceListActor.h"

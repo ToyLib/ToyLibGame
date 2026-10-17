@@ -104,12 +104,16 @@ static bool DispatchSprite(IRenderer& r,
     // Payload優先（なければ旧メンバ）
     Vector3 color = Vector3::Zero;
     float   alpha = 1.0f;
+    Vector2 uvOffset(0.0f, 0.0f);
+    Vector2 uvScale (1.0f, 1.0f);
 
     if (it.payloadIndex != RenderItem::kInvalidPayload)
     {
         const SpritePayload& sp = r.GetSpritePayload(it.payloadIndex);
-        color = sp.color;
-        alpha = sp.alpha;
+        color    = sp.color;
+        alpha    = sp.alpha;
+        uvOffset = sp.uvOffset;
+        uvScale  = sp.uvScale;
     }
 
     // 2D/UI 用 VP 行列（SceneUBO は 3D 透視行列なので per-draw で上書き）
@@ -120,6 +124,8 @@ static bool DispatchSprite(IRenderer& r,
     // Sprite系は contract(v1) に含めてない想定なので、従来名を維持（動作維持）
     sh->SetVectorUniform("uSpriteColor", color);
     sh->SetFloatUniform ("uSpriteAlpha", alpha);
+    // GL の uniform は program に残るので、毎回必ず設定する
+    sh->SetVector4Uniform("uUVRect", uvOffset.x, uvOffset.y, uvScale.x, uvScale.y);
 
     if (it.texture.ptr)
     {

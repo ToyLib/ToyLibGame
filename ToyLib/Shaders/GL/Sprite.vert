@@ -89,6 +89,9 @@ layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal;    // 未使用
 layout(location = 2) in vec2 inTexCoord;
 
+// テクスチャの描画範囲：xy = offset, zw = scale（既定 (0,0,1,1) = 全体）
+uniform vec4 uUVRect;
+
 //------------------------------------------------------------------------
 // フラグメントシェーダーへ渡すデータ
 //------------------------------------------------------------------------
@@ -106,6 +109,6 @@ void main()
     // gl_Position は最終クリップ空間座標
     gl_Position = pos * uObject.world * uViewProj;
 
-    // UV をそのまま出力
-    fragTexCoord = inTexCoord;
+    // UV を描画範囲へ写す
+    fragTexCoord = inTexCoord * uUVRect.zw + uUVRect.xy;
 }

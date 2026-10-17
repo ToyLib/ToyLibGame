@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UI/UIScreen.h"
+#include "UI/UIFrame.h"
 #include "Utils/MathUtil.h"
 
 #include <functional>
@@ -10,14 +11,14 @@
 
 namespace toy {
 
-class SpriteComponent;
+class NineSliceSpriteComponent;
 class TextSpriteComponent;
 class TextFont;
 
 //==============================================================
 // ChoiceListActor
 //  - 縦並びの選択肢リスト（タイトルメニュー / 会話の選択肢 / はい・いいえ 等）
-//  - 背景(Sprite) + カーソル帯(Sprite) + 項目(TextSprite × N)
+//  - 背景・枠線(UIFrame) + カーソル帯(9-slice) + 項目(TextSprite × N)
 //  - Open で UIStack に積み、決定 / キャンセルで閉じてからコールバックを呼ぶ
 //    （コールバック内で次の UI を開いたりシーンを切り替えてよい）
 //
@@ -41,11 +42,11 @@ public:
         // ----------------------------
         // 見た目
         // ----------------------------
-        Vector3 bgColor   { Vector3(0.05f, 0.05f, 0.08f) };
-        float   bgAlpha   { 0.7f };
+        UIFrameStyle frame { DefaultFrame() };   // 背景 + 枠線（角丸）
 
         Vector3 cursorColor { Vector3(0.3f, 0.5f, 0.9f) };
         float   cursorAlpha { 0.5f };
+        int     cursorRadius { 4 };   // カーソル帯の角丸（0 で四角）
 
         Vector3 textColor         { Vector3(0.7f, 0.7f, 0.7f) };
         Vector3 selectedTextColor { Vector3(1.0f, 1.0f, 1.0f) };
@@ -62,6 +63,13 @@ public:
         // ----------------------------
         bool allowCancel { true };   // B でキャンセル
         bool wrap        { true };   // 端で反対側へ回り込む
+
+        static UIFrameStyle DefaultFrame()
+        {
+            UIFrameStyle f;
+            f.bgAlpha = 0.7f;
+            return f;
+        }
 
         static UILayout DefaultLayout()
         {
@@ -108,8 +116,8 @@ private:
 private:
     Desc mDesc;
 
-    SpriteComponent* mBg     { nullptr };
-    SpriteComponent* mCursor { nullptr };
+    UIFrame                   mFrame;
+    NineSliceSpriteComponent* mCursor { nullptr };
 
     // 項目テキスト（Open のたびに不足分だけ作る。余りは非表示で使い回す）
     std::vector<TextSpriteComponent*> mItemTexts;

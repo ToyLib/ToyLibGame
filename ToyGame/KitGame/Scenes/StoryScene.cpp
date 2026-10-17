@@ -27,7 +27,7 @@ void StoryScene::DefineWorld()
     d.layout.offset = Vector2(0, -20);
     d.layout.size   = Vector2(680, 180);
     d.padding = Vector2(18, 14);
-    d.bgAlpha = 0.6f;
+    d.frame.bgAlpha = 0.6f;
     d.lineGapPx = 3;
     d.font = font;
     d.textColor = Vector3(0.8, 0.8, 0.8);

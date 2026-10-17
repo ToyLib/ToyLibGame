@@ -4,7 +4,11 @@
 #include "Asset/Audio/SoundEffect.h"
 #include "Asset/Audio/Music.h"
 #include "Asset/Font/TextFont.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <string>
+#include <vector>
 
 namespace toy {
 
@@ -101,6 +105,81 @@ std::shared_ptr<class Texture> AssetManager::GetWhite1x1Texture()
     return nullptr;
 }
 
+//=========================================================
+// 角丸矩形テクスチャ生成
+//=========================================================
+namespace {
+
+// 角丸矩形（原点中心、半サイズ half、角の半径 r）までの符号付き距離（内側が負）
+float RoundedRectSDF(float px, float py, float half, float r)
+{
+    const float qx = std::fabs(px) - (half - r);
+    const float qy = std::fabs(py) - (half - r);
+    const float ox = std::max(qx, 0.0f);
+    const float oy = std::max(qy, 0.0f);
+    return std::sqrt(ox * ox + oy * oy) + std::min(std::max(qx, qy), 0.0f) - r;
+}
+
+// 距離 → 被覆率（1px 幅でアンチエイリアス）
+float Coverage(float sdf)
+{
+    return std::clamp(0.5f - sdf, 0.0f, 1.0f);
+}
+
+} // namespace
+
+std::shared_ptr<class Texture> AssetManager::GetRoundedRectTexture(int radius, int lineWidth)
+{
+    radius    = std::max(radius, 1);
+    lineWidth = std::clamp(lineWidth, 0, radius);
+
+    const std::string nameKey =
+        "__sys_ROUNDRECT_r" + std::to_string(radius) + "_w" + std::to_string(lineWidth);
+    auto iter = mTextures.find(nameKey);
+    if (iter != mTextures.end())
+    {
+        return iter->second;
+    }
+
+    // 角 radius px ＋ 中央 4px（9-slice で伸ばす部分）
+    const int   size = radius * 2 + 4;
+    const float half = size * 0.5f;
+
+    std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4);
+    for (int y = 0; y < size; ++y)
+    {
+        for (int x = 0; x < size; ++x)
+        {
+            // ピクセル中心で評価
+            const float cx = (x + 0.5f) - half;
+            const float cy = (y + 0.5f) - half;
+
+            float a = Coverage(RoundedRectSDF(cx, cy, half, static_cast<float>(radius)));
+            if (lineWidth > 0)
+            {
+                // 内側の角丸矩形をくり抜いて枠線にする
+                const float inner = Coverage(RoundedRectSDF(cx, cy, half - lineWidth,
+                                                            static_cast<float>(radius - lineWidth)));
+                a = std::max(0.0f, a - inner);
+            }
+
+            uint8_t* p = &px[(static_cast<size_t>(y) * size + x) * 4];
+            p[0] = 255;
+            p[1] = 255;
+            p[2] = 255;
+            p[3] = static_cast<uint8_t>(a * 255.0f + 0.5f);
+        }
+    }
+
+    auto tex = std::make_shared<Texture>();
+    if (tex->CreateFromPixels(px.data(), size, size, true))
+    {
+        mTextures[nameKey] = tex;
+        return tex;
+    }
+    std::cerr << "[Texture] RoundedRect Texture Create Error" << std::endl;
+    return nullptr;
+}
 
 //======================================================================
 // メッシュ取得

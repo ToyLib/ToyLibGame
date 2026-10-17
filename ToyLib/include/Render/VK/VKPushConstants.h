@@ -9,6 +9,7 @@ struct VKSpritePC
 {
     float world[16];
     float colorAlpha[4];
+    float uvRect[4];      // xy = offset, zw = scale
 };
 
 struct VKMeshPC
