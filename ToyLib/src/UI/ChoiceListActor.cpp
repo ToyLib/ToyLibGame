@@ -30,6 +30,8 @@ ChoiceListActor::ChoiceListActor(Application* app, const Desc& desc)
     mFrame.Create(this, kBgDrawOrder, kLineDrawOrder);
     mFrame.ApplyStyle(mDesc.frame);
 
+    SetTransition(mDesc.transition);
+
     // カーソル帯（角丸）
     mCursor = CreateComponent<NineSliceSpriteComponent>(kCursorDrawOrder, VisualLayer::UI);
     if (mDesc.cursorRadius > 0)
@@ -85,6 +87,7 @@ void ChoiceListActor::Open(const std::vector<std::string>& items,
     SetLayout(ComputeLayout());   // 項目数で高さが変わるので毎回解決し直す
     RefreshItemColors();
     PushToUIStack();
+    BeginShow();
 }
 
 void ChoiceListActor::Close()
@@ -92,8 +95,16 @@ void ChoiceListActor::Close()
     if (!mOpen) return;
 
     mOpen = false;
-    SetVisible(false);
-    RemoveFromUIStack();
+    RemoveFromUIStack();   // 入力はすぐ手放す（見た目はフェードアウト後に消える）
+    BeginHide();
+}
+
+void ChoiceListActor::OnHidden()
+{
+    if (!mOpen)
+    {
+        SetVisible(false);
+    }
 }
 
 //=============================================================================

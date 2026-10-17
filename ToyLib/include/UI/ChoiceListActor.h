@@ -42,7 +42,8 @@ public:
         // ----------------------------
         // 見た目
         // ----------------------------
-        UIFrameStyle frame { DefaultFrame() };   // 背景 + 枠線（角丸）
+        UIFrameStyle frame      { DefaultFrame() };       // 背景 + 枠線（角丸）
+        UITransition transition { DefaultTransition() };  // 開閉アニメーション
 
         Vector3 cursorColor { Vector3(0.3f, 0.5f, 0.9f) };
         float   cursorAlpha { 0.5f };
@@ -69,6 +70,13 @@ public:
             UIFrameStyle f;
             f.bgAlpha = 0.7f;
             return f;
+        }
+
+        static UITransition DefaultTransition()
+        {
+            UITransition t;
+            t.slideFrom = Vector2(0.0f, 8.0f);
+            return t;
         }
 
         static UILayout DefaultLayout()
@@ -103,6 +111,7 @@ public:
 
 protected:
     void OnLayoutChanged(const UIRect& rect) override;
+    void OnHidden() override;
 
 private:
     void Decide();

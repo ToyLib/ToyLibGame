@@ -36,6 +36,7 @@ public:
         // 見た目
         // ----------------------------
         UIFrameStyle frame { DefaultFrame() };   // 背景 + 枠線（角丸）
+        UITransition transition;                 // 開閉アニメーション（下から浮き上がる）
         
         Vector3 textColor { Vector3(1.0f, 1.0f, 1.0f) };
         int     lineGapPx { 2 };
@@ -98,6 +99,7 @@ public:
     
 protected:
     void OnLayoutChanged(const UIRect& rect) override;
+    void OnHidden() override;
     
 private:
     void ApplyIndicatorStyle();

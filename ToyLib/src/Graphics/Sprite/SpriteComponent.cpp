@@ -88,7 +88,7 @@ void SpriteComponent::GatherRenderItems(RenderQueue& out)
     // ----------------------------
     SpritePayload sp;
     sp.color = mColor;
-    sp.alpha = mAlpha;
+    sp.alpha = mAlpha * mAlphaMultiplier;
     const uint32_t payloadIdx = out.PushSpritePayload(sp);
 
     // ----------------------------

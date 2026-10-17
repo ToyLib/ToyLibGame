@@ -2,8 +2,24 @@
 
 #include "Engine/Core/Actor.h"
 #include "UI/UILayout.h"
+#include "Utils/Easing.h"
 
 namespace toy {
+
+//==============================================================
+// UITransition
+//  - UIScreen の開閉アニメーション設定
+//  - 開く：fade/slide の「開始状態」→ 通常状態
+//    閉じる：通常状態 → 「開始状態」（同じカーブを逆再生）
+//  - duration <= 0 でアニメーションなし（即時）
+//==============================================================
+struct UITransition
+{
+    float   duration  { 0.15f };
+    Ease    ease      { Ease::OutCubic };
+    float   fadeFrom  { 0.0f };                  // 開始時のアルファ倍率
+    Vector2 slideFrom { Vector2(0.0f, 16.0f) };  // 開始時のずれ（px、+Y 下）
+};
 
 //==============================================================
 // UIScreen
@@ -27,6 +43,14 @@ namespace toy {
 // ・中の部品は GetRect() を基準に、ローカル座標（SetOffset）で配置する
 //   → OnLayoutChanged() を override して部品のサイズ・位置を合わせる
 // ・ウィンドウサイズ変更時は Application が ApplyLayout() を呼び直す
+//
+// 開閉アニメーション
+// ・派生クラスの Open で部品を表示してから BeginShow()、
+//   Close で BeginHide() を呼ぶ
+// ・閉じ終わると OnHidden() が呼ばれる → 派生で部品を非表示にする
+// ・閉じる途中に BeginShow() されたら、その位置から開き直す
+// ・アルファは各 VisualComponent の倍率（SetAlphaMultiplier）で掛けるので、
+//   部品ごとのアルファ設定はそのまま保たれる
 //==============================================================
 class UIScreen : public Actor
 {
@@ -71,19 +95,45 @@ public:
     // ルート矩形からレイアウトを解決し直す
     void ApplyLayout();
 
+    //--------------------------------------------------------------------------
+    // Transition
+    //--------------------------------------------------------------------------
+    void SetTransition(const UITransition& t) { mTransition = t; }
+    const UITransition& GetTransition() const { return mTransition; }
+
+    // 開閉アニメーション中か
+    bool IsTransitioning() const { return mTransitionDir != 0; }
+
 protected:
     // レイアウトが解決されたときに呼ばれる（中の部品の配置はここで行う）
     virtual void OnLayoutChanged(const UIRect& rect) {}
 
+    // 開く / 閉じるアニメーションを開始する（派生の Open / Close から呼ぶ）
+    void BeginShow();
+    void BeginHide();
+
+    // 閉じるアニメーションが終わったときに呼ばれる
+    virtual void OnHidden() {}
+
 private:
     friend class UIStack;
+    friend class UIScreenTransitionDriver;
     void SetFocus(bool focus);
+
+    void TickTransition(float dt);
+    void ApplyTransitionVisual();
+    void UpdateScreenPosition();
 
     bool mModal    { true };
     bool mHasFocus { false };
 
     UILayout mLayout;
     UIRect   mRect;
+
+    UITransition mTransition;
+    float mTransitionT   { 1.0f };   // 0 = 閉じた状態 / 1 = 開いた状態
+    int   mTransitionDir { 0 };      // +1 開く途中 / -1 閉じる途中 / 0 停止
+    bool  mShown         { false };  // 表示中（開く途中・閉じる途中を含む）
 };
 
 } // namespace toy

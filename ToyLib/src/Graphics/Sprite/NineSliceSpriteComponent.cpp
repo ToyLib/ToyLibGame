@@ -108,7 +108,7 @@ void NineSliceSpriteComponent::GatherRenderItems(RenderQueue& out)
 
             SpritePayload sp;
             sp.color    = mColor;
-            sp.alpha    = mAlpha;
+            sp.alpha    = mAlpha * mAlphaMultiplier;
             sp.uvOffset = Vector2(us[col], vs[row]);
             sp.uvScale  = Vector2(us[col + 1] - us[col], vs[row + 1] - vs[row]);
             const uint32_t payloadIdx = out.PushSpritePayload(sp);

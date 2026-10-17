@@ -24,6 +24,8 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     mFrame.Create(this, 900, 901);
     mFrame.ApplyStyle(mDesc.frame);
 
+    SetTransition(mDesc.transition);
+
     // 本文
     mText = CreateComponent<MessageTextComponent>(9001, VisualLayer::UI);
 
@@ -60,6 +62,7 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
 
     // drawOrder/layer変更は再生成が必要なのでここでは触らない（必要なら作り直し関数を用意）
     mFrame.ApplyStyle(mDesc.frame);
+    SetTransition(mDesc.transition);
 
     if (mText)
     {
@@ -102,6 +105,8 @@ void MessageBoxActor::Open(const std::string& text, std::function<void()> onClos
     ApplyLayout();
 
     mText->SetMessage(text);
+
+    BeginShow();
 }
 
 void MessageBoxActor::Close()
@@ -109,12 +114,24 @@ void MessageBoxActor::Close()
     if (!mOpen) return;
 
     mOpen = false;
-    SetEnabled(false);
-    RemoveFromUIStack();
+    RemoveFromUIStack();   // 入力はすぐ手放す（見た目はフェードアウト後に消える）
+    BeginHide();
 
-    if (mOnClose)
+    // コールバック内で Open し直すと mOnClose が差し替わるので、退避してから呼ぶ
+    auto onClose = std::move(mOnClose);
+    mOnClose = nullptr;
+    if (onClose)
     {
-        mOnClose();
+        onClose();
+    }
+}
+
+void MessageBoxActor::OnHidden()
+{
+    // 閉じるアニメーションが終わったら部品を隠す
+    if (!mOpen)
+    {
+        SetEnabled(false);
     }
 }
 

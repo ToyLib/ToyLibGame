@@ -41,6 +41,11 @@ public:
     void SetVisible(bool v) { mIsVisible = v; }
     bool IsVisible() const { return mIsVisible; }
 
+    // 描画時に自前のアルファへ掛ける倍率（UI 画面全体のフェード等で使う）
+    // ・SpriteComponent / NineSliceSpriteComponent が対応
+    void  SetAlphaMultiplier(float m) { mAlphaMultiplier = Math::Clamp(m, 0.0f, 1.0f); }
+    float GetAlphaMultiplier() const  { return mAlphaMultiplier; }
+
     void SetBlendAdd(bool b) { mIsBlendAdd = b; }
     bool IsBlendAdd() const { return mIsBlendAdd; }
 
@@ -69,6 +74,7 @@ protected:
 
     bool        mIsVisible { true };
     bool        mIsBlendAdd { false };
+    float       mAlphaMultiplier { 1.0f };
     VisualLayer mLayer {};
     int         mDrawOrder {};
 
