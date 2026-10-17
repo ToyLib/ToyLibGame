@@ -28,6 +28,7 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     mFrame.ApplyStyle(mDesc.frame);
 
     SetTransition(mDesc.transition);
+    SetPausesGame(mDesc.pauseGame);
 
     // 本文
     mText = CreateComponent<MessageTextComponent>(9001, VisualLayer::UI);
@@ -66,6 +67,7 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
     // drawOrder/layer変更は再生成が必要なのでここでは触らない（必要なら作り直し関数を用意）
     mFrame.ApplyStyle(mDesc.frame);
     SetTransition(mDesc.transition);
+    SetPausesGame(mDesc.pauseGame);
 
     if (mText)
     {

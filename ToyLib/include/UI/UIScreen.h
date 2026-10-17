@@ -32,6 +32,7 @@ struct UITransition
 // ・Modal（既定 true）：自分より下の UI とゲーム側に入力を渡さない
 //   → 会話中にプレイヤーが動く / 閉じた A がシーンにも届く、を防ぐ
 // ・非 Modal（HUD 等）：入力を受け取りつつ、下にもそのまま流す
+// ・PausesGame（既定 false）：積まれている間、ゲームの更新を止める
 //
 // 使い方
 // ・派生クラスで開くときに PushToUIStack()、閉じるときに RemoveFromUIStack()
@@ -71,6 +72,15 @@ public:
     //--------------------------------------------------------------------------
     void SetModal(bool modal) { mModal = modal; }
     bool IsModal() const { return mModal; }
+
+    //--------------------------------------------------------------------------
+    // Pause
+    //--------------------------------------------------------------------------
+    // true：スタックに積まれている間、ゲーム（Scene の Update と通常 Actor の更新）を止める
+    // ・UIScreen 自身と SetUpdateWhilePaused(true) の Actor は動き続ける
+    // ・閉じる（スタックから外れる）とすぐ再開する。閉じるアニメーション中はもう動いている
+    void SetPausesGame(bool pause) { mPausesGame = pause; }
+    bool PausesGame() const { return mPausesGame; }
 
     //--------------------------------------------------------------------------
     // Focus（スタック最前面になった / でなくなった）
@@ -125,6 +135,7 @@ private:
     void UpdateScreenPosition();
 
     bool mModal    { true };
+    bool mPausesGame { false };
     bool mHasFocus { false };
 
     UILayout mLayout;

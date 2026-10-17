@@ -18,6 +18,7 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
 {
     SetActorID("DebugOverlay");
     SetAlwaysReceiveInput(true); // UI 表示中もデバッグキーは効かせる
+    SetUpdateWhilePaused(true);  // UI による一時停止中も統計表示を更新する
 
     SetPosition(Vector3::Zero);
 

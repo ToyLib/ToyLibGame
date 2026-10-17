@@ -126,6 +126,19 @@ bool UIStack::ProcessInput(const InputState& state)
 }
 
 //=============================================================================
+// Pause
+//=============================================================================
+
+bool UIStack::IsGamePaused() const
+{
+    return std::any_of(mScreens.begin(), mScreens.end(),
+                       [](const UIScreen* s)
+                       {
+                           return s->PausesGame() && s->GetState() != Actor::State::Dead;
+                       });
+}
+
+//=============================================================================
 // Internal
 //=============================================================================
 

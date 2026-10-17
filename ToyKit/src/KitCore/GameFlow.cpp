@@ -154,6 +154,11 @@ void GameFlow::Update(float deltaTime)
     switch (mState)
     {
         case FlowState::Running:
+            // PausesGame な UI（確認ダイアログ等）が開いている間はシーンを止める
+            if (auto* ui = mApp->GetUIStack(); ui && ui->IsGamePaused())
+            {
+                break;
+            }
             if (mCurrentScene)
             {
                 mCurrentScene->Update(deltaTime);

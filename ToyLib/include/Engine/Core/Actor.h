@@ -59,6 +59,11 @@ public:
     void SetAlwaysReceiveInput(bool b) { mAlwaysReceiveInput = b; }
     bool GetAlwaysReceiveInput() const { return mAlwaysReceiveInput; }
 
+    // UI がゲームを一時停止している間も Update するか
+    // ・デバッグ用 Actor など、停止中も動かしたいものだけ true にする
+    void SetUpdateWhilePaused(bool b) { mUpdateWhilePaused = b; }
+    bool GetUpdateWhilePaused() const { return mUpdateWhilePaused; }
+
     //=========================================================================
     // Transform (SRT)  ※保持しているのはワールド基準の値
     //=========================================================================
@@ -202,6 +207,7 @@ private:
     //=========================================================================
     enum State  mStatus  { State::Active };
     bool        mAlwaysReceiveInput { false };
+    bool        mUpdateWhilePaused  { false };
     std::string mActorID { "Unnamed Actor" };
 };
 

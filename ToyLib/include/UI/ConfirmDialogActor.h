@@ -70,6 +70,7 @@ public:
         // 操作
         // ----------------------------
         bool allowCancel { true };   // B で「いいえ」
+        bool pauseGame   { false };  // 開いている間ゲームを止める
 
         static UIFrameStyle DefaultFrame()
         {

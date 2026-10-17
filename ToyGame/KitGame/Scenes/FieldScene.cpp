@@ -95,6 +95,7 @@ void FieldScene::DefineUI()
     // シーン移動の確認ダイアログ（Start で開く）
     toy::ConfirmDialogActor::Desc confirmDesc;
     confirmDesc.font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+    confirmDesc.pauseGame = true;   // 確認中はキャラや時間を止める
     mConfirm = CreateActor<toy::ConfirmDialogActor>(confirmDesc);
 }
 

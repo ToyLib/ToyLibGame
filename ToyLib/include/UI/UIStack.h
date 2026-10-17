@@ -20,6 +20,10 @@ class UIScreen;
 //   3. Application::ProcessInput(state) フック（ゲーム側）
 //                              占有中かどうかは IsInputCaptured() で判断する
 //
+// 一時停止（Application::UpdateFrame / GameFlow::Update）
+//   IsGamePaused() の間は TimeOfDay・物理・通常 Actor・Scene の更新を止める
+//   （UIScreen と Actor::SetUpdateWhilePaused(true) の Actor は更新する）
+//
 // ・UIScreen の寿命は Application（Actor 管理）が持つ。ここは参照のみ
 //==============================================================
 class UIStack
@@ -53,6 +57,12 @@ public:
 
     // 直近の ProcessInput で UI が入力を占有したか
     bool IsInputCaptured() const { return mInputCaptured; }
+
+    //--------------------------------------------------------------------------
+    // Pause
+    //--------------------------------------------------------------------------
+    // PausesGame な画面が積まれているか（ゲームの更新を止めるべきか）
+    bool IsGamePaused() const;
 
 private:
     friend class UIScreen;

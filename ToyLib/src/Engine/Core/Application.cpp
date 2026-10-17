@@ -543,11 +543,19 @@ void Application::UpdateFrame()
 
     Uint64 updateBegin = SDL_GetPerformanceCounter();
 
+    // UI（PausesGame な UIScreen）によるゲームの一時停止
+    //  - 止める：TimeOfDay / 物理 / 通常 Actor（Scene の Update は GameFlow 側で止める）
+    //  - 動かす：UIScreen / SetUpdateWhilePaused の Actor / UpdateGame フック / サウンド
+    const bool uiPaused = mUIStack->IsGamePaused();
+
     //==========================================================
     // TimeOfDay
     //==========================================================
     Uint64 todBegin = SDL_GetPerformanceCounter();
-    mTimeOfDaySys->Update(deltaTime);
+    if (!uiPaused)
+    {
+        mTimeOfDaySys->Update(deltaTime);
+    }
     Uint64 todEnd = SDL_GetPerformanceCounter();
     mDebugStats.TimeOfDayTimeMs = ToMs(todBegin, todEnd);
 
@@ -563,7 +571,10 @@ void Application::UpdateFrame()
     // Physics
     //==========================================================
     Uint64 physBegin = SDL_GetPerformanceCounter();
-    mPhysWorld->Test();
+    if (!uiPaused)
+    {
+        mPhysWorld->Test();
+    }
     Uint64 physEnd = SDL_GetPerformanceCounter();
     mDebugStats.PhysicsTimeMs = ToMs(physBegin, physEnd);
 
@@ -575,6 +586,10 @@ void Application::UpdateFrame()
     mIsUpdatingActors = true;
     for (auto& a : mActors)
     {
+        if (uiPaused && !a->GetUpdateWhilePaused() && !dynamic_cast<UIScreen*>(a.get()))
+        {
+            continue;
+        }
         a->Update(deltaTime);
     }
     mIsUpdatingActors = false;

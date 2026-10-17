@@ -64,6 +64,7 @@ public:
         // ----------------------------
         bool allowCancel { true };   // B でキャンセル
         bool wrap        { true };   // 端で反対側へ回り込む
+        bool pauseGame   { false };  // 開いている間ゲームを止める
 
         static UIFrameStyle DefaultFrame()
         {

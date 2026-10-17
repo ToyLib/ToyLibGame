@@ -37,6 +37,9 @@ IScene::InitScene()
   → DefineUI()           … UI Actor
 ```
 
+UI（メッセージ / 選択肢 / 確認ダイアログ）の使い方と、UI を開いている間の入力のルールは
+[ToyLib_UI_Guide.md](ToyLib_UI_Guide.md) を参照。
+
 - `DefineWorld()` は「動かないもの」だけを扱う（地面・空・レンガ・家など）。
   StaticObject の配置は procedural に1体ずつではなく、`StaticObjectPlacement` の配列（データ）を
   組み立てて `MakeStaticObjects()` に渡す形にしてある（Scene構築のDesc化。設計方針16）。
@@ -94,8 +97,9 @@ Sceneが保持しているAgentの`Update()`/`ProcessInput()`を回してあげ�
 ## 4. Scene 間の遷移
 
 Scene遷移は `IScene::RequestChange(std::unique_ptr<IScene>)` を、各Sceneの `ProcessInput()`/`Update()`
-の中で条件を見て呼ぶ、という素直なC++コードのまま扱う（例: `FieldScene`でStartボタンを押したら
-`SnowScene`へ、`StoryScene`でメッセージを閉じたら`FieldScene`へ）。汎用的な遷移テーブル/ステート
+の中で条件を見て呼ぶ、という素直なC++コードのまま扱う（例: `FieldScene`でStartボタンを押して
+確認ダイアログで「はい」を選んだら`SnowScene`へ、`StoryScene`でメッセージ後の選択肢で「次へ進む」を
+選んだら`FieldScene`へ）。UI のコールバックの中から `RequestChange()` を呼んでよい。汎用的な遷移テーブル/ステート
 マシンは用意していない。ゆくゆくスクリプト化する可能性はあるが、今のところは「C++で書く」を
 基本形としている。
 

@@ -48,6 +48,7 @@ ConfirmDialogActor::ConfirmDialogActor(Application* app, const Desc& desc)
     mFrame.ApplyStyle(mDesc.frame);
 
     SetTransition(mDesc.transition);
+    SetPausesGame(mDesc.pauseGame);
 
     // 質問文（折り返しあり。文字送りはしない）
     mText = CreateComponent<MessageTextComponent>(kTextDrawOrder, VisualLayer::UI);

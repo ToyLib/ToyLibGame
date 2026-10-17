@@ -31,6 +31,7 @@ ChoiceListActor::ChoiceListActor(Application* app, const Desc& desc)
     mFrame.ApplyStyle(mDesc.frame);
 
     SetTransition(mDesc.transition);
+    SetPausesGame(mDesc.pauseGame);
 
     // カーソル帯（角丸）
     mCursor = CreateComponent<NineSliceSpriteComponent>(kCursorDrawOrder, VisualLayer::UI);
