@@ -113,7 +113,7 @@ void SnowScene::SpawnCharacters()
 }
 
 //-----------------------------------------------------------------------------
-// DefineUI — 時刻表示
+// DefineUI — 時刻表示・移動確認ダイアログ
 //-----------------------------------------------------------------------------
 void SnowScene::DefineUI()
 {
@@ -126,6 +126,11 @@ void SnowScene::DefineUI()
     text->SetFormat("");
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
+
+    // シーン移動の確認ダイアログ（Start で開く）
+    toy::ConfirmDialogActor::Desc confirmDesc;
+    confirmDesc.font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+    mConfirm = CreateActor<toy::ConfirmDialogActor>(confirmDesc);
 }
 
 void SnowScene::ProcessInput(const struct toy::InputState &input)
@@ -135,9 +140,17 @@ void SnowScene::ProcessInput(const struct toy::InputState &input)
         mToby->ProcessInput(input);
     }
 
+    // ダイアログ表示中は UIStack が入力を占有するので、ここには来ない
     if (input.IsButtonPressed(toy::GameButton::Start))
     {
-        RequestChange(std::make_unique<FieldScene>());
+        mConfirm->Open("草原へ移動しますか？",
+                       [this](bool yes)
+                       {
+                           if (yes)
+                           {
+                               RequestChange(std::make_unique<FieldScene>());
+                           }
+                       });
     }
 }
 

@@ -141,6 +141,7 @@
 #include "UI/UIStack.h"
 #include "UI/MessageBoxActor.h"
 #include "UI/ChoiceListActor.h"
+#include "UI/ConfirmDialogActor.h"
 #include "UI/MessageTextComponent.h"
 
 //======================================

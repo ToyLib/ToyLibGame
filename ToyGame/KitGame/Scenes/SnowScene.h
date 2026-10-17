@@ -32,6 +32,7 @@ private:
     std::unique_ptr<class toy::WeatherManager> mWeather;
 
     class toy::TextSpriteComponent* mTextComp;
+    class toy::ConfirmDialogActor*  mConfirm = nullptr;
 
     toy::Actor* mTobyCamera;
 

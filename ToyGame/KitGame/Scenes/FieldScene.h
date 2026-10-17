@@ -33,6 +33,7 @@ private:
     std::unique_ptr<class toy::WeatherManager> mWeather;
     
     class toy::TextSpriteComponent* mTextComp;
+    class toy::ConfirmDialogActor*  mConfirm = nullptr;
 
     // Prefab を内包する Game Logic 側オブジェクト（toy::Actor は継承しないため、
     // Scene 側で寿命を管理する）
