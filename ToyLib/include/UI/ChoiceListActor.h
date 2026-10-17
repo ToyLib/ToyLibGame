@@ -105,6 +105,10 @@ public:
 
     bool IsOpen() const { return mOpen; }
 
+    // 表示位置の差し替え（次の Open から反映。他の UI に添えて出す場合など）
+    void SetListLayout(const UILayout& layout) { mDesc.layout = layout; }
+    const UILayout& GetListLayout() const { return mDesc.layout; }   // size.y <= 0 なら高さ自動
+
     void SetSelectedIndex(int index);
     int  GetSelectedIndex() const { return mSelected; }
     int  GetItemCount() const { return static_cast<int>(mItems.size()); }

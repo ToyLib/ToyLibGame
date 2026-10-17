@@ -9,8 +9,11 @@
 
 #include "Graphics/Sprite/TextSpriteComponent.h"
 #include "UI/MessageTextComponent.h"
+#include "UI/ChoiceListActor.h"
+#include "Render/IRenderer.h"
 
 #include <cmath>
+#include <iostream>
 
 namespace toy {
 
@@ -98,6 +101,12 @@ void MessageBoxActor::Open(const std::string& text, std::function<void()> onClos
     mOnClose = std::move(onClose);
     mOpen = true;
 
+    // 通常メッセージとして開く（前回の選択肢は捨てる）
+    mChoices.clear();
+    mOnDecide        = nullptr;
+    mChoiceShown     = false;
+    mChoiceCancelled = false;
+
     SetEnabled(true);
     PushToUIStack();
 
@@ -109,9 +118,36 @@ void MessageBoxActor::Open(const std::string& text, std::function<void()> onClos
     BeginShow();
 }
 
+void MessageBoxActor::OpenWithChoices(const std::string& text,
+                                      const std::vector<std::string>& choices,
+                                      DecideFn onDecide)
+{
+    if (!mChoiceList)
+    {
+        std::cerr << "[MessageBox] OpenWithChoices: ChoiceList is not attached. Opened as a plain message.\n";
+    }
+
+    Open(text);
+
+    if (mChoiceList)
+    {
+        mChoices  = choices;
+        mOnDecide = std::move(onDecide);
+    }
+}
+
 void MessageBoxActor::Close()
 {
     if (!mOpen) return;
+
+    // 外から閉じられた場合も選択肢リストを片付ける
+    if (mChoiceShown && mChoiceList)
+    {
+        mChoiceShown = false;
+        mChoiceList->Close();
+    }
+    mChoices.clear();
+    mOnDecide = nullptr;
 
     mOpen = false;
     RemoveFromUIStack();   // 入力はすぐ手放す（見た目はフェードアウト後に消える）
@@ -149,13 +185,18 @@ void MessageBoxActor::ActorInput(const InputState& state)
         {
             mText->NextPage();
         }
+        else if (HasPendingChoices())
+        {
+            // キャンセル後の出し直し
+            ShowChoices();
+        }
         else
         {
             Close();
         }
     }
 
-    if (mDesc.enableBToClose && state.IsButtonPressed(GameButton::B))
+    if (mDesc.enableBToClose && !HasPendingChoices() && state.IsButtonPressed(GameButton::B))
     {
         Close();
     }
@@ -165,7 +206,59 @@ void MessageBoxActor::UpdateActor(float dt)
 {
     if (!mOpen || !mEnabled) return;
 
+    // 最後のページを出し切ったら選択肢を出す
+    if (HasPendingChoices() && !mChoiceShown && !mChoiceCancelled && IsOnLastPageReady())
+    {
+        ShowChoices();
+    }
+
     UpdateIndicator(dt);
+}
+
+//------------------------------------------------------------------------------
+// 選択肢
+//------------------------------------------------------------------------------
+bool MessageBoxActor::IsOnLastPageReady() const
+{
+    return !mText->IsTyping() && !mText->HasNextPage();
+}
+
+void MessageBoxActor::ShowChoices()
+{
+    if (!mChoiceList || mChoices.empty()) return;
+
+    // メッセージの右上に、右端をそろえて置く
+    const UIRect root = GetUIRootRect(GetApp()->GetRenderer());
+    const UIRect& box = GetRect();
+
+    UILayout layout = mChoiceList->GetListLayout();   // 幅などはリスト側の設定を使う
+    layout.anchor = UIAnchor::TopLeft;
+    layout.pivot  = UIAnchor::BottomRight;
+    layout.offset = Vector2(box.Right() - root.Left(), box.Top() - mDesc.choiceGap - root.Top());
+    layout.stretch = UIStretch::None;
+    mChoiceList->SetListLayout(layout);
+
+    mChoiceShown     = true;
+    mChoiceCancelled = false;
+
+    mChoiceList->Open(mChoices,
+                      [this](int index)
+                      {
+                          // 閉じてから通知（onDecide の中で Open し直せるように）
+                          auto onDecide = std::move(mOnDecide);
+                          mChoiceShown = false;
+                          Close();
+                          if (onDecide)
+                          {
+                              onDecide(index);
+                          }
+                      },
+                      [this]()
+                      {
+                          // キャンセル：メッセージに戻る（A でもう一度出せる）
+                          mChoiceShown     = false;
+                          mChoiceCancelled = true;
+                      });
 }
 
 //------------------------------------------------------------------------------
@@ -185,7 +278,9 @@ void MessageBoxActor::UpdateIndicator(float dt)
 {
     if (!mIndicator) return;
 
-    const bool show = mDesc.showIndicator && !mText->IsTyping();
+    // 選択肢を出している間（最後のページ）は ▼ を出さない
+    const bool waitingChoice = mChoiceShown && !mText->HasNextPage();
+    const bool show = mDesc.showIndicator && !mText->IsTyping() && !waitingChoice;
     if (!show)
     {
         mIndicator->SetVisible(false);

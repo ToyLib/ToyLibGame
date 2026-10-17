@@ -7,11 +7,13 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace toy {
 
 class TextSpriteComponent;
 class MessageTextComponent;
+class ChoiceListActor;
 class TextFont;
 
 //==============================================================
@@ -19,6 +21,13 @@ class TextFont;
 //  - 背景・枠線(UIFrame) + 本文(MessageTextComponent) + 送りインジケータを束ねた UI Actor
 //  - Desc で初期設定をまとめて渡す（Scene 側の Set〇〇 連打を減らす）
 //  - Open で UIStack に積み、Close で外す（表示中は Modal として入力を占有）
+//
+// 選択肢付きメッセージ
+//  - AttachChoiceList() で選択肢リストを渡しておき、OpenWithChoices() で開く
+//  - 最後のページを出し切ると、メッセージの右上に選択肢を出す
+//    （選択中もメッセージは表示したまま。入力は選択肢リストが受け取る）
+//  - 決定するとメッセージを閉じてから onDecide(index) を呼ぶ
+//  - 選択肢リストをキャンセルしたら、A でもう一度出せる
 //==============================================================
 class MessageBoxActor : public UIScreen
 {
@@ -60,7 +69,12 @@ public:
         // ----------------------------
         // 入力（必要なら無効化できるように）
         // ----------------------------
-        bool enableBToClose { true };
+        bool enableBToClose { true };   // 選択肢付きのときは無効（選ばずに閉じられないように）
+
+        // ----------------------------
+        // 選択肢付きメッセージ
+        // ----------------------------
+        float choiceGap { 8.0f };   // メッセージと選択肢リストの間隔（px）
 
         static UIFrameStyle DefaultFrame()
         {
@@ -86,8 +100,18 @@ public:
     void UpdateActor(float dt) override;
     void ActorInput(const struct InputState& state) override;
     
+    using DecideFn = std::function<void(int index)>;
+
     void Open(const std::string& text, std::function<void()> onClose = nullptr);
     void Close();
+
+    // 選択肢付き（事前に AttachChoiceList が必要）
+    void OpenWithChoices(const std::string& text,
+                         const std::vector<std::string>& choices,
+                         DecideFn onDecide);
+
+    // 選択肢に使うリスト（寿命は呼び出し側＝Scene が管理する）
+    void AttachChoiceList(ChoiceListActor* list) { mChoiceList = list; }
     
     bool IsOpen() const { return mOpen; }
     
@@ -104,6 +128,10 @@ protected:
 private:
     void ApplyIndicatorStyle();
     void UpdateIndicator(float dt);
+
+    bool HasPendingChoices() const { return !mChoices.empty(); }
+    bool IsOnLastPageReady() const;
+    void ShowChoices();
     
 private:
     Desc mDesc;
@@ -120,6 +148,13 @@ private:
     bool mEnabled   { false };
 
     std::function<void()> mOnClose;
+
+    // 選択肢付きメッセージ
+    ChoiceListActor*         mChoiceList { nullptr };
+    std::vector<std::string> mChoices;
+    DecideFn                 mOnDecide;
+    bool mChoiceShown     { false };   // 選択肢リストを表示中
+    bool mChoiceCancelled { false };   // キャンセルされた（A で出し直すまで自動で出さない）
 };
 
 } // namespace toy
