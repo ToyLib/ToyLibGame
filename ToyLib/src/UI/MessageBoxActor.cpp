@@ -5,8 +5,13 @@
 #include "Asset/AssetManager.h"
 #include "Asset/Font/TextFont.h"
 
+#include "Asset/Material/Texture.h"
+
 #include "Graphics/Sprite/SpriteComponent.h"
+#include "Graphics/Sprite/TextSpriteComponent.h"
 #include "UI/MessageTextComponent.h"
+
+#include <cmath>
 
 namespace toy {
 
@@ -40,6 +45,10 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     // 色・行間
     mText->SetColor(mDesc.textColor);
     mText->SetLineGapPx(mDesc.lineGapPx);
+
+    // 送りインジケータ（本文と同じフォント・色）
+    mIndicator = CreateComponent<TextSpriteComponent>(9002, VisualLayer::UI);
+    ApplyIndicatorStyle();
 
     // 初期レイアウト反映（位置・背景サイズ・折り返し幅）
     SetLayout(mDesc.layout);
@@ -76,6 +85,7 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
         mText->SetLineGapPx(mDesc.lineGapPx);
     }
 
+    ApplyIndicatorStyle();
     SetLayout(mDesc.layout);
 }
 
@@ -84,6 +94,7 @@ void MessageBoxActor::SetEnabled(bool enabled)
     mEnabled = enabled;
     if (mBg)   mBg->SetVisible(enabled);
     if (mText) mText->SetVisible(enabled);
+    if (mIndicator) mIndicator->SetVisible(false);   // 表示は UpdateIndicator が決める
 }
 
 void MessageBoxActor::Open(const std::string& text, std::function<void()> onClose)
@@ -144,6 +155,39 @@ void MessageBoxActor::UpdateActor(float dt)
 {
     if (!mOpen || !mEnabled) return;
 
+    UpdateIndicator(dt);
+}
+
+//------------------------------------------------------------------------------
+// 送りインジケータ
+//  - 文字送り中は隠し、ページを出し切ったら右下で上下に揺らす
+//------------------------------------------------------------------------------
+void MessageBoxActor::ApplyIndicatorStyle()
+{
+    if (!mIndicator) return;
+
+    mIndicator->SetFont(mDesc.font);
+    mIndicator->SetColor(mDesc.textColor);
+    mIndicator->SetText(mDesc.indicatorText);
+}
+
+void MessageBoxActor::UpdateIndicator(float dt)
+{
+    if (!mIndicator) return;
+
+    const bool show = mDesc.showIndicator && !mText->IsTyping();
+    if (!show)
+    {
+        mIndicator->SetVisible(false);
+        mIndicatorTime = 0.0f;   // 出るたびに同じ位相から揺らす
+        return;
+    }
+
+    mIndicatorTime += dt;
+    const float bob = std::sin(mIndicatorTime * mDesc.indicatorBobSpeed) * mDesc.indicatorBobPx;
+
+    mIndicator->SetOffset(mIndicatorBase + Vector3(0.0f, bob, 0.0f));
+    mIndicator->SetVisible(true);
 }
 
 void MessageBoxActor::OnLayoutChanged(const UIRect& rect)
@@ -159,6 +203,19 @@ void MessageBoxActor::OnLayoutChanged(const UIRect& rect)
 
     // 本文開始位置（padding分だけ内側）
     mText->SetOffset(Vector3(mDesc.padding.x, mDesc.padding.y, 0.0f));
+
+    // インジケータ：padding の内側、右下
+    if (mIndicator)
+    {
+        Vector2 indSize = Vector2::Zero;
+        if (auto tex = mIndicator->GetTexture())
+        {
+            indSize = Vector2(static_cast<float>(tex->GetWidth()), static_cast<float>(tex->GetHeight()));
+        }
+        mIndicatorBase = Vector3(rect.size.x - mDesc.padding.x - indSize.x,
+                                 rect.size.y - mDesc.padding.y - indSize.y,
+                                 0.0f);
+    }
 }
 
 } // namespace toy

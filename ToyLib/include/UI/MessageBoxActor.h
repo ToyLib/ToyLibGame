@@ -10,6 +10,7 @@
 namespace toy {
 
 class SpriteComponent;
+class TextSpriteComponent;
 class MessageTextComponent;
 class TextFont;
 
@@ -40,6 +41,14 @@ public:
         Vector3 textColor { Vector3(1.0f, 1.0f, 1.0f) };
         int     lineGapPx { 2 };
         
+        
+        // ----------------------------
+        // 送りインジケータ（文字送りが終わったら右下に表示）
+        // ----------------------------
+        bool        showIndicator     { true };
+        std::string indicatorText     { "▼" };
+        float       indicatorBobPx    { 3.0f };   // 上下に揺れる幅
+        float       indicatorBobSpeed { 6.0f };   // 揺れの速さ（rad/sec）
         
         // ----------------------------
         // フォント（未指定ならデフォルトを使用）
@@ -85,10 +94,19 @@ protected:
     void OnLayoutChanged(const UIRect& rect) override;
     
 private:
+    void ApplyIndicatorStyle();
+    void UpdateIndicator(float dt);
+    
+private:
     Desc mDesc;
     
     SpriteComponent*      mBg   { nullptr };
     MessageTextComponent* mText { nullptr };
+    TextSpriteComponent*  mIndicator { nullptr };
+    
+    // インジケータの基準位置（ローカル）と揺れの経過時間
+    Vector3 mIndicatorBase { Vector3::Zero };
+    float   mIndicatorTime { 0.0f };
     
     bool mOpen      { false };
     bool mEnabled   { false };
