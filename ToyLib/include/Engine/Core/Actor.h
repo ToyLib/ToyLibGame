@@ -54,6 +54,11 @@ public:
     // Actor 固有の入力処理
     virtual void ActorInput(const struct InputState& state) {};
 
+    // UI（Modal な UIScreen）が入力を占有中でも入力を受け取るか
+    // ・デバッグ用 Actor など、会話中・メニュー中も効かせたいものだけ true にする
+    void SetAlwaysReceiveInput(bool b) { mAlwaysReceiveInput = b; }
+    bool GetAlwaysReceiveInput() const { return mAlwaysReceiveInput; }
+
     //=========================================================================
     // Transform (SRT)  ※保持しているのはワールド基準の値
     //=========================================================================
@@ -196,6 +201,7 @@ private:
     // State / ID
     //=========================================================================
     enum State  mStatus  { State::Active };
+    bool        mAlwaysReceiveInput { false };
     std::string mActorID { "Unnamed Actor" };
 };
 

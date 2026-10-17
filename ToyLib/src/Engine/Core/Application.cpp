@@ -10,6 +10,8 @@
 #include "Audio/SoundMixer.h"
 #include "Engine/Runtime/TimeOfDaySystem.h"
 #include "Camera/CameraManager.h"
+#include "UI/UIStack.h"
+#include "UI/UIScreen.h"
 #include "Engine/Debug/DebugOverlayActor.h"
 #include "Utils/MathUtil.h"
 #include "Engine/Debug/DebugDrawActor.h"
@@ -37,6 +39,7 @@ Application::Application()
     mSoundMixer    = std::make_unique<SoundMixer>(mAssetManager.get());
     mTimeOfDaySys  = std::make_unique<TimeOfDaySystem>();
     mCameraManager = std::make_unique<CameraManager>();
+    mUIStack       = std::make_unique<UIStack>();
     
     mSystemAssetManager = std::make_unique<AssetManager>();
     
@@ -410,11 +413,25 @@ void Application::ProcessInput()
         mIsPause = false;
     }
     
+    // UI（UIStack）→ 通常 Actor → ゲーム側フック の順
+    // Modal な UI が開いていれば、通常 Actor には入力を流さない
+    const bool uiCaptured = mUIStack->ProcessInput(state);
+
     for (auto& actor : mActors)
     {
+        // UIScreen は UIStack 経由でのみ入力を受け取る
+        if (dynamic_cast<UIScreen*>(actor.get()))
+        {
+            continue;
+        }
+        if (uiCaptured && !actor->GetAlwaysReceiveInput())
+        {
+            continue;
+        }
         actor->ProcessInput(state);
     }
     
+    // ゲーム側は GetUIStack()->IsInputCaptured() でゲームプレイ入力を止める
     ProcessInput(state);
 }
 
@@ -662,6 +679,18 @@ void Application::HandleWindowResized()
     if (mRenderer)
     {
         mRenderer->OnWindowResized(pixelW, pixelH);
+    }
+
+    // UI ルート矩形が変わるので、アンカー配置を解決し直す
+    for (auto* list : { &mActors, &mPendingActors })
+    {
+        for (auto& actor : *list)
+        {
+            if (auto* screen = dynamic_cast<UIScreen*>(actor.get()))
+            {
+                screen->ApplyLayout();
+            }
+        }
     }
     std::cerr << "[Application] Window Resiezed : Width = " << mScreenWidth << " : Height = " << mScreenHeight << std::endl;
     

@@ -52,6 +52,7 @@ public:
     class InputSystem*     GetInputSystem()     const { return mInputSys.get(); }
     class TimeOfDaySystem* GetTimeOfDaySystem() const { return mTimeOfDaySys.get(); }
     class CameraManager*   GetCameraManager()   const { return mCameraManager.get(); }
+    class UIStack*         GetUIStack()         const { return mUIStack.get(); }
     
     float GetTimeSconds() const { return SDL_GetTicks() * 0.001f; }
     
@@ -146,6 +147,8 @@ private:
     std::unique_ptr<class SoundMixer>      mSoundMixer;
     std::unique_ptr<class TimeOfDaySystem> mTimeOfDaySys;
     std::unique_ptr<class CameraManager>   mCameraManager;
+    // UIScreen のデストラクタから参照されるため、mActors より先に宣言する（後に破棄される）
+    std::unique_ptr<class UIStack>         mUIStack;
 
     std::unique_ptr<class AssetManager>    mSystemAssetManager; // システム用:非公開
     friend class DebugOverlayActor;

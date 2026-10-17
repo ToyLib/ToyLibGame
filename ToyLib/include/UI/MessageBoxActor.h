@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/Core/Actor.h"
+#include "UI/UIScreen.h"
 #include "Utils/MathUtil.h"
 
 #include <functional>
@@ -17,19 +17,19 @@ class TextFont;
 // MessageBoxActor
 //  - 背景(Sprite) + 本文(MessageTextComponent) を束ねた UI Actor
 //  - Desc で初期設定をまとめて渡す（Scene 側の Set〇〇 連打を減らす）
+//  - Open で UIStack に積み、Close で外す（表示中は Modal として入力を占有）
 //==============================================================
-class MessageBoxActor : public Actor
+class MessageBoxActor : public UIScreen
 {
 public:
     // 初期設定束
     struct Desc
     {
         // ----------------------------
-        // レイアウト
+        // レイアウト（既定：画面下中央、下端から 40px 上）
         // ----------------------------
-        Vector3 position { Vector3(40.0f, 520.0f, 0.0f) };
-        Vector2 boxSize  { Vector2(640.0f, 160.0f) };
-        Vector2 padding  { Vector2(16.0f, 16.0f) };
+        UILayout layout  { DefaultLayout() };
+        Vector2  padding { Vector2(16.0f, 16.0f) };
         
         // ----------------------------
         // 見た目
@@ -52,6 +52,15 @@ public:
         // 入力（必要なら無効化できるように）
         // ----------------------------
         bool enableBToClose { true };
+
+        static UILayout DefaultLayout()
+        {
+            UILayout l;
+            l.anchor = UIAnchor::Bottom;
+            l.offset = Vector2(0.0f, -40.0f);
+            l.size   = Vector2(640.0f, 160.0f);
+            return l;
+        }
     };
     
 public:
@@ -72,8 +81,8 @@ public:
     // 実行中に差し替えたい場合用（任意）
     void ApplyDesc(const Desc& desc);
     
-private:
-    void ApplyLayout();
+protected:
+    void OnLayoutChanged(const UIRect& rect) override;
     
 private:
     Desc mDesc;

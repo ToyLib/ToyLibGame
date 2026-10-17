@@ -17,6 +17,7 @@ DebugOverlayActor::DebugOverlayActor(Application* app)
     : Actor(app)
 {
     SetActorID("DebugOverlay");
+    SetAlwaysReceiveInput(true); // UI 表示中もデバッグキーは効かせる
 
     SetPosition(Vector3::Zero);
 

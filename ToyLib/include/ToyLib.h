@@ -134,6 +134,9 @@
 //======================================
 // UI
 //======================================
+#include "UI/UILayout.h"
+#include "UI/UIScreen.h"
+#include "UI/UIStack.h"
 #include "UI/MessageBoxActor.h"
 #include "UI/MessageTextComponent.h"
 

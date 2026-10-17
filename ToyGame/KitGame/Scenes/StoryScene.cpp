@@ -23,8 +23,9 @@ void StoryScene::DefineWorld()
     auto font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 20);
     // メッセージボックス生成
     toy::MessageBoxActor::Desc d;
-    d.position = Vector3(300, 520, 0);
-    d.boxSize = Vector2(680, 180);
+    d.layout.anchor = toy::UIAnchor::Bottom;
+    d.layout.offset = Vector2(0, -20);
+    d.layout.size   = Vector2(680, 180);
     d.padding = Vector2(18, 14);
     d.bgAlpha = 0.6f;
     d.lineGapPx = 3;

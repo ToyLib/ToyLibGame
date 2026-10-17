@@ -3,6 +3,7 @@
 #include "Engine/Runtime/InputSystem.h"
 #include "Render/IRenderer.h"
 #include "Engine/Core/Application.h"
+#include "UI/UIStack.h"
 
 namespace toy::kit {
 
@@ -134,6 +135,11 @@ void GameFlow::ApplyPendingScene()
 void GameFlow::ProcessInput(const InputState& input)
 {
     if (mState != FlowState::Running)
+    {
+        return;
+    }
+    // Modal な UI（メッセージ / メニュー等）が入力を占有している間はシーンに流さない
+    if (auto* ui = mApp->GetUIStack(); ui && ui->IsInputCaptured())
     {
         return;
     }

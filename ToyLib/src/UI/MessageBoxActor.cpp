@@ -11,13 +11,10 @@
 namespace toy {
 
 MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
-    : Actor(app)
+    : UIScreen(app)
     , mDesc(desc)
 {
     SetActorID("MessageBox");
-
-    // 位置（Actor位置＝ボックス基準）
-    SetPosition(mDesc.position);
 
     // 背景
     mBg = CreateComponent<SpriteComponent>(900, VisualLayer::UI);
@@ -44,8 +41,8 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
     mText->SetColor(mDesc.textColor);
     mText->SetLineGapPx(mDesc.lineGapPx);
 
-    // 初期レイアウト反映
-    ApplyLayout();
+    // 初期レイアウト反映（位置・背景サイズ・折り返し幅）
+    SetLayout(mDesc.layout);
 
     // 初期は非表示
     SetEnabled(false);
@@ -54,9 +51,6 @@ MessageBoxActor::MessageBoxActor(Application* app, const Desc& desc)
 void MessageBoxActor::ApplyDesc(const Desc& desc)
 {
     mDesc = desc;
-
-    // 位置は Actor 自体
-    SetPosition(mDesc.position);
 
     if (mBg)
     {
@@ -82,7 +76,7 @@ void MessageBoxActor::ApplyDesc(const Desc& desc)
         mText->SetLineGapPx(mDesc.lineGapPx);
     }
 
-    ApplyLayout();
+    SetLayout(mDesc.layout);
 }
 
 void MessageBoxActor::SetEnabled(bool enabled)
@@ -98,6 +92,7 @@ void MessageBoxActor::Open(const std::string& text, std::function<void()> onClos
     mOpen = true;
 
     SetEnabled(true);
+    PushToUIStack();
 
     // 直前にDescが変わってても正しく反映
     ApplyLayout();
@@ -111,6 +106,7 @@ void MessageBoxActor::Close()
 
     mOpen = false;
     SetEnabled(false);
+    RemoveFromUIStack();
 
     if (mOnClose)
     {
@@ -150,15 +146,15 @@ void MessageBoxActor::UpdateActor(float dt)
 
 }
 
-void MessageBoxActor::ApplyLayout()
+void MessageBoxActor::OnLayoutChanged(const UIRect& rect)
 {
     if (!mBg || !mText) return;
 
-    // 背景サイズ
-    mBg->SetScale(mDesc.boxSize.x, mDesc.boxSize.y);
+    // 背景サイズ（Actor 位置 = 矩形の左上）
+    mBg->SetScale(rect.size.x, rect.size.y);
 
     // 本文の折り返し条件
-    mText->SetTextBoxSize(mDesc.boxSize);
+    mText->SetTextBoxSize(rect.size);
     mText->SetPadding(mDesc.padding);
 
     // 本文開始位置（padding分だけ内側）
