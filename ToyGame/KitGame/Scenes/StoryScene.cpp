@@ -34,14 +34,17 @@ void StoryScene::DefineWorld()
 
     mMsgActor = CreateActor<toy::MessageBoxActor>(d);
 
-    std::string story = StringUtil::ReadTextFileNormalized("ToyGame/Assets/KitGame/Text/Story.txt");
+    // メッセージ後の選択肢（メッセージの少し上に出す）
+    toy::ChoiceListActor::Desc menuDesc;
+    menuDesc.font = font;
+    menuDesc.layout.anchor = toy::UIAnchor::Bottom;
+    menuDesc.layout.offset = Vector2(0.0f, -220.0f);
+    menuDesc.layout.size   = Vector2(260.0f, 0.0f);   // 高さは項目数から自動
+    menuDesc.allowCancel   = false;                   // どちらかを必ず選ばせる
+    mMenu = CreateActor<toy::ChoiceListActor>(menuDesc);
 
-    mMsgActor->Open(story,
-                    []()
-                    {
-                        // 閉じたときのコールバック（とりあえずログ）
-                        std::cerr << "MessageBox closed." << std::endl;
-                    });
+    mStory = StringUtil::ReadTextFileNormalized("ToyGame/Assets/KitGame/Text/Story.txt");
+    OpenStory();
 
     // テスト用スプライト
     auto ac = CreateActor<toy::Actor>();
@@ -64,13 +67,28 @@ void StoryScene::Update(float delatTime)
 }
 void StoryScene::ProcessInput(const toy::InputState &input)
 {
-    if (input.IsButtonPressed(toy::GameButton::A) == toy::EPressed)
-    {
-        if (!mMsgActor->IsOpen())
-        {
-            RequestChange(std::make_unique<FieldScene>());
-        }
-    }
+}
+
+// メッセージを読み終えたら（閉じたら）選択肢を出す
+void StoryScene::OpenStory()
+{
+    mMsgActor->Open(mStory, [this]() { OpenMenu(); });
+}
+
+void StoryScene::OpenMenu()
+{
+    mMenu->Open({ "次へ進む", "もう一度読む" },
+                [this](int index)
+                {
+                    if (index == 0)
+                    {
+                        RequestChange(std::make_unique<FieldScene>());
+                    }
+                    else
+                    {
+                        OpenStory();
+                    }
+                });
 }
 
 

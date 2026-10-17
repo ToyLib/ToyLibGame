@@ -18,6 +18,7 @@ protected:
 private:
     toy::MeshComponent* mLogoMesh;
     toy::Actor* mLogoActor;
+    toy::ChoiceListActor* mMenu = nullptr;
     float mColor;
     float mIntensity = 1.0f;
 };

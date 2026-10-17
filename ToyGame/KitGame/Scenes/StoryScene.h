@@ -16,6 +16,10 @@ protected:
 
 private:
     class toy::MessageBoxActor* mMsgActor;
+    class toy::ChoiceListActor* mMenu = nullptr;
+    std::string mStory;
+    void OpenStory();
+    void OpenMenu();
     void ChangeScene();
     void DeploySky();
     std::unique_ptr<class toy::WeatherManager> mWeather;

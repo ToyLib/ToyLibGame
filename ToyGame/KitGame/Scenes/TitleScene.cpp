@@ -40,7 +40,14 @@ void TitleScene::DefineWorld()
     auto sp = a->CreateComponent<toy::SpriteComponent>(1000);
     sp->SetTexture(GetApp()->GetAssetManager()->GetTexture("UI/target3.png"));
     a->SetPosition(Vector3(100.0f, 100.0f,0));
-     
+
+    // 開始確認メニュー（A / Start で開く）
+    toy::ChoiceListActor::Desc menuDesc;
+    menuDesc.font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+    menuDesc.layout.anchor = toy::UIAnchor::Bottom;
+    menuDesc.layout.offset = Vector2(0.0f, -80.0f);
+    menuDesc.layout.size   = Vector2(240.0f, 0.0f);   // 高さは項目数から自動
+    mMenu = CreateActor<toy::ChoiceListActor>(menuDesc);
 }
 
 void TitleScene::UnloadScene()
@@ -76,9 +83,17 @@ void TitleScene::Update(float dt)
 
 void TitleScene::ProcessInput(const toy::InputState& input)
 {
+    // メニュー表示中は UIStack が入力を占有するので、ここには来ない
     if (input.IsButtonPressed(toy::GameButton::A)
         || input.IsButtonPressed(toy::GameButton::Start))
     {
-        RequestChange(std::make_unique<StoryScene>());
+        mMenu->Open({ "次へ進む", "やめる" },
+                    [this](int index)
+                    {
+                        if (index == 0)
+                        {
+                            RequestChange(std::make_unique<StoryScene>());
+                        }
+                    });
     }
 }

@@ -138,6 +138,7 @@
 #include "UI/UIScreen.h"
 #include "UI/UIStack.h"
 #include "UI/MessageBoxActor.h"
+#include "UI/ChoiceListActor.h"
 #include "UI/MessageTextComponent.h"
 
 //======================================
