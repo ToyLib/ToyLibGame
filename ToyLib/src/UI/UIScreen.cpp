@@ -169,6 +169,23 @@ void UIScreen::UpdateScreenPosition()
     SetPosition(Vector3(mRect.pos.x + slide.x, mRect.pos.y + slide.y, GetPosition().z));
 }
 
+void UIScreen::ApplyStackDepth(int depth)
+{
+    // 1 段あたりの底上げ量。部品の描画順（~10000）より十分大きくとる
+    constexpr int kDepthStep = 100000;
+
+    for (auto* vc : GetAllComponents<VisualComponent>())
+    {
+        // 初めて見る部品は、今の値を元の描画順として覚える
+        auto it = mBaseDrawOrder.find(vc);
+        if (it == mBaseDrawOrder.end())
+        {
+            it = mBaseDrawOrder.emplace(vc, vc->GetDrawOrder()).first;
+        }
+        vc->SetDrawOrder(it->second + depth * kDepthStep);
+    }
+}
+
 void UIScreen::SetFocus(bool focus)
 {
     if (mHasFocus == focus) return;

@@ -17,6 +17,9 @@ public:
 
     void ProcessInput(const struct toy::InputState& input) override;
     void Update(float deltaTime) override;
+
+    // ポーズメニューに出す、このシーンだけの項目
+    std::vector<toy::kit::PauseMenuItem> GetPauseMenuItems() override;
 protected:
     // IScene の4フェーズ（Environment / World / SpawnCharacters / UI）
     void DefineEnvironment() override;

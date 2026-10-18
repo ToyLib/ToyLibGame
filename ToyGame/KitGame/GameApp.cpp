@@ -18,6 +18,14 @@ void GameApp::InitGame()
 {
     mGameFlow = std::make_unique<toy::kit::GameFlow>(this);
     mGameFlow->Init();
+
+    // ポーズメニュー（Start で開閉。Scene ごとの項目は IScene::GetPauseMenuItems）
+    toy::kit::PauseMenuDesc pause;
+    pause.list.font = GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+    pause.items = {
+        { "タイトルへ", [this]() { mGameFlow->RequestChange(std::make_unique<TitleScene>()); } },
+    };
+    mGameFlow->EnablePauseMenu(pause);
     mGameFlow->SetInitialScene(std::make_unique<TitleScene>());
     //mGameFlow->SetInitialScene(std::make_unique<StageScene>());
     //mGameFlow->SetInitialScene(std::make_unique<FieldScene>());

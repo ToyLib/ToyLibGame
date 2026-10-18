@@ -97,7 +97,7 @@ Sceneが保持しているAgentの`Update()`/`ProcessInput()`を回してあげ�
 ## 4. Scene 間の遷移
 
 Scene遷移は `IScene::RequestChange(std::unique_ptr<IScene>)` を、各Sceneの `ProcessInput()`/`Update()`
-の中で条件を見て呼ぶ、という素直なC++コードのまま扱う（例: `FieldScene`でStartボタンを押して
+の中で条件を見て呼ぶ、という素直なC++コードのまま扱う（例: `FieldScene`でポーズメニューの「雪原へ移動」→
 確認ダイアログで「はい」を選んだら`SnowScene`へ、`StoryScene`でメッセージ後の選択肢で「次へ進む」を
 選んだら`FieldScene`へ）。UI のコールバックの中から `RequestChange()` を呼んでよい。汎用的な遷移テーブル/ステート
 マシンは用意していない。ゆくゆくスクリプト化する可能性はあるが、今のところは「C++で書く」を

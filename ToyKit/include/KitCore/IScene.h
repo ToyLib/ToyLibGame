@@ -3,6 +3,7 @@
 #include "Engine/Core/Application.h"
 #include "Engine/Core/Actor.h"
 #include "Engine/Runtime/InputSystem.h"
+#include "KitCore/PauseMenu.h"
 
 #include <vector>
 #include <utility>
@@ -41,6 +42,15 @@ public:
 
     // 更新処理（必要な Scene のみ override）
     virtual void Update(float deltaTime) {}
+
+    //========================================================
+    // ポーズメニュー（GameFlow::EnablePauseMenu() したゲームのみ）
+    //========================================================
+    // この Scene でポーズメニューを開けるか（タイトル / ムービー等は false にする）
+    virtual bool AllowsPause() const { return true; }
+
+    // この Scene の間だけ出す項目（「再開」の次に並ぶ）
+    virtual std::vector<PauseMenuItem> GetPauseMenuItems() { return {}; }
     
     
     using RequestChangeFn = std::function<void(std::unique_ptr<IScene>)>;

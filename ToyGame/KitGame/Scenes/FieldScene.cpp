@@ -92,7 +92,7 @@ void FieldScene::DefineUI()
     text->SetColor(Vector3(1.0f, 1.0f, 0.0f)); // 黄
     mTextComp = text;
 
-    // シーン移動の確認ダイアログ（Start で開く）
+    // シーン移動の確認ダイアログ（ポーズメニューの「移動」から開く）
     toy::ConfirmDialogActor::Desc confirmDesc;
     confirmDesc.font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
     confirmDesc.pauseGame = true;   // 確認中はキャラや時間を止める
@@ -105,9 +105,16 @@ void FieldScene::ProcessInput(const struct toy::InputState &input)
     {
         mToby->ProcessInput(input);
     }
+}
 
-    // ダイアログ表示中は UIStack が入力を占有するので、ここには来ない
-    if (input.IsButtonPressed(toy::GameButton::Start))
+// ポーズメニューの「雪原へ移動」→ 確認ダイアログ（メニューの上に重ねる）
+// ・「いいえ」ならポーズメニューに戻る
+std::vector<toy::kit::PauseMenuItem> FieldScene::GetPauseMenuItems()
+{
+    toy::kit::PauseMenuItem move;
+    move.label     = "雪原へ移動";
+    move.closeMenu = false;   // 確認中もメニューを開いたままにする
+    move.onSelect  = [this]()
     {
         mConfirm->Open("雪原へ移動しますか？",
                        [this](bool yes)
@@ -117,7 +124,8 @@ void FieldScene::ProcessInput(const struct toy::InputState &input)
                                RequestChange(std::make_unique<SnowScene>());
                            }
                        });
-    }
+    };
+    return { move };
 }
 
 void FieldScene::Update(float deltaTime)

@@ -4,6 +4,8 @@
 #include "UI/UILayout.h"
 #include "Utils/Easing.h"
 
+#include <unordered_map>
+
 namespace toy {
 
 //==============================================================
@@ -37,6 +39,7 @@ struct UITransition
 // 使い方
 // ・派生クラスで開くときに PushToUIStack()、閉じるときに RemoveFromUIStack()
 // ・破棄時はデストラクタで自動的にスタックから外れる
+// ・積んだ順に描画順が底上げされる（後から開いた画面が必ず手前に描かれる）
 //
 // レイアウト
 // ・SetLayout() で画面（UI ルート矩形）に対する配置を指定する
@@ -130,6 +133,9 @@ private:
     friend class UIScreenTransitionDriver;
     void SetFocus(bool focus);
 
+    // スタック上の段数に応じて、全 VisualComponent の描画順を底上げする
+    void ApplyStackDepth(int depth);
+
     void TickTransition(float dt);
     void ApplyTransitionVisual();
     void UpdateScreenPosition();
@@ -145,6 +151,9 @@ private:
     float mTransitionT   { 1.0f };   // 0 = 閉じた状態 / 1 = 開いた状態
     int   mTransitionDir { 0 };      // +1 開く途中 / -1 閉じる途中 / 0 停止
     bool  mShown         { false };  // 表示中（開く途中・閉じる途中を含む）
+
+    // 各 VisualComponent の元の描画順（底上げ前）
+    std::unordered_map<class VisualComponent*, int> mBaseDrawOrder;
 };
 
 } // namespace toy

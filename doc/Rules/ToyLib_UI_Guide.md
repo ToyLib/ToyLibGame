@@ -15,7 +15,10 @@ UI を開いている間の入力のルールをまとめる。画像アセッ�
 - 使用例: [TitleScene.cpp](../../ToyGame/KitGame/Scenes/TitleScene.cpp)（選択肢）/
   [StoryScene.cpp](../../ToyGame/KitGame/Scenes/StoryScene.cpp)（選択肢付きメッセージ）/
   [FieldScene.cpp](../../ToyGame/KitGame/Scenes/FieldScene.cpp)・
-  [SnowScene.cpp](../../ToyGame/KitGame/Scenes/SnowScene.cpp)（確認ダイアログ）
+  [SnowScene.cpp](../../ToyGame/KitGame/Scenes/SnowScene.cpp)（ポーズメニューの項目 + 確認ダイアログ）/
+  [GameApp.cpp](../../ToyGame/KitGame/GameApp.cpp)（ポーズメニューの有効化）
+- ポーズメニュー: [PauseMenu.h](../../ToyKit/include/KitCore/PauseMenu.h) /
+  [GameFlow.h](../../ToyKit/include/KitCore/GameFlow.h)（ToyKit の標準機能）
 
 ---
 
@@ -27,6 +30,7 @@ UI を開いている間の入力のルールをまとめる。画像アセッ�
 | `MessageBoxActor` + `ChoiceListActor` | メッセージを読み終えると右上に選択肢が出る | 会話の分岐 |
 | `ChoiceListActor` | 縦並びの選択肢リスト | タイトルメニュー、コマンド選択 |
 | `ConfirmDialogActor` | 画面中央の質問文 + 横並びの はい / いいえ | シーン移動・セーブ等の確認 |
+| ポーズメニュー（`GameFlow`） | Start で開く「再開 / …」のメニュー。開いている間ゲームが止まる | どのシーンでも使う共通メニュー |
 
 どの部品も同じ流儀で使う:
 
@@ -81,7 +85,7 @@ confirmDesc.pauseGame = true;   // 確認中はキャラや時間を止める
 
 - UI が閉じた（決定した）瞬間に再開する。閉じるアニメーション中はもう動いている。
 - 天候（雨・雪のオーバーレイ、空）とポストエフェクトのアニメーションは実時間で動いているので、
-  停止中も動き続ける（11章）。
+  停止中も動き続ける（12章）。
 
 ### Actor は Scene の `CreateActor()` で作る
 
@@ -119,9 +123,9 @@ mMsg->Open("こんにちは。\nここは ToyLib の村です。",
 
 | 項目 | 内容 | 既定 |
 |---|---|---|
-| `layout` | 配置（7章） | 画面下中央、下端から 40px 上、640x160 |
+| `layout` | 配置（8章） | 画面下中央、下端から 40px 上、640x160 |
 | `padding` | 枠の内側の余白 | (16, 16) |
-| `frame` | 背景・枠線（8章） | 角丸 8px、背景アルファ 0.5 |
+| `frame` | 背景・枠線（9章） | 角丸 8px、背景アルファ 0.5 |
 | `transition` | 開閉アニメーション | 0.15 秒で下から浮き上がる |
 | `textColor` / `lineGapPx` | 文字色・行間 | 白 / 2px |
 | `showIndicator` / `indicatorText` | ▼ を出すか / その文字 | true / `"▼"` |
@@ -203,18 +207,16 @@ mMenu->Open({ "次へ進む", "やめる" },
 ```cpp
 // DefineUI()
 toy::ConfirmDialogActor::Desc confirmDesc;
-confirmDesc.font = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+confirmDesc.font      = GetApp()->GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+confirmDesc.pauseGame = true;
 mConfirm = CreateActor<toy::ConfirmDialogActor>(confirmDesc);
 
-// ProcessInput()
-if (input.IsButtonPressed(toy::GameButton::Start))
-{
-    mConfirm->Open("雪原へ移動しますか？",
-                   [this](bool yes)
-                   {
-                       if (yes) RequestChange(std::make_unique<SnowScene>());
-                   });
-}
+// 開きたいところで（FieldScene ではポーズメニューの項目から開いている。7章）
+mConfirm->Open("雪原へ移動しますか？",
+               [this](bool yes)
+               {
+                   if (yes) RequestChange(std::make_unique<SnowScene>());
+               });
 ```
 
 - **左右**（上下・A / D キーでも可）で はい / いいえ を切り替え、**A** で決定。
@@ -227,7 +229,63 @@ if (input.IsButtonPressed(toy::GameButton::Start))
 
 ---
 
-## 7. 配置（`UILayout`）
+## 7. ポーズメニュー（ToyKit の標準機能）
+
+どのシーンでも Start で開ける共通のポーズメニュー。ToyKit の `GameFlow` が1つ持っていて、
+**使うゲームだけ有効にする**。有効にしなければ何も起きない。
+
+### 有効にする（ゲーム全体）
+
+`GameApp::InitGame()` で `EnablePauseMenu()` を呼ぶ（[GameApp.cpp](../../ToyGame/KitGame/GameApp.cpp)）。
+
+```cpp
+toy::kit::PauseMenuDesc pause;
+pause.list.font = GetAssetManager()->GetFont("Font/rounded-mplus-1c-bold.ttf", 22);
+pause.items = {
+    { "タイトルへ", [this]() { mGameFlow->RequestChange(std::make_unique<TitleScene>()); } },
+};
+mGameFlow->EnablePauseMenu(pause);
+```
+
+- 先頭の「再開」は標準で入る（表示名は `resumeText` で変えられる）。
+- `items` はどのシーンでも出る、ゲーム全体の項目。
+- 開閉ボタンは `toggleButton`（既定 `Start`）。見た目・配置は `list`（`ChoiceListActor::Desc`、既定は画面中央）。
+
+### シーンごとの項目・ポーズ禁止（Scene）
+
+`IScene` の2つの関数を override する。
+
+```cpp
+// このシーンの間だけ出す項目（「再開」の次に並ぶ）
+std::vector<toy::kit::PauseMenuItem> GetPauseMenuItems() override
+{
+    toy::kit::PauseMenuItem move;
+    move.label     = "雪原へ移動";
+    move.closeMenu = false;   // 確認中もメニューを開いたままにする
+    move.onSelect  = [this]() { mConfirm->Open("雪原へ移動しますか？", ...); };
+    return { move };
+}
+
+// タイトル / ムービー等、ポーズさせないシーン
+bool AllowsPause() const override { return false; }
+```
+
+並び順は **再開 → シーンの項目 → ゲーム全体の項目**。
+
+### 動き
+
+- Start で開き、開いている間はゲームが止まる（2章の `pauseGame = true` と同じ）。
+- **Start をもう一度押す / B / 「再開」** で閉じて再開する。
+- 項目を選ぶと、メニューが閉じてから `onSelect` が呼ばれる（再開してから処理される）。
+- `closeMenu = false` の項目は、**メニューを開いたまま** `onSelect` が呼ばれる。確認ダイアログを
+  メニューの上に重ねたいときに使う。「いいえ」ならメニューに戻り、「はい」でシーンを切り替えると
+  メニューは自動で閉じる。
+- メッセージや確認ダイアログなど、他の UI が入力を占有している間は開かない（会話中にポーズはできない）。
+- シーンを切り替える（`RequestChange`）と、開いていたポーズメニューは自動で閉じる。
+
+---
+
+## 8. 配置（`UILayout`）
 
 UI の座標は **仮想解像度（1280x720）基準、左上原点、+Y が下** の論理座標。ウィンドウサイズが変わっても
 自動でスケールされる。
@@ -260,7 +318,7 @@ l.stretchMargin = Vector2(40, 0);
 
 ---
 
-## 8. 見た目（背景・枠線・開閉アニメーション）
+## 9. 見た目（背景・枠線・開閉アニメーション）
 
 ### 背景と枠線（`UIFrameStyle`）
 
@@ -295,7 +353,7 @@ d.frame.lineColor = Vector3(0.9f, 0.8f, 0.4f);   // 金色っぽい枠
 
 ---
 
-## 9. 操作キー
+## 10. 操作キー
 
 キー割り当ては [InputConfig.json](../../ToyLib/Settings/InputConfig.json) の論理ボタンに従う。
 
@@ -305,11 +363,11 @@ d.frame.lineColor = Vector3(0.9f, 0.8f, 0.4f);   // 金色っぽい枠
 | `B` | X | キャンセル / メッセージを閉じる / 確認ダイアログの「いいえ」 |
 | `DPadUp` / `DPadDown` | ↑ / ↓（W / S でも可） | 選択肢の移動 |
 | `DPadLeft` / `DPadRight` | ← / →（A / D キーでも可） | はい / いいえ の切り替え |
-| `Start` | Enter | （UI 部品は使わない。シーン側で「メニューを開く」などに使う） |
+| `Start` | Enter | ポーズメニューの開閉（有効にしたゲームのみ。7章） |
 
 ---
 
-## 10. 自分で UI 画面を作る場合
+## 11. 自分で UI 画面を作る場合
 
 既存の部品で足りない画面は、`toy::UIScreen` を継承して作る。最低限の形:
 
@@ -358,13 +416,15 @@ private:
 
 - 入力を下に流したい画面（HUD など）は `SetModal(false)` にする。
 - 開いている間ゲームを止めたい画面は `SetPausesGame(true)` にする。
+- 後から開いた画面ほど手前に描かれる（UIStack に積んだ順に描画順が底上げされる）。部品の描画順は
+  画面の中での前後だけを考えればよい。
 - 一番上の画面になった / でなくなったときに `OnFocusGained()` / `OnFocusLost()` が呼ばれる。
 - 角丸の四角が欲しいときは `NineSliceSpriteComponent` に
   `GetAssetManager()->GetRoundedRectTexture(半径)` を貼る。
 
 ---
 
-## 11. 現状の制約
+## 12. 現状の制約
 
 - **一時停止中も天候とポストエフェクトのアニメーションは動く**（実時間で動いているため。2章）。
 - **UI 画面どうしの親子関係はない。** 画面の中の部品は `OnLayoutChanged()` で手で並べる。

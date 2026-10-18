@@ -11,6 +11,9 @@ public:
     TitleScene();
 
     void ProcessInput(const struct toy::InputState& input) override;
+
+    // タイトル / ストーリー中はポーズメニューを開かない
+    bool AllowsPause() const override { return false; }
     void Update(float deltaTime) override;
 protected:
     void DefineWorld() override;

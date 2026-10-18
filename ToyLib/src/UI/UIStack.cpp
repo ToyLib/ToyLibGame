@@ -23,6 +23,13 @@ void UIStack::Push(UIScreen* screen)
     mScreens.erase(std::remove(mScreens.begin(), mScreens.end(), screen), mScreens.end());
     mScreens.push_back(screen);
 
+    // 積んだ順に描画順を底上げ（後から積んだ画面が手前）
+    // ・外した画面は閉じるアニメーション中も、外す前の段のまま描く
+    for (size_t i = 0; i < mScreens.size(); ++i)
+    {
+        mScreens[i]->ApplyStackDepth(static_cast<int>(i) + 1);
+    }
+
     RefreshFocus();
 }
 
