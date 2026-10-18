@@ -48,6 +48,10 @@ void TitleScene::DefineWorld()
     menuDesc.layout.offset = Vector2(0.0f, -80.0f);
     menuDesc.layout.size   = Vector2(240.0f, 0.0f);   // 高さは項目数から自動
     mMenu = CreateActor<toy::ChoiceListActor>(menuDesc);
+    
+    
+    GetApp()->GetSoundMixer()->StopBGM();
+    
 }
 
 void TitleScene::UnloadScene()
