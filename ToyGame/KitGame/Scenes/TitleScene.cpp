@@ -51,7 +51,8 @@ void TitleScene::DefineWorld()
     
     
     GetApp()->GetSoundMixer()->StopBGM();
-    
+    GetApp()->GetTimeOfDaySystem()->SetTimeScale(0.0f);
+    GetApp()->GetTimeOfDaySystem()->SetTime(14.0f, 0.0f);
 }
 
 void TitleScene::UnloadScene()
