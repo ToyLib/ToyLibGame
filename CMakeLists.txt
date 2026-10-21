@@ -19,7 +19,11 @@ set(GAME_PATH   ToyGame)
 
 if(WIN32)
 
-    set(VCPKG_ROOT "C:/tools/vcpkg")
+    if(NOT DEFINED ENV{VCPKG_ROOT})
+        message(FATAL_ERROR "環境変数 VCPKG_ROOT が設定されていません。vcpkg のインストール先を設定してください。")
+    endif()
+
+    file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" VCPKG_ROOT)
     set(VCPKG_TRIPLET "x64-windows")
 
     set(

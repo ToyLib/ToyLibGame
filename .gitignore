@@ -43,8 +43,12 @@ CTestTestfile.cmake
 __pycache__/
 *.pyc
 
-# VSCode settings (if you don't want to share local settings)
-.vscode/
+# VSCode: 共有する設定ファイル以外はignore
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/c_cpp_properties.json
+!.vscode/settings.json
 # VS settings (if you don't want to share local settings)
 .vs/
 # OS-related

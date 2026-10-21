@@ -168,7 +168,7 @@ CMake 3.15 以上と C++20 対応コンパイラが必要です。Vulkan SDK と
 
 - Visual Studio 2026 / Visual Studio Code
 - CMake
-- vcpkg（`C:/tools/vcpkg` を想定）
+- vcpkg（インストール先を環境変数 `VCPKG_ROOT` に設定しておくこと）
 
 ```bash
 vcpkg install sdl3 sdl3-image sdl3-ttf assimp openal-soft shaderc --triplet x64-windows
@@ -212,7 +212,7 @@ cmake -B build && cmake --build build --target PrepareRun
 
 ※ Ubuntu系ディストリビューションで動作確認済みです。
 
-macOS / Linux では実行ファイルは `build/GameApp` に出力されます。VSCode 用の設定テンプレートは [`doc/vscode_templates/`](./doc/vscode_templates/) にあります。
+macOS / Linux では実行ファイルは `build/GameApp` に出力されます。VSCode 用の設定は [`.vscode/`](./.vscode/) に含まれています。
 
 ---
 
